@@ -232,6 +232,8 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	toolFlag := fs.String("tool", "", "Tool name (kubectl, terraform)")
 	operationFlag := fs.String("operation", "apply", "Operation (apply, delete, plan)")
 	envFlag := fs.String("environment", "", "Environment (production, staging, development)")
+	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -251,19 +253,100 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	riskTags := risk.RunAll(cr.CanonicalAction, data)
 	riskLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
 
-	result := map[string]interface{}{
-		"artifact_digest":     cr.ArtifactDigest,
-		"intent_digest":       cr.IntentDigest,
-		"resource_shape_hash": cr.CanonicalAction.ResourceShapeHash,
-		"canon_version":       cr.CanonVersion,
-		"resource_count":      cr.CanonicalAction.ResourceCount,
-		"operation_class":     cr.CanonicalAction.OperationClass,
-		"scope_class":         cr.CanonicalAction.ScopeClass,
-		"risk_level":          riskLevel,
-		"risk_tags":           riskTags,
+	actorID := *actorFlag
+	if actorID == "" {
+		actorID = "cli"
 	}
+	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
+
+	evidencePath := resolveEvidencePath(*evidenceFlag)
+
+	// Handle parse error
 	if cr.ParseError != nil {
-		result["parse_error"] = cr.ParseError.Error()
+		// Write canon failure entry
+		failPayload, _ := json.Marshal(evidence.CanonFailurePayload{
+			ErrorCode:    "parse_error",
+			ErrorMessage: cr.ParseError.Error(),
+			Adapter:      cr.CanonVersion,
+			RawDigest:    cr.ArtifactDigest,
+		})
+		lastHash, _ := evidence.LastHashAtPath(evidencePath)
+		entry, buildErr := evidence.BuildEntry(evidence.EntryBuildParams{
+			Type:           evidence.EntryTypeCanonFailure,
+			TraceID:        evidence.GenerateTraceID(),
+			Actor:          actor,
+			ArtifactDigest: cr.ArtifactDigest,
+			Payload:        failPayload,
+			PreviousHash:   lastHash,
+			SpecVersion:    "0.3.0",
+			AdapterVersion: version.Version,
+		})
+		if buildErr == nil {
+			evidence.AppendEntryAtPath(evidencePath, entry)
+		}
+
+		result := map[string]interface{}{
+			"ok":          false,
+			"parse_error": cr.ParseError.Error(),
+		}
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(result)
+		return 1
+	}
+
+	// Build prescription payload
+	traceID := evidence.GenerateTraceID()
+	var canonActionJSON json.RawMessage
+	if cr.RawAction != nil {
+		canonActionJSON = cr.RawAction
+	} else {
+		canonActionJSON, _ = json.Marshal(cr.CanonicalAction)
+	}
+
+	prescPayload := evidence.PrescriptionPayload{
+		PrescriptionID:  traceID,
+		CanonicalAction: canonActionJSON,
+		RiskLevel:       riskLevel,
+		RiskTags:        riskTags,
+		TTLMs:           evidence.DefaultTTLMs,
+		CanonSource:     "adapter",
+	}
+	payloadJSON, _ := json.Marshal(prescPayload)
+
+	lastHash, _ := evidence.LastHashAtPath(evidencePath)
+	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
+		Type:           evidence.EntryTypePrescribe,
+		TraceID:        traceID,
+		Actor:          actor,
+		IntentDigest:   cr.IntentDigest,
+		ArtifactDigest: cr.ArtifactDigest,
+		Payload:        payloadJSON,
+		PreviousHash:   lastHash,
+		SpecVersion:    "0.3.0",
+		CanonVersion:   cr.CanonVersion,
+		AdapterVersion: version.Version,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "build entry: %v\n", err)
+		return 1
+	}
+
+	if err := evidence.AppendEntryAtPath(evidencePath, entry); err != nil {
+		fmt.Fprintf(stderr, "write evidence: %v\n", err)
+		return 1
+	}
+
+	result := map[string]interface{}{
+		"ok":              true,
+		"prescription_id": entry.EntryID,
+		"risk_level":      riskLevel,
+		"risk_tags":       riskTags,
+		"artifact_digest": cr.ArtifactDigest,
+		"intent_digest":   cr.IntentDigest,
+		"operation_class": cr.CanonicalAction.OperationClass,
+		"scope_class":     cr.CanonicalAction.ScopeClass,
+		"canon_version":   cr.CanonVersion,
 	}
 
 	enc := json.NewEncoder(stdout)
@@ -280,6 +363,9 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	prescriptionFlag := fs.String("prescription", "", "Prescription event ID")
 	exitCodeFlag := fs.Int("exit-code", 0, "Exit code of the operation")
+	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	actorFlag := fs.String("actor", "", "Actor ID")
+	artifactDigestFlag := fs.String("artifact-digest", "", "Artifact digest for drift detection")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -289,15 +375,61 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	status := "completed"
-	if *exitCodeFlag != 0 {
-		status = "failed"
+	evidencePath := resolveEvidencePath(*evidenceFlag)
+
+	// Look up prescription
+	_, found, err := evidence.FindEntryByID(evidencePath, *prescriptionFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "read evidence: %v\n", err)
+		return 1
+	}
+	if !found {
+		fmt.Fprintf(stderr, "prescription %s not found in evidence\n", *prescriptionFlag)
+		return 1
+	}
+
+	actorID := *actorFlag
+	if actorID == "" {
+		actorID = "cli"
+	}
+	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
+
+	reportID := evidence.GenerateTraceID()
+	reportPayload := evidence.ReportPayload{
+		ReportID:       reportID,
+		PrescriptionID: *prescriptionFlag,
+		ExitCode:       *exitCodeFlag,
+		Verdict:        evidence.VerdictFromExitCode(*exitCodeFlag),
+	}
+	payloadJSON, _ := json.Marshal(reportPayload)
+
+	lastHash, _ := evidence.LastHashAtPath(evidencePath)
+	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
+		Type:           evidence.EntryTypeReport,
+		TraceID:        reportID,
+		Actor:          actor,
+		ArtifactDigest: *artifactDigestFlag,
+		Payload:        payloadJSON,
+		PreviousHash:   lastHash,
+		SpecVersion:    "0.3.0",
+		AdapterVersion: version.Version,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "build entry: %v\n", err)
+		return 1
+	}
+
+	if err := evidence.AppendEntryAtPath(evidencePath, entry); err != nil {
+		fmt.Fprintf(stderr, "write evidence: %v\n", err)
+		return 1
 	}
 
 	result := map[string]interface{}{
+		"ok":              true,
+		"report_id":       entry.EntryID,
 		"prescription_id": *prescriptionFlag,
 		"exit_code":       *exitCodeFlag,
-		"status":          status,
+		"verdict":         reportPayload.Verdict,
 	}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
