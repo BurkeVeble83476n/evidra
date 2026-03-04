@@ -15,17 +15,39 @@ automation.
 
 ---
 
+## 30-Second Explanation
+
+```
+Automation asks Evidra before execution.
+Evidra records intent and artifact.
+After execution, automation reports result.
+Signals are computed from evidence.
+Signals produce reliability score.
+```
+
+That's it. Two calls (prescribe, report). Five signals. One score.
+
 ## Strategic Positioning
 
 Evidra is **behavioral telemetry for automation** — the same way
-Prometheus is metrics for infrastructure.
+Prometheus is metrics for infrastructure, and OpenTelemetry is
+the standard for distributed traces.
 
 ```
 Infrastructure observability stack:
   Metrics → Prometheus
   Logs    → Loki / Elasticsearch
   Traces  → OpenTelemetry
-  Automation behavior → Evidra          ← new layer
+  Automation behavior → Evidra Signal Spec     ← new layer
+```
+
+The spec stack:
+
+```
+Evidra spec stack:
+  EVIDRA_SIGNAL_SPEC.md         = OpenTelemetry Semantic Conventions
+  CANONICALIZATION_CONTRACT.md  = Protocol Buffers / schema definition
+  Benchmark                     = Consumer (like Jaeger consumes OTel)
 ```
 
 Evidra is NOT a policy engine. NOT a security scanner. NOT runtime
@@ -443,24 +465,35 @@ Details: [Test Strategy](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md)
 9. **Simple tests.** ~65 tests catch the same bugs as 8000.
 10. **Standard signals.** Same five signals for every tool, every actor.
 
+### Drift Guards
+
+Three boundaries that MUST NOT be crossed. See EVIDRA_SIGNAL_SPEC.md
+for normative definitions.
+
+| Boundary | Rule | Violation smell |
+|----------|------|-----------------|
+| Adapter growth | Contract defines schema, adapters are libraries. Contract MUST NOT grow per tool. | "Let's add a Pulumi section to the contract" |
+| Detector scope | Detectors produce signal context, not policy. Max 15. | "Let's add a compliance detector" |
+| Evidence simplicity | Evidence is append-only log. Not a database. Not a queue. | "Let's add indexing to evidence" |
+
 ---
 
 ## Quick Reference: Where to Find What
 
-| Question | Document | Section |
-|----------|----------|---------|
-| What are the five signals? | Benchmark | §2 |
-| How is the score computed? | Benchmark | §3 |
-| How does comparison work? | Benchmark | §4-5 |
-| What does prescribe/report look like? | End-to-End Example | Part 1 |
-| What libraries does Evidra use? | Canonicalization Contract | §16 |
-| What fields are noise? | Canonicalization Contract | §4.5 |
-| What's in intent_digest? | Canonicalization Contract | §2 |
-| What are the canonicalization guarantees? | Canonicalization Contract | §12 |
-| How is CI integrated? | Benchmark | §11 |
-| What happens when the agent crashes? | End-to-End Example | Failure Cases |
-| How are adapters tested? | Test Strategy | §1 |
-| Why inspector model? | Inspector Model | §3 |
-| Why no OPA? | Benchmark | §7 |
-| What's the risk matrix? | Benchmark | §7 |
-| Architecture evolution history? | Telemetry / Signals reviews | Full docs |
+| Question | Document | Type |
+|----------|----------|------|
+| What are the five signals? | **Signal Spec** | Normative |
+| How are signals detected? | **Signal Spec** §Signal 1-5 | Normative |
+| What metrics are exported? | **Signal Spec** §Metric Registry | Normative |
+| What labels are forbidden? | **Signal Spec** §Label Rules | Normative |
+| What's in CanonicalAction? | **Canon Contract** §Front Contract | Normative |
+| What's in intent_digest? | **Canon Contract** §Digest Rules | Normative |
+| What adapters are implemented? | **Canon Contract** §Adapter Status | Normative |
+| What's a breaking change? | **Canon Contract** §Compatibility | Normative |
+| How is the score computed? | Benchmark §3 | Consumer |
+| How does comparison work? | Benchmark §4-5 | Consumer |
+| What does prescribe/report look like? | End-to-End Example | Non-normative |
+| What fields are noise? | Canon Contract §4.5 | Normative |
+| How are adapters tested? | Test Strategy §1 | Non-normative |
+| Why inspector model? | Inspector Model §3 | Non-normative |
+| How is CI integrated? | Benchmark §12 | Non-normative |

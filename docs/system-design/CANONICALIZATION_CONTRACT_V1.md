@@ -53,6 +53,29 @@ risk_tags MUST NOT be in CanonicalAction. They belong in Prescription.
 RESERVED = contract defined, implementation not shipped. MUST NOT
 be advertised as available.
 
+### Adapter Growth Rule (MUST follow)
+
+The contract defines the **schema** (CanonicalAction, digests,
+noise rules). Adapters are **libraries**, not contract extensions.
+
+```
+New tool?
+  → Implement Adapter interface in a library
+  → Or use pre-canonicalized prescribe path
+  → Contract does NOT grow
+```
+
+The contract MUST NOT add new sections for each tool. Pulumi,
+CDK, Crossplane, Flux, Ansible — all integrate via:
+1. A library implementing the Adapter interface, OR
+2. Pre-canonicalized prescribe (tool sends its own identity)
+
+Only the adapter status table changes (RESERVED → IMPLEMENTED).
+The schema, digest rules, and noise lists are tool-agnostic.
+
+If a new tool requires a schema change to CanonicalAction, that
+is a signal the schema is wrong — fix the schema, don't fork it.
+
 ### Breaking Changes (MUST bump version)
 
 Any change that alters intent_digest or resource_shape_hash for

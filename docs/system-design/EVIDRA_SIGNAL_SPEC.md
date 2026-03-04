@@ -1,5 +1,18 @@
 # Evidra Signal Specification v1.0
 
+## What This Is
+An open specification for infrastructure automation behavior
+telemetry. Like OpenTelemetry standardized distributed traces,
+Evidra Signal Spec standardizes automation behavior signals.
+
+```
+OpenTelemetry : distributed traces = Evidra Signal Spec : automation behavior
+```
+
+Any tool that modifies infrastructure can emit Evidra signals.
+Any platform can consume them. The spec is the contract between
+producers and consumers.
+
 ## Status
 Stable. All five signals are v1.0 stable.
 
@@ -142,6 +155,49 @@ given the same evidence chain, regardless of language or platform.
 ---
 
 ## Signal Model
+
+### Scope Boundaries (MUST NOT cross)
+
+Signals and detectors measure **automation behavior**. They MUST
+NOT become:
+
+| MUST NOT become | Why |
+|----------------|-----|
+| Security policy engine | That's Gatekeeper/Kyverno/OPA territory |
+| Compliance rule engine | That's Checkov/Trivy territory |
+| Cost analysis tool | That's Infracost territory |
+| Performance monitor | That's Prometheus/Datadog territory |
+
+**Detectors produce signal context, not policy decisions.**
+
+A detector says: "this operation touches a privileged container."
+It does NOT say: "this operation is denied." It does NOT say:
+"this violates SOC2." It does NOT say: "this costs $500/month."
+
+**Growth test:** Before adding a detector, ask:
+1. Has this pattern caused a production outage? → Yes → detector
+2. Is this a style/compliance/cost concern? → Yes → out of scope
+3. Would this make Evidra compete with security scanners? → Yes → out of scope
+
+If Evidra's detector count exceeds 15, something is wrong.
+
+### Evidence Plane Boundaries (MUST NOT cross)
+
+Evidence is an **append-only log**. It MUST NOT become:
+
+| MUST NOT become | Why |
+|----------------|-----|
+| Distributed log | Adds consensus, replication, partitioning |
+| Blockchain | Adds mining, proof-of-work, decentralization |
+| Database | Adds queries, indexes, transactions |
+| Message queue | Adds consumers, offsets, backpressure |
+
+Evidence plane: append. hash-link. sign. read. That's all.
+
+Aggregation, querying, and indexing happen in evidra-api (v0.5.0),
+not in the evidence plane itself. The evidence plane is a file.
+
+---
 
 Every signal follows the same structure:
 
