@@ -398,8 +398,11 @@ these, it is architecturally incorrect even if it "works."
 
 ### Validators Are External
 - Evidra does not run validators (v1). Validators produce
-  findings; Evidra records them as evidence and may transform
-  them into behavioral signals.
+  findings; Evidra records them as independent evidence entries
+  (type=finding) and may transform them into behavioral signals.
+- Findings are linked to operations by artifact_digest, not
+  embedded in reports. This decouples scanner timing from the
+  prescribe/report lifecycle.
 - Validator outputs normalized into a stable finding schema:
   tool, rule_id, severity, resource, message, artifact_digest.
 
@@ -517,7 +520,9 @@ Rules:
    (evidence is incomplete).
 3. If actor identity is unverified AND tenant_id is empty →
    confidence drops to Medium.
-4. Confidence is computed per scorecard, not per entry.
+4. Confidence is computed per scorecard, not per entry or per
+   signal. Individual signals are binary (detected or not) — they
+   do not carry their own confidence.
 5. Scorecard output MUST include `confidence` field alongside
    `score` and `band`.
 
@@ -594,7 +599,7 @@ every entry having the same shape.
 | `prescription` | prescribe() processes an artifact | canonical_action, risk_level, risk_tags, risk_details, ttl_ms, canon_source |
 | `report` | report() records execution outcome | prescription_id, exit_code, verdict |
 | `canonicalization_failure` | Adapter fails to parse artifact | error_code, error_message, adapter, raw_digest |
-| `finding` | Scanner output attached to prescription | tool, rule_id, severity, resource, message |
+| `finding` | Scanner output (independent entry, linked by artifact_digest) | tool, rule_id, severity, resource, message, artifact_digest |
 | `signal` | Signal detector fires (written at scorecard time) | signal_name, sub_signal, entry_refs, details |
 | `receipt` | evidra-api acknowledges forwarded batch (v0.5.0+) | batch_id, entry_count, server_ts |
 
@@ -639,6 +644,24 @@ every entry having the same shape.
   "raw_digest":    "sha256:..."        // always computable from raw bytes
 }
 ```
+
+**finding:**
+```jsonc
+{
+  "tool":            "checkov",
+  "rule_id":         "CKV_AWS_18",
+  "severity":        "high",
+  "resource":        "aws_s3_bucket.data",
+  "message":         "Ensure the S3 bucket has access logging enabled",
+  "artifact_digest": "sha256:..."      // links finding to the operation's artifact
+}
+```
+
+Validator findings are **independent evidence entries**. They are
+NOT embedded in Report. Linking is by `artifact_digest` — the same
+digest that appears on the prescription and report for that
+operation. This decouples scanner timing from the prescribe/report
+lifecycle: findings may arrive before, during, or after execution.
 
 ### Schema Rules
 
@@ -892,9 +915,9 @@ Details: [Integration Roadmap](EVIDRA_INTEGRATION_ROADMAP.md)
 ┌────────────┐   ┌──────────────┐  ┌────────┐  ┌──────────┐  ┌────────────┐
 │ DESIGN     │   │ CONTRACTS    │  │ SPECS  │  │ EXAMPLES │  │ OPERATIONS │
 │            │   │              │  │        │  │          │  │            │
-│ Benchmark  │   │ Canon v1 [2] │  │ Signal │  │ E2E [4]  │  │ Baseline   │
-│ [1]        │   │ Tests [3]    │  │ Spec   │  │          │  │ Migration  │
-│ Inspector  │   │              │  │ [5]    │  │          │  │ Bootstrap  │
+│ Benchmark  │   │ Canon v1 [2] │  │ Signal │  │ E2E [8]  │  │ Baseline   │
+│ [4]        │   │ Data Mdl [3] │  │ Spec   │  │          │  │ Migration  │
+│ Inspector  │   │ Tests [7]    │  │ [1]    │  │          │  │ Bootstrap  │
 │ [6]        │   │              │  │        │  │          │  │ Post-Migr. │
 └────────────┘   └──────────────┘  └────────┘  └──────────┘  └────────────┘
 ```
@@ -905,31 +928,32 @@ Details: [Integration Roadmap](EVIDRA_INTEGRATION_ROADMAP.md)
 |---|----------|------|------|
 | 1 | [EVIDRA_SIGNAL_SPEC.md](EVIDRA_SIGNAL_SPEC.md) | **Signal definitions, metric contracts, scoring formula, conformance** | **Normative** |
 | 2 | [CANONICALIZATION_CONTRACT_V1.md](CANONICALIZATION_CONTRACT_V1.md) | **Adapter interface, digest rules, noise lists, compatibility** | **Normative** |
-| 3 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Scoring, comparison, benchmark methodology, protocol, risk analysis | Consumer |
-| 4 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, document map, component overview | Non-normative |
-| 5 | [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Inspector model rationale | Non-normative |
-| 6 | [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, test approach | Non-normative |
-| 7 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
+| 3 | [EVIDRA_CORE_DATA_MODEL.md](EVIDRA_CORE_DATA_MODEL.md) | **Core data model: CanonicalAction, Prescription, Report, EvidenceEntry, Signal, Scorecard** | **Normative** |
+| 4 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Scoring, comparison, benchmark methodology, protocol, risk analysis | Consumer |
+| 5 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, document map, component overview | Non-normative |
+| 6 | [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Inspector model rationale | Non-normative |
+| 7 | [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, test approach | Non-normative |
+| 8 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
 
 ### Operational Documents
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 8 | [EVIDRA_CURRENT_STATE_BASELINE.md](EVIDRA_CURRENT_STATE_BASELINE.md) | v0.2.0 codebase inventory | Reference |
-| 9 | [EVIDRA_MIGRATION_MAP.md](EVIDRA_MIGRATION_MAP.md) | Migration instructions: file-by-file | Reference |
-| 10 | [EVIDRA_BOOTSTRAP_PROMPT.md](EVIDRA_BOOTSTRAP_PROMPT.md) | Claude Code prompt for migration | Reference |
-| 11 | [EVIDRA_POST_MIGRATION_UPDATE.md](EVIDRA_POST_MIGRATION_UPDATE.md) | Post-migration: Dockerfiles, MCP schemas, prompts | Active |
+| 9 | [EVIDRA_CURRENT_STATE_BASELINE.md](EVIDRA_CURRENT_STATE_BASELINE.md) | v0.2.0 codebase inventory | Reference |
+| 10 | [EVIDRA_MIGRATION_MAP.md](EVIDRA_MIGRATION_MAP.md) | Migration instructions: file-by-file | Reference |
+| 11 | [EVIDRA_BOOTSTRAP_PROMPT.md](EVIDRA_BOOTSTRAP_PROMPT.md) | Claude Code prompt for migration | Reference |
+| 12 | [EVIDRA_POST_MIGRATION_UPDATE.md](EVIDRA_POST_MIGRATION_UPDATE.md) | Post-migration: Dockerfiles, MCP schemas, prompts | Active |
 
 ### Historical Documents (design evolution)
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 12 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics. | Historical |
-| 13 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. | Historical |
-| 14 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of canonicalization draft. Led to v1 contract. | Historical |
-| 15 | [EVIDRA_STRATEGIC_DIRECTION.md](EVIDRA_STRATEGIC_DIRECTION.md) | Product strategy. Prometheus analogy. | Strategic |
-| 16 | [EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md](EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) | Moat analysis. Defensibility, standardization path. | Strategic |
-| 17 | [EVIDRA_INTEGRATION_ROADMAP.md](EVIDRA_INTEGRATION_ROADMAP.md) | Integration plan. GH Action, GitLab CI, Docker, MCP registry, SDKs. | Active |
+| 13 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics. | Historical |
+| 14 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. | Historical |
+| 15 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of canonicalization draft. Led to v1 contract. | Historical |
+| 16 | [EVIDRA_STRATEGIC_DIRECTION.md](EVIDRA_STRATEGIC_DIRECTION.md) | Product strategy. Prometheus analogy. | Strategic |
+| 17 | [EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md](EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) | Moat analysis. Defensibility, standardization path. | Strategic |
+| 18 | [EVIDRA_INTEGRATION_ROADMAP.md](EVIDRA_INTEGRATION_ROADMAP.md) | Integration plan. GH Action, GitLab CI, Docker, MCP registry, SDKs. | Active |
 
 ### Archived Documents (consolidated into this overview)
 
