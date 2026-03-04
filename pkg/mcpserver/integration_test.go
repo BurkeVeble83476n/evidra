@@ -1,0 +1,105 @@
+package mcpserver
+
+import (
+	"testing"
+
+	"samebits.com/evidra-benchmark/pkg/evidence"
+)
+
+func TestPrescribeReport_Lifecycle(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &BenchmarkService{
+		evidencePath: dir,
+		traceID:      "01TRACE_TEST",
+	}
+
+	// Prescribe
+	prescOutput := svc.Prescribe(PrescribeInput{
+		Actor:       InputActor{Type: "ai_agent", ID: "test-agent", Origin: "mcp"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: test\n  namespace: staging",
+	})
+
+	if !prescOutput.OK {
+		t.Fatalf("prescribe failed: %v", prescOutput.Error)
+	}
+	if prescOutput.PrescriptionID == "" {
+		t.Error("prescription_id must not be empty")
+	}
+	if prescOutput.RiskLevel == "" {
+		t.Error("risk_level must not be empty")
+	}
+
+	// Report
+	reportOutput := svc.Report(ReportInput{
+		PrescriptionID: prescOutput.PrescriptionID,
+		ExitCode:       0,
+		ArtifactDigest: prescOutput.ArtifactDigest,
+	})
+
+	if !reportOutput.OK {
+		t.Fatalf("report failed: %v", reportOutput.Error)
+	}
+	if reportOutput.ReportID == "" {
+		t.Error("report_id must not be empty")
+	}
+
+	// Read evidence and verify both entries exist.
+	entries, err := evidence.ReadAllEntriesAtPath(dir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 evidence entries, got %d", len(entries))
+	}
+	if entries[0].Type != evidence.EntryTypePrescribe {
+		t.Errorf("first entry type: got %q, want prescribe", entries[0].Type)
+	}
+	if entries[1].Type != evidence.EntryTypeReport {
+		t.Errorf("second entry type: got %q, want report", entries[1].Type)
+	}
+}
+
+func TestPrescribeReport_ChainIntegrity(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &BenchmarkService{
+		evidencePath: dir,
+		traceID:      "01TRACE_CHAIN",
+	}
+
+	// Prescribe
+	svc.Prescribe(PrescribeInput{
+		Actor:       InputActor{Type: "ai_agent", ID: "agent-1", Origin: "mcp"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+	})
+
+	// Report
+	entries, _ := evidence.ReadAllEntriesAtPath(dir)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry after prescribe, got %d", len(entries))
+	}
+
+	svc.Report(ReportInput{
+		PrescriptionID: entries[0].EntryID,
+		ExitCode:       0,
+	})
+
+	// Verify chain.
+	allEntries, _ := evidence.ReadAllEntriesAtPath(dir)
+	if len(allEntries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(allEntries))
+	}
+
+	// Second entry's PreviousHash should match first entry's Hash.
+	if allEntries[1].PreviousHash != allEntries[0].Hash {
+		t.Errorf("chain broken: entry[1].PreviousHash=%q, entry[0].Hash=%q",
+			allEntries[1].PreviousHash, allEntries[0].Hash)
+	}
+}
