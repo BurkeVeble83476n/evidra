@@ -1,13 +1,14 @@
 
 # Evidra — End-to-End Example (v2)
 ## Status
-Worked example. Updated to match **Canonicalization Contract v1** and the current **Benchmark** model.
+Worked example. Updated to match **Canonicalization Contract v1**, the current
+**Benchmark** model, and the v0.3.x codebase.
 
 ---
 
 ## Scenario
 
-Company: FinTech Corp, ~200 engineers.  
+Company: FinTech Corp, ~200 engineers.
 Actors:
 
 - **AI agent**: Claude Code via MCP, operating on Kubernetes (staging).
@@ -15,7 +16,7 @@ Actors:
 - **Evidra**:
   - MCP tool endpoint for agent calls (`prescribe`, `report`)
   - CLI wrapper in CI (`evidra prescribe`, `evidra report`)
-  - Append-only evidence chain (JSONL, hash-linked, signed)
+  - Append-only evidence chain (JSONL, hash-linked)
 
 Goal:
 - Record actions, compute the five signals, produce a comparable scorecard.
@@ -40,7 +41,7 @@ Canonical action schema (simplified):
 {
   "tool": "kubectl",
   "operation": "apply",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {"api_version":"apps/v1","kind":"Deployment","namespace":"staging","name":"api-server"}
   ],
@@ -54,6 +55,7 @@ Canonical action schema (simplified):
 Notes:
 - `resource_identity` is stable identity (what resources).
 - `resource_shape_hash` captures normalized spec shape for detectors (not part of `intent_digest`), used to reduce false retry-loop positives when the same resource is intentionally modified.
+- `operation_class` uses `mutate` (not `mutating`) — consistent with risk matrix enum.
 
 ---
 
@@ -95,7 +97,7 @@ Request (MCP → Evidra):
 - tool: `kubectl`
 - operation: `apply`
 - raw_artifact: the YAML bytes above
-- scope hint: `staging` (optional; adapter can derive via namespace mapping)
+- actor: `{"type":"ai_agent","id":"claude-code","origin":"mcp"}`
 
 Evidra computes `artifact_digest` immediately from raw bytes:
 
@@ -123,7 +125,7 @@ Evidra produces a canonical action:
 {
   "tool": "kubectl",
   "operation": "apply",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {"api_version":"apps/v1","kind":"Deployment","namespace":"staging","name":"api-server"}
   ],
@@ -159,41 +161,58 @@ risk_tags = []
 
 ## Step 5: Evidra writes a prescription entry to the evidence chain
 
-Evidence JSONL entry (illustrative fields):
+Evidence JSONL entry (actual `EvidenceEntry` envelope):
 
 ```json
 {
-  "type": "prescription",
-  "ts": "2026-03-04T10:12:10Z",
-  "actor": {"id":"claude-code","kind":"mcp_agent","agent_version":"1.2.0","model_id":"claude"},
-  "canonicalization_version": "k8s/v1",
-  "adapter_versions": {"k8s_adapter":"0.1.0"},
-  "tool": "kubectl",
-  "operation": "apply",
-  "artifact_digest": "sha256:...",
+  "entry_id": "01JD7KX9M2...",
+  "previous_hash": "sha256:...",
+  "hash": "sha256:...",
+  "signature": "",
+  "type": "prescribe",
+  "trace_id": "01JD7KX9M1...",
+  "actor": {"type":"ai_agent","id":"claude-code","provenance":"mcp"},
+  "timestamp": "2026-03-04T10:12:10Z",
   "intent_digest": "sha256:...",
-  "canonical_action": { "...": "..." },
-  "chain": {"prev_hash":"sha256:...","entry_hash":"sha256:...","signature":"ed25519:..."}
+  "artifact_digest": "sha256:...",
+  "payload": {
+    "prescription_id": "01JD7KX9M2...",
+    "canonical_action": {"tool":"kubectl","operation":"apply","operation_class":"mutate","...":"..."},
+    "risk_level": "medium",
+    "risk_tags": [],
+    "ttl_ms": 300000,
+    "canon_source": "adapter"
+  },
+  "spec_version": "0.3.0",
+  "canonical_version": "k8s/v1",
+  "adapter_version": "dev"
 }
 ```
+
+Note: `signature` field is present but empty in v0.3.x. Ed25519 signing
+is deferred to v0.5.0 (signer module exists but is not wired).
 
 Evidra returns the prescription to the agent. No allow/deny —
 just risk assessment and the recorded intent:
 
 ```json
 {
-  "prescription_id": "prs-01JD7KX9M2",
+  "ok": true,
+  "prescription_id": "01JD7KX9M2...",
   "risk_level": "medium",
-  "risk_details": [],
+  "risk_tags": [],
   "artifact_digest": "sha256:...",
   "intent_digest": "sha256:...",
-  "canonicalization_version": "k8s/v1",
-  "signature": "ed25519:..."
+  "resource_shape_hash": "sha256:...",
+  "resource_count": 1,
+  "operation_class": "mutate",
+  "scope_class": "staging",
+  "canon_version": "k8s/v1"
 }
 ```
 
-risk_level = medium (mutating × staging from the risk matrix).
-No risk_details because no catastrophic patterns found.
+risk_level = medium (mutate × staging from the risk matrix).
+No risk_tags because no catastrophic patterns found.
 
 ## Step 6: Agent executes kubectl apply
 
@@ -203,71 +222,57 @@ The agent runs the real command in its environment.
 
 The agent returns:
 
+- prescription_id: the ID from prescribe
 - exit_code: 0
-- raw_artifact_digest it claims it applied (or the same artifact bytes again)
-- optional external_refs (if available): e.g., kubectl command log id
+- artifact_digest (optional): for drift detection
+- actor (optional): falls back to prescribe actor if omitted
 
 Report entry:
 
 ```json
 {
+  "entry_id": "01JD7KZ1A3...",
+  "previous_hash": "sha256:...",
+  "hash": "sha256:...",
+  "signature": "",
   "type": "report",
-  "ts": "2026-03-04T10:12:30Z",
-  "actor": {"id":"claude-code","kind":"mcp_agent"},
-  "tool": "kubectl",
-  "operation": "apply",
-  "exit_code": 0,
+  "trace_id": "01JD7KZ1A2...",
+  "actor": {"type":"ai_agent","id":"claude-code","provenance":"mcp"},
+  "timestamp": "2026-03-04T10:12:30Z",
   "artifact_digest": "sha256:...",
-  "external_refs": []
-}
-```
-
-## Step 8: Protocol verdict + signals
-
-Evidra compares the report to the latest open prescription for the same actor/task.
-
-Possible verdicts:
-- compliant
-- deviation
-- unreported
-- unprescribed
-
-In this example:
-- report exists
-- tool/operation match
-- artifact_digest matches
-
-Verdict:
-
-```
-protocol_verdict = compliant
-```
-
-Signals updated:
-- Protocol Violation: 0
-- Artifact Drift: 0
-- Retry Loop: 0
-- Blast Radius: 0 (resource_count=1, mutating threshold not exceeded)
-- New Scope: 0 (staging already known)
-
-A protocol entry is appended to evidence:
-
-```json
-{
-  "type": "protocol_entry",
-  "ts": "2026-03-04T10:12:31Z",
-  "actor": {"id":"claude-code"},
-  "intent_digest": "sha256:...",
-  "verdict": "compliant",
-  "signals_delta": {
-    "protocol_violation": 0,
-    "artifact_drift": 0,
-    "retry_loop": 0,
-    "blast_radius": 0,
-    "new_scope": 0
+  "payload": {
+    "report_id": "01JD7KZ1A3...",
+    "prescription_id": "01JD7KX9M2...",
+    "exit_code": 0,
+    "verdict": "success"
   },
-  "chain": {"prev_hash":"sha256:...","entry_hash":"sha256:...","signature":"ed25519:..."}
+  "spec_version": "0.3.0",
+  "adapter_version": "dev"
 }
+```
+
+## Step 8: Signal detection at scorecard time
+
+Signals are computed **batch** at `evidra scorecard` time, not at
+report() time. The scorecard reads the full evidence chain and
+evaluates all five signal detectors across all entries:
+
+- **Protocol Violation**: prescriptions without reports (TTL-based),
+  reports without prescriptions, duplicate reports, cross-actor reports
+- **Artifact Drift**: report.artifact_digest ≠ prescribe.artifact_digest
+- **Retry Loop**: same (actor, intent_digest, shape_hash) repeated N
+  times after failure within 30-minute window
+- **Blast Radius**: destroy operations with resource_count > 5
+- **New Scope**: first time an actor operates in a given tool+scope combination
+
+In this example, all signals are zero:
+
+```
+Protocol Violation: 0
+Artifact Drift: 0
+Retry Loop: 0
+Blast Radius: 0
+New Scope: 0
 ```
 
 ---
@@ -287,6 +292,12 @@ terraform show -json plan.out > plan.json
 
 ## Step 2: CI calls evidra prescribe (terraform)
 
+```bash
+evidra prescribe --tool terraform --operation apply \
+  --artifact plan.json --environment production \
+  --evidence-dir /tmp/evidra --actor ci-pipeline-123
+```
+
 Evidra computes:
 
 ```
@@ -301,7 +312,7 @@ Example canonical action (simplified):
 {
   "tool": "terraform",
   "operation": "apply",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {"type":"aws_security_group","name":"web","actions":["update"]}
   ],
@@ -318,47 +329,56 @@ uses `type + name + actions` only. Full address is preserved in
 evidence for human readability.
 
 If a catastrophic detector finds a pattern (e.g., 0.0.0.0/0 ingress),
-it is recorded in `risk_tags`. Evidra remains an inspector — no
-blocking. The risk is visible in the prescription and in the scorecard.
+it is recorded in `risk_tags` AND elevates `risk_level` above the
+matrix value. Evidra remains an inspector — no blocking. The risk
+is visible in the prescription and in the scorecard.
 
 Prescription returned:
 
 ```json
 {
-  "prescription_id": "prs-01JD8ABC12",
-  "risk_level": "high",
-  "risk_details": ["world-open ingress"],
+  "ok": true,
+  "prescription_id": "01JD8ABC12...",
+  "risk_level": "critical",
+  "risk_tags": ["world-open ingress"],
   "artifact_digest": "sha256:...",
   "intent_digest": "sha256:...",
-  "canonicalization_version": "tf/v1",
-  "signature": "ed25519:..."
+  "canon_version": "tf/v1"
 }
 ```
 
-risk_level = high because risk_tags elevated it above the matrix
-value (mutating × production = medium, but catastrophic detector
-found open ingress → high).
+risk_level = critical because risk_tags elevated it above the matrix
+value (mutate × production = high from matrix, but catastrophic
+detector found open ingress → critical).
 
 ## Step 3: CI executes terraform apply and reports
 
-After apply, CI reports exit_code and references:
+After apply, CI reports exit_code:
+
+```bash
+evidra report --prescription 01JD8ABC12... --exit-code 1 \
+  --evidence-dir /tmp/evidra --actor ci-pipeline-123
+```
+
+Report entry written to evidence:
 
 ```json
 {
+  "entry_id": "01JD8ABD34...",
   "type": "report",
-  "tool": "terraform",
-  "operation": "apply",
-  "exit_code": 1,
-  "external_refs": [
-    {"type":"github_actions_run","id":"123456789"},
-    {"type":"terraform_apply_log","id":"job-step-7"}
-  ]
+  "actor": {"type":"cli","id":"ci-pipeline-123","provenance":"cli"},
+  "payload": {
+    "report_id": "01JD8ABD34...",
+    "prescription_id": "01JD8ABC12...",
+    "exit_code": 1,
+    "verdict": "failure"
+  }
 }
 ```
 
-This produces signals such as:
-- Retry Loop (if CI re-runs the same intent repeatedly after failure/deny)
-- Protocol Violation (if report missing)
+At scorecard time, this may produce signals such as:
+- Retry Loop (if CI re-runs the same intent repeatedly after failure)
+- Protocol Violation (if report missing past TTL)
 - Artifact Drift (if report digest differs from prescribed digest)
 
 ---
@@ -366,75 +386,71 @@ This produces signals such as:
 # Part 3 — Scorecard Output
 
 A scorecard is computed over a selected window (e.g., last 30 days)
-for each actor. It includes tool and scope breakdowns.
+for each actor.
 
+```bash
+evidra scorecard --actor claude-code --period 30d --evidence-dir /tmp/evidra
 ```
-AGENT SCORECARD: claude-code
-Period: 30 days
-Operations: 4,217
 
-AGGREGATE
-  Reliability Score: 99.97 / 100
+Output (JSON):
 
-SIGNALS
-  Protocol Violations:     2    (0.05%)
-  Artifact Drifts:         1    (0.02%)
-  Retry Loops:             3    (0.07%)
-  Blast Radius Spikes:     0
-  New Scopes:              0
+```json
+{
+  "score": 99.97,
+  "band": "excellent",
+  "total_operations": 4217,
+  "signals": {
+    "protocol_violation": {"count": 2, "rate": 0.0005},
+    "artifact_drift": {"count": 1, "rate": 0.0002},
+    "retry_loop": {"count": 3, "rate": 0.0007},
+    "blast_radius": {"count": 0, "rate": 0},
+    "new_scope": {"count": 0, "rate": 0}
+  },
+  "actor_id": "claude-code",
+  "period": "30d",
+  "scoring_version": "0.3.0",
+  "spec_version": "0.3.0",
+  "generated_at": "2026-03-04T12:00:00Z"
+}
+```
 
-BY TOOL
-  kubectl    3,891 ops   score 99.98   drift 0.01%  retry 0.05%
-  terraform    326 ops   score 99.69   drift 0.00%  retry 0.31%
+Use `evidra explain` for signal detail:
 
-BY SCOPE
-  staging      3,450 ops  score 99.99
-  production     767 ops  score 99.87
+```bash
+evidra explain --actor claude-code --period 30d --evidence-dir /tmp/evidra
+```
 
-PROTOCOL VIOLATION BREAKDOWN
-  → 1x stalled_operation (prescription issued, no report after 5min)
-  → 1x crash_before_report (agent sent new prescribe without prior report)
+Use `evidra compare` for cross-actor comparison:
 
-RECENT SIGNALS
-  2026-03-03 14:22  retry_loop       kubectl.apply (3 attempts, same shape_hash)
-  2026-02-28 09:11  artifact_drift   kubectl.apply (digest mismatch)
-  2026-02-15 11:45  protocol_violation  stalled_operation (no report)
+```bash
+evidra compare --actors claude-code,ci-pipeline --period 30d \
+  --evidence-dir /tmp/evidra
 ```
 
 ### Scope-Aware Comparison
 
-Comparing agents that do different work is misleading. Evidra checks
-workload overlap before comparing:
+Comparing agents that do different work is misleading. Evidra computes
+workload overlap (Jaccard similarity of tool×scope profiles):
 
-```
-evidra compare --actors claude-code,ci-pipeline
-
-WARNING: Low workload overlap between agents.
-  claude-code:   kubectl (staging, production)
-  ci-pipeline:   terraform (production)
-  Overlap: 0%. Comparison not meaningful.
-  Use --force to compare anyway.
-```
-
-Fair comparison filters by shared tool+scope:
-
-```
-evidra compare --actors claude-code,cursor-agent --tool kubectl --scope production
-
-COMPARISON: kubectl in production
-──────────────────────────────────────────────────────
-Agent         Ops    Drift  Retry  Violations  Score
-───────────── ────── ────── ────── ────────── ──────
-claude-code   767    0.00%  0.13%  0.00%      99.95
-cursor        312    0.32%  0.64%  0.00%      99.22
-──────────────────────────────────────────────────────
+```json
+{
+  "actors": [
+    {"actor_id":"claude-code","score":99.97,"band":"excellent","total_operations":4217,
+     "workload_profile":{"tools":{"kubectl":true},"scopes":{"staging":true,"production":true}}},
+    {"actor_id":"ci-pipeline","score":99.85,"band":"excellent","total_operations":326,
+     "workload_profile":{"tools":{"terraform":true},"scopes":{"production":true}}}
+  ],
+  "workload_overlap": 0.0,
+  "generated_at": "2026-03-04T12:00:00Z"
+}
 ```
 
-Version comparison is always valid (same agent, same workload):
+Low overlap (0%) means comparison is not meaningful — agents operate
+on different tools and scopes. Filter by shared dimensions for fair
+comparison using `--tool` and `--scope` flags.
 
-```
-evidra compare --actor claude-code --versions v1.2,v1.3
-```
+Version comparison (same agent, different versions) requires
+`actor_meta.agent_version` tracking (v0.5.0+).
 
 ---
 
@@ -442,14 +458,15 @@ evidra compare --actor claude-code --versions v1.2,v1.3
 
 ## Agent crashes before report
 - Prescription exists, no report within TTL (default 5 min)
-- Protocol Violation signal increments
-- Sub-signal: **crash_before_report** (detected when agent sends
-  a new prescribe without reporting the previous one)
+- Protocol Violation signal increments at scorecard time
+- Sub-signal: **crash_before_report** (detected when the agent's last
+  report had a non-zero exit code)
 
 ## Agent hangs during execution
 - Prescription exists, no report within TTL, no further activity
-- Protocol Violation signal increments
-- Sub-signal: **stalled_operation** (agent is hung, not crashed)
+- Protocol Violation signal increments at scorecard time
+- Sub-signal: **stalled_operation** (no crash indicator — agent
+  simply stopped working)
 - Both sub-signals count as protocol_violation in the score.
   The breakdown helps agent developers diagnose: "crashes" vs "hangs"
 
@@ -462,7 +479,7 @@ evidra compare --actor claude-code --versions v1.2,v1.3
 
 ## Agent retries same failed operation
 - Same intent_digest AND same resource_shape_hash, N times in T minutes
-- Retry Loop signal fires
+- Retry Loop signal fires (default: 3 attempts in 30 minutes)
 - Important: if shape_hash differs (agent changed the artifact
   between attempts), it's NOT a retry loop — it's iteration.
 
@@ -472,13 +489,12 @@ evidra compare --actor claude-code --versions v1.2,v1.3
 
 ## Adapter cannot parse artifact
 - canonical_action cannot be produced
-- Prescription still issued with:
-  - risk_level: high
-  - risk_details: ["artifact parse failure: ..."]
-  - intent_digest: null
-  - artifact_digest: computed (raw bytes always work)
-- Recorded in evidence. Not in reliability score (not the
-  agent's behavioral fault).
+- A `canonicalization_failure` evidence entry is written with error
+  details, raw artifact digest, and adapter name
+- No prescription is issued; the CLI returns an error
+- The parse failure is recorded in evidence for auditability but
+  does not affect the reliability score (not the agent's behavioral
+  fault)
 
 ## Two agents, same cluster, different scores
 - Same infrastructure, same time period, different workload profiles
@@ -492,10 +508,10 @@ evidra compare --actor claude-code --versions v1.2,v1.3
 
 ### Helm
 
-Helm template output is Kubernetes YAML. No separate adapter.
+Helm template output is Kubernetes YAML. The K8s adapter handles it.
 
 ```
-helm template my-chart -f values.yaml | evidra prescribe --tool helm --op upgrade --artifact -
+helm template my-chart -f values.yaml | evidra prescribe --tool helm --operation upgrade --artifact -
 ```
 
 The K8s adapter parses the YAML. tool="helm" in canonical_action
@@ -517,7 +533,11 @@ ArgoCD adapter (v0.5.0+) will add sync-specific metadata
 ### Pre-Canonicalized Integration (Pulumi, Ansible, etc.)
 
 Tools that already know their resource identity can bypass
-the adapter entirely. Example with Pulumi:
+the adapter entirely by providing a pre-built canonical action:
+
+**MCP server:** Pass `canonical_action` field in prescribe input.
+
+**CLI (v0.3.x+):** Use `--canonical-action` flag:
 
 ```bash
 evidra prescribe \
@@ -530,7 +550,7 @@ evidra prescribe \
       {"type": "aws:rds:Instance", "name": "main-db", "actions": ["update"]}
     ],
     "resource_count": 2,
-    "operation_class": "mutating",
+    "operation_class": "mutate",
     "scope_class": "production"
   }'
 ```
@@ -538,10 +558,9 @@ evidra prescribe \
 Evidra still computes artifact_digest from raw state.json,
 runs risk detectors on the raw content, writes evidence,
 and evaluates signals. The only difference: resource_identity
-comes from the tool, not from an Evidra adapter.
-
-This works today with the generic adapter fallback. No code
-changes needed in Evidra.
+comes from the tool, not from an Evidra adapter. Entries are
+marked with `canon_source=external` so scorecards can show
+what percentage of data is self-reported.
 
 ---
 
