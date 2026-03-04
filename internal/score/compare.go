@@ -1,5 +1,7 @@
 package score
 
+import "samebits.com/evidra-benchmark/internal/signal"
+
 // WorkloadProfile describes the tools and scopes an agent operates in.
 type WorkloadProfile struct {
 	Tools  map[string]bool `json:"tools"`
@@ -12,6 +14,26 @@ func WorkloadOverlap(a, b WorkloadProfile) float64 {
 	toolOverlap := jaccard(a.Tools, b.Tools)
 	scopeOverlap := jaccard(a.Scopes, b.Scopes)
 	return toolOverlap * scopeOverlap
+}
+
+// BuildProfile builds a WorkloadProfile from signal entries.
+func BuildProfile(entries []signal.Entry) WorkloadProfile {
+	p := WorkloadProfile{
+		Tools:  make(map[string]bool),
+		Scopes: make(map[string]bool),
+	}
+	for _, e := range entries {
+		if !e.IsPrescription {
+			continue
+		}
+		if e.Tool != "" {
+			p.Tools[e.Tool] = true
+		}
+		if e.ScopeClass != "" {
+			p.Scopes[e.ScopeClass] = true
+		}
+	}
+	return p
 }
 
 func jaccard(a, b map[string]bool) float64 {

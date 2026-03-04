@@ -195,7 +195,8 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("compare", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	actorsFlag := fs.String("actors", "", "Comma-separated actor IDs to compare")
-	toolFlag := fs.String("tool", "", "Filter by tool")
+	periodFlag := fs.String("period", "30d", "Time period (e.g. 30d)")
+	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -206,17 +207,55 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	_ = *toolFlag
+	evidencePath := resolveEvidencePath(*evidenceFlag)
+	entries, err := evidence.ReadAllEntriesAtPath(evidencePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error reading evidence: %v\n", err)
+		return 1
+	}
 
-	// Demo: compute overlap between empty profiles
-	a := score.WorkloadProfile{Tools: map[string]bool{}, Scopes: map[string]bool{}}
-	b := score.WorkloadProfile{Tools: map[string]bool{}, Scopes: map[string]bool{}}
-	overlap := score.WorkloadOverlap(a, b)
+	type actorScore struct {
+		ActorID  string                `json:"actor_id"`
+		Score    float64               `json:"score"`
+		Band     string                `json:"band"`
+		TotalOps int                   `json:"total_operations"`
+		Profile  score.WorkloadProfile `json:"workload_profile"`
+	}
+
+	var scorecards []actorScore
+	for _, actorID := range actors {
+		filtered := filterEntries(entries, actorID, *periodFlag)
+		signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error converting evidence for %s: %v\n", actorID, err)
+			return 1
+		}
+		totalOps := countPrescriptions(signalEntries)
+		results := signal.AllSignals(signalEntries)
+		sc := score.Compute(results, totalOps)
+		profile := score.BuildProfile(signalEntries)
+
+		scorecards = append(scorecards, actorScore{
+			ActorID:  actorID,
+			Score:    sc.Score,
+			Band:     sc.Band,
+			TotalOps: sc.TotalOperations,
+			Profile:  profile,
+		})
+	}
+
+	// Compute pairwise overlap
+	var overlap float64
+	if len(scorecards) >= 2 {
+		overlap = score.WorkloadOverlap(scorecards[0].Profile, scorecards[1].Profile)
+	}
 
 	result := map[string]interface{}{
-		"actors":  actors,
-		"overlap": overlap,
+		"actors":           scorecards,
+		"workload_overlap": overlap,
+		"generated_at":     time.Now().UTC().Format(time.RFC3339),
 	}
+
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(result); err != nil {
