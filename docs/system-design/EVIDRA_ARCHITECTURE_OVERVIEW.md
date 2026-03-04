@@ -874,6 +874,18 @@ Resolved items are captured in Key Decisions above.
 | TF unknown values marker | RECOMMENDATION §3.3 | P2 | 0.5 day |
 | Security section in README | RECOMMENDATION §9.1 | P2 | 0.5 day |
 
+### Evidence Format (v0.3.0 breaking change)
+
+v0.3.0 introduces a new evidence format (`EvidenceEntry` envelope
+per `EVIDRA_CORE_DATA_MODEL.md §5`) that is **incompatible with
+v0.2.0 evidence files**. The legacy format used `PolicyDecision`,
+`PolicyRef`, and `BundleRevision` fields from the OPA-era model.
+
+**No migration path is provided.** v0.3.0 is a clean break.
+Existing v0.2.0 evidence files should be archived or deleted
+before running v0.3.0. The `evidra scorecard` command will reject
+evidence files that do not conform to the v0.3.0 schema.
+
 ### Deferred to v0.5.0+
 
 | Gap | Source | Reason |

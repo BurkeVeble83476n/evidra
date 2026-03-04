@@ -22,7 +22,7 @@ examples, rationale).
 {
   "tool":               "string (from request)",
   "operation":          "string (from request)",
-  "operation_class":    "mutating | destructive | read-only",
+  "operation_class":    "mutate | destroy | read | plan",
   "resource_identity":  "[{...tool-specific identity fields}]",
   "scope_class":        "production | staging | development | unknown",
   "resource_count":     "integer",
@@ -37,8 +37,18 @@ risk_tags MUST NOT be in CanonicalAction. They belong in Prescription.
 | Digest | Input | Includes | Excludes |
 |--------|-------|----------|----------|
 | artifact_digest | Raw bytes | Everything | Nothing (raw SHA256) |
-| intent_digest | Canonical JSON | tool, operation, operation_class, resource_identity, scope_class, resource_count | resource_shape_hash, risk_tags |
+| intent_digest | Canonical JSON of identity fields | tool, operation, operation_class, resource_identity, scope_class, resource_count | resource_shape_hash, risk_tags |
 | resource_shape_hash | Normalized spec | Spec content after noise removal | Identity fields, noise annotations |
+
+**intent_digest MUST exclude resource_shape_hash.** The shape hash
+captures spec content for retry detection. It changes when spec
+details change (e.g. image tag) even though the operation identity
+is the same. Including it in intent_digest would break retry loop
+detection (the signal compares intent_digest across operations).
+
+**operation_class values are frozen:** `read`, `mutate`, `destroy`,
+`plan`. See `EVIDRA_CORE_DATA_MODEL.md §9` for the normative enum.
+All adapters and contract references MUST use these exact values.
 
 ### Adapter Status (MUST be accurate)
 
@@ -200,7 +210,7 @@ contract between adapters and signals/scorecard.
 {
   "tool": "kubectl",
   "operation": "apply",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {
       "api_version": "apps/v1",
@@ -220,7 +230,7 @@ Fields:
 |-------|------|--------|---------|
 | tool | string | from request | kubectl, terraform, helm, argocd |
 | operation | string | from request | apply, delete, destroy, upgrade, sync |
-| operation_class | string | derived | mutating, destructive, read-only |
+| operation_class | string | derived | mutate, destroy, read, plan |
 | resource_identity | array | from adapter | sorted list of resource identifiers |
 | scope_class | string | derived | production, staging, development, unknown |
 | resource_count | int | from adapter | number of resources in artifact |
@@ -646,7 +656,7 @@ intent_digest.
 resource_count = len(resource_changes)  // excluding data sources
 ```
 
-For blast radius signal: count only destructive changes:
+For blast radius signal: count only destroy-class changes:
 
 ```go
 destroy_count = count(rc where "delete" in rc.Actions)
@@ -750,7 +760,7 @@ Helm adds one field to canonical_action that kubectl doesn't:
 {
   "tool": "helm",
   "operation": "upgrade",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     // same as k8s: apiVersion, kind, namespace, name per object
   ],
@@ -814,7 +824,7 @@ For app management:
 {
   "tool": "argocd",
   "operation": "sync",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {
       "api_version": "argoproj.io/v1alpha1",
@@ -835,7 +845,7 @@ ArgoCD demonstrates the pattern for adding any new tool:
 1. Define input format (what raw artifact does the agent send?)
 2. Choose parsing library (prefer official, from tool creators)
 3. Extract resource_identity (what's being touched?)
-4. Map to operation_class (destructive, mutating, read-only)
+4. Map to operation_class (destroy, mutate, read, plan)
 5. Map to scope_class (production, staging, etc.)
 6. Write golden corpus (minimum 5 cases)
 7. Version as `<tool>/v1`
@@ -894,7 +904,7 @@ opaque identity:
 {
   "tool": "unknown",
   "operation": "apply",
-  "operation_class": "mutating",
+  "operation_class": "mutate",
   "resource_identity": [
     {
       "kind": "opaque",
@@ -903,8 +913,7 @@ opaque identity:
   ],
   "scope_class": "unknown",
   "resource_count": 1,
-  "resource_shape_hash": "sha256:abc123...",
-  "risk_tags": []
+  "resource_shape_hash": "sha256:abc123..."
 }
 ```
 
@@ -995,12 +1004,12 @@ add patterns to the resolution logic. Same scope_class values.
 
 ```yaml
 operation_class_mappings:
-  destructive:
+  destroy:
     - kubectl.delete
     - terraform.destroy
     - helm.uninstall
     - argocd.delete
-  mutating:
+  mutate:
     - kubectl.apply
     - kubectl.patch
     - terraform.apply
@@ -1008,17 +1017,18 @@ operation_class_mappings:
     - helm.install
     - argocd.sync
     - argocd.create
-  read-only:
+  read:
     - kubectl.get
     - kubectl.describe
-    - terraform.plan
     - terraform.show
     - helm.list
     - helm.status
     - argocd.get
+  plan:
+    - terraform.plan
 ```
 
-Unrecognized operations default to "mutating" (conservative).
+Unrecognized operations default to "mutate" (conservative).
 
 ---
 

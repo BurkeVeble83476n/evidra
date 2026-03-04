@@ -122,6 +122,51 @@ Report records the result after execution.
    apply with 10 resources) = one prescription with
    resource_count=10, one report.
 
+### MCP Input Contract
+
+The MCP tools `prescribe` and `report` accept caller-provided
+input. Not all stored fields are caller-provided — many are
+computed by Evidra. This table defines the wire contract.
+
+#### prescribe tool input
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| tool | MUST | string | Infrastructure tool name (kubectl, terraform, helm, ...) |
+| operation | MUST | string | Tool operation (apply, delete, plan, ...) |
+| raw_artifact | MUST | string | Raw artifact content (YAML manifest, JSON plan, etc.) |
+| actor | MUST | object | Actor identity (see Actor schema) |
+| actor.type | MUST | string | ai_agent, ci, human, unknown |
+| actor.id | MUST | string | Stable identifier for the actor |
+| actor.provenance | MUST | string | mcp, cli, api, oidc, git, manual |
+| environment | MAY | string | Explicit environment label (overrides namespace-based scope resolution) |
+| canonical_action | MAY | object | Pre-canonicalized action for self-aware tools (sets canon_source=external) |
+| actor_meta | MAY | object | Comparison dimensions (agent_version, model_id, prompt_id) |
+
+Evidra computes and adds to the stored Prescription:
+prescription_id, trace_id, tenant_id, canonical_action (if not
+pre-provided), intent_digest, artifact_digest, risk_level,
+risk_tags, risk_details, ttl_ms, canon_source, timestamp.
+
+#### report tool input
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| prescription_id | MUST | string | ID from prescribe response |
+| exit_code | MUST | integer | Tool exit code (0 = success) |
+| artifact_digest | MAY | string | SHA256 of artifact actually applied (for drift detection) |
+
+Evidra computes and adds to the stored Report:
+report_id, trace_id, actor (from corresponding prescription),
+verdict (from exit_code), timestamp.
+
+If `artifact_digest` is omitted, Evidra uses the prescription's
+artifact_digest (no drift possible). If provided and different
+from the prescription's artifact_digest, an `artifact_drift`
+signal is recorded at scorecard time.
+
+---
+
 ### Findings Are NOT on Report
 
 Validator findings are independent evidence entries (type=finding),

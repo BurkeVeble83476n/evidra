@@ -341,11 +341,11 @@ remain before code hardening:
 
 | Artifact | Status | Action |
 |----------|--------|--------|
-| Frozen enum table (operation_class, scope_class, risk_level, entry_type, verdict) | Missing | Add to CORE_DATA_MODEL.md §Enums. One table, one truth. |
-| Required fields table for prescribe/report MCP input | Missing | Add to CORE_DATA_MODEL.md §2-3 with MUST/SHOULD/MAY. Already drafted in architecture overview, needs to be normative. |
-| trace_id generation rules | Missing | Add to CORE_DATA_MODEL.md §5 Schema Rules. MCP: per-session. CLI: per-invocation. |
-| Evidence format migration note | Missing | Add to ARCHITECTURE_OVERVIEW.md §Known Gaps: "v0.3.0 evidence format is incompatible with v0.2.0. No migration path provided." |
-| CANONICALIZATION_CONTRACT_V1.md §Digest Rules | Needs update | Clarify: intent_digest excludes resource_shape_hash. Freeze operation_class enum as read/mutate/destroy/plan. |
+| Frozen enum table (operation_class, scope_class, risk_level, entry_type, verdict) | **Done** | Added to CORE_DATA_MODEL.md §9. |
+| Required fields table for prescribe/report MCP input | **Done** | Added to CORE_DATA_MODEL.md §3 (MCP Input Contract). |
+| trace_id generation rules | **Done** | Added to CORE_DATA_MODEL.md §10. |
+| Evidence format migration note | **Done** | Added to ARCHITECTURE_OVERVIEW.md §Known Gaps. |
+| CANONICALIZATION_CONTRACT_V1.md §Digest Rules | **Done** | intent_digest exclusion clarified, operation_class frozen as read/mutate/destroy/plan throughout. |
 
 ---
 
