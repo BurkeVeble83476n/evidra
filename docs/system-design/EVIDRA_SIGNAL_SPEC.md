@@ -1,8 +1,131 @@
 # Evidra Signal Specification v1.0
 
 ## Status
-Stable. All five signals defined in this document are v1.0 stable.
-Breaking changes require a major version bump (v2.0).
+Stable. All five signals are v1.0 stable.
+
+## Document Type
+**Normative.** This is the single source of truth for signal
+definitions, metric contracts, and scoring formula. The key words
+"MUST", "MUST NOT", "SHOULD", "MAY" in this document are to be
+interpreted as described in RFC 2119.
+
+Other documents reference this spec but do not override it:
+- EVIDRA_AGENT_RELIABILITY_BENCHMARK.md is a consumer (scoring, comparison)
+- EVIDRA_ARCHITECTURE_OVERVIEW.md is non-normative (overview)
+
+---
+
+## Versioning
+
+### Spec version
+This document is **Signal Spec v1.0**. Version is independent of
+Evidra product version.
+
+### What is a breaking change
+
+| Change | Breaking? | Requires |
+|--------|-----------|----------|
+| Rename a signal | YES | Major bump (v2.0) |
+| Remove a signal | YES | Major bump (v2.0) |
+| Change detection algorithm semantics | YES | Major bump (v2.0) |
+| Change metric name or type | YES | Major bump (v2.0) |
+| Remove a metric label | YES | Major bump (v2.0) |
+| Change score formula structure | YES | Major bump (v2.0) |
+| Change default parameter value (affecting detection) | YES | Major bump (v2.0) |
+| Add new signal | NO | Minor bump (v1.1) |
+| Add new sub-signal to existing signal | NO | Minor bump (v1.1) |
+| Add new optional label to metric | NO | Minor bump (v1.1) |
+| Change default weights | NO | Minor bump (v1.1) |
+| Add new optional field to SignalEvent | NO | Minor bump (v1.1) |
+| Clarify wording without changing semantics | NO | Patch (v1.0.x) |
+
+### Mixed versions
+If a scoring window contains evidence from two spec versions
+(e.g. signals emitted under v1.0 and v1.1), the scorer MUST:
+- Use the NEWER spec version for detection
+- Log a warning: "Mixed signal spec versions in scoring window"
+- NOT reject older evidence
+
+### Migration
+When bumping from vN to vN+1:
+- Both versions MUST be emitted simultaneously for at least one
+  minor release (transition period)
+- Old version deprecated, new version active
+- After transition period, old version removed
+
+---
+
+## Metric Registry
+
+All Evidra metrics follow these rules. Implementations MUST NOT
+deviate from this registry.
+
+### Namespace
+All metrics MUST be prefixed `evidra_`.
+
+### Metric catalog
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `evidra_signal_total` | counter | Signal events detected |
+| `evidra_prescriptions_total` | counter | Prescriptions issued |
+| `evidra_reports_total` | counter | Reports received |
+| `evidra_reliability_score` | gauge | Current reliability score (0-100) |
+| `evidra_catastrophic_context_total` | counter | Catastrophic risk patterns detected |
+
+### Label rules
+
+**ALLOWED labels (low cardinality only):**
+
+| Label | Applies to | Values |
+|-------|-----------|--------|
+| `agent` | all metrics | actor.id (SHOULD be < 50 unique values) |
+| `tool` | signal, prescriptions, reports | kubectl, terraform, helm, argocd, other |
+| `scope` | signal, prescriptions, reports | production, staging, development, unknown |
+| `signal` | evidra_signal_total only | protocol_violation, artifact_drift, retry_loop, blast_radius, new_scope |
+
+**FORBIDDEN labels (MUST NOT be used):**
+
+| Label | Why forbidden |
+|-------|--------------|
+| `prescription_id` | Unbounded cardinality |
+| `artifact_digest` | Unbounded cardinality |
+| `intent_digest` | Unbounded cardinality |
+| `resource_name` | Unbounded cardinality |
+| `namespace` | High cardinality in large clusters |
+| `model_id` | Unbounded (use actor_meta in evidence, not in metrics) |
+| `prompt_id` | Unbounded |
+
+**Cardinality budget:** `agent` × `tool` × `scope` = N × 5 × 4.
+For 10 agents: 200 series per metric. MUST stay under 10,000
+total series across all metrics.
+
+### Example /metrics output
+
+```
+# HELP evidra_signal_total Total signal events detected
+# TYPE evidra_signal_total counter
+evidra_signal_total{agent="claude-code",tool="kubectl",scope="production",signal="protocol_violation"} 3
+evidra_signal_total{agent="claude-code",tool="kubectl",scope="production",signal="artifact_drift"} 1
+evidra_signal_total{agent="ci-pipeline",tool="terraform",scope="production",signal="retry_loop"} 2
+
+# HELP evidra_prescriptions_total Total prescriptions issued
+# TYPE evidra_prescriptions_total counter
+evidra_prescriptions_total{agent="claude-code",tool="kubectl",scope="production"} 847
+
+# HELP evidra_reports_total Total reports received
+# TYPE evidra_reports_total counter
+evidra_reports_total{agent="claude-code",tool="kubectl",scope="production"} 845
+
+# HELP evidra_reliability_score Current reliability score
+# TYPE evidra_reliability_score gauge
+evidra_reliability_score{agent="claude-code"} 97.2
+evidra_reliability_score{agent="ci-pipeline"} 99.8
+
+# HELP evidra_catastrophic_context_total Catastrophic risk patterns detected
+# TYPE evidra_catastrophic_context_total counter
+evidra_catastrophic_context_total{agent="claude-code"} 1
+```
 
 ---
 
@@ -466,11 +589,80 @@ new signal emitted simultaneously (except experimental → stable).
 
 An implementation is conforming if:
 
-1. Given the same evidence chain, it produces the same signal
+1. Given the same evidence chain, it MUST produce the same signal
    events as the reference implementation.
-2. It exports metrics with the specified names and labels.
-3. It computes reliability score using the specified formula.
+2. It MUST export metrics with the names, types, and labels
+   specified in the Metric Registry.
+3. It MUST NOT export metrics with forbidden labels.
+4. It MUST compute reliability score using the specified formula.
 
-Conformance test suite: a set of evidence chain fixtures with
-expected signal events and scores. Available in the reference
-implementation repository under `tests/signal_conformance/`.
+### Conformance Test Harness
+
+Minimum 10 test cases. Each case is an evidence chain (JSONL) with
+expected signal events and score.
+
+```
+tests/signal_conformance/
+  case_01_clean.jsonl           → 0 signals, score 100.0
+  case_01_expected.json
+
+  case_02_unreported.jsonl      → 1 protocol_violation (unreported)
+  case_02_expected.json
+
+  case_03_drift.jsonl           → 1 artifact_drift
+  case_03_expected.json
+
+  case_04_retry.jsonl           → 1 retry_loop (3 identical attempts)
+  case_04_expected.json
+
+  case_05_blast.jsonl           → 1 blast_radius (delete 10 resources)
+  case_05_expected.json
+
+  case_06_new_scope.jsonl       → 1 new_scope (first prod operation)
+  case_06_expected.json
+
+  case_07_duplicate_report.jsonl → 1 protocol_violation (duplicate)
+  case_07_expected.json
+
+  case_08_cross_actor.jsonl     → 1 protocol_violation (cross_actor)
+  case_08_expected.json
+
+  case_09_mixed.jsonl           → multiple signals, computed score
+  case_09_expected.json
+
+  case_10_shape_change.jsonl    → NOT retry (shape_hash differs)
+  case_10_expected.json
+```
+
+Expected output format:
+
+```json
+{
+  "spec_version": "1.0",
+  "signals": [
+    {"signal": "protocol_violation", "sub_signal": "unreported_prescription", "entry_ref": "prs-01HX..."}
+  ],
+  "score": {
+    "value": 96.5,
+    "total_operations": 200,
+    "signal_counts": {
+      "protocol_violation": 3,
+      "artifact_drift": 1,
+      "retry_loop": 0,
+      "blast_radius": 0,
+      "new_scope": 2
+    }
+  },
+  "metrics": {
+    "evidra_signal_total": [
+      {"labels": {"signal": "protocol_violation", "agent": "test-agent", "tool": "kubectl", "scope": "production"}, "value": 3}
+    ]
+  }
+}
+```
+
+A conformance runner reads each case, runs the five detectors,
+computes the score, and asserts the output matches expected.json.
+
+Conformance suite is available in the reference implementation
+under `tests/signal_conformance/`.

@@ -3,6 +3,12 @@
 ## Status
 Entry point. Start here. This document links to everything else.
 
+## Document Type
+**Non-normative.** This is an overview for orientation. It does
+not define contracts. Normative sources:
+- **EVIDRA_SIGNAL_SPEC.md** — signal definitions, metric contracts
+- **CANONICALIZATION_CONTRACT_V1.md** — adapter interface, digests
+
 ## One-liner
 Evidra is the standard signal and metrics layer for infrastructure
 automation.
@@ -70,15 +76,15 @@ Both produce identical evidence, signals, and scores.
 
 ### Active Documents (current architecture)
 
-| # | Document | Purpose | Status |
-|---|----------|---------|--------|
-| 1 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | **Primary design doc.** Signals, scoring, benchmark tables, risk analysis, protocol, Prometheus export, CI integration, golden path. | Active |
-| 2 | [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Inspector model rationale. Why prescribe/report, why no execution binding, why zero-privilege. | Active (foundational) |
-| 3 | [CANONICALIZATION_CONTRACT_V1.md](CANONICALIZATION_CONTRACT_V1.md) | **Canonicalization ABI.** Adapter interface, adapter specs, library decisions, noise lists, identity extraction, guarantees table, compatibility rules, versioning. | Active (frozen contract) |
-| 4 | [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, noise immunity, shape_hash sensitivity, fuzz strategy. ~65 tests, ~105 lines. | Active |
-| 5 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked example: MCP agent flow, CI flow, scorecard output, failure cases, pre-canonicalized integration. | Active |
-| 6 | [EVIDRA_SIGNAL_SPEC.md](EVIDRA_SIGNAL_SPEC.md) | **Signal specification.** Formal definitions of all 5 signals: detection contract, metric contract, score formula, stability guarantees, conformance requirements. | Active (standard) |
-| 7 | [EVIDRA_ARCHITECTURE_REVIEW.md](EVIDRA_ARCHITECTURE_REVIEW.md) | Architecture review. Gaps, overengineering, contradictions. Fix list with priorities. | Active (tracking) |
+| # | Document | Role | Type |
+|---|----------|------|------|
+| 1 | [EVIDRA_SIGNAL_SPEC.md](EVIDRA_SIGNAL_SPEC.md) | **Signal definitions, metric contracts, scoring formula, conformance** | **Normative** |
+| 2 | [CANONICALIZATION_CONTRACT_V1.md](CANONICALIZATION_CONTRACT_V1.md) | **Adapter interface, digest rules, noise lists, compatibility** | **Normative** |
+| 3 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Scoring, comparison, benchmark methodology, protocol, risk analysis | Consumer |
+| 4 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, document map, component overview | Non-normative |
+| 5 | [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Inspector model rationale | Non-normative |
+| 6 | [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, test approach | Non-normative |
+| 7 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
 
 ### Operational Documents
 
@@ -93,10 +99,11 @@ Both produce identical evidence, signals, and scores.
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 12 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics, agent scorecard concept. | Historical |
-| 13 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. Introduced baselines discussion. | Historical |
-| 14 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of the original canonicalization draft. Led to v1 contract. | Historical |
-| 15 | [EVIDRA_STRATEGIC_DIRECTION.md](EVIDRA_STRATEGIC_DIRECTION.md) | Product strategy. Prometheus analogy, ecosystem positioning. | Strategic |
+| 12 | [EVIDRA_ARCHITECTURE_REVIEW.md](EVIDRA_ARCHITECTURE_REVIEW.md) | Gap analysis, overengineering review. Most issues resolved. | Historical snapshot |
+| 13 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics, agent scorecard concept. | Historical |
+| 14 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. Introduced baselines discussion. | Historical |
+| 15 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of the original canonicalization draft. Led to v1 contract. | Historical |
+| 16 | [EVIDRA_STRATEGIC_DIRECTION.md](EVIDRA_STRATEGIC_DIRECTION.md) | Product strategy. Prometheus analogy, ecosystem positioning. | Strategic |
 
 ### Documents Not in Repo (referenced only)
 
@@ -147,6 +154,27 @@ signal detectors, evidence chain. v0.3.0 works fully local
 without evidra-api.
 
 No OPA. No Rego. No policy engine. No deny.
+
+### Fourth Component: Signal Export
+
+```
+evidra-mcp / evidra CLI / evidra-api
+          │
+          ▼
+    Signal Export Plane
+          │
+    ┌─────┼─────┬──────────┐
+    ▼     ▼     ▼          ▼
+  /metrics  OTLP  JSONL    SIEM
+  (Prom)   (OTel) (file)  (webhook)
+```
+
+Signal Export is how external systems consume Evidra signals.
+v0.3.0 ships Prometheus /metrics and JSONL evidence. v0.5.0 adds
+OpenTelemetry export and webhook-based SIEM integration.
+
+Metric registry (names, labels, cardinality rules) is defined
+normatively in EVIDRA_SIGNAL_SPEC.md §Metric Registry.
 
 ---
 

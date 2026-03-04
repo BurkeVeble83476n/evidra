@@ -1,7 +1,14 @@
 # Evidra — Agent Reliability Benchmark
 
 ## Status
-Architecture proposal. Supersedes Signals Engine draft.
+Active. Defines scoring, comparison, and benchmark methodology.
+
+## Document Type
+**Non-normative (consumer).** This document defines how to compute
+scores and compare agents. It does NOT define signal detection or
+metric contracts — those are in EVIDRA_SIGNAL_SPEC.md (normative).
+It does NOT define canonicalization — that is in
+CANONICALIZATION_CONTRACT_V1.md (normative).
 
 ## One-liner
 Evidra is a flight recorder and reliability benchmark for infrastructure automation.
@@ -57,266 +64,28 @@ Evidra answers it.
 
 ## 2. Five Signals
 
-Five signals. No ML. No z-scores. No rolling windows. Simple
-counters that any engineer understands in 30 seconds.
-
-### Signal 1: Protocol Violation
-
-The agent broke the prescribe/report contract.
-
-- Acted without calling prescribe (unprescribed action)
-- Didn't call report after acting (unreported prescription)
-- Sent duplicate report for same prescription
-- Sent report with unknown prescription_id
-
-Detection: prescription without matching report within TTL,
-or report without matching prescription.
-
-Metric: `violations / total_operations`
-
-Why it matters: an agent that doesn't follow the protocol is
-untestable. You can't measure what you can't observe.
-
-#### Prescription matching rules
-
-1. prescription_id is globally unique (ULID). No reuse.
-2. First report for a prescription_id wins. Second report for
-   the same prescription_id → protocol violation (duplicate_report).
-3. Report with unknown prescription_id → protocol violation
-   (unprescribed_action).
-4. Prescription carries actor.id. Report with a prescription_id
-   from a different actor → protocol violation (cross_actor_report).
-
-#### TTL detection model
-
-TTL is NOT real-time. There is no background timer.
-
-Detection happens at **scorecard computation time**: when
-`evidra scorecard` scans the evidence chain, it finds prescriptions
-without matching reports within the TTL window and retroactively
-marks them as protocol violations.
-
-Default TTL: **10 minutes.** This covers terraform apply (can take
-5-8 min), kubectl apply (seconds), helm upgrade (1-2 min). Teams
-can override: `evidra scorecard --ttl 30m` for slow operations.
-
-Why not real-time: evidra CLI exits after each command — there is
-no long-running process to track timeouts. evidra-mcp could detect
-TTL in-process, but for consistency, all TTL detection is deferred
-to scorecard time. Real-time TTL alerts are a v0.5.0 feature of
-evidra-api.
-
-#### Sub-signal: stalled_operation
-
-When a prescription exists but no report arrives within TTL,
-this is a protocol violation. But "unreported" has two different
-causes with different meanings:
-
-**stalled_operation** — agent is hung. Prescription was issued,
-agent started execution, never completed. The operation may be
-stuck (terraform apply hanging on provider timeout, kubectl
-waiting on admission webhook). The agent didn't crash — it's
-still running but not progressing.
-
-**crash_before_report** — agent died between prescribe and report.
-Process OOM, SSH disconnect, container eviction. Agent is gone.
-
-Both are protocol violations. The scorecard distinguishes them
-in the details:
-
-```
-Protocol Violations:  3
-  → 2x stalled_operation (prescription issued, no report after 5min)
-  → 1x crash_before_report (prescription issued, agent process ended)
-```
-
-Detection heuristic: if the agent sends another prescribe after
-the TTL without reporting the previous one → likely crash (agent
-restarted and moved on). If no further activity from the agent →
-likely stalled (agent is hung).
-
-This is informational — both count as protocol violations in the
-score. But the breakdown helps agent developers diagnose: "our
-agent crashes" vs "our agent hangs."
-
----
-
-### Signal 2: Artifact Drift
-
-The agent changed the artifact between prescribe and report.
-
-- Prescribed manifest A, reported applying manifest B
-- Digests don't match
-
-Detection: `prescription.artifact_digest != report.artifact_digest`
-
-Metric: `drifts / total_reports`
-
-Why it matters: the agent promised one thing and did another.
-This is the most direct measure of agent trustworthiness.
-
-Important: artifact drift measures **protocol consistency**, not
-ground truth. The agent self-reports the digest in both prescribe
-and report. An agent that lies consistently (sends same digest
-both times but applies something different) will show zero drift.
-Evidra detects inconsistency within the protocol, not real-world
-compliance. That's admission controller territory.
-
-For teams that want stronger assurance, optional correlation events
-from external sources (Kubernetes audit log, CloudTrail) can enrich
-the evidence chain. Correlation events don't change the verdict —
-they provide additional context for human review.
-
----
-
-### Signal 3: Retry Loop
-
-The agent retried a denied or failed operation without changing
-its approach.
-
-- Deny → same request → deny → same request
-- Failed → same request → failed → same request
-
-Detection: same intent_digest AND same resource_shape_hash appear
-in N prescriptions within T minutes, all denied or all reported
-as failed.
-
-Both digests must match. This prevents false positives:
-
-- Deploy v1, deploy v2, deploy v3 → same intent_digest (same
-  deployment targeted) but different resource_shape_hash (spec
-  changed each time) → NOT a retry loop. Agent is iterating.
-- Deploy v1, deploy v1, deploy v1 → same intent_digest AND same
-  resource_shape_hash → retry loop. Agent is stuck.
-- Reordered YAML fields → same shape_hash → counted as retry
-  (correct, semantically identical).
-
-For UX (human-readable display), a secondary label of
-`tool + operation + scope_class` is shown alongside the digests.
-
-Default thresholds: N=3 within T=10 minutes.
-
-Metric: `retry_loop_events / total_operations`
-
-Why it matters: a looping agent wastes resources and may
-eventually bypass safety if given enough attempts.
-
----
-
-### Signal 4: Blast Radius
-
-The agent performed an operation affecting a large number of
-resources.
-
-- Terraform destroy with 100+ resources
-- kubectl delete across all pods in a namespace
-- Mass operations in production environment
-
-Detection: `resource_count` in canonical action exceeds threshold.
-Thresholds are per operation class, not per tool:
-
-```yaml
-blast_radius_thresholds:
-  destructive: 10    # delete, destroy, uninstall
-  mutating: 50       # apply, upgrade, update
-```
-
-Operation class mapping (built-in):
-
-```
-destructive:  kubectl.delete, terraform.destroy, helm.uninstall,
-              argocd.delete
-mutating:     kubectl.apply, terraform.apply, helm.upgrade,
-              argocd.sync
-```
-
-Two thresholds cover all tools. Adding a new tool means adding
-it to the class mapping, not adding new thresholds.
-
-**Adapter dependency:** this signal requires domain adapters to
-extract `resource_count` from raw artifacts. Without adapters,
-Evidra cannot count resources. Specifically:
-
-- Terraform: adapter parses plan JSON, counts `resource_changes`
-- Kubernetes: adapter counts documents in multi-doc YAML
-- kubectl delete: adapter parses target list from raw artifact
-
-Domain adapters (Engine v3) are a prerequisite for this signal.
-Without them, blast radius signal is inactive and excluded from
-the score formula. The remaining four signals work without adapters.
-
-Metric: `blast_radius_events / total_operations`
-
-Why it matters: large blast radius in production is the #1 cause
-of AI-agent-induced outages.
-
----
-
-### Signal 5: New Scope
-
-The agent operated in a scope class it hasn't touched before.
-
-- First time deploying to production (any production namespace)
-- First time modifying IAM (any IAM resource)
-- First time doing destructive operations in any environment
-
-Detection: `(tool, operation_class, scope_class)` tuple not seen
-in previous history for this agent.
-
-Where:
-- `operation_class` = destructive | mutating | read-only
-- `scope_class` = environment tier, not specific namespace
-
-Scope class mapping:
-
-```yaml
-scope_classes:
-  production:  [production, prod, prd]
-  staging:     [staging, stg, stage, preprod]
-  development: [dev, development, sandbox, test]
-  unknown:     []   # default for unrecognized environments
-```
-
-Namespaces and environments are mapped to scope classes by
-prefix/suffix matching. Unrecognized environments map to `unknown`.
-
-Unknown is not silent — new scope fires on first operation in
-`unknown`, same as any other class. This prevents gaming: naming
-production "blue" to avoid detection. If Evidra can't classify
-your environment, it flags it.
-
-Example tuples:
-- `(kubectl, destructive, production)` — first destructive kubectl
-  in ANY production namespace
-- `(terraform, destructive, staging)` — first terraform destroy
-  in ANY staging environment
-- `(kubectl, mutating, unknown)` — first mutating kubectl in an
-  unrecognized environment (investigate naming)
-
-NOT triggered by:
-- `staging-a` → `staging-b` (same scope class)
-- `prod-team-x` → `prod-team-y` (same scope class)
-
-Metric: `new_scope_events / total_operations`
-
-Why it matters: an agent doing something it's never done before
-is the moment to pay attention. Not necessarily bad — but notable.
-Scope classes keep this signal meaningful by filtering out
-namespace-level noise.
-
----
-
-### That's it. Five signals.
-
-No percentile trackers. No z-score detection. No rolling windows.
-No baseline stores that need warmup. No ML.
-
-Three of the five (protocol violation, artifact drift, retry loop)
-work from the first operation. No learning period.
-
-Two of the five (blast radius, new scope) use simple thresholds
-and history lookups. History is the evidence chain itself — no
-separate state store.
+Signal definitions are in **EVIDRA_SIGNAL_SPEC.md** (normative).
+This section is a non-normative summary. The Signal Spec is the
+source of truth for detection contracts, metric names, and
+stability guarantees.
+
+| Signal | What it detects | Default weight |
+|--------|----------------|----------------|
+| protocol_violation | Broken prescribe/report contract | 0.35 |
+| artifact_drift | Artifact changed between prescribe and report | 0.30 |
+| retry_loop | Identical failed operation repeated | 0.20 |
+| blast_radius | Destructive operation on too many resources | 0.10 |
+| new_scope | First operation in a new tool/scope combination | 0.05 |
+
+Key properties (defined normatively in Signal Spec):
+- TTL detection at scorecard time, not real-time (default 10 min)
+- Prescription matching: ULID unique, first report wins, cross-actor rejected
+- Retry loop requires both intent_digest AND resource_shape_hash match
+- All detectors are pure functions over the evidence chain
+- Sub-signals (stalled_operation, crash_before_report, etc.) are informational breakdowns
+
+For full detection algorithms, parameters, and edge cases,
+see EVIDRA_SIGNAL_SPEC.md.
 
 ---
 
@@ -1111,99 +880,21 @@ Prometheus is to infrastructure metrics.**
 
 ---
 
-## 10. Prometheus Export (Low Cardinality Only)
+## 10. Metrics and Signal Definitions
 
-Evidra exports metrics compatible with Prometheus. All metrics
-follow low-cardinality rules to avoid label explosion.
+Metric registry (names, types, labels, cardinality rules) and
+signal definitions are in **EVIDRA_SIGNAL_SPEC.md** (normative).
 
-### Metric naming
-
-All metrics are prefixed `evidra_`. Names follow Prometheus
-conventions: snake_case, _total suffix for counters.
-
-### Labels
-
-| Label | Cardinality | Values |
-|-------|-------------|--------|
-| agent | low | actor.id (e.g. "claude-code", "ci-pipeline") |
-| tool | fixed | kubectl, terraform, helm, argocd, (other) |
-| scope | fixed | production, staging, development, unknown |
-| signal | fixed | protocol_violation, artifact_drift, retry_loop, blast_radius, new_scope |
-
-**Cardinality budget:** agent × tool × scope = N × 5 × 4 = 20N.
-For 10 agents: 200 series per metric. Acceptable for Prometheus.
-
-For 100+ agents: label `agent` should be dropped from high-frequency
-metrics and only kept on `evidra_reliability_score`. Teams with
-100+ agents should use evidra-api for per-agent breakdown.
-
-### Metric catalog
-
-```
-# Counters (per signal)
-evidra_signal_total{agent, tool, scope, signal}
-
-# Counters (operations)
-evidra_prescriptions_total{agent, tool, scope}
-evidra_reports_total{agent, tool, scope}
-
-# Gauge (score, updated on scorecard computation)
-evidra_reliability_score{agent}
-
-# Counter (catastrophic context)
-evidra_catastrophic_context_total{agent}
-```
-
-**Rules:**
-- No high-cardinality labels (no prescription_id, no resource name,
-  no namespace, no artifact_digest).
-- No histogram metrics in v0.3.0 (no latency tracking).
-- Counter-only for signals — rate() gives signal rate per second.
-- Score is a gauge, updated when scorecard runs (not real-time).
-
-### What is NOT exported
-
-- Per-resource metrics (high cardinality)
-- Per-operation metrics (high cardinality)
-- Evidence chain contents (use evidence JSONL or evidra-api)
-- Risk details (use prescription response or evidence)
+Key points for benchmark consumers:
+- All metrics prefixed `evidra_`
+- Only low-cardinality labels allowed (agent, tool, scope, signal)
+- Forbidden: prescription_id, artifact_digest, resource_name, model_id
+- `evidra_reliability_score{agent}` gauge updated at scorecard time
+- Conformance test harness with 10 cases in `tests/signal_conformance/`
 
 ---
 
-## 11. Signal Specification
-
-Signal definitions are the core of Evidra's standardization.
-For signals to be interoperable across tools and organizations,
-they need a formal specification separate from the implementation.
-
-See **EVIDRA_SIGNAL_SPEC.md** for the complete signal specification.
-That document defines:
-
-- Signal identity (name, version, status)
-- Detection contract (inputs, algorithm, output)
-- Metric contract (Prometheus name, labels, semantics)
-- Stability guarantees (what changes are breaking)
-
-The signal spec follows a model similar to OpenTelemetry semantic
-conventions: each signal has a formal definition that implementations
-must follow to produce comparable results.
-
-### Signal lifecycle
-
-```
-experimental → stable → deprecated → removed
-```
-
-- **experimental**: may change without notice
-- **stable**: breaking changes require major version bump
-- **deprecated**: still emitted, but replacement exists
-- **removed**: no longer emitted (major version bump)
-
-All five signals in v0.3.0 are **stable**.
-
----
-
-## 12. Implementation
+## 11. Implementation
 
 ### v0.3.0 — Foundation
 - Domain adapters + raw artifact input (Engine v3)
@@ -1233,7 +924,7 @@ All five signals in v0.3.0 are **stable**.
 
 ---
 
-## 13. CI Integration
+## 12. CI Integration
 
 CI pipelines are the richest data source for the benchmark. An
 MCP agent does 10-50 operations per day. A CI pipeline does
@@ -1375,7 +1066,7 @@ enforceable (by CI, not by Evidra) standard.
 One adoption path that works without a platform, without SaaS,
 without anything beyond the binary and a CI job.
 
-## 14. Golden Path: Getting Started
+## 13. Golden Path: Getting Started
 
 ### Step 1: Install (5 minutes)
 
@@ -1445,7 +1136,7 @@ A binary, a CI job, and a PR comment with the score.
 
 ---
 
-## 15. Do NOT
+## 14. Do NOT
 
 - Do not deny. Evidra never blocks agent execution. Ever.
 - Do not add OPA, Rego, or any policy engine. Risk detectors

@@ -1,7 +1,12 @@
 # Evidra Benchmark — Architecture Review
 
 ## Status
-Honest review. Gaps, overengineering, contradictions, missing pieces.
+**Historical snapshot.** This document captured gaps and
+contradictions found during design. Most issues have been resolved.
+See the fix list at the bottom for current status.
+
+This document lives in docs/history/ and is NOT part of the active
+architecture. For current architecture, see EVIDRA_ARCHITECTURE_OVERVIEW.md.
 
 ---
 

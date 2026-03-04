@@ -1,7 +1,80 @@
 # Evidra Canonicalization Contract v1
 
 ## Status
-Frozen contract. Changes to canonical output require version bump.
+Frozen. Changes to canonical output require version bump.
+
+## Document Type
+**Normative.** This is the single source of truth for artifact
+canonicalization, digest computation, and adapter contracts. The
+key words "MUST", "MUST NOT", "SHOULD", "MAY" are per RFC 2119.
+
+---
+
+## Front Contract (normative summary)
+
+This section is the complete normative contract on 1 page.
+Everything below this section is appendix (implementation detail,
+examples, rationale).
+
+### CanonicalAction Schema (MUST)
+
+```json
+{
+  "tool":               "string (from request)",
+  "operation":          "string (from request)",
+  "operation_class":    "mutating | destructive | read-only",
+  "resource_identity":  "[{...tool-specific identity fields}]",
+  "scope_class":        "production | staging | development | unknown",
+  "resource_count":     "integer",
+  "resource_shape_hash":"string (SHA256)"
+}
+```
+
+risk_tags MUST NOT be in CanonicalAction. They belong in Prescription.
+
+### Digest Rules (MUST)
+
+| Digest | Input | Includes | Excludes |
+|--------|-------|----------|----------|
+| artifact_digest | Raw bytes | Everything | Nothing (raw SHA256) |
+| intent_digest | Canonical JSON | tool, operation, operation_class, resource_identity, scope_class, resource_count | resource_shape_hash, risk_tags |
+| resource_shape_hash | Normalized spec | Spec content after noise removal | Identity fields, noise annotations |
+
+### Adapter Status (MUST be accurate)
+
+| Adapter | Status | Version |
+|---------|--------|---------|
+| k8s/v1 | IMPLEMENTED | v0.3.0 |
+| tf/v1 | IMPLEMENTED | v0.3.0 |
+| helm/v1 | IMPLEMENTED (via k8s) | v0.3.0 |
+| generic/v1 | IMPLEMENTED | v0.3.0 |
+| argocd/v1 | RESERVED | v0.5.0+ |
+
+RESERVED = contract defined, implementation not shipped. MUST NOT
+be advertised as available.
+
+### Breaking Changes (MUST bump version)
+
+Any change that alters intent_digest or resource_shape_hash for
+the same input is BREAKING. See §14.5 Compatibility Rules for
+the full table.
+
+### Adapter Interface (MUST implement)
+
+```go
+type Adapter interface {
+    Name() string
+    CanHandle(tool string) bool
+    Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error)
+}
+```
+
+---
+
+## Appendix: Full Contract Detail
+
+Everything below is implementation detail, rationale, and examples.
+The Front Contract above is sufficient for integration.
 
 ## Purpose
 This document is the ABI of Evidra's domain adapters. It defines
