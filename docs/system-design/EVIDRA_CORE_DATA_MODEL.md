@@ -321,7 +321,89 @@ All signals and scores are derived strictly from the evidence log.
 
 ---
 
-## 9. Invariants
+## 9. Frozen Enums
+
+All enum values are closed sets. Adding a value requires a spec
+version bump.
+
+### operation_class
+
+| Value | Meaning |
+|-------|---------|
+| `read` | Read-only operation (get, describe, list) |
+| `mutate` | Create or update operation (apply, patch) |
+| `destroy` | Delete operation (delete, destroy) |
+| `plan` | Dry-run operation (plan, diff) |
+
+### scope_class
+
+| Value | Meaning | Resolution |
+|-------|---------|------------|
+| `production` | Production environment | Explicit `--env` flag, or namespace contains "prod" |
+| `staging` | Staging environment | Namespace contains "stag" |
+| `development` | Development environment | Namespace contains "dev" |
+| `unknown` | Cannot determine | Default when no match |
+
+### risk_level
+
+| Value | Meaning |
+|-------|---------|
+| `low` | Routine operation |
+| `medium` | Elevated risk, worth noting |
+| `high` | Significant risk, agent should consider human approval |
+| `critical` | Catastrophic risk pattern detected |
+
+### entry_type
+
+| Value | Written by |
+|-------|-----------|
+| `prescribe` | prescribe() call |
+| `report` | report() call |
+| `finding` | Scanner output (independent, linked by artifact_digest) |
+| `signal` | Signal detector (at scorecard time) |
+| `receipt` | evidra-api acknowledgment (v0.5.0+) |
+| `canonicalization_failure` | Adapter parse failure |
+
+### verdict (on report)
+
+| Value | Meaning |
+|-------|---------|
+| `success` | exit_code == 0 |
+| `failure` | exit_code != 0 |
+| `error` | Execution could not complete |
+
+### band (on scorecard)
+
+| Value | Score range |
+|-------|-----------|
+| `excellent` | 99-100 |
+| `good` | 95-99 |
+| `fair` | 90-95 |
+| `poor` | <90 |
+| `insufficient_data` | <100 operations |
+
+---
+
+## 10. trace_id Generation Rules
+
+| Context | trace_id lifecycle | Generation |
+|---------|-------------------|------------|
+| evidra-mcp | One MCP server process = one trace_id | ULID generated at server startup |
+| evidra CLI (prescribe) | One command invocation = one trace_id | ULID generated per `evidra prescribe`, included in output |
+| evidra CLI (report) | Same trace_id as corresponding prescribe | Passed via `--trace-id` flag (from prescribe output) |
+| evidra-api | One API request session | ULID generated per request, or caller-provided |
+
+Rules:
+1. trace_id MUST be a ULID.
+2. A single trace_id MAY span multiple prescribe/report pairs
+   (e.g. multi-resource apply).
+3. A trace_id MUST NOT span multiple actors.
+4. A trace_id MUST NOT span multiple tenants.
+5. If trace_id is not provided by the caller, Evidra generates one.
+
+---
+
+## 11. Invariants
 
 1. Evidence is append-only.
 2. Signals derive from evidence only.
@@ -330,3 +412,6 @@ All signals and scores are derived strictly from the evidence log.
 5. Evidence replay MUST produce identical signals and scores.
 6. Findings are independent entries, not embedded in reports.
 7. Confidence is scorecard-level, not per-signal.
+8. All digests use `sha256:` prefix format.
+9. Enum values are closed sets (§9). New values require spec version bump.
+10. intent_digest excludes resource_shape_hash (hashes identity fields only).
