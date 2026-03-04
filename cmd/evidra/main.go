@@ -380,7 +380,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		cr.CanonicalAction = preCanon
 		cr.RawAction, _ = json.Marshal(preCanon)
 		cr.IntentDigest = canon.ComputeIntentDigest(preCanon)
-		cr.CanonVersion = "external"
+		cr.CanonVersion = "external/v1"
 		cr.ParseError = nil
 	}
 
