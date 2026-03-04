@@ -215,7 +215,6 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 	result := map[string]interface{}{
 		"actors":  actors,
 		"overlap": overlap,
-		"note":    "load evidence chain for real comparison",
 	}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
@@ -299,7 +298,6 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 		"prescription_id": *prescriptionFlag,
 		"exit_code":       *exitCodeFlag,
 		"status":          status,
-		"note":            "evidence chain recording requires --evidence-dir",
 	}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
