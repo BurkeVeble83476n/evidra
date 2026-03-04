@@ -12,7 +12,6 @@ func TestPrescribeReport_Lifecycle(t *testing.T) {
 	dir := t.TempDir()
 	svc := &BenchmarkService{
 		evidencePath: dir,
-		traceID:      "01TRACE_TEST",
 	}
 
 	// Prescribe
@@ -69,7 +68,6 @@ func TestReport_ExplicitActor(t *testing.T) {
 	dir := t.TempDir()
 	svc := &BenchmarkService{
 		evidencePath: dir,
-		traceID:      "01TRACE_ACTOR",
 	}
 
 	prescOutput := svc.Prescribe(PrescribeInput{
@@ -109,7 +107,6 @@ func TestPrescribeReport_ChainIntegrity(t *testing.T) {
 	dir := t.TempDir()
 	svc := &BenchmarkService{
 		evidencePath: dir,
-		traceID:      "01TRACE_CHAIN",
 	}
 
 	// Prescribe

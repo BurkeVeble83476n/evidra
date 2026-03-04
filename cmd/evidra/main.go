@@ -447,7 +447,6 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	}
 
 	prescPayload := evidence.PrescriptionPayload{
-		PrescriptionID:  traceID,
 		CanonicalAction: canonActionJSON,
 		RiskLevel:       riskLevel,
 		RiskTags:        riskTags,
@@ -473,6 +472,11 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "build entry: %v\n", err)
 		return 1
 	}
+
+	// Set prescription_id = entry_id for consistent identity
+	prescPayload.PrescriptionID = entry.EntryID
+	payloadJSON, _ = json.Marshal(prescPayload)
+	entry.Payload = payloadJSON
 
 	if err := evidence.AppendEntryAtPath(evidencePath, entry); err != nil {
 		fmt.Fprintf(stderr, "write evidence: %v\n", err)

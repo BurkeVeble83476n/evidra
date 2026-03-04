@@ -93,7 +93,7 @@ type reportHandler struct {
 type BenchmarkService struct {
 	evidencePath string
 	retryTracker *RetryTracker
-	traceID      string
+	lastTraceID  string
 	lastActor    evidence.Actor
 }
 
@@ -122,7 +122,6 @@ func NewServer(opts Options) *mcp.Server {
 
 	svc := &BenchmarkService{
 		evidencePath: opts.EvidencePath,
-		traceID:      evidence.GenerateTraceID(),
 	}
 	if opts.RetryTracker {
 		svc.retryTracker = NewRetryTracker(10 * time.Minute)
@@ -255,7 +254,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 				lastHash, _ := evidence.LastHashAtPath(s.evidencePath)
 				entry, buildErr := evidence.BuildEntry(evidence.EntryBuildParams{
 					Type:           evidence.EntryTypeCanonFailure,
-					TraceID:        s.traceID,
+					TraceID:        evidence.GenerateTraceID(),
 					Actor:          actor,
 					ArtifactDigest: cr.ArtifactDigest,
 					Payload:        failPayload,
@@ -294,9 +293,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 	}
 
 	// Build prescription payload
-	prescriptionID := ulid.Make().String()
 	prescPayload := evidence.PrescriptionPayload{
-		PrescriptionID:  prescriptionID,
 		CanonicalAction: cr.RawAction,
 		RiskLevel:       riskLevel,
 		RiskTags:        riskTags,
@@ -318,12 +315,15 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		Provenance: input.Actor.Origin,
 	}
 
+	// Generate per-operation trace ID
+	traceID := evidence.GenerateTraceID()
+
 	// Get last hash for chain
 	lastHash, _ := evidence.LastHashAtPath(s.evidencePath)
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypePrescribe,
-		TraceID:        s.traceID,
+		TraceID:        traceID,
 		Actor:          actor,
 		IntentDigest:   cr.IntentDigest,
 		ArtifactDigest: cr.ArtifactDigest,
@@ -340,8 +340,14 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		}
 	}
 
-	// Store actor for subsequent report calls
+	// Set prescription_id = entry_id for consistent identity
+	prescPayload.PrescriptionID = entry.EntryID
+	payloadJSON, _ = json.Marshal(prescPayload)
+	entry.Payload = payloadJSON
+
+	// Store actor and trace ID for subsequent report calls
 	s.lastActor = actor
+	s.lastTraceID = traceID
 
 	// Write to evidence store
 	if s.evidencePath != "" {
@@ -422,11 +428,17 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 		}
 	}
 
+	// Use trace ID from the prescription for correlation
+	reportTraceID := s.lastTraceID
+	if reportTraceID == "" {
+		reportTraceID = evidence.GenerateTraceID()
+	}
+
 	lastHash, _ := evidence.LastHashAtPath(s.evidencePath)
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypeReport,
-		TraceID:        s.traceID,
+		TraceID:        reportTraceID,
 		Actor:          actor,
 		ArtifactDigest: evidence.FormatDigest(input.ArtifactDigest),
 		Payload:        payloadJSON,
