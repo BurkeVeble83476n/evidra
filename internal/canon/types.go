@@ -17,6 +17,33 @@ type CanonicalAction struct {
 	ResourceShapeHash string       `json:"resource_shape_hash"`
 }
 
+// intentFields contains only the identity fields used to compute intent_digest.
+// Deliberately excludes resource_shape_hash so that shape changes do not
+// alter the intent digest.
+type intentFields struct {
+	Tool             string       `json:"tool"`
+	Operation        string       `json:"operation"`
+	OperationClass   string       `json:"operation_class"`
+	ResourceIdentity []ResourceID `json:"resource_identity"`
+	ScopeClass       string       `json:"scope_class"`
+	ResourceCount    int          `json:"resource_count"`
+}
+
+// ComputeIntentDigest returns the SHA256 digest of the identity-only fields
+// of a CanonicalAction, excluding resource_shape_hash.
+func ComputeIntentDigest(action CanonicalAction) string {
+	fields := intentFields{
+		Tool:             action.Tool,
+		Operation:        action.Operation,
+		OperationClass:   action.OperationClass,
+		ResourceIdentity: action.ResourceIdentity,
+		ScopeClass:       action.ScopeClass,
+		ResourceCount:    action.ResourceCount,
+	}
+	data, _ := json.Marshal(fields)
+	return SHA256Hex(data)
+}
+
 // Prescription records intent before an infrastructure operation.
 type Prescription struct {
 	ID              string          `json:"prescription_id"`

@@ -34,7 +34,7 @@ func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte
 	}
 
 	actionJSON, _ := json.Marshal(action)
-	intentDigest := sha256Hex(actionJSON)
+	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
 		ArtifactDigest:  artifactDigest,

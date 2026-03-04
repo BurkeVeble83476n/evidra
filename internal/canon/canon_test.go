@@ -526,6 +526,39 @@ func TestResolveScopeClass_NoResourcesNoEnv(t *testing.T) {
 	}
 }
 
+// --- Intent Digest Tests ---
+
+func TestIntentDigest_ExcludesShapeHash(t *testing.T) {
+	t.Parallel()
+
+	action1 := CanonicalAction{
+		Tool:              "kubectl",
+		Operation:         "apply",
+		OperationClass:    "mutate",
+		ResourceIdentity:  []ResourceID{{Kind: "deployment", Name: "web", Namespace: "default"}},
+		ScopeClass:        "unknown",
+		ResourceCount:     1,
+		ResourceShapeHash: "sha256:aaaa",
+	}
+	action2 := action1
+	action2.ResourceShapeHash = "sha256:bbbb"
+
+	digest1 := ComputeIntentDigest(action1)
+	digest2 := ComputeIntentDigest(action2)
+
+	if digest1 != digest2 {
+		t.Errorf("intent digest changed when only resource_shape_hash differs\n d1: %s\n d2: %s", digest1, digest2)
+	}
+
+	// Verify that changing an identity field DOES change the digest.
+	action3 := action1
+	action3.Operation = "delete"
+	digest3 := ComputeIntentDigest(action3)
+	if digest1 == digest3 {
+		t.Error("intent digest should differ when operation changes")
+	}
+}
+
 // --- Determinism Test ---
 
 func TestDeterminism_SameInputSameDigest(t *testing.T) {

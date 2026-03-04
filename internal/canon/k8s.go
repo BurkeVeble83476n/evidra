@@ -89,7 +89,7 @@ func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) Ca
 	}
 
 	actionJSON, _ := json.Marshal(action)
-	intentDigest := sha256Hex(actionJSON)
+	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
 		ArtifactDigest:  artifactDigest,

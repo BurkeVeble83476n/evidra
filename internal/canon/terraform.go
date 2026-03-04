@@ -45,7 +45,7 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 		actionJSON, _ := json.Marshal(action)
 		return CanonResult{
 			ArtifactDigest:  artifactDigest,
-			IntentDigest:    sha256Hex(actionJSON),
+			IntentDigest:    ComputeIntentDigest(action),
 			CanonicalAction: action,
 			CanonVersion:    "terraform/v1",
 			RawAction:       actionJSON,
@@ -90,7 +90,7 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 	}
 
 	actionJSON, _ := json.Marshal(action)
-	intentDigest := sha256Hex(actionJSON)
+	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
 		ArtifactDigest:  artifactDigest,

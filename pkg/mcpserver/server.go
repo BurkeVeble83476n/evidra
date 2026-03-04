@@ -228,7 +228,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		actionJSON, _ := json.Marshal(input.CanonicalAction)
 		cr = canon.CanonResult{
 			ArtifactDigest:  canon.SHA256Hex(rawArtifact),
-			IntentDigest:    canon.SHA256Hex(actionJSON),
+			IntentDigest:    canon.ComputeIntentDigest(*input.CanonicalAction),
 			CanonicalAction: *input.CanonicalAction,
 			CanonVersion:    "external/v1",
 			RawAction:       actionJSON,
