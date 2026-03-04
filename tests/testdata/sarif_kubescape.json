@@ -1,0 +1,30 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Kubescape"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "KSV001",
+          "level": "warning",
+          "message": {
+            "text": "Container is running as root"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deployment.yaml"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -55,6 +55,20 @@ evidra report --prescription <id> --exit-code 0
 evidra scorecard --actor agent-1 --period 30d
 ```
 
+### Scanner Context (Defaults: Trivy + Kubescape)
+
+```bash
+# Trivy default (Terraform/IaC)
+trivy config . --format sarif > scanner_report.sarif
+evidra prescribe --tool terraform --artifact plan.json --scanner-report scanner_report.sarif
+
+# Kubescape default (Kubernetes)
+kubescape scan . --format sarif --output scanner_report_k8s.sarif
+evidra prescribe --tool kubectl --artifact manifest.yaml --scanner-report scanner_report_k8s.sarif
+```
+
+One SARIF ingestion contract: `--scanner-report` for both scanners.
+
 ### MCP Server (for AI agents)
 
 ```bash
@@ -109,7 +123,8 @@ Three binaries:
 - [Roadmap](docs/product/EVIDRA_ROADMAP.md) — release plan and milestones
 - [Strategic Direction](docs/product/EVIDRA_STRATEGIC_DIRECTION.md) — long-term vision
 - [Strategic Moat & Standardization](docs/system-design/EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) — competitive positioning
-- [Integration Roadmap](docs/system-design/EVIDRA_INTEGRATION_ROADMAP.md) — tool integration plan
+- [Integration Roadmap](docs/system-design/done/EVIDRA_INTEGRATION_ROADMAP.md) — tool integration plan
+- [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md) — Trivy + Kubescape defaults with one contract
 
 ### Migration & History
 

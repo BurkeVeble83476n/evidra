@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-func TestParseSARIF_Checkov(t *testing.T) {
+func TestParseSARIF_Trivy(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("../../tests/testdata/sarif_checkov.json")
+	data, err := os.ReadFile("../../tests/testdata/sarif_trivy.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -18,27 +18,54 @@ func TestParseSARIF_Checkov(t *testing.T) {
 		t.Fatalf("Parse: %v", err)
 	}
 
-	if len(findings) != 2 {
-		t.Fatalf("expected 2 findings, got %d", len(findings))
+	if len(findings) == 0 {
+		t.Fatal("expected findings")
 	}
 
 	f := findings[0]
-	if f.Tool != "checkov" {
-		t.Errorf("tool: got %q, want checkov", f.Tool)
+	if f.Tool != "trivy" {
+		t.Errorf("tool: got %q, want trivy", f.Tool)
 	}
-	if f.RuleID != "CKV_K8S_1" {
-		t.Errorf("rule_id: got %q, want CKV_K8S_1", f.RuleID)
+	if f.RuleID != "AVD-AWS-0001" {
+		t.Errorf("rule_id: got %q, want AVD-AWS-0001", f.RuleID)
 	}
 	if f.Severity != "high" {
 		t.Errorf("severity: got %q, want high", f.Severity)
 	}
-	if f.Resource != "deployment.yaml" {
+	if f.Resource != "main.tf" {
 		t.Errorf("resource: got %q", f.Resource)
 	}
+}
 
-	f2 := findings[1]
-	if f2.Severity != "medium" {
-		t.Errorf("second finding severity: got %q, want medium", f2.Severity)
+func TestParseSARIF_Kubescape(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile("../../tests/testdata/sarif_kubescape.json")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	findings, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	if len(findings) == 0 {
+		t.Fatal("expected findings")
+	}
+
+	f := findings[0]
+	if f.Tool != "kubescape" {
+		t.Errorf("tool: got %q, want kubescape", f.Tool)
+	}
+	if f.RuleID != "KSV001" {
+		t.Errorf("rule_id: got %q, want KSV001", f.RuleID)
+	}
+	if f.Severity != "medium" {
+		t.Errorf("severity: got %q, want medium", f.Severity)
+	}
+	if f.Resource != "deployment.yaml" {
+		t.Errorf("resource: got %q", f.Resource)
 	}
 }
 
@@ -64,6 +91,22 @@ func TestParseSARIF_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestParseSARIF_MissingToolNameDefaultsUnknown(t *testing.T) {
+	t.Parallel()
+
+	data := []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{}},"results":[{"ruleId":"X","level":"warning","message":{"text":"m"}}]}]}`)
+	findings, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Tool != "unknown" {
+		t.Fatalf("tool: got %q, want unknown", findings[0].Tool)
+	}
+}
+
 func TestMapSeverity(t *testing.T) {
 	t.Parallel()
 
@@ -71,8 +114,12 @@ func TestMapSeverity(t *testing.T) {
 		input string
 		want  string
 	}{
+		{"critical", "critical"},
+		{"high", "high"},
 		{"error", "high"},
+		{"medium", "medium"},
 		{"warning", "medium"},
+		{"low", "low"},
 		{"note", "low"},
 		{"unknown", "info"},
 		{"", "info"},

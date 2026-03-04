@@ -497,9 +497,6 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 
 	// Write scanner findings as evidence entries.
 	if *scannerFlag != "" {
-		evidencePath := resolveEvidencePath(*evidenceFlag)
-		actor := *actorFlag
-
 		sarifData, err := os.ReadFile(*scannerFlag)
 		if err != nil {
 			fmt.Fprintf(stderr, "read scanner report: %v\n", err)
@@ -510,13 +507,14 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "parse scanner report: %v\n", err)
 			return 1
 		}
+		writtenFindings := 0
 		for _, f := range findings {
 			findingPayload, _ := json.Marshal(f)
 			lastHash, _ := evidence.LastHashAtPath(evidencePath)
 			findingEntry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 				Type:           evidence.EntryTypeFinding,
 				TraceID:        cr.ArtifactDigest,
-				Actor:          evidence.Actor{Type: "cli", ID: actor},
+				Actor:          actor,
 				ArtifactDigest: cr.ArtifactDigest,
 				Payload:        findingPayload,
 				PreviousHash:   lastHash,
@@ -524,11 +522,16 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 				AdapterVersion: version.Version,
 			})
 			if err != nil {
+				fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", f.RuleID, err)
 				continue
 			}
-			evidence.AppendEntryAtPath(evidencePath, findingEntry)
+			if err := evidence.AppendEntryAtPath(evidencePath, findingEntry); err != nil {
+				fmt.Fprintf(stderr, "warning: write finding entry failed for rule %s: %v\n", f.RuleID, err)
+				continue
+			}
+			writtenFindings++
 		}
-		result["findings_count"] = len(findings)
+		result["findings_count"] = writtenFindings
 	}
 
 	enc := json.NewEncoder(stdout)

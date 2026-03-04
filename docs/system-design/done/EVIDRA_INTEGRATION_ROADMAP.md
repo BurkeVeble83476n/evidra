@@ -16,35 +16,32 @@ discoverable package in the ecosystem where users already live.
 
 ### Principle
 
-Evidra does NOT validate infrastructure. Checkov, Trivy, tfsec,
-Kics already do this better than we ever will. Instead of building
+Evidra does NOT validate infrastructure. Trivy, Kubescape, KICS,
+and similar scanners already do this better than we ever will. Instead of building
 detectors that duplicate their work, **Evidra consumes their output
 as risk context**.
 
 This gives us:
 - Hundreds of security rules without writing any
-- Instant credibility ("works with Checkov/Trivy")
+- Instant credibility ("works with Trivy/Kubescape")
 - Faster time to market (no validation code to maintain)
 - Stronger signals (their context + our behavioral telemetry)
 
 ### How it works
 
 ```
-terraform plan → tfplan.json
-                     │
-         ┌───────────┼───────────┐
-         ▼           ▼           ▼
-     checkov      trivy       tfsec
-         │           │           │
-         └─────┬─────┘───────────┘
+terraform plan / kubernetes manifest
+               │
+      ┌────────┴────────┐
+      ▼                 ▼
+   trivy            kubescape
+      │                 │
+      └────────┬────────┘
                ▼
-         scanner_report.json
+       scanner_report.sarif
                │
                ▼
-    evidra prescribe \
-      --tool terraform \
-      --artifact tfplan.json \
-      --scanner-report scanner_report.json
+    evidra prescribe --scanner-report scanner_report.sarif
 ```
 
 Evidra receives the scanner report alongside the raw artifact.
@@ -58,13 +55,13 @@ Evidra's own detectors, but imported context.
   "prescription_id": "prs-01HX...",
   "risk_level": "high",
   "risk_tags": [
-    "checkov:CKV_AWS_18:S3 bucket logging disabled",
-    "checkov:CKV_AWS_19:S3 bucket encryption disabled",
-    "trivy:AVD-AWS-0086:S3 bucket public access"
+    "trivy:AVD-AWS-0086:S3 bucket public access",
+    "trivy:AVD-KSV-0030:Container runs as root",
+    "kubescape:KSV001:Container is running as root"
   ],
   "risk_details": [
     "3 security findings from external scanners",
-    "2 from Checkov, 1 from Trivy"
+    "2 from Trivy, 1 from Kubescape"
   ],
   "canonical_action": { ... },
   "artifact_digest": "sha256:..."
@@ -93,23 +90,20 @@ Simple rule:
 ### Scanner report format
 
 Evidra accepts scanner output in SARIF (Static Analysis Results
-Interchange Format). Checkov, Trivy, tfsec all export SARIF.
+Interchange Format). Trivy and Kubescape both export SARIF.
 
 ```bash
-# Checkov
-checkov -d . --output sarif > scanner_report.sarif
-
-# Trivy
+# Trivy (Terraform/IaC)
 trivy config . --format sarif > scanner_report.sarif
 
-# tfsec
-tfsec . --format sarif > scanner_report.sarif
+# Kubescape (Kubernetes)
+kubescape scan . --format sarif --output scanner_report_k8s.sarif
 
 # Then prescribe with scanner context
 evidra prescribe \
-  --tool terraform \
-  --artifact tfplan.json \
-  --scanner-report scanner_report.sarif
+  --tool kubectl \
+  --artifact manifest.yaml \
+  --scanner-report scanner_report_k8s.sarif
 ```
 
 One flag. Any SARIF-compatible scanner. No custom integration per
@@ -155,7 +149,7 @@ This is stronger than any scanner alone: it measures the agent's
 | SARIF parser (extract findings, severity) | 1 day | v0.3.0 |
 | Scanner findings → risk_tags mapping | half day | v0.3.0 |
 | Scanner findings → risk_level elevation | half day | v0.3.0 |
-| GitHub Action example with Checkov + Evidra | 1 day | v0.3.0 |
+| GitHub Action example with Kubescape + Evidra | 1 day | v0.3.0 |
 | GitHub Action example with Trivy + Evidra | 1 day | v0.3.0 |
 | risk_ignorance signal | 2 days | v0.4.0 |
 
@@ -195,15 +189,13 @@ at launch.
 
 | Rank | Scanner | Market position | SARIF support | Evidra priority |
 |------|---------|----------------|---------------|-----------------|
-| 1 | **Checkov** | Most popular IaC scanner. 1000+ policies. Palo Alto backed. | Yes | v0.3.0 (day one) |
-| 2 | **Trivy** | All-in-one scanner. Absorbed tfsec. Aqua backed. K8s + TF + containers. | Yes | v0.3.0 (day one) |
-| 3 | **tfsec** | Terraform-focused. Now part of Trivy. Still widely used standalone. | Yes | v0.3.0 (via Trivy) |
-| 4 | **KICS** | Checkmarx. Broad IaC support. 1900+ queries. | Yes | v0.3.0 (SARIF) |
-| 5 | **Terrascan** | Tenable. Rego-based custom policies. | Yes | v0.3.0 (SARIF) |
-| 6 | **Snyk IaC** | Commercial but popular. Developer-friendly. | Yes | v0.3.0 (SARIF) |
-| 7 | **Semgrep** | Generic code analysis with IaC rules. | Yes | v0.4.0 |
-| 8 | **Kubescape** | K8s-specific security. NSA/CISA hardening. | Partial | v0.4.0 |
-| 9 | **Prowler** | AWS-specific. CIS benchmarks. | JSON | v0.5.0 |
+| 1 | **Trivy** | All-in-one scanner for IaC, containers, and K8s. Aqua backed. | Yes | v0.3.0 (default) |
+| 2 | **Kubescape** | K8s-native security scanner with strong compliance coverage. | Yes | v0.3.0 (default) |
+| 3 | **KICS** | Checkmarx. Broad IaC support. 1900+ queries. | Yes | v0.3.0 (SARIF) |
+| 4 | **Terrascan** | Tenable. Rego-based custom policies. | Yes | v0.3.0 (SARIF) |
+| 5 | **Snyk IaC** | Commercial but popular. Developer-friendly. | Yes | v0.3.0 (SARIF) |
+| 6 | **Semgrep** | Generic code analysis with IaC rules. | Yes | v0.4.0 |
+| 7 | **Prowler** | AWS-specific. CIS benchmarks. | JSON | v0.5.0 |
 
 **Key insight:** ALL top scanners support SARIF. One SARIF parser
 covers 90%+ of the scanner market. We don't build per-scanner
@@ -256,7 +248,7 @@ to all other frameworks at v0.4.0.
 5. `--scanner-report` flag accepting SARIF
 6. SARIF parser (extract findings + severity)
 7. Scanner findings → risk_tags + risk_level elevation
-8. GH Action example: Checkov + Evidra pipeline
+8. GH Action example: Kubescape + Evidra pipeline
 9. GH Action example: Trivy + Evidra pipeline
 
 **CI/CD distribution:**
@@ -277,7 +269,7 @@ Days of work: ~30 days for one developer.
 16. curl | sh install script
 17. Terraform External Data Source example
 18. Blog post: "Measure your Terraform pipeline reliability in 5 minutes"
-19. Blog post: "Checkov + Evidra: security findings meet behavioral telemetry"
+19. Blog post: "Kubescape + Evidra: Kubernetes findings meet behavioral telemetry"
 
 ### v0.4.0 — SDKs + More Scanners
 
@@ -304,7 +296,7 @@ For every scanner we claim to support:
 
 | Requirement | Status |
 |------------|--------|
-| Scanner outputs SARIF | Verified (Checkov, Trivy, tfsec, KICS, Terrascan, Snyk) |
+| Scanner outputs SARIF | Verified (Trivy, Kubescape, KICS, Terrascan, Snyk) |
 | Evidra parses their SARIF correctly | Tested with sample output |
 | Example CI pipeline with scanner + Evidra | In repo under integrations/ |
 | README shows scanner + Evidra combo | Published |
@@ -331,7 +323,7 @@ We do NOT write per-scanner code. If it outputs SARIF, it works.
 - VS Code extension (no value add over CLI)
 - Web dashboard before v0.5.0 (scorecard CLI is sufficient)
 - Custom agent protocol (MCP is the standard)
-- pre-commit hook (Evidra works with operations, not files — linting is Checkov/Trivy territory)
+- pre-commit hook (Evidra works with operations, not files — linting is Trivy/Kubescape territory)
 - Per-scanner integration code (SARIF is the standard, one parser covers all)
 - Chef / Puppet / SaltStack adapters (declining market, pre-canonicalized path covers them)
 

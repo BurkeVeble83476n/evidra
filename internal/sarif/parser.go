@@ -45,14 +45,17 @@ func Parse(data []byte) ([]evidence.FindingPayload, error) {
 
 	var findings []evidence.FindingPayload
 	for _, run := range report.Runs {
-		toolName := run.Tool.Driver.Name
+		toolName := strings.ToLower(strings.TrimSpace(run.Tool.Driver.Name))
+		if toolName == "" {
+			toolName = "unknown"
+		}
 		for _, result := range run.Results {
 			resource := ""
 			if len(result.Locations) > 0 {
 				resource = result.Locations[0].PhysicalLocation.ArtifactLocation.URI
 			}
 			findings = append(findings, evidence.FindingPayload{
-				Tool:     strings.ToLower(toolName),
+				Tool:     toolName,
 				RuleID:   result.RuleID,
 				Severity: mapSeverity(result.Level),
 				Resource: resource,
@@ -65,12 +68,14 @@ func Parse(data []byte) ([]evidence.FindingPayload, error) {
 }
 
 func mapSeverity(level string) string {
-	switch strings.ToLower(level) {
-	case "error":
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "critical":
+		return "critical"
+	case "high", "error":
 		return "high"
-	case "warning":
+	case "medium", "warning":
 		return "medium"
-	case "note":
+	case "low", "note":
 		return "low"
 	default:
 		return "info"
