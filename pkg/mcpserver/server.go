@@ -237,6 +237,34 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		// Standard path: run adapter.
 		cr = canon.Canonicalize(input.Tool, input.Operation, input.Environment, rawArtifact)
 		if cr.ParseError != nil {
+			// Write canonicalization_failure evidence entry
+			if s.evidencePath != "" {
+				failPayload, _ := json.Marshal(evidence.CanonFailurePayload{
+					ErrorCode:    "parse_error",
+					ErrorMessage: cr.ParseError.Error(),
+					Adapter:      cr.CanonVersion,
+					RawDigest:    cr.ArtifactDigest,
+				})
+				actor := evidence.Actor{
+					Type:       input.Actor.Type,
+					ID:         input.Actor.ID,
+					Provenance: input.Actor.Origin,
+				}
+				lastHash, _ := evidence.LastHashAtPath(s.evidencePath)
+				entry, buildErr := evidence.BuildEntry(evidence.EntryBuildParams{
+					Type:           evidence.EntryTypeCanonFailure,
+					TraceID:        s.traceID,
+					Actor:          actor,
+					ArtifactDigest: cr.ArtifactDigest,
+					Payload:        failPayload,
+					PreviousHash:   lastHash,
+					SpecVersion:    "0.3.0",
+					AdapterVersion: version.Version,
+				})
+				if buildErr == nil {
+					evidence.AppendEntryAtPath(s.evidencePath, entry)
+				}
+			}
 			return PrescribeOutput{
 				OK:    false,
 				Error: &ErrInfo{Code: "parse_error", Message: cr.ParseError.Error()},
