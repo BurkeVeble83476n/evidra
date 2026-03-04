@@ -3,6 +3,8 @@ package risk
 import (
 	"encoding/json"
 	"testing"
+
+	"samebits.com/evidra-benchmark/internal/canon"
 )
 
 // --- Matrix tests ---
@@ -395,7 +397,7 @@ spec:
     securityContext:
       privileged: true
 `)
-	tags := RunAll(yaml)
+	tags := RunAll(canon.CanonicalAction{}, yaml)
 	assertContains(t, tags, "k8s.privileged_container")
 	assertContains(t, tags, "k8s.host_namespace_escape")
 	assertContains(t, tags, "k8s.hostpath_mount")
@@ -413,7 +415,7 @@ spec:
   - name: app
     image: nginx
 `)
-	tags := RunAll(yaml)
+	tags := RunAll(canon.CanonicalAction{}, yaml)
 	assertEmpty(t, tags, "RunAll")
 }
 

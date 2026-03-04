@@ -105,8 +105,7 @@ contract between adapters and signals/scorecard.
     }
   ],
   "scope_class": "staging",
-  "resource_count": 1,
-  "risk_tags": []
+  "resource_count": 1
 }
 ```
 
@@ -121,7 +120,26 @@ Fields:
 | scope_class | string | derived | production, staging, development, unknown |
 | resource_count | int | from adapter | number of resources in artifact |
 | resource_shape_hash | string | from adapter | SHA256 of normalized spec content |
-| risk_tags | array | from detectors | catastrophic risk patterns found |
+
+**risk_tags are NOT part of CanonicalAction.** They are populated
+by catastrophic risk detectors AFTER canonicalization and belong
+to the Prescription wrapper:
+
+```go
+type Prescription struct {
+    ID              string          `json:"prescription_id"`
+    CanonicalAction CanonicalAction `json:"canonical_action"`
+    ArtifactDigest  string          `json:"artifact_digest"`
+    IntentDigest    string          `json:"intent_digest"`
+    RiskLevel       string          `json:"risk_level"`
+    RiskTags        []string        `json:"risk_tags"`      // detector output, not canon output
+    Timestamp       time.Time       `json:"ts"`
+    Signature       string          `json:"signature"`
+}
+```
+
+CanonicalAction is pure adapter output (deterministic, testable).
+RiskTags are detector output (separate concern, separate timing).
 
 **resource_identity** is the stable identity. Same deployment with
 different image tags → same resource_identity. This is intentional —
@@ -140,9 +158,11 @@ as a retry loop (same intent_digest, but different actual content).
   (no field values — already the intent for TF).
 - Generic: SHA256 of the raw artifact bytes.
 
-**risk_tags** are populated by catastrophic risk detectors AFTER
-canonicalization. They are NOT part of intent_digest. They are
-metadata attached to the prescription.
+**Detectors receive BOTH canonical_action AND raw artifact.**
+The canonical_action tells them "what kind of resource" (Deployment,
+SecurityGroup). The raw artifact bytes tell them "what's inside"
+(spec fields, security context, IAM statements). The adapter strips
+noise and extracts identity; detectors need the full content.
 
 ### intent_digest computation
 
@@ -1015,6 +1035,44 @@ WARNING: Canonicalization version changed during scoring period.
 
   Scoring with k8s/v2 data only.
 ```
+
+### 12.5 Compatibility Rules
+
+These rules define what is a breaking change to the canonicalization
+contract. Breaking changes require a version bump. Non-breaking
+changes do not.
+
+**BREAKING (requires version bump):**
+
+| Change | Why breaking |
+|--------|-------------|
+| Add/remove field from noise list | Changes intent_digest for same input |
+| Change identity field extraction | Changes resource_identity |
+| Change canonical JSON serialization | Changes intent_digest |
+| Change sort order of resources | Changes intent_digest |
+| Change scope_class frozen mapping | Changes scope_class → intent_digest |
+| Change operation_class mapping | Changes operation_class → intent_digest |
+| Change resource_shape_hash computation | Breaks retry loop detection continuity |
+| Fix parser bug that changes output | Golden corpus digests change |
+| Library major version bump | Assume output may change |
+
+**NON-BREAKING (no version bump):**
+
+| Change | Why non-breaking |
+|--------|-----------------|
+| Add new risk detector | risk_tags not in intent_digest or shape_hash |
+| Change risk matrix thresholds | risk_level not in any digest |
+| Add new adapter for new tool | Existing adapters unchanged |
+| Fix parser bug without output change | Golden corpus unchanged |
+| Library minor version bump | Unless output changes (verify with golden) |
+| Add fields to Prescription wrapper | Prescription is not canonicalization |
+| Add new signal detector | Signals are post-canon |
+| Change scorecard formula/weights | Scoring is post-canon |
+
+**Verification:** Any change to adapter code must pass the existing
+golden corpus without `EVIDRA_UPDATE_GOLDEN=1`. If golden tests
+fail → the change is breaking → version bump required → update
+golden with new version tag.
 
 ---
 

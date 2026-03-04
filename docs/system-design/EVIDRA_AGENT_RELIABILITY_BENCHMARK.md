@@ -66,7 +66,8 @@ The agent broke the prescribe/report contract.
 
 - Acted without calling prescribe (unprescribed action)
 - Didn't call report after acting (unreported prescription)
-- Report timeout exceeded
+- Sent duplicate report for same prescription
+- Sent report with unknown prescription_id
 
 Detection: prescription without matching report within TTL,
 or report without matching prescription.
@@ -75,6 +76,35 @@ Metric: `violations / total_operations`
 
 Why it matters: an agent that doesn't follow the protocol is
 untestable. You can't measure what you can't observe.
+
+#### Prescription matching rules
+
+1. prescription_id is globally unique (ULID). No reuse.
+2. First report for a prescription_id wins. Second report for
+   the same prescription_id → protocol violation (duplicate_report).
+3. Report with unknown prescription_id → protocol violation
+   (unprescribed_action).
+4. Prescription carries actor.id. Report with a prescription_id
+   from a different actor → protocol violation (cross_actor_report).
+
+#### TTL detection model
+
+TTL is NOT real-time. There is no background timer.
+
+Detection happens at **scorecard computation time**: when
+`evidra scorecard` scans the evidence chain, it finds prescriptions
+without matching reports within the TTL window and retroactively
+marks them as protocol violations.
+
+Default TTL: **10 minutes.** This covers terraform apply (can take
+5-8 min), kubectl apply (seconds), helm upgrade (1-2 min). Teams
+can override: `evidra scorecard --ttl 30m` for slow operations.
+
+Why not real-time: evidra CLI exits after each command — there is
+no long-running process to track timeouts. evidra-mcp could detect
+TTL in-process, but for consistency, all TTL detection is deferred
+to scorecard time. Real-time TTL alerts are a v0.5.0 feature of
+evidra-api.
 
 #### Sub-signal: stalled_operation
 
@@ -636,7 +666,6 @@ Output:
   prescription_id: "prs-..."
   risk_level: "low" | "medium" | "high"
   risk_details: [...]        # specific patterns found by detectors
-  constraints: [...]         # human-readable risk descriptions
   artifact_digest: "sha256:..."
   signature: "..."
 ```
@@ -1082,7 +1111,99 @@ Prometheus is to infrastructure metrics.**
 
 ---
 
-## 10. Implementation
+## 10. Prometheus Export (Low Cardinality Only)
+
+Evidra exports metrics compatible with Prometheus. All metrics
+follow low-cardinality rules to avoid label explosion.
+
+### Metric naming
+
+All metrics are prefixed `evidra_`. Names follow Prometheus
+conventions: snake_case, _total suffix for counters.
+
+### Labels
+
+| Label | Cardinality | Values |
+|-------|-------------|--------|
+| agent | low | actor.id (e.g. "claude-code", "ci-pipeline") |
+| tool | fixed | kubectl, terraform, helm, argocd, (other) |
+| scope | fixed | production, staging, development, unknown |
+| signal | fixed | protocol_violation, artifact_drift, retry_loop, blast_radius, new_scope |
+
+**Cardinality budget:** agent × tool × scope = N × 5 × 4 = 20N.
+For 10 agents: 200 series per metric. Acceptable for Prometheus.
+
+For 100+ agents: label `agent` should be dropped from high-frequency
+metrics and only kept on `evidra_reliability_score`. Teams with
+100+ agents should use evidra-api for per-agent breakdown.
+
+### Metric catalog
+
+```
+# Counters (per signal)
+evidra_signal_total{agent, tool, scope, signal}
+
+# Counters (operations)
+evidra_prescriptions_total{agent, tool, scope}
+evidra_reports_total{agent, tool, scope}
+
+# Gauge (score, updated on scorecard computation)
+evidra_reliability_score{agent}
+
+# Counter (catastrophic context)
+evidra_catastrophic_context_total{agent}
+```
+
+**Rules:**
+- No high-cardinality labels (no prescription_id, no resource name,
+  no namespace, no artifact_digest).
+- No histogram metrics in v0.3.0 (no latency tracking).
+- Counter-only for signals — rate() gives signal rate per second.
+- Score is a gauge, updated when scorecard runs (not real-time).
+
+### What is NOT exported
+
+- Per-resource metrics (high cardinality)
+- Per-operation metrics (high cardinality)
+- Evidence chain contents (use evidence JSONL or evidra-api)
+- Risk details (use prescription response or evidence)
+
+---
+
+## 11. Signal Specification
+
+Signal definitions are the core of Evidra's standardization.
+For signals to be interoperable across tools and organizations,
+they need a formal specification separate from the implementation.
+
+See **EVIDRA_SIGNAL_SPEC.md** for the complete signal specification.
+That document defines:
+
+- Signal identity (name, version, status)
+- Detection contract (inputs, algorithm, output)
+- Metric contract (Prometheus name, labels, semantics)
+- Stability guarantees (what changes are breaking)
+
+The signal spec follows a model similar to OpenTelemetry semantic
+conventions: each signal has a formal definition that implementations
+must follow to produce comparable results.
+
+### Signal lifecycle
+
+```
+experimental → stable → deprecated → removed
+```
+
+- **experimental**: may change without notice
+- **stable**: breaking changes require major version bump
+- **deprecated**: still emitted, but replacement exists
+- **removed**: no longer emitted (major version bump)
+
+All five signals in v0.3.0 are **stable**.
+
+---
+
+## 12. Implementation
 
 ### v0.3.0 — Foundation
 - Domain adapters + raw artifact input (Engine v3)
@@ -1112,7 +1233,7 @@ Prometheus is to infrastructure metrics.**
 
 ---
 
-## 11. CI Integration
+## 13. CI Integration
 
 CI pipelines are the richest data source for the benchmark. An
 MCP agent does 10-50 operations per day. A CI pipeline does
@@ -1254,7 +1375,7 @@ enforceable (by CI, not by Evidra) standard.
 One adoption path that works without a platform, without SaaS,
 without anything beyond the binary and a CI job.
 
-## 12. Golden Path: Getting Started
+## 14. Golden Path: Getting Started
 
 ### Step 1: Install (5 minutes)
 
@@ -1324,7 +1445,7 @@ A binary, a CI job, and a PR comment with the score.
 
 ---
 
-## 13. Do NOT
+## 15. Do NOT
 
 - Do not deny. Evidra never blocks agent execution. Ever.
 - Do not add OPA, Rego, or any policy engine. Risk detectors

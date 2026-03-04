@@ -1,6 +1,9 @@
 package canon
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 // CanonicalAction is the normalized representation of an infrastructure operation.
 type CanonicalAction struct {
@@ -11,7 +14,34 @@ type CanonicalAction struct {
 	ScopeClass        string       `json:"scope_class"`
 	ResourceCount     int          `json:"resource_count"`
 	ResourceShapeHash string       `json:"resource_shape_hash"`
-	RiskTags          []string     `json:"risk_tags,omitempty"`
+}
+
+// Prescription records intent before an infrastructure operation.
+type Prescription struct {
+	ID              string          `json:"prescription_id"`
+	CanonicalAction CanonicalAction `json:"canonical_action"`
+	ArtifactDigest  string          `json:"artifact_digest"`
+	IntentDigest    string          `json:"intent_digest"`
+	RiskLevel       string          `json:"risk_level"`
+	RiskTags        []string        `json:"risk_tags"`
+	RiskDetails     []string        `json:"risk_details"`
+	Timestamp       time.Time       `json:"ts"`
+	Signature       string          `json:"signature"`
+}
+
+// Report records the outcome of an infrastructure operation.
+type Report struct {
+	ID             string    `json:"report_id"`
+	PrescriptionID string    `json:"prescription_id"`
+	ActorID        string    `json:"actor_id"`
+	Tool           string    `json:"tool"`
+	Operation      string    `json:"operation"`
+	ExitCode       int       `json:"exit_code"`
+	ArtifactDigest string    `json:"artifact_digest"`
+	Timestamp      time.Time `json:"ts"`
+	Verdict        string    `json:"verdict"`
+	Signals        []string  `json:"signals"`
+	Signature      string    `json:"signature"`
 }
 
 // ResourceID identifies a single resource within a canonical action.

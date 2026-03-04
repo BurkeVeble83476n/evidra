@@ -2,6 +2,10 @@ package signal
 
 import "time"
 
+// DefaultTTL is the default time-to-live for prescription matching.
+// Prescriptions without a report within this window are flagged.
+const DefaultTTL = 10 * time.Minute
+
 // Entry represents a single evidence record for signal analysis.
 type Entry struct {
 	EventID        string
@@ -27,6 +31,15 @@ type SignalResult struct {
 	Name     string
 	Count    int
 	EventIDs []string
+}
+
+// SignalEvent is a detailed signal occurrence with sub-signal classification.
+type SignalEvent struct {
+	Signal    string    `json:"signal"`
+	SubSignal string    `json:"sub_signal"`
+	Timestamp time.Time `json:"ts"`
+	EntryRef  string    `json:"entry_ref"`
+	Details   string    `json:"details"`
 }
 
 // AllSignals runs all five signal detectors and returns their results.

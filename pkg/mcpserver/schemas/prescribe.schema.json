@@ -1,38 +1,45 @@
 {
   "type": "object",
-  "required": ["actor", "tool", "operation", "raw_artifact"],
+  "required": ["tool", "operation", "raw_artifact", "actor"],
   "properties": {
+    "tool": {
+      "type": "string",
+      "description": "Infrastructure tool name (kubectl, terraform, helm, etc.)"
+    },
+    "operation": {
+      "type": "string",
+      "description": "Tool operation (apply, delete, destroy, upgrade, etc.)"
+    },
+    "raw_artifact": {
+      "type": "string",
+      "description": "Raw artifact content (YAML manifest, JSON plan, etc.)"
+    },
+    "canonical_action": {
+      "type": "object",
+      "description": "Optional pre-canonicalized action for self-aware tools",
+      "properties": {
+        "resource_identity": { "type": "array" },
+        "resource_count": { "type": "integer" },
+        "operation_class": { "type": "string" },
+        "scope_class": { "type": "string" }
+      }
+    },
     "actor": {
       "type": "object",
-      "required": ["type", "id"],
+      "required": ["type", "id", "origin"],
       "properties": {
-        "type": { "type": "string", "enum": ["agent", "human", "ci"] },
+        "type": { "type": "string" },
         "id": { "type": "string" },
         "origin": { "type": "string" }
       }
     },
-    "tool": { "type": "string", "description": "Tool name (e.g. kubectl, terraform)" },
-    "operation": { "type": "string", "description": "Operation (e.g. apply, delete, plan)" },
-    "raw_artifact": { "type": "string", "description": "Raw YAML or JSON artifact to analyze" },
-    "environment": { "type": "string", "description": "Environment label (e.g. production, staging)" },
     "actor_meta": {
       "type": "object",
-      "description": "Additional metadata about the actor (optional, free-form)"
+      "description": "Optional comparison dimensions (agent_version, model_id, prompt_id)"
     },
-    "canonical_action": {
-      "type": "object",
-      "description": "Pre-canonicalized action. When provided, the adapter step is skipped.",
-      "properties": {
-        "tool": { "type": "string" },
-        "operation": { "type": "string" },
-        "operation_class": { "type": "string" },
-        "resource_identity": { "type": "array", "items": { "type": "object" } },
-        "scope_class": { "type": "string" },
-        "resource_count": { "type": "integer" },
-        "resource_shape_hash": { "type": "string" },
-        "risk_tags": { "type": "array", "items": { "type": "string" } }
-      }
+    "environment": {
+      "type": "string",
+      "description": "Environment label (production, staging, development)"
     }
-  },
-  "additionalProperties": false
+  }
 }

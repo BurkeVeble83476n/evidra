@@ -55,43 +55,48 @@ Both produce identical evidence, signals, and scores.
                     │  ARCHITECTURE OVERVIEW (this doc) │
                     └──────────────────┬───────────────┘
                                        │
-            ┌──────────────────────────┼──────────────────────────┐
-            ▼                          ▼                          ▼
-   ┌────────────────┐      ┌────────────────────┐     ┌────────────────────┐
-   │ DESIGN         │      │ CONTRACTS          │     │ EXAMPLES           │
-   │                │      │                    │     │                    │
-   │ Benchmark [1]  │      │ Canonicalization   │     │ End-to-End [5]     │
-   │ Inspector [2]  │      │ Contract [3]       │     │                    │
-   │                │      │ Test Strategy [4]  │     │                    │
-   └────────────────┘      └────────────────────┘     └────────────────────┘
-            │
-            ▼
-   ┌────────────────┐
-   │ HISTORY        │
-   │                │
-   │ Telemetry [6]  │
-   │ Signals [7]    │
-   │ Canon Review[8]│
-   └────────────────┘
+       ┌───────────────────┬───────────┼───────────┬──────────────────┐
+       ▼                   ▼           ▼           ▼                  ▼
+┌────────────┐   ┌──────────────┐  ┌────────┐  ┌──────────┐  ┌────────────┐
+│ DESIGN     │   │ CONTRACTS    │  │ SPECS  │  │ EXAMPLES │  │ OPERATIONS │
+│            │   │              │  │        │  │          │  │            │
+│ Benchmark  │   │ Canon v1 [3] │  │ Signal │  │ E2E [5]  │  │ Baseline   │
+│ [1]        │   │ Tests [4]    │  │ Spec   │  │          │  │ Migration  │
+│ Inspector  │   │              │  │ [6]    │  │          │  │ Bootstrap  │
+│ [2]        │   │              │  │        │  │          │  │ Post-Migr. │
+│ Review [7] │   │              │  │        │  │          │  │            │
+└────────────┘   └──────────────┘  └────────┘  └──────────┘  └────────────┘
 ```
 
 ### Active Documents (current architecture)
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 1 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | **Primary design doc.** Signals, scoring, benchmark tables, risk analysis, protocol, CI integration, golden path. | Active |
+| 1 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | **Primary design doc.** Signals, scoring, benchmark tables, risk analysis, protocol, Prometheus export, CI integration, golden path. | Active |
 | 2 | [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Inspector model rationale. Why prescribe/report, why no execution binding, why zero-privilege. | Active (foundational) |
-| 3 | [CANONICALIZATION_CONTRACT_V1.md](CANONICALIZATION_CONTRACT_V1.md) | **Canonicalization ABI.** Adapter specs, library decisions, noise lists, identity extraction, guarantees table, versioning. | Active (frozen contract) |
+| 3 | [CANONICALIZATION_CONTRACT_V1.md](CANONICALIZATION_CONTRACT_V1.md) | **Canonicalization ABI.** Adapter interface, adapter specs, library decisions, noise lists, identity extraction, guarantees table, compatibility rules, versioning. | Active (frozen contract) |
 | 4 | [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, noise immunity, shape_hash sensitivity, fuzz strategy. ~65 tests, ~105 lines. | Active |
-| 5 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked example: MCP agent flow, CI flow, scorecard output, failure cases. | Active |
+| 5 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked example: MCP agent flow, CI flow, scorecard output, failure cases, pre-canonicalized integration. | Active |
+| 6 | [EVIDRA_SIGNAL_SPEC.md](EVIDRA_SIGNAL_SPEC.md) | **Signal specification.** Formal definitions of all 5 signals: detection contract, metric contract, score formula, stability guarantees, conformance requirements. | Active (standard) |
+| 7 | [EVIDRA_ARCHITECTURE_REVIEW.md](EVIDRA_ARCHITECTURE_REVIEW.md) | Architecture review. Gaps, overengineering, contradictions. Fix list with priorities. | Active (tracking) |
+
+### Operational Documents
+
+| # | Document | Purpose | Status |
+|---|----------|---------|--------|
+| 8 | [EVIDRA_CURRENT_STATE_BASELINE.md](EVIDRA_CURRENT_STATE_BASELINE.md) | v0.2.0 codebase inventory. Every module, its purpose, fate in new architecture. | Reference |
+| 9 | [EVIDRA_MIGRATION_MAP.md](EVIDRA_MIGRATION_MAP.md) | Migration instructions: what to copy, drop, create. File-by-file. | Reference |
+| 10 | [EVIDRA_BOOTSTRAP_PROMPT.md](EVIDRA_BOOTSTRAP_PROMPT.md) | Claude Code prompt for executing migration. | Reference |
+| 11 | [EVIDRA_POST_MIGRATION_UPDATE.md](EVIDRA_POST_MIGRATION_UPDATE.md) | Post-migration: Dockerfiles, MCP schemas, prompts, adapter interface. | Active |
 
 ### Historical Documents (design evolution)
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 6 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics, agent scorecard concept. | Historical |
-| 7 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. Introduced baselines discussion. | Historical |
-| 8 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of the original canonicalization draft. Led to v1 contract. | Historical |
+| 12 | [EVIDRA_TELEMETRY_PLANE_architect_review.md](EVIDRA_TELEMETRY_PLANE_architect_review.md) | Telemetry plane review. Led to tiered metrics, agent scorecard concept. | Historical |
+| 13 | [EVIDRA_SIGNALS_ENGINE_architect_review.md](EVIDRA_SIGNALS_ENGINE_architect_review.md) | Signals engine review. Reduced from 10 signals to 5. Introduced baselines discussion. | Historical |
+| 14 | [CANONICALIZATION_CONTRACT_architect_review.md](CANONICALIZATION_CONTRACT_architect_review.md) | Review of the original canonicalization draft. Led to v1 contract. | Historical |
+| 15 | [EVIDRA_STRATEGIC_DIRECTION.md](EVIDRA_STRATEGIC_DIRECTION.md) | Product strategy. Prometheus analogy, ecosystem positioning. | Strategic |
 
 ### Documents Not in Repo (referenced only)
 

@@ -135,7 +135,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	}
 
 	cr := canon.Canonicalize(*toolFlag, *operationFlag, data)
-	riskTags := risk.RunAll(data)
+	riskTags := risk.RunAll(cr.CanonicalAction, data)
 	riskLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
 
 	result := map[string]interface{}{

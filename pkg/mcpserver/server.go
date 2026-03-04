@@ -131,12 +131,12 @@ func NewServer(opts Options) *mcp.Server {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "prescribe",
-		Title:       "Prescribe Infrastructure Operation",
+		Title:       "Record Infrastructure Intent",
 		Description: prescribeToolDescription,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Prescribe",
 			ReadOnlyHint:    true,
-			IdempotentHint:  true,
+			IdempotentHint:  false,
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(false),
 		},
@@ -145,7 +145,7 @@ func NewServer(opts Options) *mcp.Server {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "report",
-		Title:       "Report Operation Outcome",
+		Title:       "Report Operation Result",
 		Description: reportToolDescription,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Report",
@@ -237,7 +237,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 	}
 
 	// Run risk detectors on raw artifact regardless of canonicalization path
-	riskTags := risk.RunAll(rawArtifact)
+	riskTags := risk.RunAll(cr.CanonicalAction, rawArtifact)
 	riskLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
 
 	// Track retries

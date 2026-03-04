@@ -45,6 +45,87 @@ func TestDetectProtocolViolations_AllMatched(t *testing.T) {
 	}
 }
 
+func TestDetectProtocolViolationEvents_DuplicateReport(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1"},
+		{EventID: "R2", IsReport: true, PrescriptionID: "P1"},
+	}
+	events := DetectProtocolViolationEvents(entries)
+	assertSubSignal(t, events, "duplicate_report")
+}
+
+func TestDetectProtocolViolationEvents_CrossActorReport(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice"},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ActorID: "bob"},
+	}
+	events := DetectProtocolViolationEvents(entries)
+	assertSubSignal(t, events, "cross_actor_report")
+}
+
+func TestDetectProtocolViolationEvents_UnprescribedAction(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "R1", IsReport: true, PrescriptionID: "GHOST"},
+	}
+	events := DetectProtocolViolationEvents(entries)
+	assertSubSignal(t, events, "unprescribed_action")
+}
+
+func TestDetectUnreported_TTLExpired(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, Timestamp: time.Now().Add(-20 * time.Minute)},
+	}
+	events := DetectUnreported(entries, DefaultTTL)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].SubSignal != "crash_before_report" {
+		t.Errorf("sub_signal = %q, want crash_before_report", events[0].SubSignal)
+	}
+}
+
+func TestDetectUnreported_WithinTTL(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, Timestamp: time.Now().Add(-5 * time.Minute)},
+	}
+	events := DetectUnreported(entries, DefaultTTL)
+	if len(events) != 0 {
+		t.Errorf("expected 0 events within TTL, got %d", len(events))
+	}
+}
+
+func TestDetectUnreported_StalledOperation(t *testing.T) {
+	t.Parallel()
+
+	old := time.Now().Add(-20 * time.Minute)
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, Timestamp: old, ActorID: "alice"},
+		{EventID: "P2", IsPrescription: true, Timestamp: old.Add(5 * time.Minute), ActorID: "alice"},
+	}
+	events := DetectUnreported(entries, DefaultTTL)
+	// P1 should be stalled_operation (alice has later activity)
+	for _, e := range events {
+		if e.EntryRef == "P1" {
+			if e.SubSignal != "stalled_operation" {
+				t.Errorf("P1 sub_signal = %q, want stalled_operation", e.SubSignal)
+			}
+			return
+		}
+	}
+	t.Error("P1 not found in events")
+}
+
 func TestDetectArtifactDrift_DriftDetected(t *testing.T) {
 	t.Parallel()
 
@@ -196,6 +277,20 @@ func TestAllSignals_ReturnsAllFive(t *testing.T) {
 			t.Errorf("missing signal %q", want)
 		}
 	}
+}
+
+func assertSubSignal(t *testing.T, events []SignalEvent, want string) {
+	t.Helper()
+	for _, e := range events {
+		if e.SubSignal == want {
+			return
+		}
+	}
+	subs := make([]string, len(events))
+	for i, e := range events {
+		subs[i] = e.SubSignal
+	}
+	t.Errorf("sub_signals %v does not contain %q", subs, want)
 }
 
 func assertEventID(t *testing.T, ids []string, want string) {

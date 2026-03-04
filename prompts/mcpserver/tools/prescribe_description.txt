@@ -1,3 +1,4 @@
-Record intent before an infrastructure operation.
-Returns risk assessment and prescription ID.
-Always call before kubectl apply, terraform apply, helm upgrade, etc.
+Record intent before an infrastructure operation. Provide the tool name,
+operation, and raw artifact (manifest, plan, etc.). Returns risk assessment,
+prescription ID, and artifact digest. Always call before kubectl apply,
+terraform apply, helm upgrade, or any infrastructure mutation.

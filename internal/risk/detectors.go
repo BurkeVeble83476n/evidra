@@ -7,26 +7,98 @@ import (
 	"io"
 
 	"go.yaml.in/yaml/v3"
+
+	"samebits.com/evidra-benchmark/internal/canon"
 )
 
 // MassDeleteThreshold is the default count above which mass delete is flagged.
 const MassDeleteThreshold = 10
 
-// RunAll runs all detectors against the raw artifact and returns combined risk tags.
-func RunAll(raw []byte) []string {
+// Detector inspects an operation for catastrophic risk patterns.
+type Detector interface {
+	Name() string
+	Detect(action canon.CanonicalAction, rawArtifact []byte) []string
+}
+
+// DefaultDetectors returns the built-in detector chain.
+func DefaultDetectors() []Detector {
+	return []Detector{
+		&PrivilegedContainerDetector{},
+		&HostNamespaceDetector{},
+		&HostPathDetector{},
+		&MassDestroyDetector{},
+		&WildcardIAMDetector{},
+		&TerraformIAMWildcardDetector{},
+		&S3PublicAccessDetector{},
+	}
+}
+
+// RunAll runs all detectors against the canonical action and raw artifact,
+// returning combined risk tags.
+func RunAll(action canon.CanonicalAction, raw []byte) []string {
 	var tags []string
-	for _, d := range []func([]byte) []string{
-		DetectPrivileged,
-		DetectHostNamespace,
-		DetectHostPath,
-		DetectMassDestroy,
-		DetectWildcardIAM,
-		DetectTerraformIAMWildcard,
-		DetectS3PublicAccess,
-	} {
-		tags = append(tags, d(raw)...)
+	for _, d := range DefaultDetectors() {
+		tags = append(tags, d.Detect(action, raw)...)
 	}
 	return tags
+}
+
+// --- Detector structs ---
+
+// PrivilegedContainerDetector flags privileged containers in K8s manifests.
+type PrivilegedContainerDetector struct{}
+
+func (d *PrivilegedContainerDetector) Name() string { return "privileged_container" }
+func (d *PrivilegedContainerDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectPrivileged(raw)
+}
+
+// HostNamespaceDetector flags hostPID/hostIPC/hostNetwork usage.
+type HostNamespaceDetector struct{}
+
+func (d *HostNamespaceDetector) Name() string { return "host_namespace" }
+func (d *HostNamespaceDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectHostNamespace(raw)
+}
+
+// HostPathDetector flags hostPath volume mounts.
+type HostPathDetector struct{}
+
+func (d *HostPathDetector) Name() string { return "host_path" }
+func (d *HostPathDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectHostPath(raw)
+}
+
+// MassDestroyDetector flags operations deleting many resources.
+type MassDestroyDetector struct{}
+
+func (d *MassDestroyDetector) Name() string { return "mass_destroy" }
+func (d *MassDestroyDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectMassDestroy(raw)
+}
+
+// WildcardIAMDetector flags IAM policies with Action:* and Resource:*.
+type WildcardIAMDetector struct{}
+
+func (d *WildcardIAMDetector) Name() string { return "wildcard_iam" }
+func (d *WildcardIAMDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectWildcardIAM(raw)
+}
+
+// TerraformIAMWildcardDetector flags IAM policies with any wildcard.
+type TerraformIAMWildcardDetector struct{}
+
+func (d *TerraformIAMWildcardDetector) Name() string { return "terraform_iam_wildcard" }
+func (d *TerraformIAMWildcardDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectTerraformIAMWildcard(raw)
+}
+
+// S3PublicAccessDetector flags S3 buckets without complete public access blocks.
+type S3PublicAccessDetector struct{}
+
+func (d *S3PublicAccessDetector) Name() string { return "s3_public_access" }
+func (d *S3PublicAccessDetector) Detect(_ canon.CanonicalAction, raw []byte) []string {
+	return DetectS3PublicAccess(raw)
 }
 
 // --- K8s detectors ---
