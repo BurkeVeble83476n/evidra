@@ -22,6 +22,7 @@ type Entry struct {
 	ShapeHash      string
 	ResourceCount  int
 	OperationClass string
+	ScopeClass     string
 	ExitCode       *int
 	RiskTags       []string
 }

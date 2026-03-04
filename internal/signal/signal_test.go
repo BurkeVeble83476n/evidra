@@ -338,13 +338,13 @@ func TestDetectNewScope_FirstOccurrences(t *testing.T) {
 	t.Parallel()
 
 	entries := []Entry{
-		{EventID: "P1", IsPrescription: true, Tool: "kubectl", OperationClass: "mutate"},
-		{EventID: "P2", IsPrescription: true, Tool: "kubectl", OperationClass: "mutate"},
-		{EventID: "P3", IsPrescription: true, Tool: "terraform", OperationClass: "plan"},
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "terraform", OperationClass: "plan", ScopeClass: "account"},
 	}
 	result := DetectNewScope(entries)
 	if result.Count != 2 {
-		t.Errorf("count = %d, want 2 (kubectl.mutate + terraform.plan)", result.Count)
+		t.Errorf("count = %d, want 2 (kubectl.mutate.namespace + terraform.plan.account)", result.Count)
 	}
 	assertEventID(t, result.EventIDs, "P1")
 	assertEventID(t, result.EventIDs, "P3")
@@ -354,13 +354,34 @@ func TestDetectNewScope_AllSame(t *testing.T) {
 	t.Parallel()
 
 	entries := []Entry{
-		{EventID: "P1", IsPrescription: true, Tool: "kubectl", OperationClass: "mutate"},
-		{EventID: "P2", IsPrescription: true, Tool: "kubectl", OperationClass: "mutate"},
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
 	}
 	result := DetectNewScope(entries)
 	if result.Count != 1 {
 		t.Errorf("count = %d, want 1", result.Count)
 	}
+}
+
+func TestNewScope_FullKey(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		// Same tool+opClass but different actor → both new.
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+		{EventID: "P2", IsPrescription: true, ActorID: "bob", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+		// Same tool+opClass but different scopeClass → both new.
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "cluster"},
+		// Same full combo repeated → not new.
+		{EventID: "P4", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "namespace"},
+	}
+	result := DetectNewScope(entries)
+	if result.Count != 3 {
+		t.Errorf("count = %d, want 3 (P1, P2, P3 are new; P4 is repeat)", result.Count)
+	}
+	assertEventID(t, result.EventIDs, "P1")
+	assertEventID(t, result.EventIDs, "P2")
+	assertEventID(t, result.EventIDs, "P3")
 }
 
 func TestAllSignals_ReturnsAllFive(t *testing.T) {
