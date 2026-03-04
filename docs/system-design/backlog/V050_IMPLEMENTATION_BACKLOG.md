@@ -57,3 +57,44 @@ No enforcement or isolation logic.
 - Cross-tenant access prevention
 
 **Effort:** ~3 days
+
+### 5. Compare --versions (Agent Version Comparison)
+
+**Current state:** `evidra compare` compares different actors by workload
+profile (Jaccard similarity). No version-based comparison exists.
+The doc describes `evidra compare --actor claude-code --versions v1.2,v1.3`.
+
+**Work required:**
+- Add `agent_version` and `model_id` to Actor or actor_meta in prescribe input
+- Store in evidence entries
+- Add `--versions` flag to `cmdCompare`
+- Filter entries by actor+version, compute per-version scorecards
+- Always valid comparison (same agent, same workload)
+
+**Effort:** ~2 days
+
+### 6. Scorecard BY TOOL / BY SCOPE Breakdowns
+
+**Current state:** Scorecard outputs aggregate score only. Tool/scope
+filtering exists via `--tool`/`--scope` flags, but no grouped breakdown.
+The doc shows per-tool and per-scope score tables.
+
+**Work required:**
+- Group signal entries by tool and scope_class
+- Compute per-group scores (score, ops, drift rate, retry rate)
+- Add `by_tool` and `by_scope` sections to scorecard JSON output
+- Consider text table output mode for human readability
+
+**Effort:** ~2 days
+
+### 7. Compare --force and Overlap Warning
+
+**Current state:** `cmdCompare` computes `workload_overlap` silently
+in JSON output. No warning to stderr when overlap is low.
+
+**Work required:**
+- Add `--force` flag to suppress warning
+- Print warning to stderr when overlap < 0.3 and --force not set
+- Include overlap percentage and per-actor tool/scope lists in warning
+
+**Effort:** ~0.5 days
