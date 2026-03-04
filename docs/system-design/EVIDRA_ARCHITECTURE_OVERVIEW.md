@@ -329,6 +329,40 @@ pre-canonicalized input — documented as a known limitation.
 
 Source: PO Recommendation §2.5
 
+### Post-Implementation Decisions (v0.3.0)
+
+### CLI and MCP Server Both Write Evidence
+MCP server was the sole evidence writer in early v0.3.0. CLI commands
+(`prescribe`, `report`) now also write evidence entries. Both paths
+produce identical `EvidenceEntry` format with the same hash chain.
+
+### trace_id = Process/Invocation Lifetime
+MCP server: ULID generated at `NewServer()`, shared across the entire
+session. CLI: ULID generated per command invocation. This means MCP
+sessions naturally group related operations; CLI invocations are
+independent.
+
+### Report Actor Resolution
+`ReportInput` accepts an optional `actor` field. Falls back to
+`lastActor` from the preceding prescribe call in MCP server. CLI
+requires explicit `--actor` or defaults to "cli".
+
+### Signature Field Is Placeholder (v0.3.0)
+`EvidenceEntry.Signature` is always empty. The Ed25519 `Signer` module
+exists in `internal/evidence/signer.go` (149 LOC, 14 tests) but is not
+integrated. Signing integration is deferred to v0.5.0.
+
+### Compare Command Requires Evidence History
+`evidra compare` reads evidence, builds per-actor workload profiles
+(tools × scopes), and computes Jaccard similarity. Requires sufficient
+data per actor to be meaningful.
+
+### SARIF Findings Are Evidence Entries
+Scanner findings (Checkov, Trivy, tfsec) parsed from SARIF format
+are written as `finding` evidence entries linked to the prescription
+by trace_id. CLI uses `--scanner-report`; MCP server can ingest
+findings through the prescribe flow.
+
 ---
 
 ## Architecture Invariants
