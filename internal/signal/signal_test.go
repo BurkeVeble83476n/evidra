@@ -152,14 +152,17 @@ func TestDetectArtifactDrift_NoDrift(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int { return &i }
+
 func TestDetectRetryLoops_LoopDetected(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
 	entries := []Entry{
-		{EventID: "P1", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
-		{EventID: "P2", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
-		{EventID: "P3", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
 	}
 	result := DetectRetryLoops(entries)
 	if result.Count != 3 {
@@ -172,8 +175,9 @@ func TestDetectRetryLoops_BelowThreshold(t *testing.T) {
 
 	now := time.Now()
 	entries := []Entry{
-		{EventID: "P1", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
-		{EventID: "P2", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
 	}
 	result := DetectRetryLoops(entries)
 	if result.Count != 0 {
@@ -186,13 +190,83 @@ func TestDetectRetryLoops_OutsideWindow(t *testing.T) {
 
 	now := time.Now()
 	entries := []Entry{
-		{EventID: "P1", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
-		{EventID: "P2", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(30 * time.Minute)},
-		{EventID: "P3", IsPrescription: true, IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(60 * time.Minute)},
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(35 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(65 * time.Minute)},
 	}
 	result := DetectRetryLoops(entries)
 	if result.Count != 0 {
-		t.Errorf("count = %d, want 0 (outside 10min window)", result.Count)
+		t.Errorf("count = %d, want 0 (outside 30min window)", result.Count)
+	}
+}
+
+func TestRetryLoop_RequiresPriorFailure(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(0), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "R2", IsReport: true, PrescriptionID: "P2", ExitCode: intPtr(0), Timestamp: now.Add(90 * time.Second)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
+		{EventID: "R3", IsReport: true, PrescriptionID: "P3", ExitCode: intPtr(0), Timestamp: now.Add(150 * time.Second)},
+	}
+	result := DetectRetryLoops(entries)
+	if result.Count != 0 {
+		t.Errorf("count = %d, want 0 (all successful, no retry)", result.Count)
+	}
+}
+
+func TestRetryLoop_DetectsAfterFailure(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
+	}
+	result := DetectRetryLoops(entries)
+	if result.Count != 3 {
+		t.Errorf("count = %d, want 3 (P1 failed, P2+P3 are retries)", result.Count)
+	}
+	assertEventID(t, result.EventIDs, "P1")
+	assertEventID(t, result.EventIDs, "P2")
+	assertEventID(t, result.EventIDs, "P3")
+}
+
+func TestRetryLoop_ScopesByActor(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "bob", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "charlie", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
+	}
+	result := DetectRetryLoops(entries)
+	if result.Count != 0 {
+		t.Errorf("count = %d, want 0 (different actors)", result.Count)
+	}
+}
+
+func TestRetryLoop_30MinWindow(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(15 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(29 * time.Minute)},
+	}
+	result := DetectRetryLoops(entries)
+	if result.Count != 3 {
+		t.Errorf("count = %d, want 3 (within 30min window)", result.Count)
 	}
 }
 
