@@ -11,12 +11,12 @@ type GenericAdapter struct{}
 
 func (a *GenericAdapter) Name() string            { return "generic/v1" }
 func (a *GenericAdapter) CanHandle(_ string) bool { return true }
-func (a *GenericAdapter) Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeGeneric(tool, operation, rawArtifact)
+func (a *GenericAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
+	r := canonicalizeGeneric(tool, operation, environment, rawArtifact)
 	return r, nil
 }
 
-func canonicalizeGeneric(tool, operation string, rawArtifact []byte) CanonResult {
+func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte) CanonResult {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	identity := []ResourceID{{
@@ -28,7 +28,7 @@ func canonicalizeGeneric(tool, operation string, rawArtifact []byte) CanonResult
 		Operation:         operation,
 		OperationClass:    "unknown",
 		ResourceIdentity:  identity,
-		ScopeClass:        "single",
+		ScopeClass:        ResolveScopeClass(environment, identity),
 		ResourceCount:     1,
 		ResourceShapeHash: artifactDigest,
 	}

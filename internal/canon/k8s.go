@@ -19,8 +19,8 @@ type K8sAdapter struct{}
 
 func (a *K8sAdapter) Name() string               { return "k8s/v1" }
 func (a *K8sAdapter) CanHandle(tool string) bool { return tool == "kubectl" || tool == "oc" }
-func (a *K8sAdapter) Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeK8s(tool, operation, rawArtifact)
+func (a *K8sAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
+	r := canonicalizeK8s(tool, operation, environment, rawArtifact)
 	return r, r.ParseError
 }
 
@@ -29,7 +29,7 @@ type identifiedK8sObject struct {
 	obj      map[string]interface{}
 }
 
-func canonicalizeK8s(tool, operation string, rawArtifact []byte) CanonResult {
+func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) CanonResult {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	objects, err := splitYAMLDocuments(rawArtifact)
@@ -76,7 +76,7 @@ func canonicalizeK8s(tool, operation string, rawArtifact []byte) CanonResult {
 
 	shapeHash := computeK8sShapeHash(identified)
 	opClass := k8sOperationClass(operation)
-	scopeClass := ScopeClass(identities)
+	scopeClass := ResolveScopeClass(environment, identities)
 
 	action := CanonicalAction{
 		Tool:              tool,

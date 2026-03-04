@@ -119,6 +119,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	artifactFlag := fs.String("artifact", "", "Path to artifact file (YAML or JSON)")
 	toolFlag := fs.String("tool", "", "Tool name (kubectl, terraform)")
 	operationFlag := fs.String("operation", "apply", "Operation (apply, delete, plan)")
+	envFlag := fs.String("environment", "", "Environment (production, staging, development)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -134,7 +135,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	cr := canon.Canonicalize(*toolFlag, *operationFlag, data)
+	cr := canon.Canonicalize(*toolFlag, *operationFlag, *envFlag, data)
 	riskTags := risk.RunAll(cr.CanonicalAction, data)
 	riskLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
 

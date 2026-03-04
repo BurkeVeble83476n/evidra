@@ -235,7 +235,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		}
 	} else {
 		// Standard path: run adapter.
-		cr = canon.Canonicalize(input.Tool, input.Operation, rawArtifact)
+		cr = canon.Canonicalize(input.Tool, input.Operation, input.Environment, rawArtifact)
 		if cr.ParseError != nil {
 			return PrescribeOutput{
 				OK:    false,
