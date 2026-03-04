@@ -44,9 +44,11 @@ type SignalEvent struct {
 }
 
 // AllSignals runs all five signal detectors and returns their results.
-func AllSignals(entries []Entry) []SignalResult {
+// TTL controls the window for unreported prescription detection. Use
+// DefaultTTL if no override is needed.
+func AllSignals(entries []Entry, ttl time.Duration) []SignalResult {
 	return []SignalResult{
-		DetectProtocolViolations(entries),
+		DetectProtocolViolations(entries, ttl),
 		DetectArtifactDrift(entries),
 		DetectRetryLoops(entries),
 		DetectBlastRadius(entries),

@@ -32,7 +32,7 @@ func TestAllSignals_EndToEnd(t *testing.T) {
 			ArtifactDigest: "sha256:art3_DIFFERENT", ExitCode: toIntPtr(0), Timestamp: now.Add(4 * time.Minute)},
 	}
 
-	results := AllSignals(entries)
+	results := AllSignals(entries, DefaultTTL)
 
 	resultMap := make(map[string]SignalResult)
 	for _, r := range results {

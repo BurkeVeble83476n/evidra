@@ -13,7 +13,7 @@ func TestDetectProtocolViolations_UnreportedPrescription(t *testing.T) {
 		{EventID: "P2", IsPrescription: true},
 		{EventID: "R1", IsReport: true, PrescriptionID: "P1"},
 	}
-	result := DetectProtocolViolations(entries)
+	result := DetectProtocolViolations(entries, DefaultTTL)
 	if result.Count != 1 {
 		t.Errorf("count = %d, want 1 (P2 unreported)", result.Count)
 	}
@@ -26,7 +26,7 @@ func TestDetectProtocolViolations_UnprescribedReport(t *testing.T) {
 	entries := []Entry{
 		{EventID: "R1", IsReport: true, PrescriptionID: "UNKNOWN"},
 	}
-	result := DetectProtocolViolations(entries)
+	result := DetectProtocolViolations(entries, DefaultTTL)
 	if result.Count != 1 {
 		t.Errorf("count = %d, want 1 (orphan report)", result.Count)
 	}
@@ -39,7 +39,7 @@ func TestDetectProtocolViolations_AllMatched(t *testing.T) {
 		{EventID: "P1", IsPrescription: true},
 		{EventID: "R1", IsReport: true, PrescriptionID: "P1"},
 	}
-	result := DetectProtocolViolations(entries)
+	result := DetectProtocolViolations(entries, DefaultTTL)
 	if result.Count != 0 {
 		t.Errorf("count = %d, want 0", result.Count)
 	}
@@ -53,7 +53,7 @@ func TestDetectProtocolViolationEvents_DuplicateReport(t *testing.T) {
 		{EventID: "R1", IsReport: true, PrescriptionID: "P1"},
 		{EventID: "R2", IsReport: true, PrescriptionID: "P1"},
 	}
-	events := DetectProtocolViolationEvents(entries)
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
 	assertSubSignal(t, events, "duplicate_report")
 }
 
@@ -64,7 +64,7 @@ func TestDetectProtocolViolationEvents_CrossActorReport(t *testing.T) {
 		{EventID: "P1", IsPrescription: true, ActorID: "alice"},
 		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ActorID: "bob"},
 	}
-	events := DetectProtocolViolationEvents(entries)
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
 	assertSubSignal(t, events, "cross_actor_report")
 }
 
@@ -74,7 +74,7 @@ func TestDetectProtocolViolationEvents_UnprescribedAction(t *testing.T) {
 	entries := []Entry{
 		{EventID: "R1", IsReport: true, PrescriptionID: "GHOST"},
 	}
-	events := DetectProtocolViolationEvents(entries)
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
 	assertSubSignal(t, events, "unprescribed_action")
 }
 
@@ -404,7 +404,7 @@ func TestNewScope_FullKey(t *testing.T) {
 func TestAllSignals_ReturnsAllFive(t *testing.T) {
 	t.Parallel()
 
-	results := AllSignals(nil)
+	results := AllSignals(nil, DefaultTTL)
 	if len(results) != 5 {
 		t.Fatalf("AllSignals returned %d results, want 5", len(results))
 	}

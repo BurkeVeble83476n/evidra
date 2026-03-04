@@ -8,8 +8,9 @@ import (
 // DetectProtocolViolations finds prescriptions without matching reports
 // (unreported operations) and reports without matching prescriptions
 // (unprescribed actions). Also detects duplicate reports and cross-actor reports.
-func DetectProtocolViolations(entries []Entry) SignalResult {
-	events := DetectProtocolViolationEvents(entries)
+// TTL controls the window for unreported prescription detection.
+func DetectProtocolViolations(entries []Entry, ttl time.Duration) SignalResult {
+	events := DetectProtocolViolationEvents(entries, ttl)
 	eventIDs := make([]string, len(events))
 	for i, e := range events {
 		eventIDs[i] = e.EntryRef
@@ -22,7 +23,9 @@ func DetectProtocolViolations(entries []Entry) SignalResult {
 }
 
 // DetectProtocolViolationEvents returns detailed signal events for protocol violations.
-func DetectProtocolViolationEvents(entries []Entry) []SignalEvent {
+// TTL controls unreported prescription detection — only prescriptions older than
+// TTL without a matching report are flagged.
+func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration) []SignalEvent {
 	prescriptions := make(map[string]Entry)
 	firstReport := make(map[string]Entry) // prescription_id → first report
 	reportedIDs := make(map[string]bool)
@@ -80,18 +83,8 @@ func DetectProtocolViolationEvents(entries []Entry) []SignalEvent {
 		firstReport[e.PrescriptionID] = e
 	}
 
-	// Unreported prescriptions (without TTL — for basic detection)
-	for _, e := range entries {
-		if e.IsPrescription && !reportedIDs[e.EventID] {
-			events = append(events, SignalEvent{
-				Signal:    "protocol_violation",
-				SubSignal: "unreported_prescription",
-				Timestamp: e.Timestamp,
-				EntryRef:  e.EventID,
-				Details:   fmt.Sprintf("prescription %s has no matching report", e.EventID),
-			})
-		}
-	}
+	// Unreported prescriptions — TTL-aware with sub-signal classification
+	events = append(events, DetectUnreported(entries, ttl)...)
 
 	return events
 }

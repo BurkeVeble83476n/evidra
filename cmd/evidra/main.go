@@ -105,19 +105,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 	}
 
 	totalOps := countPrescriptions(signalEntries)
-	results := signal.AllSignals(signalEntries)
-
-	ttlEvents := signal.DetectUnreported(signalEntries, ttlDuration)
-	for i, r := range results {
-		if r.Name == "protocol_violation" {
-			for _, ev := range ttlEvents {
-				results[i].Count++
-				results[i].EventIDs = append(results[i].EventIDs, ev.EntryRef)
-			}
-			break
-		}
-	}
-
+	results := signal.AllSignals(signalEntries, ttlDuration)
 	sc := score.Compute(results, totalOps)
 
 	output := struct {
@@ -197,19 +185,7 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 	}
 
 	totalOps := countPrescriptions(signalEntries)
-	results := signal.AllSignals(signalEntries)
-
-	ttlEvents := signal.DetectUnreported(signalEntries, ttlDuration)
-	for i, r := range results {
-		if r.Name == "protocol_violation" {
-			for _, ev := range ttlEvents {
-				results[i].Count++
-				results[i].EventIDs = append(results[i].EventIDs, ev.EntryRef)
-			}
-			break
-		}
-	}
-
+	results := signal.AllSignals(signalEntries, ttlDuration)
 	sc := score.Compute(results, totalOps)
 
 	type SignalDetail struct {
@@ -237,11 +213,8 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 		}
 		if r.Name == "protocol_violation" {
 			subMap := make(map[string]int)
-			pvEvents := signal.DetectProtocolViolationEvents(signalEntries)
+			pvEvents := signal.DetectProtocolViolationEvents(signalEntries, ttlDuration)
 			for _, ev := range pvEvents {
-				subMap[ev.SubSignal]++
-			}
-			for _, ev := range ttlEvents {
 				subMap[ev.SubSignal]++
 			}
 			detail.SubSignals = subMap
@@ -329,7 +302,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 			signalEntries = toolScopeFiltered
 		}
 		totalOps := countPrescriptions(signalEntries)
-		results := signal.AllSignals(signalEntries)
+		results := signal.AllSignals(signalEntries, signal.DefaultTTL)
 		sc := score.Compute(results, totalOps)
 		profile := score.BuildProfile(signalEntries)
 
