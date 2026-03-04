@@ -61,7 +61,16 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 	actorFlag := fs.String("actor", "", "Actor ID to generate scorecard for")
 	periodFlag := fs.String("period", "30d", "Time period (e.g. 30d)")
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	ttlFlag := fs.String("ttl", "5m", "TTL for unreported prescription detection")
+	toolFlag := fs.String("tool", "", "Filter by tool name")
+	scopeFlag := fs.String("scope", "", "Filter by scope class")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	ttlDuration, err := time.ParseDuration(*ttlFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "invalid --ttl value: %v\n", err)
 		return 2
 	}
 
@@ -81,8 +90,34 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if *toolFlag != "" || *scopeFlag != "" {
+		var toolScopeFiltered []signal.Entry
+		for _, e := range signalEntries {
+			if *toolFlag != "" && e.Tool != *toolFlag {
+				continue
+			}
+			if *scopeFlag != "" && e.ScopeClass != *scopeFlag {
+				continue
+			}
+			toolScopeFiltered = append(toolScopeFiltered, e)
+		}
+		signalEntries = toolScopeFiltered
+	}
+
 	totalOps := countPrescriptions(signalEntries)
 	results := signal.AllSignals(signalEntries)
+
+	ttlEvents := signal.DetectUnreported(signalEntries, ttlDuration)
+	for i, r := range results {
+		if r.Name == "protocol_violation" {
+			for _, ev := range ttlEvents {
+				results[i].Count++
+				results[i].EventIDs = append(results[i].EventIDs, ev.EntryRef)
+			}
+			break
+		}
+	}
+
 	sc := score.Compute(results, totalOps)
 
 	output := struct {
@@ -118,7 +153,16 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 	actorFlag := fs.String("actor", "", "Actor ID to explain")
 	periodFlag := fs.String("period", "30d", "Time period (e.g. 30d)")
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	ttlFlag := fs.String("ttl", "5m", "TTL for unreported prescription detection")
+	toolFlag := fs.String("tool", "", "Filter by tool name")
+	scopeFlag := fs.String("scope", "", "Filter by scope class")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	ttlDuration, err := time.ParseDuration(*ttlFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "invalid --ttl value: %v\n", err)
 		return 2
 	}
 
@@ -138,16 +182,43 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if *toolFlag != "" || *scopeFlag != "" {
+		var toolScopeFiltered []signal.Entry
+		for _, e := range signalEntries {
+			if *toolFlag != "" && e.Tool != *toolFlag {
+				continue
+			}
+			if *scopeFlag != "" && e.ScopeClass != *scopeFlag {
+				continue
+			}
+			toolScopeFiltered = append(toolScopeFiltered, e)
+		}
+		signalEntries = toolScopeFiltered
+	}
+
 	totalOps := countPrescriptions(signalEntries)
 	results := signal.AllSignals(signalEntries)
+
+	ttlEvents := signal.DetectUnreported(signalEntries, ttlDuration)
+	for i, r := range results {
+		if r.Name == "protocol_violation" {
+			for _, ev := range ttlEvents {
+				results[i].Count++
+				results[i].EventIDs = append(results[i].EventIDs, ev.EntryRef)
+			}
+			break
+		}
+	}
+
 	sc := score.Compute(results, totalOps)
 
 	type SignalDetail struct {
-		Signal   string   `json:"signal"`
-		Count    int      `json:"count"`
-		Weight   float64  `json:"weight"`
-		Rate     float64  `json:"rate"`
-		EntryIDs []string `json:"entry_ids,omitempty"`
+		Signal     string         `json:"signal"`
+		Count      int            `json:"count"`
+		Weight     float64        `json:"weight"`
+		Rate       float64        `json:"rate"`
+		EntryIDs   []string       `json:"entry_ids,omitempty"`
+		SubSignals map[string]int `json:"sub_signals,omitempty"`
 	}
 
 	var details []SignalDetail
@@ -157,13 +228,25 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 			rate = float64(r.Count) / float64(totalOps)
 		}
 		weight := score.DefaultWeights[r.Name]
-		details = append(details, SignalDetail{
+		detail := SignalDetail{
 			Signal:   r.Name,
 			Count:    r.Count,
 			Weight:   weight,
 			Rate:     rate,
 			EntryIDs: r.EventIDs,
-		})
+		}
+		if r.Name == "protocol_violation" {
+			subMap := make(map[string]int)
+			pvEvents := signal.DetectProtocolViolationEvents(signalEntries)
+			for _, ev := range pvEvents {
+				subMap[ev.SubSignal]++
+			}
+			for _, ev := range ttlEvents {
+				subMap[ev.SubSignal]++
+			}
+			detail.SubSignals = subMap
+		}
+		details = append(details, detail)
 	}
 
 	output := struct {
@@ -197,6 +280,8 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 	actorsFlag := fs.String("actors", "", "Comma-separated actor IDs to compare")
 	periodFlag := fs.String("period", "30d", "Time period (e.g. 30d)")
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	toolFlag := fs.String("tool", "", "Filter by tool name")
+	scopeFlag := fs.String("scope", "", "Filter by scope class")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -229,6 +314,19 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintf(stderr, "Error converting evidence for %s: %v\n", actorID, err)
 			return 1
+		}
+		if *toolFlag != "" || *scopeFlag != "" {
+			var toolScopeFiltered []signal.Entry
+			for _, e := range signalEntries {
+				if *toolFlag != "" && e.Tool != *toolFlag {
+					continue
+				}
+				if *scopeFlag != "" && e.ScopeClass != *scopeFlag {
+					continue
+				}
+				toolScopeFiltered = append(toolScopeFiltered, e)
+			}
+			signalEntries = toolScopeFiltered
 		}
 		totalOps := countPrescriptions(signalEntries)
 		results := signal.AllSignals(signalEntries)
