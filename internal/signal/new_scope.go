@@ -1,9 +1,14 @@
 package signal
 
-// DetectNewScope flags prescriptions that introduce a (tool, operation_class)
+// DetectNewScope flags prescriptions that introduce an (actor, tool, operation_class, scope_class)
 // combination not seen in earlier entries. Entries must be sorted chronologically.
 func DetectNewScope(entries []Entry) SignalResult {
-	type scopeKey struct{ tool, opClass string }
+	type scopeKey struct {
+		actor   string
+		tool    string
+		opClass string
+		scope   string
+	}
 
 	seen := make(map[scopeKey]bool)
 	var eventIDs []string
@@ -12,7 +17,7 @@ func DetectNewScope(entries []Entry) SignalResult {
 		if !e.IsPrescription {
 			continue
 		}
-		k := scopeKey{e.Tool, e.OperationClass}
+		k := scopeKey{e.ActorID, e.Tool, e.OperationClass, e.ScopeClass}
 		if !seen[k] {
 			seen[k] = true
 			eventIDs = append(eventIDs, e.EventID)

@@ -18,24 +18,24 @@ func TestRiskLevel_KnownCombinations(t *testing.T) {
 		want       string
 	}{
 		// read: always low
-		{"read", "single", "low"},
-		{"read", "namespace", "low"},
-		{"read", "cluster", "low"},
+		{"read", "production", "low"},
+		{"read", "staging", "low"},
+		{"read", "development", "low"},
 		{"read", "unknown", "low"},
-		// mutate: low for single, medium otherwise
-		{"mutate", "single", "low"},
-		{"mutate", "namespace", "medium"},
-		{"mutate", "cluster", "medium"},
+		// mutate: high for production, medium for staging/unknown, low for development
+		{"mutate", "production", "high"},
+		{"mutate", "staging", "medium"},
+		{"mutate", "development", "low"},
 		{"mutate", "unknown", "medium"},
-		// destroy: medium for single/namespace, high for cluster/unknown
-		{"destroy", "single", "medium"},
-		{"destroy", "namespace", "medium"},
-		{"destroy", "cluster", "high"},
+		// destroy: critical for production, high for staging/unknown, medium for development
+		{"destroy", "production", "critical"},
+		{"destroy", "staging", "high"},
+		{"destroy", "development", "medium"},
 		{"destroy", "unknown", "high"},
 		// plan: always low
-		{"plan", "single", "low"},
-		{"plan", "namespace", "low"},
-		{"plan", "cluster", "low"},
+		{"plan", "production", "low"},
+		{"plan", "staging", "low"},
+		{"plan", "development", "low"},
 		{"plan", "unknown", "low"},
 	}
 

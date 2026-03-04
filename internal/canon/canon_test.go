@@ -47,7 +47,7 @@ func shouldUpdate() bool {
 func TestGolden_K8sDeployment(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_deployment.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -91,7 +91,7 @@ func TestGolden_K8sDeployment(t *testing.T) {
 func TestGolden_K8sMultidoc(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_multidoc.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -99,8 +99,8 @@ func TestGolden_K8sMultidoc(t *testing.T) {
 	if result.CanonicalAction.ResourceCount != 3 {
 		t.Errorf("resource count = %d, want 3", result.CanonicalAction.ResourceCount)
 	}
-	if result.CanonicalAction.ScopeClass != "namespace" {
-		t.Errorf("scope class = %q, want namespace", result.CanonicalAction.ScopeClass)
+	if result.CanonicalAction.ScopeClass != "unknown" {
+		t.Errorf("scope class = %q, want unknown", result.CanonicalAction.ScopeClass)
 	}
 
 	// Verify sorted identity order
@@ -123,7 +123,7 @@ func TestGolden_K8sMultidoc(t *testing.T) {
 func TestGolden_K8sPrivileged(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_privileged.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -151,7 +151,7 @@ func TestGolden_K8sPrivileged(t *testing.T) {
 func TestGolden_K8sRBAC(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_rbac.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -174,7 +174,7 @@ func TestGolden_K8sRBAC(t *testing.T) {
 func TestGolden_K8sCRD(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_crd.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -202,7 +202,7 @@ func TestGolden_K8sCRD(t *testing.T) {
 func TestGolden_TfCreate(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "tf_create.json")
-	result := Canonicalize("terraform", "apply", data)
+	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -239,7 +239,7 @@ func TestGolden_TfCreate(t *testing.T) {
 func TestGolden_TfDestroy(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "tf_destroy.json")
-	result := Canonicalize("terraform", "destroy", data)
+	result := Canonicalize("terraform", "destroy", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -265,7 +265,7 @@ func TestGolden_TfDestroy(t *testing.T) {
 func TestGolden_TfMixed(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "tf_mixed.json")
-	result := Canonicalize("terraform", "apply", data)
+	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -288,7 +288,7 @@ func TestGolden_TfMixed(t *testing.T) {
 func TestGolden_TfModule(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "tf_module.json")
-	result := Canonicalize("terraform", "apply", data)
+	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -311,7 +311,7 @@ func TestGolden_TfModule(t *testing.T) {
 func TestGolden_HelmOutput(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "helm_output.yaml")
-	result := Canonicalize("kubectl", "apply", data)
+	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("parse error: %v", result.ParseError)
@@ -336,14 +336,14 @@ func TestGolden_HelmOutput(t *testing.T) {
 func TestNoiseImmunity_MetadataUID(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	// Add metadata.uid noise
 	noisy := strings.Replace(string(base),
 		"  name: nginx-deployment",
 		"  name: nginx-deployment\n  uid: abc-123-def",
 		1)
-	noisyResult := Canonicalize("kubectl", "apply", []byte(noisy))
+	noisyResult := Canonicalize("kubectl", "apply", "", []byte(noisy))
 
 	if baseResult.CanonicalAction.ResourceShapeHash != noisyResult.CanonicalAction.ResourceShapeHash {
 		t.Errorf("shape hash changed with uid noise\n base:  %s\nnoisy: %s",
@@ -354,13 +354,13 @@ func TestNoiseImmunity_MetadataUID(t *testing.T) {
 func TestNoiseImmunity_ResourceVersion(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
 		"  name: nginx-deployment",
 		"  name: nginx-deployment\n  resourceVersion: \"12345\"",
 		1)
-	noisyResult := Canonicalize("kubectl", "apply", []byte(noisy))
+	noisyResult := Canonicalize("kubectl", "apply", "", []byte(noisy))
 
 	if baseResult.CanonicalAction.ResourceShapeHash != noisyResult.CanonicalAction.ResourceShapeHash {
 		t.Errorf("shape hash changed with resourceVersion noise")
@@ -370,13 +370,13 @@ func TestNoiseImmunity_ResourceVersion(t *testing.T) {
 func TestNoiseImmunity_ManagedFields(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
 		"  name: nginx-deployment",
 		"  name: nginx-deployment\n  managedFields:\n  - manager: kubectl\n    operation: Apply",
 		1)
-	noisyResult := Canonicalize("kubectl", "apply", []byte(noisy))
+	noisyResult := Canonicalize("kubectl", "apply", "", []byte(noisy))
 
 	if baseResult.CanonicalAction.ResourceShapeHash != noisyResult.CanonicalAction.ResourceShapeHash {
 		t.Errorf("shape hash changed with managedFields noise")
@@ -386,13 +386,13 @@ func TestNoiseImmunity_ManagedFields(t *testing.T) {
 func TestNoiseImmunity_GenerationTimestamp(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
 		"  name: nginx-deployment",
 		"  name: nginx-deployment\n  generation: 5\n  creationTimestamp: \"2026-01-01T00:00:00Z\"",
 		1)
-	noisyResult := Canonicalize("kubectl", "apply", []byte(noisy))
+	noisyResult := Canonicalize("kubectl", "apply", "", []byte(noisy))
 
 	if baseResult.CanonicalAction.ResourceShapeHash != noisyResult.CanonicalAction.ResourceShapeHash {
 		t.Errorf("shape hash changed with generation/timestamp noise")
@@ -402,10 +402,10 @@ func TestNoiseImmunity_GenerationTimestamp(t *testing.T) {
 func TestNoiseImmunity_Status(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := string(base) + "\nstatus:\n  availableReplicas: 3\n  readyReplicas: 3\n"
-	noisyResult := Canonicalize("kubectl", "apply", []byte(noisy))
+	noisyResult := Canonicalize("kubectl", "apply", "", []byte(noisy))
 
 	if baseResult.CanonicalAction.ResourceShapeHash != noisyResult.CanonicalAction.ResourceShapeHash {
 		t.Errorf("shape hash changed with status noise")
@@ -417,10 +417,10 @@ func TestNoiseImmunity_Status(t *testing.T) {
 func TestShapeHashSensitivity_ReplicaChange(t *testing.T) {
 	t.Parallel()
 	base := readGolden(t, "k8s_deployment.yaml")
-	baseResult := Canonicalize("kubectl", "apply", base)
+	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	modified := strings.Replace(string(base), "replicas: 3", "replicas: 5", 1)
-	modResult := Canonicalize("kubectl", "apply", []byte(modified))
+	modResult := Canonicalize("kubectl", "apply", "", []byte(modified))
 
 	if baseResult.CanonicalAction.ResourceShapeHash == modResult.CanonicalAction.ResourceShapeHash {
 		t.Error("shape hash should differ when replicas change")
@@ -432,7 +432,7 @@ func TestShapeHashSensitivity_ReplicaChange(t *testing.T) {
 func TestGenericAdapter(t *testing.T) {
 	t.Parallel()
 	data := []byte(`{"custom": "data", "tool": "custom-tool"}`)
-	result := Canonicalize("custom-tool", "run", data)
+	result := Canonicalize("custom-tool", "run", "", data)
 
 	if result.ParseError != nil {
 		t.Fatalf("unexpected error: %v", result.ParseError)
@@ -451,14 +451,122 @@ func TestGenericAdapter(t *testing.T) {
 	}
 }
 
+// --- ResolveScopeClass Tests ---
+
+func TestResolveScopeClass_ExplicitEnv(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		env  string
+		want string
+	}{
+		{"production", "production", "production"},
+		{"staging", "staging", "staging"},
+		{"development", "development", "development"},
+		{"production_upper", "Production", "production"},
+		{"with_whitespace", "  production  ", "production"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := ResolveScopeClass(tt.env, nil)
+			if got != tt.want {
+				t.Errorf("ResolveScopeClass(%q, nil) = %q, want %q", tt.env, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveScopeClass_NamespaceHints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		namespace string
+		want      string
+	}{
+		{"prod_api", "prod-api", "production"},
+		{"production_ns", "production", "production"},
+		{"staging_v2", "staging-v2", "staging"},
+		{"dev_test", "dev-test", "development"},
+		{"no_match", "test-ns", "unknown"},
+		{"empty", "", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			resources := []ResourceID{{Namespace: tt.namespace}}
+			got := ResolveScopeClass("", resources)
+			if got != tt.want {
+				t.Errorf("ResolveScopeClass(\"\", [ns=%q]) = %q, want %q", tt.namespace, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveScopeClass_EnvOverridesNamespace(t *testing.T) {
+	t.Parallel()
+
+	// Explicit env should win even when namespace suggests differently.
+	resources := []ResourceID{{Namespace: "prod-api"}}
+	got := ResolveScopeClass("staging", resources)
+	if got != "staging" {
+		t.Errorf("ResolveScopeClass(\"staging\", [ns=prod-api]) = %q, want staging", got)
+	}
+}
+
+func TestResolveScopeClass_NoResourcesNoEnv(t *testing.T) {
+	t.Parallel()
+	got := ResolveScopeClass("", nil)
+	if got != "unknown" {
+		t.Errorf("ResolveScopeClass(\"\", nil) = %q, want unknown", got)
+	}
+}
+
+// --- Intent Digest Tests ---
+
+func TestIntentDigest_ExcludesShapeHash(t *testing.T) {
+	t.Parallel()
+
+	action1 := CanonicalAction{
+		Tool:              "kubectl",
+		Operation:         "apply",
+		OperationClass:    "mutate",
+		ResourceIdentity:  []ResourceID{{Kind: "deployment", Name: "web", Namespace: "default"}},
+		ScopeClass:        "unknown",
+		ResourceCount:     1,
+		ResourceShapeHash: "sha256:aaaa",
+	}
+	action2 := action1
+	action2.ResourceShapeHash = "sha256:bbbb"
+
+	digest1 := ComputeIntentDigest(action1)
+	digest2 := ComputeIntentDigest(action2)
+
+	if digest1 != digest2 {
+		t.Errorf("intent digest changed when only resource_shape_hash differs\n d1: %s\n d2: %s", digest1, digest2)
+	}
+
+	// Verify that changing an identity field DOES change the digest.
+	action3 := action1
+	action3.Operation = "delete"
+	digest3 := ComputeIntentDigest(action3)
+	if digest1 == digest3 {
+		t.Error("intent digest should differ when operation changes")
+	}
+}
+
 // --- Determinism Test ---
 
 func TestDeterminism_SameInputSameDigest(t *testing.T) {
 	t.Parallel()
 	data := readGolden(t, "k8s_deployment.yaml")
 
-	r1 := Canonicalize("kubectl", "apply", data)
-	r2 := Canonicalize("kubectl", "apply", data)
+	r1 := Canonicalize("kubectl", "apply", "", data)
+	r2 := Canonicalize("kubectl", "apply", "", data)
 
 	if r1.IntentDigest != r2.IntentDigest {
 		t.Errorf("intent digest not deterministic\n first:  %s\nsecond: %s", r1.IntentDigest, r2.IntentDigest)

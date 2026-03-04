@@ -8,11 +8,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra-benchmark/internal/pipeline"
 	"samebits.com/evidra-benchmark/internal/risk"
 	"samebits.com/evidra-benchmark/internal/score"
 	"samebits.com/evidra-benchmark/internal/signal"
+	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/version"
 )
 
@@ -33,6 +36,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "scorecard":
 		return cmdScorecard(args[1:], stdout, stderr)
+	case "explain":
+		return cmdExplain(args[1:], stdout, stderr)
 	case "compare":
 		return cmdCompare(args[1:], stdout, stderr)
 	case "prescribe":
@@ -59,19 +64,127 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// Placeholder: in a full implementation, load entries from evidence chain
-	_ = *actorFlag
-	_ = *periodFlag
-	_ = *evidenceFlag
+	evidencePath := resolveEvidencePath(*evidenceFlag)
 
-	// Demo with empty entries
-	results := signal.AllSignals(nil)
-	sc := score.Compute(results, 0)
+	entries, err := evidence.ReadAllEntriesAtPath(evidencePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error reading evidence: %v\n", err)
+		return 1
+	}
+
+	filtered := filterEntries(entries, *actorFlag, *periodFlag)
+
+	signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error converting evidence: %v\n", err)
+		return 1
+	}
+
+	totalOps := countPrescriptions(signalEntries)
+	results := signal.AllSignals(signalEntries)
+	sc := score.Compute(results, totalOps)
+
+	output := struct {
+		score.Scorecard
+		ActorID        string `json:"actor_id,omitempty"`
+		Period         string `json:"period"`
+		ScoringVersion string `json:"scoring_version"`
+		SpecVersion    string `json:"spec_version"`
+		EvidraVersion  string `json:"evidra_version"`
+		GeneratedAt    string `json:"generated_at"`
+	}{
+		Scorecard:      sc,
+		ActorID:        *actorFlag,
+		Period:         *periodFlag,
+		ScoringVersion: "0.3.0",
+		SpecVersion:    "0.3.0",
+		EvidraVersion:  version.Version,
+		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
+	}
 
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(sc); err != nil {
+	if err := enc.Encode(output); err != nil {
 		fmt.Fprintf(stderr, "encode scorecard: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func cmdExplain(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("explain", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	actorFlag := fs.String("actor", "", "Actor ID to explain")
+	periodFlag := fs.String("period", "30d", "Time period (e.g. 30d)")
+	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	evidencePath := resolveEvidencePath(*evidenceFlag)
+
+	entries, err := evidence.ReadAllEntriesAtPath(evidencePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error reading evidence: %v\n", err)
+		return 1
+	}
+
+	filtered := filterEntries(entries, *actorFlag, *periodFlag)
+
+	signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error converting evidence: %v\n", err)
+		return 1
+	}
+
+	totalOps := countPrescriptions(signalEntries)
+	results := signal.AllSignals(signalEntries)
+	sc := score.Compute(results, totalOps)
+
+	type SignalDetail struct {
+		Signal   string   `json:"signal"`
+		Count    int      `json:"count"`
+		Weight   float64  `json:"weight"`
+		Rate     float64  `json:"rate"`
+		EntryIDs []string `json:"entry_ids,omitempty"`
+	}
+
+	var details []SignalDetail
+	for _, r := range results {
+		rate := 0.0
+		if totalOps > 0 {
+			rate = float64(r.Count) / float64(totalOps)
+		}
+		weight := score.DefaultWeights[r.Name]
+		details = append(details, SignalDetail{
+			Signal:   r.Name,
+			Count:    r.Count,
+			Weight:   weight,
+			Rate:     rate,
+			EntryIDs: r.EventIDs,
+		})
+	}
+
+	output := struct {
+		Score         float64        `json:"score"`
+		Band          string         `json:"band"`
+		TotalOps      int            `json:"total_operations"`
+		Signals       []SignalDetail `json:"signals"`
+		EvidraVersion string         `json:"evidra_version"`
+		GeneratedAt   string         `json:"generated_at"`
+	}{
+		Score:         sc.Score,
+		Band:          sc.Band,
+		TotalOps:      totalOps,
+		Signals:       details,
+		EvidraVersion: version.Version,
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(output); err != nil {
+		fmt.Fprintf(stderr, "encode explain: %v\n", err)
 		return 1
 	}
 	return 0
@@ -119,6 +232,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	artifactFlag := fs.String("artifact", "", "Path to artifact file (YAML or JSON)")
 	toolFlag := fs.String("tool", "", "Tool name (kubectl, terraform)")
 	operationFlag := fs.String("operation", "apply", "Operation (apply, delete, plan)")
+	envFlag := fs.String("environment", "", "Environment (production, staging, development)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -134,7 +248,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	cr := canon.Canonicalize(*toolFlag, *operationFlag, data)
+	cr := canon.Canonicalize(*toolFlag, *operationFlag, *envFlag, data)
 	riskTags := risk.RunAll(cr.CanonicalAction, data)
 	riskLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
 
@@ -210,11 +324,61 @@ func resolveEvidencePath(explicit string) string {
 	return filepath.Join(home, ".evidra", "evidence")
 }
 
+func filterEntries(entries []evidence.EvidenceEntry, actor, period string) []evidence.EvidenceEntry {
+	cutoff := parsePeriodCutoff(period)
+	var filtered []evidence.EvidenceEntry
+	for _, e := range entries {
+		if actor != "" && e.Actor.ID != actor {
+			continue
+		}
+		if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	return filtered
+}
+
+func parsePeriodCutoff(period string) time.Time {
+	if period == "" {
+		return time.Time{}
+	}
+	now := time.Now().UTC()
+	if len(period) < 2 {
+		return time.Time{}
+	}
+	unit := period[len(period)-1]
+	val := 0
+	fmt.Sscanf(period[:len(period)-1], "%d", &val)
+	if val <= 0 {
+		return time.Time{}
+	}
+	switch unit {
+	case 'd':
+		return now.AddDate(0, 0, -val)
+	case 'h':
+		return now.Add(-time.Duration(val) * time.Hour)
+	default:
+		return time.Time{}
+	}
+}
+
+func countPrescriptions(entries []signal.Entry) int {
+	count := 0
+	for _, e := range entries {
+		if e.IsPrescription {
+			count++
+		}
+	}
+	return count
+}
+
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "evidra-benchmark — flight recorder for infrastructure automation")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "COMMANDS:")
 	fmt.Fprintln(w, "  scorecard   Generate reliability scorecard for an actor")
+	fmt.Fprintln(w, "  explain     Explain signals contributing to a score")
 	fmt.Fprintln(w, "  compare     Compare reliability scores between actors")
 	fmt.Fprintln(w, "  prescribe   Analyze artifact before execution")
 	fmt.Fprintln(w, "  report      Record outcome after execution")

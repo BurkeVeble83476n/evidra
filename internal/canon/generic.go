@@ -11,12 +11,12 @@ type GenericAdapter struct{}
 
 func (a *GenericAdapter) Name() string            { return "generic/v1" }
 func (a *GenericAdapter) CanHandle(_ string) bool { return true }
-func (a *GenericAdapter) Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeGeneric(tool, operation, rawArtifact)
+func (a *GenericAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
+	r := canonicalizeGeneric(tool, operation, environment, rawArtifact)
 	return r, nil
 }
 
-func canonicalizeGeneric(tool, operation string, rawArtifact []byte) CanonResult {
+func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte) CanonResult {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	identity := []ResourceID{{
@@ -28,13 +28,13 @@ func canonicalizeGeneric(tool, operation string, rawArtifact []byte) CanonResult
 		Operation:         operation,
 		OperationClass:    "unknown",
 		ResourceIdentity:  identity,
-		ScopeClass:        "single",
+		ScopeClass:        ResolveScopeClass(environment, identity),
 		ResourceCount:     1,
 		ResourceShapeHash: artifactDigest,
 	}
 
 	actionJSON, _ := json.Marshal(action)
-	intentDigest := sha256Hex(actionJSON)
+	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
 		ArtifactDigest:  artifactDigest,
@@ -48,7 +48,7 @@ func canonicalizeGeneric(tool, operation string, rawArtifact []byte) CanonResult
 // SHA256Hex returns the hex-encoded SHA256 digest of data.
 func SHA256Hex(data []byte) string {
 	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // keep unexported alias for internal use

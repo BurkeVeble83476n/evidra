@@ -14,12 +14,12 @@ type TerraformAdapter struct{}
 
 func (a *TerraformAdapter) Name() string               { return "tf/v1" }
 func (a *TerraformAdapter) CanHandle(tool string) bool { return tool == "terraform" }
-func (a *TerraformAdapter) Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeTerraform(tool, operation, rawArtifact)
+func (a *TerraformAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
+	r := canonicalizeTerraform(tool, operation, environment, rawArtifact)
 	return r, r.ParseError
 }
 
-func canonicalizeTerraform(tool, operation string, rawArtifact []byte) CanonResult {
+func canonicalizeTerraform(tool, operation, environment string, rawArtifact []byte) CanonResult {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	var plan tfjson.Plan
@@ -38,14 +38,14 @@ func canonicalizeTerraform(tool, operation string, rawArtifact []byte) CanonResu
 			Operation:         operation,
 			OperationClass:    terraformOperationClass(operation),
 			ResourceIdentity:  nil,
-			ScopeClass:        "unknown",
+			ScopeClass:        ResolveScopeClass(environment, nil),
 			ResourceCount:     0,
 			ResourceShapeHash: sha256Hex([]byte("empty")),
 		}
 		actionJSON, _ := json.Marshal(action)
 		return CanonResult{
 			ArtifactDigest:  artifactDigest,
-			IntentDigest:    sha256Hex(actionJSON),
+			IntentDigest:    ComputeIntentDigest(action),
 			CanonicalAction: action,
 			CanonVersion:    "terraform/v1",
 			RawAction:       actionJSON,
@@ -77,10 +77,7 @@ func canonicalizeTerraform(tool, operation string, rawArtifact []byte) CanonResu
 	shapeHash := computeTerraformShapeHash(changes)
 
 	opClass := terraformOperationClass(operation)
-	scopeClass := "namespace" // Terraform plans are inherently multi-resource
-	if len(identities) == 1 {
-		scopeClass = "single"
-	}
+	scopeClass := ResolveScopeClass(environment, identities)
 
 	action := CanonicalAction{
 		Tool:              tool,
@@ -93,7 +90,7 @@ func canonicalizeTerraform(tool, operation string, rawArtifact []byte) CanonResu
 	}
 
 	actionJSON, _ := json.Marshal(action)
-	intentDigest := sha256Hex(actionJSON)
+	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
 		ArtifactDigest:  artifactDigest,

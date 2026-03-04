@@ -1,0 +1,77 @@
+package evidence
+
+import "encoding/json"
+
+// Verdict represents the outcome classification of an executed action.
+type Verdict string
+
+const (
+	// VerdictSuccess indicates the action completed successfully (exit code 0).
+	VerdictSuccess Verdict = "success"
+	// VerdictFailure indicates the action failed (exit code > 0).
+	VerdictFailure Verdict = "failure"
+	// VerdictError indicates the action could not be executed (exit code < 0).
+	VerdictError Verdict = "error"
+)
+
+// VerdictFromExitCode maps a process exit code to a Verdict.
+// Zero means success, negative means error (could not execute), positive means failure.
+func VerdictFromExitCode(code int) Verdict {
+	switch {
+	case code == 0:
+		return VerdictSuccess
+	case code < 0:
+		return VerdictError
+	default:
+		return VerdictFailure
+	}
+}
+
+// PrescriptionPayload is the typed payload for EntryTypePrescribe entries.
+// It captures the pre-execution risk assessment for a canonical action.
+type PrescriptionPayload struct {
+	PrescriptionID  string          `json:"prescription_id"`
+	CanonicalAction json.RawMessage `json:"canonical_action"`
+	RiskLevel       string          `json:"risk_level"`
+	RiskTags        []string        `json:"risk_tags,omitempty"`
+	RiskDetails     []string        `json:"risk_details,omitempty"`
+	TTLMs           int64           `json:"ttl_ms"`
+	CanonSource     string          `json:"canon_source"`
+}
+
+// ReportPayload is the typed payload for EntryTypeReport entries.
+// It records the post-execution outcome linked back to a prescription.
+type ReportPayload struct {
+	ReportID       string  `json:"report_id"`
+	PrescriptionID string  `json:"prescription_id"`
+	ExitCode       int     `json:"exit_code"`
+	Verdict        Verdict `json:"verdict"`
+}
+
+// FindingPayload is the typed payload for EntryTypeFinding entries.
+// It captures a single finding from an external inspection tool.
+type FindingPayload struct {
+	Tool     string `json:"tool"`
+	RuleID   string `json:"rule_id"`
+	Severity string `json:"severity"`
+	Resource string `json:"resource"`
+	Message  string `json:"message"`
+}
+
+// SignalPayload is the typed payload for EntryTypeSignal entries.
+// It records a behavioral signal detected across one or more evidence entries.
+type SignalPayload struct {
+	SignalName string   `json:"signal_name"`
+	SubSignal  string   `json:"sub_signal,omitempty"`
+	EntryRefs  []string `json:"entry_refs"`
+	Details    string   `json:"details,omitempty"`
+}
+
+// CanonFailurePayload is the typed payload for EntryTypeCanonFailure entries.
+// It records why canonicalization of a raw artifact failed.
+type CanonFailurePayload struct {
+	ErrorCode    string `json:"error_code"`
+	ErrorMessage string `json:"error_message"`
+	Adapter      string `json:"adapter"`
+	RawDigest    string `json:"raw_digest"`
+}

@@ -2,6 +2,7 @@ package canon
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,33 @@ type CanonicalAction struct {
 	ScopeClass        string       `json:"scope_class"`
 	ResourceCount     int          `json:"resource_count"`
 	ResourceShapeHash string       `json:"resource_shape_hash"`
+}
+
+// intentFields contains only the identity fields used to compute intent_digest.
+// Deliberately excludes resource_shape_hash so that shape changes do not
+// alter the intent digest.
+type intentFields struct {
+	Tool             string       `json:"tool"`
+	Operation        string       `json:"operation"`
+	OperationClass   string       `json:"operation_class"`
+	ResourceIdentity []ResourceID `json:"resource_identity"`
+	ScopeClass       string       `json:"scope_class"`
+	ResourceCount    int          `json:"resource_count"`
+}
+
+// ComputeIntentDigest returns the SHA256 digest of the identity-only fields
+// of a CanonicalAction, excluding resource_shape_hash.
+func ComputeIntentDigest(action CanonicalAction) string {
+	fields := intentFields{
+		Tool:             action.Tool,
+		Operation:        action.Operation,
+		OperationClass:   action.OperationClass,
+		ResourceIdentity: action.ResourceIdentity,
+		ScopeClass:       action.ScopeClass,
+		ResourceCount:    action.ResourceCount,
+	}
+	data, _ := json.Marshal(fields)
+	return SHA256Hex(data)
 }
 
 // Prescription records intent before an infrastructure operation.
@@ -68,7 +96,7 @@ type CanonResult struct {
 type Adapter interface {
 	Name() string
 	CanHandle(tool string) bool
-	Canonicalize(tool, operation string, rawArtifact []byte) (CanonResult, error)
+	Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error)
 }
 
 // DefaultAdapters returns the built-in adapter chain (k8s, terraform, generic fallback).
@@ -92,9 +120,9 @@ func SelectAdapter(tool string, adapters []Adapter) Adapter {
 }
 
 // Canonicalize dispatches to the appropriate adapter based on tool name.
-func Canonicalize(tool, operation string, rawArtifact []byte) CanonResult {
+func Canonicalize(tool, operation, environment string, rawArtifact []byte) CanonResult {
 	adapter := SelectAdapter(tool, DefaultAdapters())
-	result, err := adapter.Canonicalize(tool, operation, rawArtifact)
+	result, err := adapter.Canonicalize(tool, operation, environment, rawArtifact)
 	if err != nil {
 		result.ParseError = err
 	}
@@ -139,24 +167,35 @@ func terraformOperationClass(op string) string {
 	}
 }
 
-// ScopeClass determines the scope class based on resource identity.
-func ScopeClass(resources []ResourceID) string {
-	if len(resources) == 0 {
-		return "unknown"
+// ResolveScopeClass determines the environment-based scope class.
+// If env is explicitly "production", "staging", or "development", it is returned directly.
+// Otherwise, resource namespaces are scanned for environment hints.
+// Falls back to "unknown" if no match is found.
+func ResolveScopeClass(env string, resources []ResourceID) string {
+	env = strings.ToLower(strings.TrimSpace(env))
+
+	// Explicit environment wins.
+	switch env {
+	case "production", "staging", "development":
+		return env
 	}
 
-	namespaces := make(map[string]bool)
+	// Scan resource namespaces for hints.
 	for _, r := range resources {
-		if r.Namespace != "" {
-			namespaces[r.Namespace] = true
+		ns := strings.ToLower(r.Namespace)
+		if ns == "" {
+			continue
+		}
+		if strings.Contains(ns, "prod") {
+			return "production"
+		}
+		if strings.Contains(ns, "stag") {
+			return "staging"
+		}
+		if strings.Contains(ns, "dev") {
+			return "development"
 		}
 	}
 
-	if len(resources) == 1 {
-		return "single"
-	}
-	if len(namespaces) <= 1 {
-		return "namespace"
-	}
-	return "cluster"
+	return "unknown"
 }

@@ -1,0 +1,269 @@
+package evidence
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestPrescriptionPayload_Marshal(t *testing.T) {
+	t.Parallel()
+
+	original := PrescriptionPayload{
+		PrescriptionID:  "rx_01ABC",
+		CanonicalAction: json.RawMessage(`{"op":"apply","resource":"deployment/nginx"}`),
+		RiskLevel:       "high",
+		RiskTags:        []string{"privileged-container", "host-network"},
+		RiskDetails:     []string{"container runs as root"},
+		TTLMs:           30000,
+		CanonSource:     "k8s",
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("PrescriptionPayload marshal: %v", err)
+	}
+
+	var decoded PrescriptionPayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("PrescriptionPayload unmarshal: %v", err)
+	}
+
+	if decoded.PrescriptionID != "rx_01ABC" {
+		t.Errorf("prescription_id = %q, want %q", decoded.PrescriptionID, "rx_01ABC")
+	}
+	if decoded.TTLMs != 30000 {
+		t.Errorf("ttl_ms = %d, want %d", decoded.TTLMs, 30000)
+	}
+	if decoded.CanonSource != "k8s" {
+		t.Errorf("canon_source = %q, want %q", decoded.CanonSource, "k8s")
+	}
+	if decoded.RiskLevel != "high" {
+		t.Errorf("risk_level = %q, want %q", decoded.RiskLevel, "high")
+	}
+	if len(decoded.RiskTags) != 2 {
+		t.Errorf("risk_tags len = %d, want 2", len(decoded.RiskTags))
+	}
+
+	// Verify JSON field names.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("raw unmarshal: %v", err)
+	}
+	for _, key := range []string{"prescription_id", "canonical_action", "risk_level", "ttl_ms", "canon_source"} {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("missing JSON key %q", key)
+		}
+	}
+}
+
+func TestPrescriptionPayload_OmitEmpty(t *testing.T) {
+	t.Parallel()
+
+	p := PrescriptionPayload{
+		PrescriptionID:  "rx_02",
+		CanonicalAction: json.RawMessage(`{}`),
+		RiskLevel:       "low",
+		TTLMs:           5000,
+		CanonSource:     "generic",
+	}
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("raw unmarshal: %v", err)
+	}
+	if _, ok := raw["risk_tags"]; ok {
+		t.Error("risk_tags should be omitted when empty")
+	}
+	if _, ok := raw["risk_details"]; ok {
+		t.Error("risk_details should be omitted when empty")
+	}
+}
+
+func TestReportPayload_Marshal(t *testing.T) {
+	t.Parallel()
+
+	original := ReportPayload{
+		ReportID:       "rpt_01XYZ",
+		PrescriptionID: "rx_01ABC",
+		ExitCode:       0,
+		Verdict:        VerdictSuccess,
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("ReportPayload marshal: %v", err)
+	}
+
+	var decoded ReportPayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("ReportPayload unmarshal: %v", err)
+	}
+
+	if decoded.ReportID != "rpt_01XYZ" {
+		t.Errorf("report_id = %q, want %q", decoded.ReportID, "rpt_01XYZ")
+	}
+	if decoded.PrescriptionID != "rx_01ABC" {
+		t.Errorf("prescription_id = %q, want %q", decoded.PrescriptionID, "rx_01ABC")
+	}
+	if decoded.ExitCode != 0 {
+		t.Errorf("exit_code = %d, want 0", decoded.ExitCode)
+	}
+	if decoded.Verdict != VerdictSuccess {
+		t.Errorf("verdict = %q, want %q", decoded.Verdict, VerdictSuccess)
+	}
+
+	// Verify JSON has "verdict":"success".
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("raw unmarshal: %v", err)
+	}
+	var v string
+	if err := json.Unmarshal(raw["verdict"], &v); err != nil {
+		t.Fatalf("unmarshal verdict: %v", err)
+	}
+	if v != "success" {
+		t.Errorf("JSON verdict = %q, want %q", v, "success")
+	}
+}
+
+func TestFindingPayload_Marshal(t *testing.T) {
+	t.Parallel()
+
+	original := FindingPayload{
+		Tool:     "trivy",
+		RuleID:   "CVE-2024-1234",
+		Severity: "critical",
+		Resource: "docker.io/nginx:latest",
+		Message:  "Known vulnerability in libssl",
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("FindingPayload marshal: %v", err)
+	}
+
+	var decoded FindingPayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("FindingPayload unmarshal: %v", err)
+	}
+
+	if decoded.Tool != "trivy" {
+		t.Errorf("tool = %q, want %q", decoded.Tool, "trivy")
+	}
+	if decoded.RuleID != "CVE-2024-1234" {
+		t.Errorf("rule_id = %q, want %q", decoded.RuleID, "CVE-2024-1234")
+	}
+}
+
+func TestSignalPayload_Marshal(t *testing.T) {
+	t.Parallel()
+
+	original := SignalPayload{
+		SignalName: "retry_loop",
+		SubSignal:  "identical_retry",
+		EntryRefs:  []string{"entry_01", "entry_02", "entry_03"},
+		Details:    "3 identical retries within 60s",
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("SignalPayload marshal: %v", err)
+	}
+
+	var decoded SignalPayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("SignalPayload unmarshal: %v", err)
+	}
+
+	if decoded.SignalName != "retry_loop" {
+		t.Errorf("signal_name = %q, want %q", decoded.SignalName, "retry_loop")
+	}
+	if len(decoded.EntryRefs) != 3 {
+		t.Errorf("entry_refs len = %d, want 3", len(decoded.EntryRefs))
+	}
+}
+
+func TestSignalPayload_OmitEmpty(t *testing.T) {
+	t.Parallel()
+
+	p := SignalPayload{
+		SignalName: "blast_radius",
+		EntryRefs:  []string{"entry_01"},
+	}
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("raw unmarshal: %v", err)
+	}
+	if _, ok := raw["sub_signal"]; ok {
+		t.Error("sub_signal should be omitted when empty")
+	}
+	if _, ok := raw["details"]; ok {
+		t.Error("details should be omitted when empty")
+	}
+}
+
+func TestCanonFailurePayload_Marshal(t *testing.T) {
+	t.Parallel()
+
+	original := CanonFailurePayload{
+		ErrorCode:    "PARSE_ERROR",
+		ErrorMessage: "invalid YAML at line 42",
+		Adapter:      "k8s",
+		RawDigest:    "sha256:abcdef1234567890",
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("CanonFailurePayload marshal: %v", err)
+	}
+
+	var decoded CanonFailurePayload
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("CanonFailurePayload unmarshal: %v", err)
+	}
+
+	if decoded.ErrorCode != "PARSE_ERROR" {
+		t.Errorf("error_code = %q, want %q", decoded.ErrorCode, "PARSE_ERROR")
+	}
+	if decoded.Adapter != "k8s" {
+		t.Errorf("adapter = %q, want %q", decoded.Adapter, "k8s")
+	}
+}
+
+func TestVerdictFromExitCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		code int
+		want Verdict
+	}{
+		{name: "zero_success", code: 0, want: VerdictSuccess},
+		{name: "one_failure", code: 1, want: VerdictFailure},
+		{name: "negative_error", code: -1, want: VerdictError},
+		{name: "signal_kill_failure", code: 137, want: VerdictFailure},
+		{name: "negative_two_error", code: -2, want: VerdictError},
+		{name: "exit_two_failure", code: 2, want: VerdictFailure},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := VerdictFromExitCode(tt.code)
+			if got != tt.want {
+				t.Errorf("VerdictFromExitCode(%d) = %q, want %q", tt.code, got, tt.want)
+			}
+		})
+	}
+}
