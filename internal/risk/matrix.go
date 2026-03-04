@@ -1,12 +1,12 @@
 package risk
 
-// riskMatrix maps operationClass x scopeClass to riskLevel.
+// riskMatrix maps operationClass x scopeClass (environment-based) to riskLevel.
 // See EVIDRA_AGENT_RELIABILITY_BENCHMARK.md section 7.
 var riskMatrix = map[string]map[string]string{
-	"read":    {"single": "low", "namespace": "low", "cluster": "low", "unknown": "low"},
-	"mutate":  {"single": "low", "namespace": "medium", "cluster": "medium", "unknown": "medium"},
-	"destroy": {"single": "medium", "namespace": "medium", "cluster": "high", "unknown": "high"},
-	"plan":    {"single": "low", "namespace": "low", "cluster": "low", "unknown": "low"},
+	"read":    {"production": "low", "staging": "low", "development": "low", "unknown": "low"},
+	"mutate":  {"production": "high", "staging": "medium", "development": "low", "unknown": "medium"},
+	"destroy": {"production": "critical", "staging": "high", "development": "medium", "unknown": "high"},
+	"plan":    {"production": "low", "staging": "low", "development": "low", "unknown": "low"},
 }
 
 // RiskLevel returns the risk level for the given operation and scope classes.
