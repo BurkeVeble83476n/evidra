@@ -16,7 +16,6 @@ type StoreManifest struct {
 	SegmentMaxBytes int64    `json:"segment_max_bytes"`
 	RecordsTotal    int      `json:"records_total"`
 	LastHash        string   `json:"last_hash"`
-	PolicyRef       string   `json:"policy_ref"`
 	Notes           string   `json:"notes"`
 }
 

@@ -70,7 +70,6 @@ func loadOrInitManifest(root string, segmentMaxBytes int64, createIfMissing bool
 		SegmentMaxBytes: segmentMaxBytes,
 		RecordsTotal:    0,
 		LastHash:        "",
-		PolicyRef:       "",
 		Notes:           "Local segmented evidence store",
 	}
 	if createIfMissing {
