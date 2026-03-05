@@ -1,5 +1,11 @@
 # Evidra Benchmark
 
+[![CI](https://github.com/vitas/evidra-benchmark/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vitas/evidra-benchmark/actions/workflows/ci.yml)
+[![Release](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml/badge.svg)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/vitas/evidra-benchmark)](https://github.com/vitas/evidra-benchmark/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/samebits.com/evidra-benchmark)](https://goreportcard.com/report/samebits.com/evidra-benchmark)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 **Flight recorder and reliability benchmark for infrastructure automation**
 
 Evidence and reliability metrics for AI agents, CI pipelines, and IaC workflows.
@@ -77,6 +83,17 @@ evidra prescribe --tool kubectl --artifact manifest.yaml --scanner-report scanne
 ```
 
 One SARIF ingestion contract: `--scanner-report` for both scanners.
+
+### Install
+
+```bash
+# Homebrew (macOS / Linux)
+brew install samebits/tap/evidra-mcp
+brew install samebits/tap/evidra
+
+# Or download from GitHub Releases
+# https://github.com/vitas/evidra-benchmark/releases/latest
+```
 
 ### MCP Server (for AI agents)
 
