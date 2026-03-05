@@ -420,7 +420,9 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 			AdapterVersion: version.Version,
 		})
 		if buildErr == nil {
-			evidence.AppendEntryAtPath(evidencePath, entry)
+			if appendErr := evidence.AppendEntryAtPath(evidencePath, entry); appendErr != nil {
+				fmt.Fprintf(stderr, "warning: failed to append canonicalization_failure entry: %v\n", appendErr)
+			}
 		}
 
 		result := map[string]interface{}{
@@ -429,7 +431,9 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		}
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(result)
+		if err := enc.Encode(result); err != nil {
+			fmt.Fprintf(stderr, "warning: failed to encode result: %v\n", err)
+		}
 		return 1
 	}
 
@@ -596,7 +600,9 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 			AdapterVersion: version.Version,
 		})
 		if buildErr == nil {
-			evidence.AppendEntryAtPath(evidencePath, sigEntry)
+			if appendErr := evidence.AppendEntryAtPath(evidencePath, sigEntry); appendErr != nil {
+				fmt.Fprintf(stderr, "warning: failed to append signal entry: %v\n", appendErr)
+			}
 		}
 		fmt.Fprintf(stderr, "prescription %s not found in evidence\n", *prescriptionFlag)
 		return 1
@@ -700,7 +706,7 @@ func parsePeriodCutoff(period string) time.Time {
 	}
 	unit := period[len(period)-1]
 	val := 0
-	fmt.Sscanf(period[:len(period)-1], "%d", &val)
+	_, _ = fmt.Sscanf(period[:len(period)-1], "%d", &val)
 	if val <= 0 {
 		return time.Time{}
 	}

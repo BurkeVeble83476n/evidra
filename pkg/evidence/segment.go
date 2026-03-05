@@ -1,9 +1,7 @@
 package evidence
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 )
@@ -93,36 +91,6 @@ func segmentName(idx int) string {
 	return fmt.Sprintf("evidence-%06d.jsonl", idx)
 }
 
-func validateManifestSealedInvariants(root string, manifest StoreManifest) error {
-	if manifest.CurrentSegment == "" {
-		return fmt.Errorf("manifest current_segment is empty")
-	}
-	if containsSegment(manifest.SealedSegments, manifest.CurrentSegment) {
-		return fmt.Errorf("manifest corruption: current_segment is listed in sealed_segments")
-	}
-
-	expected := normalizeSealedSegments(manifest.SealedSegments)
-	if len(expected) != len(manifest.SealedSegments) {
-		return fmt.Errorf("manifest sealed_segments must be unique and ordered")
-	}
-	for i := range expected {
-		if expected[i] != manifest.SealedSegments[i] {
-			return fmt.Errorf("manifest sealed_segments must be unique and ordered")
-		}
-	}
-
-	for _, sealed := range manifest.SealedSegments {
-		segPath := filepath.Join(root, segmentsDirName, sealed)
-		if _, err := os.Stat(segPath); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("sealed segment missing: %s", sealed)
-			}
-			return err
-		}
-	}
-	return nil
-}
-
 func normalizeSealedSegments(in []string) []string {
 	if len(in) == 0 {
 		return []string{}
@@ -155,13 +123,4 @@ func removeSegment(in []string, segment string) []string {
 		out = append(out, s)
 	}
 	return out
-}
-
-func containsSegment(in []string, segment string) bool {
-	for _, s := range in {
-		if s == segment {
-			return true
-		}
-	}
-	return false
 }

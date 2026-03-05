@@ -30,7 +30,7 @@ func TestE2E_PrescribeReportLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server connect: %v", err)
 	}
-	defer serverSession.Wait()
+	defer func() { _ = serverSession.Wait() }()
 
 	client := mcp.NewClient(
 		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},

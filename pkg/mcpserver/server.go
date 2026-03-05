@@ -273,7 +273,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 					AdapterVersion: version.Version,
 				})
 				if buildErr == nil {
-					evidence.AppendEntryAtPath(s.evidencePath, entry)
+					_ = evidence.AppendEntryAtPath(s.evidencePath, entry) // best-effort for failure entries
 				}
 			}
 			return PrescribeOutput{
@@ -435,7 +435,7 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 				AdapterVersion: version.Version,
 			})
 			if buildErr == nil {
-				evidence.AppendEntryAtPath(s.evidencePath, sigEntry)
+				_ = evidence.AppendEntryAtPath(s.evidencePath, sigEntry) // best-effort for signal entries
 			}
 			return ReportOutput{
 				OK:    false,

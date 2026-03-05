@@ -4,26 +4,6 @@ package canon
 // These fields are removed before computing resource_shape_hash.
 // The lists are frozen — adding new noise fields requires a new canon version.
 
-var k8sNoiseFields = map[string]bool{
-	// Metadata noise
-	"metadata.uid":                        true,
-	"metadata.resourceVersion":            true,
-	"metadata.generation":                 true,
-	"metadata.creationTimestamp":          true,
-	"metadata.deletionTimestamp":          true,
-	"metadata.deletionGracePeriodSeconds": true,
-	"metadata.managedFields":              true,
-	"metadata.selfLink":                   true,
-	"metadata.generateName":               true,
-
-	// Status noise (never part of desired state)
-	"status": true,
-
-	// Annotation noise (operator-injected)
-	"metadata.annotations.kubectl.kubernetes.io/last-applied-configuration": true,
-	"metadata.annotations.deployment.kubernetes.io/revision":                true,
-}
-
 var k8sNoiseAnnotationPrefixes = []string{
 	"kubectl.kubernetes.io/",
 	"deployment.kubernetes.io/",
