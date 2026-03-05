@@ -1,6 +1,6 @@
 module samebits.com/evidra-benchmark
 
-go 1.24.6
+go 1.23.0
 
 require (
 	github.com/hashicorp/terraform-json v0.27.2
