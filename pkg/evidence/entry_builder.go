@@ -38,6 +38,7 @@ func FormatDigest(d string) string {
 
 // EntryBuildParams holds all inputs needed to construct an EvidenceEntry.
 type EntryBuildParams struct {
+	EntryID         string
 	Type            EntryType
 	TenantID        string
 	SessionID       string
@@ -71,7 +72,7 @@ func BuildEntry(p EntryBuildParams) (EvidenceEntry, error) {
 	}
 
 	entry := EvidenceEntry{
-		EntryID:         ulid.Make().String(),
+		EntryID:         p.EntryID,
 		Type:            p.Type,
 		TenantID:        p.TenantID,
 		SessionID:       p.SessionID,
@@ -91,6 +92,9 @@ func BuildEntry(p EntryBuildParams) (EvidenceEntry, error) {
 		CanonVersion:    p.CanonVersion,
 		AdapterVersion:  p.AdapterVersion,
 		ScoringVersion:  p.ScoringVersion,
+	}
+	if entry.EntryID == "" {
+		entry.EntryID = ulid.Make().String()
 	}
 
 	hash, err := computeEntryHash(entry)

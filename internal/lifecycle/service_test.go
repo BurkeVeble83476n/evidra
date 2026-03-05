@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"crypto/ed25519"
 	"context"
 	"encoding/json"
 	"testing"
@@ -9,6 +10,24 @@ import (
 	"samebits.com/evidra-benchmark/internal/testutil"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 )
+
+type countingSigner struct {
+	evidence.Signer
+	signCalls int
+}
+
+func (s *countingSigner) Sign(payload []byte) []byte {
+	s.signCalls++
+	return s.Signer.Sign(payload)
+}
+
+func (s *countingSigner) Verify(payload, sig []byte) bool {
+	return s.Signer.Verify(payload, sig)
+}
+
+func (s *countingSigner) PublicKey() ed25519.PublicKey {
+	return s.Signer.PublicKey()
+}
 
 func TestServicePrescribe_ParseErrorWritesCanonFailure(t *testing.T) {
 	t.Parallel()
@@ -193,6 +212,31 @@ func TestServicePrescribe_CanonicalActionScopeRejectsInvalid(t *testing.T) {
 	}
 	if ErrorCode(err) != ErrCodeInvalidInput {
 		t.Fatalf("error code=%q, want %q", ErrorCode(err), ErrCodeInvalidInput)
+	}
+}
+
+func TestServicePrescribe_SignsEntryOnce(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	signer := &countingSigner{Signer: testutil.TestSigner(t)}
+	svc := NewService(Options{
+		EvidencePath: dir,
+		Signer:       signer,
+	})
+
+	_, err := svc.Prescribe(context.Background(), PrescribeInput{
+		Actor:       evidence.Actor{Type: "agent", ID: "agent-1", Provenance: "mcp"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm1\n  namespace: default\n"),
+		SessionID:   "session-single-sign",
+	})
+	if err != nil {
+		t.Fatalf("Prescribe: %v", err)
+	}
+	if signer.signCalls != 1 {
+		t.Fatalf("sign calls=%d, want 1", signer.signCalls)
 	}
 }
 

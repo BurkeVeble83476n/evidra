@@ -75,6 +75,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 	}
 
 	prescPayload := evidence.PrescriptionPayload{
+		PrescriptionID: ulid.Make().String(),
 		CanonicalAction: cr.RawAction,
 		RiskLevel:       riskLevel,
 		RiskDetails:     riskTags,
@@ -93,6 +94,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 	}
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
+		EntryID:         prescPayload.PrescriptionID,
 		Type:            evidence.EntryTypePrescribe,
 		SessionID:       sessionID,
 		OperationID:     strings.TrimSpace(input.OperationID),
@@ -112,17 +114,6 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		Signer:          s.signer,
 	})
 	if err != nil {
-		return PrescribeOutput{}, wrapError(ErrCodeInternal, err.Error(), err)
-	}
-
-	// Set prescription_id = entry_id to keep stable identity between payload and entry.
-	prescPayload.PrescriptionID = entry.EntryID
-	payloadJSON, err = json.Marshal(prescPayload)
-	if err != nil {
-		return PrescribeOutput{}, wrapError(ErrCodeInternal, "failed to marshal prescription payload", err)
-	}
-	entry.Payload = payloadJSON
-	if err := evidence.RehashEntry(&entry, s.signer); err != nil {
 		return PrescribeOutput{}, wrapError(ErrCodeInternal, err.Error(), err)
 	}
 

@@ -179,3 +179,26 @@ func TestBuildEntry_InvalidType(t *testing.T) {
 		t.Fatal("expected error for invalid entry type, got nil")
 	}
 }
+
+func TestBuildEntry_UsesProvidedEntryID(t *testing.T) {
+	t.Parallel()
+
+	signer := newTestSigner(t)
+	entry, err := BuildEntry(EntryBuildParams{
+		EntryID:        "01TESTENTRYID0000000000000",
+		Type:           EntryTypePrescribe,
+		TraceID:        "TRACE1",
+		Actor:          Actor{Type: "agent", ID: "a1", Provenance: "mcp"},
+		Payload:        json.RawMessage(`{}`),
+		SpecVersion:    "0.3.0",
+		CanonVersion:   "1.0.0",
+		AdapterVersion: "k8s-1.0.0",
+		Signer:         signer,
+	})
+	if err != nil {
+		t.Fatalf("BuildEntry: %v", err)
+	}
+	if entry.EntryID != "01TESTENTRYID0000000000000" {
+		t.Fatalf("entry_id=%q, want 01TESTENTRYID0000000000000", entry.EntryID)
+	}
+}
