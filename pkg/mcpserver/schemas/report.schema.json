@@ -29,6 +29,10 @@
       "type": "string",
       "description": "Run/session boundary identifier (should match the prescribe session_id)"
     },
+    "operation_id": {
+      "type": "string",
+      "description": "Operation identifier, unique within a session"
+    },
     "span_id": {
       "type": "string",
       "description": "Step/span identifier within a trace"

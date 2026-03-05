@@ -43,6 +43,15 @@
       "type": "string",
       "description": "Run/session boundary identifier. If omitted, Evidra generates one per operation."
     },
+    "operation_id": {
+      "type": "string",
+      "description": "Operation identifier, unique within a session"
+    },
+    "attempt": {
+      "type": "integer",
+      "description": "Retry attempt counter for this operation",
+      "minimum": 0
+    },
     "trace_id": {
       "type": "string",
       "description": "Distributed tracing correlation ID (OpenTelemetry compatible)"

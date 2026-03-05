@@ -358,6 +358,8 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
 	canonicalActionFlag := fs.String("canonical-action", "", "Pre-canonicalized action JSON (bypasses adapter)")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID (generated if omitted)")
+	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
+	attemptFlag := fs.Int("attempt", 0, "Retry attempt counter")
 	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	if err := fs.Parse(args); err != nil {
@@ -483,6 +485,8 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypePrescribe,
 		SessionID:      *sessionIDFlag,
+		OperationID:    *operationIDFlag,
+		Attempt:        *attemptFlag,
 		TraceID:        traceID,
 		Actor:          actor,
 		IntentDigest:   cr.IntentDigest,
@@ -586,6 +590,7 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	artifactDigestFlag := fs.String("artifact-digest", "", "Artifact digest for drift detection")
 	externalRefsFlag := fs.String("external-refs", "", "External references JSON array (e.g. '[{\"type\":\"github_run\",\"id\":\"123\"}]')")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID")
+	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
 	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	if err := fs.Parse(args); err != nil {
@@ -669,6 +674,7 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypeReport,
 		SessionID:      *sessionIDFlag,
+		OperationID:    *operationIDFlag,
 		TraceID:        reportID,
 		Actor:          actor,
 		ArtifactDigest: *artifactDigestFlag,

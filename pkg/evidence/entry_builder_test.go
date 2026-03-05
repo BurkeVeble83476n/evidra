@@ -139,6 +139,28 @@ func TestBuildEntry_HashChain(t *testing.T) {
 	}
 }
 
+func TestBuildEntry_OperationIDAndAttempt(t *testing.T) {
+	t.Parallel()
+	signer := newTestSigner(t)
+	entry, err := BuildEntry(EntryBuildParams{
+		Type:        EntryTypePrescribe,
+		TraceID:     "trace-1",
+		OperationID: "op-123",
+		Attempt:     2,
+		Payload:     json.RawMessage(`{}`),
+		Signer:      signer,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if entry.OperationID != "op-123" {
+		t.Errorf("expected OperationID op-123, got %s", entry.OperationID)
+	}
+	if entry.Attempt != 2 {
+		t.Errorf("expected Attempt 2, got %d", entry.Attempt)
+	}
+}
+
 func TestBuildEntry_InvalidType(t *testing.T) {
 	t.Parallel()
 	signer := newTestSigner(t)

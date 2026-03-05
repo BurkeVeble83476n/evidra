@@ -41,6 +41,8 @@ type EntryBuildParams struct {
 	Type            EntryType
 	TenantID        string
 	SessionID       string
+	OperationID     string
+	Attempt         int
 	TraceID         string
 	SpanID          string
 	ParentSpanID    string
@@ -73,6 +75,8 @@ func BuildEntry(p EntryBuildParams) (EvidenceEntry, error) {
 		Type:            p.Type,
 		TenantID:        p.TenantID,
 		SessionID:       p.SessionID,
+		OperationID:     p.OperationID,
+		Attempt:         p.Attempt,
 		TraceID:         p.TraceID,
 		SpanID:          p.SpanID,
 		ParentSpanID:    p.ParentSpanID,
@@ -127,6 +131,8 @@ type hashableEntry struct {
 	Type            EntryType         `json:"type"`
 	TenantID        string            `json:"tenant_id,omitempty"`
 	SessionID       string            `json:"session_id,omitempty"`
+	OperationID     string            `json:"operation_id,omitempty"`
+	Attempt         int               `json:"attempt,omitempty"`
 	TraceID         string            `json:"trace_id"`
 	SpanID          string            `json:"span_id,omitempty"`
 	ParentSpanID    string            `json:"parent_span_id,omitempty"`
@@ -150,6 +156,8 @@ func computeEntryHash(e EvidenceEntry) (string, error) {
 		Type:            e.Type,
 		TenantID:        e.TenantID,
 		SessionID:       e.SessionID,
+		OperationID:     e.OperationID,
+		Attempt:         e.Attempt,
 		TraceID:         e.TraceID,
 		SpanID:          e.SpanID,
 		ParentSpanID:    e.ParentSpanID,

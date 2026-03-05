@@ -66,6 +66,8 @@ type EvidenceEntry struct {
 	Type            EntryType         `json:"type"`
 	TenantID        string            `json:"tenant_id,omitempty"`
 	SessionID       string            `json:"session_id,omitempty"`
+	OperationID     string            `json:"operation_id,omitempty"`
+	Attempt         int               `json:"attempt,omitempty"`
 	TraceID         string            `json:"trace_id"`
 	SpanID          string            `json:"span_id,omitempty"`
 	ParentSpanID    string            `json:"parent_span_id,omitempty"`

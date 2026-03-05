@@ -43,6 +43,8 @@ type PrescribeInput struct {
 	Environment     string                 `json:"environment,omitempty"`
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
 	SessionID       string                 `json:"session_id,omitempty"`
+	OperationID     string                 `json:"operation_id,omitempty"`
+	Attempt         int                    `json:"attempt,omitempty"`
 	TraceID         string                 `json:"trace_id,omitempty"`
 	SpanID          string                 `json:"span_id,omitempty"`
 	ParentSpanID    string                 `json:"parent_span_id,omitempty"`
@@ -74,6 +76,7 @@ type ReportInput struct {
 	Actor          InputActor             `json:"actor"`
 	ExternalRefs   []evidence.ExternalRef `json:"external_refs,omitempty"`
 	SessionID      string                 `json:"session_id,omitempty"`
+	OperationID    string                 `json:"operation_id,omitempty"`
 	SpanID         string                 `json:"span_id,omitempty"`
 	ParentSpanID   string                 `json:"parent_span_id,omitempty"`
 }
@@ -356,6 +359,8 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:            evidence.EntryTypePrescribe,
 		SessionID:       input.SessionID,
+		OperationID:     input.OperationID,
+		Attempt:         input.Attempt,
 		TraceID:         traceID,
 		SpanID:          input.SpanID,
 		ParentSpanID:    input.ParentSpanID,
@@ -511,6 +516,7 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypeReport,
 		SessionID:      input.SessionID,
+		OperationID:    input.OperationID,
 		TraceID:        reportTraceID,
 		SpanID:         input.SpanID,
 		ParentSpanID:   input.ParentSpanID,
