@@ -1,0 +1,18 @@
+{
+  "id": "risk_tag_privileged",
+  "steps": [
+    {
+      "tool": "prescribe",
+      "input": {
+        "actor": {"type": "agent", "id": "risk-agent", "origin": "mcp"},
+        "tool": "kubectl",
+        "operation": "apply",
+        "artifact_file": "tests/inspector/fixtures/privileged-pod.yaml"
+      },
+      "assert": {
+        "ok": true,
+        "risk_tags_contain": ["k8s.privileged_container"]
+      }
+    }
+  ]
+}

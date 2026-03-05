@@ -1,0 +1,18 @@
+{
+  "id": "parse_error_artifact",
+  "steps": [
+    {
+      "tool": "prescribe",
+      "input": {
+        "actor": {"type": "agent", "id": "parse-agent", "origin": "mcp"},
+        "tool": "terraform",
+        "operation": "apply",
+        "raw_artifact": "not valid json {{{"
+      },
+      "assert": {
+        "ok": false,
+        "error_code": "parse_error"
+      }
+    }
+  ]
+}
