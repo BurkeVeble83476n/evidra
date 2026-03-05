@@ -12,6 +12,21 @@ Evidra observes AI agents, CI pipelines, and IaC workflows — recording evidenc
 
 ---
 
+## Why
+
+AI agents and automation pipelines make infrastructure changes at scale — but nobody measures whether they do it reliably. When an agent retries the same failed terraform apply five times, drifts from its own plan, or touches production without a prescription, there is no record and no signal.
+
+Evidra fills this gap. It provides:
+
+- **Evidence** — a signed, tamper-evident log of every intent and outcome
+- **Signals** — behavioral detectors that catch protocol violations, retry loops, artifact drift, blast radius, and new scope
+- **Scorecards** — a single reliability score per session, actor, or time window
+- **Standards alignment** — compatible with CloudEvents, OpenTelemetry, SARIF, and in-toto
+
+Evidra is an **inspector**, not a gate. It records and measures — it never blocks operations.
+
+---
+
 ## How It Works
 
 ```
