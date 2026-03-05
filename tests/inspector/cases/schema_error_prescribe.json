@@ -1,0 +1,4 @@
+{
+  "id": "schema_error_prescribe",
+  "skip_reason": "covered by special/t_schema_error.sh"
+}

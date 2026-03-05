@@ -1,0 +1,31 @@
+{
+  "id": "lifecycle_ok",
+  "steps": [
+    {
+      "tool": "prescribe",
+      "input": {
+        "actor": {"type": "agent", "id": "agent-a", "origin": "mcp"},
+        "tool": "kubectl",
+        "operation": "apply",
+        "artifact_file": "tests/inspector/fixtures/safe-nginx-deployment.yaml"
+      },
+      "assert": {
+        "ok": true,
+        "has_fields": ["prescription_id", "risk_level", "artifact_digest", "intent_digest"]
+      }
+    },
+    {
+      "tool": "report",
+      "input": {
+        "prescription_id": "{{prescription_id}}",
+        "exit_code": 0,
+        "artifact_digest": "{{artifact_digest}}",
+        "actor": {"type": "agent", "id": "agent-a", "origin": "mcp"}
+      },
+      "assert": {
+        "ok": true,
+        "has_fields": ["report_id"]
+      }
+    }
+  ]
+}
