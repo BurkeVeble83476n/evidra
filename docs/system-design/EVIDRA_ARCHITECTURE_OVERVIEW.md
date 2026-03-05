@@ -14,6 +14,7 @@ not define contracts. Normative sources:
 - **CANONICALIZATION_CONTRACT_V1.md** — adapter interface, digests
 - **EVIDRA_PROTOCOL.md** — integration contract (session, correlation, scope, actor, findings)
 - **EVIDRA_CORE_DATA_MODEL.md** — core data model (CanonicalAction, Prescription, Report, EvidenceEntry, Scorecard)
+- **EVIDRA_SESSION_OPERATION_EVENT_MODEL.md** — session/operation/event hierarchy, OTel and CloudEvents mappings
 - **EVIDRA_CNCF_STANDARDS_ALIGNMENT.md** — CloudEvents, SARIF, in-toto, OTel alignment
 
 ## One-liner

@@ -40,7 +40,7 @@ Phase 3 = optional native adoption.
 
 **Alignment:** Evidra events can be represented as CloudEvents.
 The mapping is defined in
-[evidra-session-operation-event-model-v1.md, Section 9](evidra-session-operation-event-model-v1.md#9-cloudevents-mapping-recommended).
+[EVIDRA_SESSION_OPERATION_EVENT_MODEL.md, Section 9](EVIDRA_SESSION_OPERATION_EVENT_MODEL.md#9-cloudevents-mapping-recommended).
 
 Summary of the mapping:
 
@@ -74,7 +74,7 @@ It is a **separate namespace** from the internal entry type enum defined in
 | `evidra.session.end` | `session_end` | Maps 1:1 |
 
 The mapping for `prescribe`, `report`, and `findings` is defined in
-[evidra-session-operation-event-model-v1.md, Section 6](evidra-session-operation-event-model-v1.md#6-mapping-to-evidra-concepts).
+[EVIDRA_SESSION_OPERATION_EVENT_MODEL.md, Section 6](EVIDRA_SESSION_OPERATION_EVENT_MODEL.md#6-mapping-to-evidra-concepts).
 The session lifecycle types (`evidra.session.start/end`) and `evidra.annotation`
 map 1:1 to their corresponding internal entry types (`session_start`,
 `session_end`, `annotation`).
@@ -104,7 +104,7 @@ structured content mode.
 
 **Alignment:** Evidra's correlation model maps to OpenTelemetry traces and spans.
 The mapping is defined in
-[evidra-session-operation-event-model-v1.md, Section 8](evidra-session-operation-event-model-v1.md#8-opentelemetry-mapping-recommended).
+[EVIDRA_SESSION_OPERATION_EVENT_MODEL.md, Section 8](EVIDRA_SESSION_OPERATION_EVENT_MODEL.md#8-opentelemetry-mapping-recommended).
 
 Summary of the mapping:
 
@@ -338,7 +338,7 @@ allow {
 
 **Alignment:** Evidra supports Kubernetes-native integration patterns.
 The full mapping is defined in
-[evidra-session-operation-event-model-v1.md, Section 10](evidra-session-operation-event-model-v1.md#10-kubernetes-native-integration-recommended).
+[EVIDRA_SESSION_OPERATION_EVENT_MODEL.md, Section 10](EVIDRA_SESSION_OPERATION_EVENT_MODEL.md#10-kubernetes-native-integration-recommended).
 
 ### v1: Labels and Annotations
 
@@ -438,7 +438,7 @@ a standalone tool.
 
 - [EVIDRA_PROTOCOL.md](EVIDRA_PROTOCOL.md) — integration contract
 - [EVIDRA_CORE_DATA_MODEL.md](EVIDRA_CORE_DATA_MODEL.md) — normative data model
-- [evidra-session-operation-event-model-v1.md](evidra-session-operation-event-model-v1.md) — session/operation model with CloudEvents, OTel, K8s mappings
+- [EVIDRA_SESSION_OPERATION_EVENT_MODEL.md](EVIDRA_SESSION_OPERATION_EVENT_MODEL.md) — session/operation model with CloudEvents, OTel, K8s mappings
 - [EVIDRA_SIGNAL_SPEC.md](EVIDRA_SIGNAL_SPEC.md) — signal definitions
 - [CloudEvents v1.0 spec](https://github.com/cloudevents/spec)
 - [SARIF v2.1.0 spec](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
