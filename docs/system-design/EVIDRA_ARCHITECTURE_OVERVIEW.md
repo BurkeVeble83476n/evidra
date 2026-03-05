@@ -13,6 +13,8 @@ not define contracts. Normative sources:
 - **EVIDRA_SIGNAL_SPEC.md** — signal definitions, metric contracts
 - **CANONICALIZATION_CONTRACT_V1.md** — adapter interface, digests
 - **EVIDRA_PROTOCOL.md** — integration contract (session, correlation, scope, actor, findings)
+- **EVIDRA_CORE_DATA_MODEL.md** — core data model (CanonicalAction, Prescription, Report, EvidenceEntry, Scorecard)
+- **EVIDRA_CNCF_STANDARDS_ALIGNMENT.md** — CloudEvents, SARIF, in-toto, OTel alignment
 
 ## One-liner
 Evidra is the standard signal and metrics layer for infrastructure
@@ -360,14 +362,14 @@ correlation model.
 `lastActor` from the preceding prescribe call in MCP server. CLI
 requires explicit `--actor` or defaults to "cli".
 
-### Signing Is Wired (v0.3.0+)
-`BuildEntry` accepts an optional `Signer` interface. When provided,
-the entry's hash is Ed25519-signed and stored in the `signature` field
-(base64-encoded). The `Signer` module lives in `internal/evidence/signer.go`.
-Key sources: `EVIDRA_SIGNING_KEY` (base64), `EVIDRA_SIGNING_KEY_PATH` (PEM),
-or ephemeral dev mode.
+### Signing Is Required
+`BuildEntry` requires a `Signer` interface and returns an error if none
+is provided. Every evidence entry is Ed25519-signed — the `signature` field
+(base64-encoded) is mandatory. The `Signer` module lives in
+`internal/evidence/signer.go`. Key sources: `EVIDRA_SIGNING_KEY` (base64),
+`EVIDRA_SIGNING_KEY_PATH` (PEM). Both CLI and MCP server fail early if
+no signing key is configured.
 
-Both CLI and MCP server accept signing keys:
 - **CLI:** `--signing-key-path key.pem` or `EVIDRA_SIGNING_KEY_PATH` env var
 - **MCP:** `EVIDRA_SIGNING_KEY` or `EVIDRA_SIGNING_KEY_PATH` env vars
 

@@ -198,7 +198,7 @@ func evaluateCase(c Case) CaseResult {
     // 5. Score range check only if enough operations (MinOperations=100)
     scoreInRange := true
     if len(prescriptions(entries)) >= score.MinOperations && c.Expected.ScoreRange != nil {
-        sc := score.Compute(signals, len(prescriptions(entries)))
+        sc := score.Compute(signals, len(prescriptions(entries)), 0.0)
         scoreInRange = sc.Score >= c.Expected.ScoreRange.Min &&
                        sc.Score <= c.Expected.ScoreRange.Max
     }
