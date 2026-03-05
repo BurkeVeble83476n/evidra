@@ -26,9 +26,11 @@ type Options struct {
 
 // InputActor identifies the caller in a prescribe request.
 type InputActor struct {
-	Type   string `json:"type"`
-	ID     string `json:"id"`
-	Origin string `json:"origin"`
+	Type       string `json:"type"`
+	ID         string `json:"id"`
+	Origin     string `json:"origin"`
+	InstanceID string `json:"instance_id,omitempty"`
+	Version    string `json:"version,omitempty"`
 }
 
 // PrescribeInput is the input schema for the prescribe tool.
@@ -39,6 +41,11 @@ type PrescribeInput struct {
 	RawArtifact     string                 `json:"raw_artifact"`
 	Environment     string                 `json:"environment,omitempty"`
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
+	SessionID       string                 `json:"session_id,omitempty"`
+	TraceID         string                 `json:"trace_id,omitempty"`
+	SpanID          string                 `json:"span_id,omitempty"`
+	ParentSpanID    string                 `json:"parent_span_id,omitempty"`
+	ScopeDimensions map[string]string      `json:"scope_dimensions,omitempty"`
 }
 
 // PrescribeOutput is returned by the prescribe tool.
@@ -65,6 +72,9 @@ type ReportInput struct {
 	ArtifactDigest string                 `json:"artifact_digest,omitempty"`
 	Actor          InputActor             `json:"actor"`
 	ExternalRefs   []evidence.ExternalRef `json:"external_refs,omitempty"`
+	SessionID      string                 `json:"session_id,omitempty"`
+	SpanID         string                 `json:"span_id,omitempty"`
+	ParentSpanID   string                 `json:"parent_span_id,omitempty"`
 }
 
 // ReportOutput is returned by the report tool.
@@ -313,25 +323,34 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		Type:       input.Actor.Type,
 		ID:         input.Actor.ID,
 		Provenance: input.Actor.Origin,
+		InstanceID: input.Actor.InstanceID,
+		Version:    input.Actor.Version,
 	}
 
-	// Generate per-operation trace ID
-	traceID := evidence.GenerateTraceID()
+	// Use caller-provided trace ID or generate one per operation
+	traceID := input.TraceID
+	if traceID == "" {
+		traceID = evidence.GenerateTraceID()
+	}
 
 	// Get last hash for chain
 	lastHash, _ := evidence.LastHashAtPath(s.evidencePath)
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
-		Type:           evidence.EntryTypePrescribe,
-		TraceID:        traceID,
-		Actor:          actor,
-		IntentDigest:   cr.IntentDigest,
-		ArtifactDigest: cr.ArtifactDigest,
-		Payload:        payloadJSON,
-		PreviousHash:   lastHash,
-		SpecVersion:    "0.3.0",
-		CanonVersion:   cr.CanonVersion,
-		AdapterVersion: version.Version,
+		Type:            evidence.EntryTypePrescribe,
+		SessionID:       input.SessionID,
+		TraceID:         traceID,
+		SpanID:          input.SpanID,
+		ParentSpanID:    input.ParentSpanID,
+		Actor:           actor,
+		IntentDigest:    cr.IntentDigest,
+		ArtifactDigest:  cr.ArtifactDigest,
+		Payload:         payloadJSON,
+		PreviousHash:    lastHash,
+		ScopeDimensions: input.ScopeDimensions,
+		SpecVersion:     "0.3.0",
+		CanonVersion:    cr.CanonVersion,
+		AdapterVersion:  version.Version,
 	})
 	if err != nil {
 		return PrescribeOutput{
@@ -449,6 +468,8 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 			Type:       input.Actor.Type,
 			ID:         input.Actor.ID,
 			Provenance: input.Actor.Origin,
+			InstanceID: input.Actor.InstanceID,
+			Version:    input.Actor.Version,
 		}
 	}
 
@@ -462,7 +483,10 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypeReport,
+		SessionID:      input.SessionID,
 		TraceID:        reportTraceID,
+		SpanID:         input.SpanID,
+		ParentSpanID:   input.ParentSpanID,
 		Actor:          actor,
 		ArtifactDigest: evidence.FormatDigest(input.ArtifactDigest),
 		Payload:        payloadJSON,

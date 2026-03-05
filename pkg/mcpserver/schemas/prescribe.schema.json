@@ -28,18 +28,41 @@
       "type": "object",
       "required": ["type", "id", "origin"],
       "properties": {
-        "type": { "type": "string" },
-        "id": { "type": "string" },
-        "origin": { "type": "string" }
+        "type": { "type": "string", "description": "Actor type (agent, cli, automation)" },
+        "id": { "type": "string", "description": "Stable, low-cardinality actor identifier" },
+        "origin": { "type": "string", "description": "How the actor connected (mcp-stdio, cli, etc.)" },
+        "instance_id": { "type": "string", "description": "Runner/pod/container instance (not used in metrics)" },
+        "version": { "type": "string", "description": "Actor software version" }
       }
     },
     "actor_meta": {
       "type": "object",
       "description": "Optional comparison dimensions (agent_version, model_id, prompt_id)"
     },
+    "session_id": {
+      "type": "string",
+      "description": "Run/session boundary identifier. If omitted, Evidra generates one per operation."
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "Distributed tracing correlation ID (OpenTelemetry compatible)"
+    },
+    "span_id": {
+      "type": "string",
+      "description": "Step/span identifier within a trace"
+    },
+    "parent_span_id": {
+      "type": "string",
+      "description": "Parent span for hierarchical agent workflows"
+    },
     "environment": {
       "type": "string",
       "description": "Environment label (production, staging, development)"
+    },
+    "scope_dimensions": {
+      "type": "object",
+      "description": "Detailed environment metadata (cluster, namespace, account, region). Not used in metrics.",
+      "additionalProperties": { "type": "string" }
     }
   }
 }

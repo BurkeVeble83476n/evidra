@@ -20,8 +20,22 @@
       "properties": {
         "type": { "type": "string" },
         "id": { "type": "string" },
-        "origin": { "type": "string" }
+        "origin": { "type": "string" },
+        "instance_id": { "type": "string" },
+        "version": { "type": "string" }
       }
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Run/session boundary identifier (should match the prescribe session_id)"
+    },
+    "span_id": {
+      "type": "string",
+      "description": "Step/span identifier within a trace"
+    },
+    "parent_span_id": {
+      "type": "string",
+      "description": "Parent span for hierarchical agent workflows"
     }
   }
 }
