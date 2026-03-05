@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "The following files are not gofmt-formatted:" >&2
+            echo "$files" >&2
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test ./... -count=1
+
+      - name: Run race detector
+        run: go test -race ./... -count=1
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64
+          args: --timeout=5m
+
+      - name: Build binaries
+        run: |
+          go build -o bin/evidra ./cmd/evidra
+          go build -o bin/evidra-mcp ./cmd/evidra-mcp
