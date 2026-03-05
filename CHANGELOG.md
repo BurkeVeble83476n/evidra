@@ -26,6 +26,13 @@ First public release of Evidra Benchmark.
 - Per-operation trace IDs for correlation
 - Optional retry loop tracking
 
+### Protocol (v1.0 Foundation)
+- Session/run boundary: `session_id` on all evidence entries (optional, auto-generated if omitted)
+- Hierarchical tracing: `trace_id`, `span_id`, `parent_span_id` for multi-step agent workflows
+- Actor identity: `actor.instance_id` and `actor.version` (optional, not used in metrics)
+- Scope dimensions: `scope_dimensions` map for detailed environment metadata (cluster, namespace, account, region)
+- Protocol spec: `docs/system-design/EVIDRA_PROTOCOL.md`
+
 ### Evidence Chain
 - Append-only JSONL with hash-linked entries
 - Segmented storage with automatic rotation (5MB default)

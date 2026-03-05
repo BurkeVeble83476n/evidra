@@ -137,6 +137,7 @@ Three binaries:
 
 ### Specifications
 
+- [Integration Protocol v1.0](docs/system-design/EVIDRA_PROTOCOL.md) — session/run lifecycle, correlation model, scope dimensions, actor identity, findings ingestion
 - [Agent Reliability Benchmark](docs/system-design/EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) — protocol, signals, scoring formula, Prometheus metrics
 - [Signal Spec](docs/system-design/EVIDRA_SIGNAL_SPEC.md) — formal definitions of all five signals
 - [Canonicalization Contract v1](docs/system-design/CANONICALIZATION_CONTRACT_V1.md) — adapter interface, digest model, compatibility rules
