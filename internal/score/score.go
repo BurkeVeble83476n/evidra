@@ -42,7 +42,7 @@ func Compute(results []signal.SignalResult, totalOps int, externalPct float64) S
 	if totalOps < MinOperations {
 		sc.Score = -1
 		sc.Band = "insufficient_data"
-		sc.Confidence = ComputeConfidence(externalPct, 0)
+		sc.Confidence = ComputeConfidence(externalPct, 0.0)
 		return sc
 	}
 
