@@ -360,12 +360,18 @@ correlation model.
 `lastActor` from the preceding prescribe call in MCP server. CLI
 requires explicit `--actor` or defaults to "cli".
 
-### Signing Is Wired (v0.3.0)
+### Signing Is Wired (v0.3.0+)
 `BuildEntry` accepts an optional `Signer` interface. When provided,
 the entry's hash is Ed25519-signed and stored in the `signature` field
 (base64-encoded). The `Signer` module lives in `internal/evidence/signer.go`.
 Key sources: `EVIDRA_SIGNING_KEY` (base64), `EVIDRA_SIGNING_KEY_PATH` (PEM),
-or ephemeral dev mode. Validation via `evidra validate --public-key <pem>`.
+or ephemeral dev mode.
+
+Both CLI and MCP server accept signing keys:
+- **CLI:** `--signing-key-path key.pem` or `EVIDRA_SIGNING_KEY_PATH` env var
+- **MCP:** `EVIDRA_SIGNING_KEY` or `EVIDRA_SIGNING_KEY_PATH` env vars
+
+Validation via `evidra validate --public-key <pem>`.
 `ValidateChainWithSignatures()` verifies both hash chain and signatures.
 
 ### Standalone Findings Ingestion (v0.3.0)

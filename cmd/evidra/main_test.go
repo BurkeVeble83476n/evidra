@@ -2,7 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,5 +109,207 @@ func TestRunPrescribe_ScannerReportCountsWrittenFindings(t *testing.T) {
 
 	if findingCount != 1 {
 		t.Fatalf("finding entry count = %d, want 1", findingCount)
+	}
+}
+
+func TestRunPrescribe_WithSigningKey(t *testing.T) {
+	t.Parallel()
+
+	// Generate Ed25519 key pair.
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	tmp := t.TempDir()
+
+	// Write private key PEM.
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatalf("marshal PKCS8: %v", err)
+	}
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+	privPath := filepath.Join(tmp, "key.pem")
+	if err := os.WriteFile(privPath, privPEM, 0o600); err != nil {
+		t.Fatalf("write private key: %v", err)
+	}
+
+	// Write public key PEM.
+	pubDER, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		t.Fatalf("marshal public key: %v", err)
+	}
+	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	pubPath := filepath.Join(tmp, "pub.pem")
+	if err := os.WriteFile(pubPath, pubPEM, 0o644); err != nil {
+		t.Fatalf("write public key: %v", err)
+	}
+
+	// Write artifact.
+	artifact := filepath.Join(tmp, "artifact.json")
+	if err := os.WriteFile(artifact, []byte(`{"noop":true}`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+
+	evidenceDir := filepath.Join(tmp, "evidence")
+
+	// Run prescribe with --signing-key-path.
+	args := []string{
+		"prescribe",
+		"--tool", "terraform",
+		"--artifact", artifact,
+		"--canonical-action", testCanonicalAction,
+		"--signing-key-path", privPath,
+		"--evidence-dir", evidenceDir,
+	}
+
+	var out, errBuf bytes.Buffer
+	code := run(args, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe exit code = %d, stderr = %s", code, errBuf.String())
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode prescribe output: %v", err)
+	}
+	if result["ok"] != true {
+		t.Fatalf("prescribe result not ok: %v", result)
+	}
+
+	// Verify the evidence entry has a non-empty Signature.
+	entries, err := evidence.ReadAllEntriesAtPath(evidenceDir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no evidence entries found")
+	}
+
+	prescriptionFound := false
+	for _, e := range entries {
+		if e.Type == evidence.EntryTypePrescribe {
+			prescriptionFound = true
+			if e.Signature == "" {
+				t.Fatal("prescription entry has empty Signature, expected non-empty when signing key provided")
+			}
+		}
+	}
+	if !prescriptionFound {
+		t.Fatal("no prescription entry found in evidence")
+	}
+
+	// Run validate with --public-key and verify it succeeds.
+	var valOut, valErr bytes.Buffer
+	valCode := run([]string{
+		"validate",
+		"--evidence-dir", evidenceDir,
+		"--public-key", pubPath,
+	}, &valOut, &valErr)
+	if valCode != 0 {
+		t.Fatalf("validate exit code = %d, stderr = %s", valCode, valErr.String())
+	}
+	if !strings.Contains(valOut.String(), "signatures verified") {
+		t.Fatalf("validate output missing 'signatures verified': %s", valOut.String())
+	}
+}
+
+func TestScorecard_SessionIDFilter(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	artifact := filepath.Join(tmp, "artifact.json")
+	if err := os.WriteFile(artifact, []byte(`{"noop":true}`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	evidenceDir := filepath.Join(tmp, "evidence")
+
+	// Prescribe + report in session-A.
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"prescribe",
+		"--tool", "terraform",
+		"--artifact", artifact,
+		"--canonical-action", testCanonicalAction,
+		"--session-id", "session-A",
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe session-A exit %d: %s", code, errBuf.String())
+	}
+	var prescA map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &prescA); err != nil {
+		t.Fatalf("decode prescribe A: %v", err)
+	}
+	prescIDA := prescA["prescription_id"].(string)
+
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"report",
+		"--prescription", prescIDA,
+		"--exit-code", "0",
+		"--session-id", "session-A",
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("report session-A exit %d: %s", code, errBuf.String())
+	}
+
+	// Prescribe + report in session-B.
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"prescribe",
+		"--tool", "terraform",
+		"--artifact", artifact,
+		"--canonical-action", testCanonicalAction,
+		"--session-id", "session-B",
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe session-B exit %d: %s", code, errBuf.String())
+	}
+	var prescB map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &prescB); err != nil {
+		t.Fatalf("decode prescribe B: %v", err)
+	}
+	prescIDB := prescB["prescription_id"].(string)
+
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"report",
+		"--prescription", prescIDB,
+		"--exit-code", "0",
+		"--session-id", "session-B",
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("report session-B exit %d: %s", code, errBuf.String())
+	}
+
+	// Run scorecard filtered to session-A only.
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"scorecard",
+		"--session-id", "session-A",
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("scorecard exit %d: %s", code, errBuf.String())
+	}
+
+	var sc map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &sc); err != nil {
+		t.Fatalf("decode scorecard: %v", err)
+	}
+	totalOps := int(sc["total_operations"].(float64))
+	if totalOps != 1 {
+		t.Fatalf("total_operations = %d, want 1 (session filter should exclude session-B)", totalOps)
+	}
+	if sid, ok := sc["session_id"]; !ok || sid != "session-A" {
+		t.Fatalf("session_id = %v, want session-A", sid)
 	}
 }

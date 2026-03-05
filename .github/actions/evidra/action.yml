@@ -1,0 +1,136 @@
+name: 'Evidra Benchmark'
+description: 'Run evidra benchmark — validate evidence, score reliability, ingest findings'
+
+inputs:
+  evidence-dir:
+    description: 'Evidence directory'
+    required: false
+    default: './evidence'
+  session-id:
+    description: 'Session ID for grouping'
+    required: false
+    default: ${{ github.run_id }}
+  sarif-path:
+    description: 'SARIF scanner report to ingest'
+    required: false
+  public-key:
+    description: 'Path to Ed25519 public key PEM for signature verification'
+    required: false
+  fail-on-risk:
+    description: 'Fail if risk band is at or below threshold (poor, fair, good)'
+    required: false
+  evidra-version:
+    description: 'Evidra version to download'
+    required: false
+    default: 'latest'
+
+outputs:
+  score:
+    description: 'Reliability score (0-100)'
+    value: ${{ steps.scorecard.outputs.score }}
+  band:
+    description: 'Reliability band (excellent, good, fair, poor)'
+    value: ${{ steps.scorecard.outputs.band }}
+  evidence-path:
+    description: 'Evidence directory path'
+    value: ${{ inputs.evidence-dir }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download evidra CLI
+      shell: bash
+      run: |
+        VERSION="${{ inputs.evidra-version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(gh release view --repo ${{ github.repository }} --json tagName -q .tagName 2>/dev/null || echo "v0.3.1")
+        fi
+        ARCHIVE="evidra_${VERSION#v}_linux_amd64.tar.gz"
+        URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/${ARCHIVE}"
+        echo "Downloading evidra ${VERSION}..."
+        curl -sL "$URL" -o /tmp/evidra.tar.gz && tar -xzf /tmp/evidra.tar.gz -C /tmp/ && chmod +x /tmp/evidra || {
+          echo "::warning::Could not download release, building from source"
+          go build -o /tmp/evidra ./cmd/evidra
+        }
+
+    - name: Ingest SARIF findings
+      if: inputs.sarif-path != ''
+      shell: bash
+      run: |
+        /tmp/evidra ingest-findings \
+          --sarif "${{ inputs.sarif-path }}" \
+          --evidence-dir "${{ inputs.evidence-dir }}" \
+          --session-id "${{ inputs.session-id }}"
+
+    - name: Validate evidence chain
+      shell: bash
+      run: |
+        ARGS="--evidence-dir ${{ inputs.evidence-dir }}"
+        if [ -n "${{ inputs.public-key }}" ]; then
+          ARGS="$ARGS --public-key ${{ inputs.public-key }}"
+        fi
+        /tmp/evidra validate $ARGS
+
+    - name: Generate scorecard
+      id: scorecard
+      shell: bash
+      run: |
+        OUTPUT=$(/tmp/evidra scorecard \
+          --evidence-dir "${{ inputs.evidence-dir }}" \
+          --session-id "${{ inputs.session-id }}" 2>/dev/null || echo '{"score":0,"band":"unknown"}')
+        SCORE=$(echo "$OUTPUT" | jq -r '.score // 0')
+        BAND=$(echo "$OUTPUT" | jq -r '.band // "unknown"')
+        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+        echo "band=$BAND" >> "$GITHUB_OUTPUT"
+
+        # Write job summary
+        cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+        ## Evidra Benchmark Results
+
+        | Metric | Value |
+        |--------|-------|
+        | Score | **${SCORE}** |
+        | Band | ${BAND} |
+        | Session | \`${{ inputs.session-id }}\` |
+
+        <details><summary>Full scorecard</summary>
+
+        \`\`\`json
+        $(echo "$OUTPUT" | jq .)
+        \`\`\`
+
+        </details>
+        EOF
+
+    - name: Check risk threshold
+      if: inputs.fail-on-risk != ''
+      shell: bash
+      run: |
+        BAND="${{ steps.scorecard.outputs.band }}"
+        THRESHOLD="${{ inputs.fail-on-risk }}"
+
+        # Map bands to numeric levels (higher = worse)
+        band_level() {
+          case "$1" in
+            excellent) echo 0 ;;
+            good) echo 1 ;;
+            fair) echo 2 ;;
+            poor) echo 3 ;;
+            *) echo 4 ;;
+          esac
+        }
+
+        BAND_LEVEL=$(band_level "$BAND")
+        THRESHOLD_LEVEL=$(band_level "$THRESHOLD")
+
+        if [ "$BAND_LEVEL" -ge "$THRESHOLD_LEVEL" ]; then
+          echo "::error::Risk threshold exceeded: band=$BAND is at or below threshold=$THRESHOLD"
+          exit 1
+        fi
+
+    - name: Upload evidence artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: evidra-evidence
+        path: ${{ inputs.evidence-dir }}
+        if-no-files-found: warn

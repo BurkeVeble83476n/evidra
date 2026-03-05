@@ -1,4 +1,4 @@
-.PHONY: build test clean golden-update docker-mcp docker-cli fmt lint tidy \
+.PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
 	test-mcp-inspector test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
 
 build:
@@ -7,6 +7,9 @@ build:
 
 test:
 	go test ./... -v -count=1
+
+e2e: build
+	go test -tags e2e ./tests/e2e/ -v -count=1 -timeout=120s
 
 test-mcp-inspector:
 	bash tests/inspector/run_inspector_tests.sh

@@ -2,6 +2,8 @@ package mcpserver
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"testing"
 	"time"
@@ -416,6 +418,149 @@ func TestE2E_ProtocolV1Fields(t *testing.T) {
 	}
 	if reportEntry.ParentSpanID != "span-prescribe-001" {
 		t.Errorf("report parent_span_id: got %q, want %q", reportEntry.ParentSpanID, "span-prescribe-001")
+	}
+}
+
+// testSigner implements the evidence.Signer interface for tests.
+type testSigner struct {
+	priv ed25519.PrivateKey
+	pub  ed25519.PublicKey
+}
+
+func newTestSigner(t *testing.T) *testSigner {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &testSigner{priv: priv, pub: pub}
+}
+
+func (s *testSigner) Sign(payload []byte) []byte      { return ed25519.Sign(s.priv, payload) }
+func (s *testSigner) Verify(payload, sig []byte) bool { return ed25519.Verify(s.pub, payload, sig) }
+func (s *testSigner) PublicKey() ed25519.PublicKey    { return s.pub }
+
+func TestE2E_SignedEntries(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	signer := newTestSigner(t)
+
+	server, serverErr := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: dir,
+		Environment:  "test",
+		Signer:       signer,
+	})
+	if serverErr != nil {
+		t.Fatalf("NewServer: %v", serverErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	// Prescribe
+	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "prescribe",
+		Arguments: map[string]any{
+			"actor": map[string]any{
+				"type":   "agent",
+				"id":     "test-agent",
+				"origin": "e2e-sign-test",
+			},
+			"tool":         "kubectl",
+			"operation":    "apply",
+			"raw_artifact": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx\n  namespace: default\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: nginx\n  template:\n    metadata:\n      labels:\n        app: nginx\n    spec:\n      containers:\n      - name: nginx\n        image: nginx:1.21\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("prescribe: %v", err)
+	}
+
+	var prescribeOut PrescribeOutput
+	if err := extractStructuredContent(prescribeResult, &prescribeOut); err != nil {
+		t.Fatalf("parse prescribe output: %v", err)
+	}
+	if !prescribeOut.OK {
+		t.Fatalf("prescribe not ok: %+v", prescribeOut)
+	}
+
+	// Read back the prescription entry and verify it has a signature
+	readResult, err := session.ReadResource(ctx, &mcp.ReadResourceParams{
+		URI: "evidra://event/" + prescribeOut.PrescriptionID,
+	})
+	if err != nil {
+		t.Fatalf("read resource event: %v", err)
+	}
+	if len(readResult.Contents) == 0 {
+		t.Fatal("read resource returned no contents")
+	}
+	var entry evidence.EvidenceEntry
+	if err := json.Unmarshal([]byte(readResult.Contents[0].Text), &entry); err != nil {
+		t.Fatalf("parse resource event: %v", err)
+	}
+	if entry.Signature == "" {
+		t.Fatal("prescription entry has empty signature; expected signed entry")
+	}
+
+	// Report
+	reportResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "report",
+		Arguments: map[string]any{
+			"prescription_id": prescribeOut.PrescriptionID,
+			"exit_code":       0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+
+	var reportOut ReportOutput
+	if err := extractStructuredContent(reportResult, &reportOut); err != nil {
+		t.Fatalf("parse report output: %v", err)
+	}
+	if !reportOut.OK {
+		t.Fatalf("report not ok: %+v", reportOut)
+	}
+
+	// Read back report entry and verify signature
+	readResult, err = session.ReadResource(ctx, &mcp.ReadResourceParams{
+		URI: "evidra://event/" + reportOut.ReportID,
+	})
+	if err != nil {
+		t.Fatalf("read report resource: %v", err)
+	}
+	if len(readResult.Contents) == 0 {
+		t.Fatal("read report resource returned no contents")
+	}
+	var reportEntry evidence.EvidenceEntry
+	if err := json.Unmarshal([]byte(readResult.Contents[0].Text), &reportEntry); err != nil {
+		t.Fatalf("parse report entry: %v", err)
+	}
+	if reportEntry.Signature == "" {
+		t.Fatal("report entry has empty signature; expected signed entry")
+	}
+
+	// Validate the entire chain with signatures
+	if err := evidence.ValidateChainWithSignatures(dir, signer.pub); err != nil {
+		t.Fatalf("ValidateChainWithSignatures: %v", err)
 	}
 }
 

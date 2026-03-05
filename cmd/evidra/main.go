@@ -69,6 +69,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 	ttlFlag := fs.String("ttl", signal.DefaultTTL.String(), "TTL for unreported prescription detection")
 	toolFlag := fs.String("tool", "", "Filter by tool name")
 	scopeFlag := fs.String("scope", "", "Filter by scope class")
+	sessionIDFlag := fs.String("session-id", "", "Filter by session ID")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -87,7 +88,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	filtered := filterEntries(entries, *actorFlag, *periodFlag)
+	filtered := filterEntries(entries, *actorFlag, *periodFlag, *sessionIDFlag)
 
 	signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
 	if err != nil {
@@ -116,6 +117,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 	output := struct {
 		score.Scorecard
 		ActorID        string `json:"actor_id,omitempty"`
+		SessionID      string `json:"session_id,omitempty"`
 		Period         string `json:"period"`
 		ScoringVersion string `json:"scoring_version"`
 		SpecVersion    string `json:"spec_version"`
@@ -124,6 +126,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 	}{
 		Scorecard:      sc,
 		ActorID:        *actorFlag,
+		SessionID:      *sessionIDFlag,
 		Period:         *periodFlag,
 		ScoringVersion: "0.3.0",
 		SpecVersion:    "0.3.0",
@@ -149,6 +152,7 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 	ttlFlag := fs.String("ttl", signal.DefaultTTL.String(), "TTL for unreported prescription detection")
 	toolFlag := fs.String("tool", "", "Filter by tool name")
 	scopeFlag := fs.String("scope", "", "Filter by scope class")
+	sessionIDFlag := fs.String("session-id", "", "Filter by session ID")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -167,7 +171,7 @@ func cmdExplain(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	filtered := filterEntries(entries, *actorFlag, *periodFlag)
+	filtered := filterEntries(entries, *actorFlag, *periodFlag, *sessionIDFlag)
 
 	signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
 	if err != nil {
@@ -260,6 +264,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
 	toolFlag := fs.String("tool", "", "Filter by tool name")
 	scopeFlag := fs.String("scope", "", "Filter by scope class")
+	sessionIDFlag := fs.String("session-id", "", "Filter by session ID")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -287,7 +292,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 
 	var scorecards []actorScore
 	for _, actorID := range actors {
-		filtered := filterEntries(entries, actorID, *periodFlag)
+		filtered := filterEntries(entries, actorID, *periodFlag, *sessionIDFlag)
 		signalEntries, err := pipeline.EvidenceToSignalEntries(filtered)
 		if err != nil {
 			fmt.Fprintf(stderr, "Error converting evidence for %s: %v\n", actorID, err)
@@ -353,6 +358,8 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
 	canonicalActionFlag := fs.String("canonical-action", "", "Pre-canonicalized action JSON (bypasses adapter)")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID (generated if omitted)")
+	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
+	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -360,6 +367,12 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	if *artifactFlag == "" || *toolFlag == "" {
 		fmt.Fprintln(stderr, "prescribe requires --artifact and --tool")
 		return 2
+	}
+
+	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
+		return 1
 	}
 
 	data, err := os.ReadFile(*artifactFlag)
@@ -423,6 +436,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 			PreviousHash:   lastHash,
 			SpecVersion:    "0.3.0",
 			AdapterVersion: version.Version,
+			Signer:         signer,
 		})
 		if buildErr == nil {
 			if appendErr := evidence.AppendEntryAtPath(evidencePath, entry); appendErr != nil {
@@ -478,6 +492,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		SpecVersion:    "0.3.0",
 		CanonVersion:   cr.CanonVersion,
 		AdapterVersion: version.Version,
+		Signer:         signer,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "build entry: %v\n", err)
@@ -488,6 +503,12 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 	prescPayload.PrescriptionID = entry.EntryID
 	payloadJSON, _ = json.Marshal(prescPayload)
 	entry.Payload = payloadJSON
+
+	// Recompute hash and signature after payload mutation.
+	if err := evidence.RehashEntry(&entry, signer); err != nil {
+		fmt.Fprintf(stderr, "rehash entry: %v\n", err)
+		return 1
+	}
 
 	if err := evidence.AppendEntryAtPath(evidencePath, entry); err != nil {
 		fmt.Fprintf(stderr, "write evidence: %v\n", err)
@@ -531,6 +552,7 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 				PreviousHash:   lastHash,
 				SpecVersion:    "0.3.0",
 				AdapterVersion: version.Version,
+				Signer:         signer,
 			})
 			if err != nil {
 				fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", f.RuleID, err)
@@ -564,6 +586,8 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	artifactDigestFlag := fs.String("artifact-digest", "", "Artifact digest for drift detection")
 	externalRefsFlag := fs.String("external-refs", "", "External references JSON array (e.g. '[{\"type\":\"github_run\",\"id\":\"123\"}]')")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID")
+	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
+	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -571,6 +595,12 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	if *prescriptionFlag == "" {
 		fmt.Fprintln(stderr, "report requires --prescription")
 		return 2
+	}
+
+	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
+		return 1
 	}
 
 	evidencePath := resolveEvidencePath(*evidenceFlag)
@@ -603,6 +633,7 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 			PreviousHash:   lastHash,
 			SpecVersion:    "0.3.0",
 			AdapterVersion: version.Version,
+			Signer:         signer,
 		})
 		if buildErr == nil {
 			if appendErr := evidence.AppendEntryAtPath(evidencePath, sigEntry); appendErr != nil {
@@ -645,6 +676,7 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 		PreviousHash:   lastHash,
 		SpecVersion:    "0.3.0",
 		AdapterVersion: version.Version,
+		Signer:         signer,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "build entry: %v\n", err)
@@ -672,6 +704,28 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// resolveSigner creates a Signer from explicit flags or environment variables.
+// Returns nil, nil if no signing key is configured.
+func resolveSigner(keyBase64, keyPath string) (evidence.Signer, error) {
+	if keyBase64 == "" {
+		keyBase64 = strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY"))
+	}
+	if keyPath == "" {
+		keyPath = strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY_PATH"))
+	}
+	if keyBase64 == "" && keyPath == "" {
+		return nil, nil
+	}
+	s, err := ievsigner.NewSigner(ievsigner.SignerConfig{
+		KeyBase64: keyBase64,
+		KeyPath:   keyPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("resolveSigner: %w", err)
+	}
+	return s, nil
+}
+
 func resolveEvidencePath(explicit string) string {
 	if explicit != "" {
 		return explicit
@@ -686,7 +740,7 @@ func resolveEvidencePath(explicit string) string {
 	return filepath.Join(home, ".evidra", "evidence")
 }
 
-func filterEntries(entries []evidence.EvidenceEntry, actor, period string) []evidence.EvidenceEntry {
+func filterEntries(entries []evidence.EvidenceEntry, actor, period, sessionID string) []evidence.EvidenceEntry {
 	cutoff := parsePeriodCutoff(period)
 	var filtered []evidence.EvidenceEntry
 	for _, e := range entries {
@@ -694,6 +748,9 @@ func filterEntries(entries []evidence.EvidenceEntry, actor, period string) []evi
 			continue
 		}
 		if !cutoff.IsZero() && e.Timestamp.Before(cutoff) {
+			continue
+		}
+		if sessionID != "" && e.SessionID != sessionID {
 			continue
 		}
 		filtered = append(filtered, e)
@@ -777,6 +834,8 @@ func cmdIngestFindings(args []string, stdout, stderr io.Writer) int {
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
 	actorFlag := fs.String("actor", "", "Actor ID")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID")
+	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
+	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -784,6 +843,12 @@ func cmdIngestFindings(args []string, stdout, stderr io.Writer) int {
 	if *sarifFlag == "" {
 		fmt.Fprintln(stderr, "ingest-findings requires --sarif")
 		return 2
+	}
+
+	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
+		return 1
 	}
 
 	sarifData, err := os.ReadFile(*sarifFlag)
@@ -829,6 +894,7 @@ func cmdIngestFindings(args []string, stdout, stderr io.Writer) int {
 			PreviousHash:   lastHash,
 			SpecVersion:    "0.3.0",
 			AdapterVersion: version.Version,
+			Signer:         signer,
 		})
 		if err != nil {
 			fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", f.RuleID, err)

@@ -22,6 +22,7 @@ type Options struct {
 	EvidencePath string
 	Environment  string
 	RetryTracker bool
+	Signer       evidence.Signer // optional: signs evidence entries if provided
 }
 
 // InputActor identifies the caller in a prescribe request.
@@ -103,6 +104,7 @@ type reportHandler struct {
 type BenchmarkService struct {
 	evidencePath string
 	retryTracker *RetryTracker
+	signer       evidence.Signer
 	lastTraceID  string
 	lastActor    evidence.Actor
 }
@@ -132,6 +134,7 @@ func NewServer(opts Options) (*mcp.Server, error) {
 
 	svc := &BenchmarkService{
 		evidencePath: opts.EvidencePath,
+		signer:       opts.Signer,
 	}
 	if opts.RetryTracker {
 		svc.retryTracker = NewRetryTracker(10 * time.Minute)
@@ -284,6 +287,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 					PreviousHash:   lastHash,
 					SpecVersion:    "0.3.0",
 					AdapterVersion: version.Version,
+					Signer:         s.signer,
 				})
 				if buildErr == nil {
 					_ = evidence.AppendEntryAtPath(s.evidencePath, entry) // best-effort for failure entries
@@ -364,6 +368,7 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		SpecVersion:     "0.3.0",
 		CanonVersion:    cr.CanonVersion,
 		AdapterVersion:  version.Version,
+		Signer:          s.signer,
 	})
 	if err != nil {
 		return PrescribeOutput{
@@ -376,6 +381,14 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 	prescPayload.PrescriptionID = entry.EntryID
 	payloadJSON, _ = json.Marshal(prescPayload)
 	entry.Payload = payloadJSON
+
+	// Recompute hash and signature after payload mutation.
+	if err := evidence.RehashEntry(&entry, s.signer); err != nil {
+		return PrescribeOutput{
+			OK:    false,
+			Error: &ErrInfo{Code: "internal_error", Message: err.Error()},
+		}
+	}
 
 	// Store actor and trace ID for subsequent report calls
 	s.lastActor = actor
@@ -446,6 +459,7 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 				PreviousHash:   lastHash,
 				SpecVersion:    "0.3.0",
 				AdapterVersion: version.Version,
+				Signer:         s.signer,
 			})
 			if buildErr == nil {
 				_ = evidence.AppendEntryAtPath(s.evidencePath, sigEntry) // best-effort for signal entries
@@ -506,6 +520,7 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 		PreviousHash:   lastHash,
 		SpecVersion:    "0.3.0",
 		AdapterVersion: version.Version,
+		Signer:         s.signer,
 	})
 	if err != nil {
 		return ReportOutput{

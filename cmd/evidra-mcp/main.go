@@ -12,6 +12,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
+	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/mcpserver"
 	"samebits.com/evidra-benchmark/pkg/version"
 )
@@ -45,12 +47,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 	evidencePath := resolveEvidencePath(*evidenceFlag)
 	environment := resolveEnvironment(*environmentFlag)
 
+	signer, signerErr := resolveSigner()
+	if signerErr != nil {
+		fmt.Fprintf(stderr, "resolve signer: %v\n", signerErr)
+		return 1
+	}
+
 	server, err := mcpserver.NewServer(mcpserver.Options{
 		Name:         "evidra-benchmark",
 		Version:      version.Version,
 		EvidencePath: evidencePath,
 		Environment:  environment,
 		RetryTracker: *retryFlag || envBool("EVIDRA_RETRY_TRACKER", false),
+		Signer:       signer,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "initialize server: %v\n", err)
@@ -100,6 +109,24 @@ func envBool(key string, fallback bool) bool {
 		return false
 	}
 	return fallback
+}
+
+// resolveSigner creates a Signer from environment variables.
+// Returns nil, nil if no signing key is configured.
+func resolveSigner() (evidence.Signer, error) {
+	keyBase64 := strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY"))
+	keyPath := strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY_PATH"))
+	if keyBase64 == "" && keyPath == "" {
+		return nil, nil
+	}
+	s, err := ievsigner.NewSigner(ievsigner.SignerConfig{
+		KeyBase64: keyBase64,
+		KeyPath:   keyPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("resolveSigner: %w", err)
+	}
+	return s, nil
 }
 
 func printHelp(w io.Writer) {

@@ -70,6 +70,37 @@ evidra report --prescription <id> --exit-code 0
 evidra scorecard --actor agent-1 --period 30d
 ```
 
+### Signing & Validation
+
+```bash
+# Sign evidence with Ed25519 key
+evidra prescribe --signing-key-path key.pem --tool kubectl --artifact deploy.yaml
+evidra report --signing-key-path key.pem --prescription <id> --exit-code 0
+
+# Or via environment variable
+export EVIDRA_SIGNING_KEY_PATH=/path/to/key.pem
+
+# Validate chain integrity + signatures
+evidra validate --evidence-dir ./evidence --public-key pub.pem
+```
+
+### Session Filtering
+
+```bash
+# Score a specific session/run
+evidra scorecard --session-id $GITHUB_RUN_ID
+
+# Explain signals for a session
+evidra explain --session-id $GITHUB_RUN_ID
+```
+
+### Standalone Findings Ingestion
+
+```bash
+# Ingest SARIF findings independently (no prescribe required)
+evidra ingest-findings --sarif trivy-results.sarif --artifact deploy.yaml --session-id $GITHUB_RUN_ID
+```
+
 ### Scanner Context (Defaults: Trivy + Kubescape)
 
 ```bash
@@ -105,6 +136,19 @@ evidra-mcp --evidence-dir ~/.evidra/evidence
 docker build -t evidra-mcp:dev -f Dockerfile .
 ```
 
+### GitHub Action
+
+```yaml
+- name: Run Evidra Benchmark
+  uses: ./.github/actions/evidra
+  with:
+    evidence-dir: ./evidence
+    session-id: ${{ github.run_id }}
+    sarif-path: trivy-results.sarif
+    public-key: signing.pub.pem
+    fail-on-risk: fair  # fail if band is fair or worse
+```
+
 ---
 
 ## Architecture
@@ -121,7 +165,7 @@ Two binaries:
 
 | Binary | Purpose |
 |---|---|
-| `evidra` | CLI: scorecard, compare, prescribe, report |
+| `evidra` | CLI: prescribe, report, scorecard, explain, compare, validate, ingest-findings |
 | `evidra-mcp` | MCP server for AI agents (stdio transport) |
 
 ---
