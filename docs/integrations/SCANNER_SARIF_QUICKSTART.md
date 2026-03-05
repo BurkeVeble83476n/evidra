@@ -11,6 +11,10 @@ Both scanners feed the same Evidra contract:
 --scanner-report <sarif-file>
 ```
 
+Signing guidance:
+- Default (`strict`): configure `EVIDRA_SIGNING_KEY` or `EVIDRA_SIGNING_KEY_PATH`
+- Local smoke mode: use `--signing-mode optional` or `EVIDRA_SIGNING_MODE=optional`
+
 ## 1. Trivy (Terraform / IaC default)
 
 ```bash
@@ -21,6 +25,7 @@ trivy config . --format sarif > scanner_report.sarif
 evidra prescribe \
   --tool terraform \
   --artifact plan.json \
+  --signing-mode optional \
   --scanner-report scanner_report.sarif
 ```
 
@@ -34,6 +39,7 @@ kubescape scan . --format sarif --output scanner_report_k8s.sarif
 evidra prescribe \
   --tool kubectl \
   --artifact manifest.yaml \
+  --signing-mode optional \
   --scanner-report scanner_report_k8s.sarif
 ```
 

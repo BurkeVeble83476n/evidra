@@ -172,12 +172,12 @@ func terraformOperationClass(op string) string {
 // Otherwise, resource namespaces are scanned for environment hints.
 // Falls back to "unknown" if no match is found.
 func ResolveScopeClass(env string, resources []ResourceID) string {
-	env = strings.ToLower(strings.TrimSpace(env))
-
-	// Explicit environment wins.
-	switch env {
-	case "production", "staging", "development":
-		return env
+	envRaw := strings.TrimSpace(env)
+	if envRaw != "" {
+		normalized := NormalizeScopeClass(envRaw)
+		if normalized != "unknown" {
+			return normalized
+		}
 	}
 
 	// Scan resource namespaces for hints.
@@ -198,4 +198,20 @@ func ResolveScopeClass(env string, resources []ResourceID) string {
 	}
 
 	return "unknown"
+}
+
+// NormalizeScopeClass maps protocol aliases to runtime canonical scope values.
+// Runtime canonical set: production | staging | development | unknown.
+func NormalizeScopeClass(scope string) string {
+	v := strings.ToLower(strings.TrimSpace(scope))
+	switch v {
+	case "production", "prod":
+		return "production"
+	case "staging", "stage":
+		return "staging"
+	case "development", "dev", "test", "sandbox":
+		return "development"
+	default:
+		return "unknown"
+	}
 }

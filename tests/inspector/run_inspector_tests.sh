@@ -94,6 +94,7 @@ check_prerequisites() {
       command -v npx >/dev/null 2>&1 || skip_all_and_exit "npx is required for local-mcp mode"
       (cd "$REPO_ROOT" && go build -o bin/evidra-mcp ./cmd/evidra-mcp)
       export PATH="$REPO_ROOT/bin:$PATH"
+      export EVIDRA_SIGNING_MODE="${EVIDRA_SIGNING_MODE:-optional}"
       ;;
     local-rest)
       command -v curl >/dev/null 2>&1 || skip_all_and_exit "curl is required for local-rest mode"

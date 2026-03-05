@@ -17,10 +17,12 @@ Deterministic integration tests for `evidra-mcp` using MCP Inspector CLI and RES
 make test-mcp-inspector
 ```
 
+By default local mode uses `EVIDRA_SIGNING_MODE=optional` in the runner to avoid requiring persistent signing keys for smoke tests.
+
 Optional modes:
 
 ```bash
-EVIDRA_TEST_MODE=local-rest EVIDRA_LOCAL_API_URL=http://127.0.0.1:8080 bash tests/inspector/run_inspector_tests.sh
+EVIDRA_SIGNING_MODE=optional EVIDRA_TEST_MODE=local-rest EVIDRA_LOCAL_API_URL=http://127.0.0.1:8080 bash tests/inspector/run_inspector_tests.sh
 EVIDRA_ENABLE_NETWORK_TESTS=1 EVIDRA_TEST_MODE=hosted-mcp EVIDRA_MCP_URL=https://example.com/mcp bash tests/inspector/run_inspector_tests.sh
 EVIDRA_ENABLE_NETWORK_TESTS=1 EVIDRA_TEST_MODE=hosted-rest EVIDRA_API_URL=https://example.com EVIDRA_API_KEY=... bash tests/inspector/run_inspector_tests.sh
 ```

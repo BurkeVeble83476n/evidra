@@ -23,6 +23,7 @@ bin/
 dist/
 /release/
 .tmp/
+latest.log
 
 # Node
 node_modules/

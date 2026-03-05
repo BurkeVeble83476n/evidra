@@ -33,10 +33,23 @@ type PrescriptionPayload struct {
 	PrescriptionID  string          `json:"prescription_id"`
 	CanonicalAction json.RawMessage `json:"canonical_action"`
 	RiskLevel       string          `json:"risk_level"`
-	RiskTags        []string        `json:"risk_tags,omitempty"`
-	RiskDetails     []string        `json:"risk_details,omitempty"`
-	TTLMs           int64           `json:"ttl_ms"`
-	CanonSource     string          `json:"canon_source"`
+	// RiskDetails is the canonical risk field used by benchmark validators.
+	// Preferred field since v0.3.1.
+	RiskDetails []string `json:"risk_details,omitempty"`
+	// RiskTags is kept for backward compatibility with older readers.
+	// Deprecated: use RiskDetails. Planned removal in v0.5.0.
+	RiskTags    []string `json:"risk_tags,omitempty"`
+	TTLMs       int64    `json:"ttl_ms"`
+	CanonSource string   `json:"canon_source"`
+}
+
+// EffectiveRiskDetails returns canonical risk details when present,
+// otherwise falls back to legacy risk_tags for backward compatibility.
+func (p PrescriptionPayload) EffectiveRiskDetails() []string {
+	if len(p.RiskDetails) > 0 {
+		return p.RiskDetails
+	}
+	return p.RiskTags
 }
 
 // ExternalRef is an external reference attached to a report entry.

@@ -84,6 +84,31 @@ func TestPrescriptionPayload_OmitEmpty(t *testing.T) {
 	}
 }
 
+func TestPrescriptionPayload_EffectiveRiskDetails_PrefersRiskDetails(t *testing.T) {
+	t.Parallel()
+
+	p := PrescriptionPayload{
+		RiskDetails: []string{"k8s.privileged_container"},
+		RiskTags:    []string{"legacy-tag"},
+	}
+	got := p.EffectiveRiskDetails()
+	if len(got) != 1 || got[0] != "k8s.privileged_container" {
+		t.Fatalf("EffectiveRiskDetails() = %v, want risk_details value", got)
+	}
+}
+
+func TestPrescriptionPayload_EffectiveRiskDetails_FallsBackToRiskTags(t *testing.T) {
+	t.Parallel()
+
+	p := PrescriptionPayload{
+		RiskTags: []string{"legacy-tag"},
+	}
+	got := p.EffectiveRiskDetails()
+	if len(got) != 1 || got[0] != "legacy-tag" {
+		t.Fatalf("EffectiveRiskDetails() = %v, want risk_tags fallback", got)
+	}
+}
+
 func TestReportPayload_Marshal(t *testing.T) {
 	t.Parallel()
 

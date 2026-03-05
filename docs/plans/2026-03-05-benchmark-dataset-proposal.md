@@ -4,6 +4,10 @@
 **Date:** 2026-03-05
 **Consolidates:** benchmark_data_set_ideas.md, real-test-data-acquisition-plan.md, real_test_data_for_evidra_ideas.md, evidra-benchmark-cli-spec-v1.md (all deleted — this is the single source of truth)
 
+Current implementation note:
+- `evidra benchmark` exists as a CLI scaffold only (stub commands behind `EVIDRA_BENCHMARK_EXPERIMENTAL=1`)
+- dataset execution engine is not yet wired; this proposal defines the target model
+
 ---
 
 ## 1) Vision
@@ -163,6 +167,7 @@ risk_level: medium
 - `new_scope` fires on EVERY first-seen (actor, tool, op_class, scope_class) combination in the evaluated chain — when cases are evaluated independently, new_scope will fire on most cases. Benchmark must either: (a) pre-seed known-scope state, (b) exclude new_scope from false-positive calculation, or (c) only test new_scope in dedicated cases where it IS expected
 - `protocol_violation` "unreported" detection compares prescription timestamps against `time.Now()` with TTL — for pre-recorded evidence this is non-deterministic. The `record` command must set TTL or the benchmark runner must inject a synthetic clock based on evidence chain timestamps
 - Per-case evidence chains will have < 100 operations, so benchmark scoring must bypass `MinOperations=100` threshold (use raw signal counts, not scorecard rates)
+- Risk payload contract: `risk_details` is canonical; benchmark validators MUST read `risk_details`, while readers MAY fallback to legacy `risk_tags` during transition (planned removal target: v0.5.0)
 
 `scenario.yaml` is the **executable spec** — `record.sh` reads it to generate evidence chains, and `validate.sh` reads it to verify expected signals. `expected.json` holds ground truth and performance thresholds that are independent of execution.
 
@@ -439,6 +444,36 @@ terraform show -json plan.tfplan > plan.json
 
 **Note on "planned" detectors:** Several Phase 1 cases depend on risk detectors that do not yet exist in the engine (marked "detector planned" below). Their `expected.json` reflects what the engine produces TODAY — `risk_level` from the current risk matrix, `risk_details_expected: []` (empty, since no detector emits a tag yet). This keeps Phase 1 green on day one: all 30 cases pass against the current engine. When a planned detector is implemented, the corresponding case's `risk_details_expected` is updated to include the new tag (one-line PR per case). Cases that test existing detectors (`k8s.privileged_container`, `k8s.hostpath_mount`, `k8s.host_namespace_escape`, `terraform.s3_public_access`, `terraform.iam_wildcard_policy`, `aws_iam.wildcard_policy`, `ops.mass_delete`) and all 5 signal detectors are fully executable from day one.
 
+### Source Catalog (concrete acquisition targets)
+
+All benchmark sources MUST be registered in `tests/benchmark/sources/` before any case is imported.
+
+### Phase 0-1 seed (local legacy corpus)
+
+Use `../evidra-mcp` as bootstrap corpus:
+
+- `../evidra-mcp/tests/golden_real/*`
+- `../evidra-mcp/tests/golden_real/manifest.json`
+- `../evidra-mcp/tests/corpus/*.json`
+- `../evidra-mcp/tests/e2e/fixtures/*`
+- `../evidra-mcp/examples/*.json`
+- `../evidra-mcp/examples/demo/*.json`
+- `../evidra-mcp/tests/corpus/sources.json`
+
+### Phase 1-2 OSS and incident sources
+
+| source_id | Upstream | Scope |
+|---|---|---|
+| `checkov-terraform` | `https://github.com/bridgecrewio/checkov` (`tests/terraform`) | Terraform misconfiguration cases |
+| `terraform-provider-aws-examples` | `https://github.com/hashicorp/terraform-provider-aws` (`examples`) | Terraform realistic configuration shapes |
+| `kubescape-examples` | Kubescape example manifests (exact repo/path pinned in source manifest) | K8s workload and posture misconfigs |
+| `owasp-k8s-top10` | OWASP Kubernetes Top 10 examples/docs | K8s security anti-pattern scenarios |
+| `falco-examples` | Falco rule and event examples | Runtime and behavioral anomaly patterns |
+| `k8s-security-docs` | Kubernetes official security docs examples | Baseline/expected-safe K8s patterns |
+| `incident-postmortems-public` | Public postmortems only (reconstructed fixtures) | Incident-derived destructive/drift/retry scenarios |
+
+`Source` cells in case tables below are logical labels only; each case MUST map to a concrete `source_id` with pinned URL/path/commit in `tests/benchmark/sources/<source-id>.md`.
+
 ### Phase 1: Kubernetes (kind cluster, 15 cases)
 
 | Case | Difficulty | Source | What tested |
@@ -569,6 +604,41 @@ A source is eligible only if ALL are true:
 
 Provenance recorded per source in `tests/benchmark/sources/<source-id>.md`.
 
+### Source composition targets (v1.0)
+
+Definitions:
+
+- **Real-derived case**: case has at least one `source_ref` whose `source_type` is `seed`, `oss`, or `incident`
+- **Custom-only case**: all `source_refs` are `custom`
+
+Targets for benchmark `v1.0` (50 cases):
+
+- `>= 80%` real-derived cases (`>= 40` of 50)
+- `<= 20%` custom-only cases (`<= 10` of 50)
+- `0` cases without valid provenance (`source_refs` + source manifest)
+
+Custom-only cases are allowed only for known gaps: destructive blast-radius patterns, protocol-violation/retry behavioral sequences, or incident reconstructions where raw reusable artifacts do not exist.
+
+### Mandatory provenance schema (enforced)
+
+Each `tests/benchmark/sources/<source-id>.md` MUST contain:
+
+- `source_id`
+- `source_type` (`seed`, `oss`, `incident`, `custom`)
+- `source_url`
+- `source_path` (directory/file path inside upstream source)
+- `source_commit_or_tag`
+- `source_license`
+- `retrieved_at` (UTC date)
+- `retrieved_by`
+- `transformation_notes`
+- `reviewer`
+- `linked_cases` (list of benchmark case IDs using this source)
+
+Start from `tests/benchmark/sources/TEMPLATE.md` to create each source manifest.
+
+Each `tests/benchmark/cases/<case-id>/expected.json` MUST include `source_refs` pointing to one or more `source_id` entries.
+
 ---
 
 ## 10) Validation
@@ -579,13 +649,15 @@ Provenance recorded per source in `tests/benchmark/sources/<source-id>.md`.
 
 For each case:
 
-1. Feed `evidence/` to signal detectors (raw, not via scorecard)
-2. Compare detected signals against `expected.json` signals_expected
-3. Compare prescription risk_details against `expected.json` risk_details_expected
-4. Verify risk_level matches `ground_truth.infrastructure_risk`
-5. If `score_range` present and ops >= 100: verify score falls within range
-6. Compute performance metrics (false_positive_rate, false_negative_rate)
-7. Compare against baseline profiles
+1. Validate source provenance schema (`tests/benchmark/sources/*.md`) and required fields
+2. Validate each case has `source_refs` and all refs resolve to existing `source_id`
+3. Feed `evidence/` to signal detectors (raw, not via scorecard)
+4. Compare detected signals against `expected.json` signals_expected
+5. Compare prescription risk_details against `expected.json` risk_details_expected
+6. Verify risk_level matches `ground_truth.infrastructure_risk`
+7. If `score_range` present and ops >= 100: verify score falls within range
+8. Compute performance metrics (false_positive_rate, false_negative_rate)
+9. Compare against baseline profiles
 
 ### CI integration
 
@@ -597,7 +669,10 @@ benchmark:
     - uses: actions/checkout@v4
     - run: make build
     - run: ./tests/benchmark/scripts/validate.sh
+    - run: ./tests/benchmark/scripts/validate-source-composition.sh  # enforces v1.0 real-derived/custom ratio at release gate
 ```
+
+`validate-source-composition.sh` MUST return deterministic skip (`exit 0`) while `tests/benchmark/cases` is still empty, and MUST enforce the ratio gates as soon as real cases are present.
 
 Recording (re-generating evidence from artifacts via kind) is a separate workflow, not run on every PR. Validation of pre-recorded evidence runs on every PR.
 
@@ -687,15 +762,20 @@ Implementation: `evidra benchmark` CLI subcommand from Phase 1 (see [EVIDRA_BENC
 - Write `record.sh`, `validate.sh`, `reset-cluster.sh` scripts
 - Set up kind cluster config for benchmark recording
 - Define baseline agent profiles
+- Register seed source manifests from `../evidra-mcp` in `tests/benchmark/sources/`
+- Lock initial source catalog (source IDs + upstream URLs + expected licenses)
 
 ### Phase 1 (3-5 days): First 30 cases
 
-- Import artifacts from Checkov, Kubescape, and custom scenarios
+- Import artifacts from `../evidra-mcp` seed and OSS sources (Checkov, Kubescape) first; use custom fixtures only for explicit gaps
+- Bootstrap first cases from `../evidra-mcp` seed corpus before external imports
 - Record K8s + Helm + Terraform evidence chains via kind cluster
 - Write `expected.json` with ground truth for each case
 - Write scenario narratives (README.md per case)
 - Assign difficulty levels
 - Wire `validate.sh` into CI
+- Enforce per-case `source_refs` and linked source manifests in PR checks
+- Track source composition each PR; block release if real-derived ratio drops below target
 
 ### Phase 2 (5-7 days): Expand to 50 cases
 
@@ -734,6 +814,7 @@ Implementation: `evidra benchmark` CLI subcommand from Phase 1 (see [EVIDRA_BENC
 | Include perfect-session baseline? | **Yes** (score=100 calibration case) |
 | Cluster isolation strategy? | **Namespace sandbox** default; full reset for cluster-wide cases |
 | Terraform plan stability? | **Pre-recorded plan JSON**; optional manual re-record |
+| Real vs synthetic mix for v1.0? | **At least 80% real-derived, at most 20% custom-only** |
 
 ---
 

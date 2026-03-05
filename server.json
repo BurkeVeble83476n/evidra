@@ -23,6 +23,27 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false
+        },
+        {
+          "name": "EVIDRA_SIGNING_MODE",
+          "description": "Signing mode: strict (default) or optional (ephemeral local mode)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "EVIDRA_SIGNING_KEY",
+          "description": "Base64-encoded Ed25519 private key (required for strict mode)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "EVIDRA_SIGNING_KEY_PATH",
+          "description": "Path to PEM-encoded Ed25519 private key (required for strict mode if key not inline)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
         }
       ]
     }

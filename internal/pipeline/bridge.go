@@ -29,7 +29,8 @@ func EvidenceToSignalEntries(entries []evidence.EvidenceEntry) ([]signal.Entry, 
 			if err := json.Unmarshal(e.Payload, &p); err != nil {
 				return nil, fmt.Errorf("pipeline: unmarshal prescription %s: %w", e.EntryID, err)
 			}
-			se.RiskTags = p.RiskTags
+			// Canonical contract is risk_details with legacy fallback to risk_tags.
+			se.RiskTags = p.EffectiveRiskDetails()
 			// Extract fields from canonical_action
 			var ca struct {
 				Tool           string `json:"tool"`

@@ -195,6 +195,8 @@ Rules:
 
 - scope_class MUST be low cardinality
 - derived deterministically by canonicalization rules
+- runtime canonical values are `production`, `staging`, `development`, `unknown`
+- protocol aliases MUST normalize as: `prod -> production`, `dev -> development`, `test -> development`, `sandbox -> development`
 
 ## 5.2 Scope Dimensions
 

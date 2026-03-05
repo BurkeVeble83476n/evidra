@@ -75,7 +75,7 @@ make build    # produces bin/evidra and bin/evidra-mcp
 
 ## Quick Start
 
-### Generate signing keys (required)
+### Generate signing keys (strict mode, default)
 
 ```bash
 evidra keygen
@@ -107,6 +107,17 @@ evidra compare --actors agent-1,agent-2 --period 30d
 ```
 
 Session IDs are auto-generated (ULID) when `--session-id` is omitted.
+
+### Local/Test Mode (no persisted key)
+
+For local smoke tests and MCP inspector runs, you can opt into ephemeral signing:
+
+```bash
+export EVIDRA_SIGNING_MODE=optional
+make test-mcp-inspector
+```
+
+`optional` mode generates an ephemeral key in-process and is not suitable for durable verification across restarts. Production should stay in strict mode with explicit keys.
 
 ### Ingest Scanner Findings (SARIF)
 
@@ -145,6 +156,7 @@ evidra validate --evidence-dir ./evidence --public-key pub.pem
 | `compare` | Compare reliability across actors |
 | `validate` | Validate evidence chain integrity and signatures |
 | `ingest-findings` | Ingest SARIF scanner findings as evidence |
+| `benchmark` | Benchmark command group (`run/list/validate/record/compare` stubs) |
 | `version` | Print version information |
 
 Run `evidra <command> --help` for command-specific flags.
@@ -257,10 +269,12 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 |----------|---------|
 | `EVIDRA_SIGNING_KEY` | Base64-encoded Ed25519 signing key |
 | `EVIDRA_SIGNING_KEY_PATH` | Path to PEM-encoded Ed25519 private key |
+| `EVIDRA_SIGNING_MODE` | Signing behavior: `strict` (default) or `optional` (ephemeral local mode) |
 | `EVIDRA_EVIDENCE_DIR` | Evidence storage directory (default: `~/.evidra/evidence`) |
 | `EVIDRA_ENVIRONMENT` | Environment label |
 | `EVIDRA_API_URL` | Forward evidence to remote API |
 | `EVIDRA_RETRY_TRACKER` | Enable retry loop tracking |
+| `EVIDRA_BENCHMARK_EXPERIMENTAL` | Enable `evidra benchmark` preview stubs (`1`) |
 
 ---
 

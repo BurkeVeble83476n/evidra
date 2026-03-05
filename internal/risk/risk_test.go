@@ -74,6 +74,33 @@ func TestRiskLevel_UnknownDefaultsHigh(t *testing.T) {
 	}
 }
 
+func TestRiskLevel_ScopeAliasesNormalized(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		opClass    string
+		scopeClass string
+		want       string
+	}{
+		{name: "prod_alias", opClass: "mutate", scopeClass: "prod", want: "high"},
+		{name: "dev_alias", opClass: "destroy", scopeClass: "dev", want: "medium"},
+		{name: "test_alias", opClass: "mutate", scopeClass: "test", want: "low"},
+		{name: "sandbox_alias", opClass: "read", scopeClass: "sandbox", want: "low"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := RiskLevel(tt.opClass, tt.scopeClass)
+			if got != tt.want {
+				t.Fatalf("RiskLevel(%q,%q)=%q, want %q", tt.opClass, tt.scopeClass, got, tt.want)
+			}
+		})
+	}
+}
+
 // --- Elevation tests ---
 
 func TestElevateRiskLevel_NoTags(t *testing.T) {

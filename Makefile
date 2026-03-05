@@ -1,5 +1,5 @@
 .PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
-	test-mcp-inspector test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
+	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
 
 build:
 	go build -o bin/evidra ./cmd/evidra
@@ -13,6 +13,10 @@ e2e: build
 
 test-mcp-inspector:
 	bash tests/inspector/run_inspector_tests.sh
+
+test-mcp-inspector-ci:
+	mkdir -p tests/inspector/out
+	bash -o pipefail -c 'bash tests/inspector/run_inspector_tests.sh | tee tests/inspector/out/latest.log'
 
 test-mcp-inspector-local-rest:
 	EVIDRA_TEST_MODE=local-rest bash tests/inspector/run_inspector_tests.sh

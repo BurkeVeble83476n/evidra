@@ -74,6 +74,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 	prescPayload := evidence.PrescriptionPayload{
 		CanonicalAction: cr.RawAction,
 		RiskLevel:       riskLevel,
+		RiskDetails:     riskTags,
 		RiskTags:        riskTags,
 		TTLMs:           evidence.DefaultTTLMs,
 		CanonSource:     canonSource,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"samebits.com/evidra-benchmark/internal/config"
 	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/mcpserver"
@@ -29,6 +30,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	evidenceFlag := fs.String("evidence-dir", "", "Path to store evidence records")
 	environmentFlag := fs.String("environment", "", "Environment label (production, staging, development)")
 	retryFlag := fs.Bool("retry-tracker", false, "Enable retry loop tracking")
+	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
 	helpFlag := fs.Bool("help", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
@@ -47,7 +49,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	evidencePath := resolveEvidencePath(*evidenceFlag)
 	environment := resolveEnvironment(*environmentFlag)
 
-	signer, signerErr := resolveSigner()
+	signer, signerErr := resolveSigner(*signingModeFlag)
 	if signerErr != nil {
 		fmt.Fprintf(stderr, "resolve signer: %v\n", signerErr)
 		return 1
@@ -112,16 +114,25 @@ func envBool(key string, fallback bool) bool {
 }
 
 // resolveSigner creates a Signer from environment variables.
-// Returns an error if no signing key is configured.
-func resolveSigner() (evidence.Signer, error) {
+// Returns an error when mode is strict and no key is configured.
+func resolveSigner(modeRaw string) (evidence.Signer, error) {
+	mode, err := config.ResolveSigningMode(modeRaw)
+	if err != nil {
+		return nil, err
+	}
+
 	keyBase64 := strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY"))
 	keyPath := strings.TrimSpace(os.Getenv("EVIDRA_SIGNING_KEY_PATH"))
-	if keyBase64 == "" && keyPath == "" {
-		return nil, fmt.Errorf("signing key required: set EVIDRA_SIGNING_KEY or EVIDRA_SIGNING_KEY_PATH")
+
+	noKey := keyBase64 == "" && keyPath == ""
+	if noKey && mode == config.SigningModeStrict {
+		return nil, fmt.Errorf("signing key required in strict mode: set EVIDRA_SIGNING_KEY or EVIDRA_SIGNING_KEY_PATH (or --signing-mode optional)")
 	}
+
 	s, err := ievsigner.NewSigner(ievsigner.SignerConfig{
 		KeyBase64: keyBase64,
 		KeyPath:   keyPath,
+		DevMode:   noKey && mode == config.SigningModeOptional,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resolveSigner: %w", err)
@@ -139,6 +150,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  --evidence-dir <dir>    Where to store evidence chain (default: ~/.evidra/evidence)")
 	fmt.Fprintln(w, "  --environment <label>   Environment label (production, staging, development)")
 	fmt.Fprintln(w, "  --retry-tracker         Enable retry loop tracking")
+	fmt.Fprintln(w, "  --signing-mode <mode>   Signing mode: strict (default) or optional")
 	fmt.Fprintln(w, "  --version               Print version and exit")
 	fmt.Fprintln(w, "  --help                  Show this help")
 	fmt.Fprintln(w)
@@ -146,6 +158,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  EVIDRA_EVIDENCE_DIR     Override evidence directory")
 	fmt.Fprintln(w, "  EVIDRA_ENVIRONMENT      Default environment label")
 	fmt.Fprintln(w, "  EVIDRA_RETRY_TRACKER    Enable retry tracking (true/false)")
+	fmt.Fprintln(w, "  EVIDRA_SIGNING_MODE     strict (default) or optional")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "TOOLS:")
 	fmt.Fprintln(w, "  prescribe   Analyze artifact BEFORE execution (returns risk + prescription_id)")

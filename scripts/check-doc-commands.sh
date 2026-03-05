@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+fail() {
+  echo "doc check failed: $*" >&2
+  exit 1
+}
+
+require_pattern() {
+  local file="$1"
+  local pattern="$2"
+  if ! rg -q --fixed-strings -- "$pattern" "$file"; then
+    fail "missing pattern '$pattern' in $file"
+  fi
+}
+
+require_pattern "README.md" "EVIDRA_SIGNING_MODE"
+require_pattern "README.md" "make test-mcp-inspector"
+require_pattern "docs/integrations/SCANNER_SARIF_QUICKSTART.md" "--signing-mode optional"
+require_pattern "tests/inspector/README.md" "EVIDRA_LOCAL_API_URL"
+require_pattern "tests/inspector/README.md" "EVIDRA_SIGNING_MODE=optional"
+require_pattern "server.json" "\"name\": \"EVIDRA_SIGNING_MODE\""
+require_pattern "server.json" "\"name\": \"EVIDRA_SIGNING_KEY\""
+require_pattern "server.json" "\"name\": \"EVIDRA_SIGNING_KEY_PATH\""
+
+# Smoke-check documented command paths with local optional signing mode.
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+cat >"$tmpdir/artifact.json" <<'JSON'
+{"noop":true}
+JSON
+
+go run ./cmd/evidra benchmark --help >/dev/null
+
+prescribe_out="$(go run ./cmd/evidra prescribe \
+  --tool terraform \
+  --artifact "$tmpdir/artifact.json" \
+  --canonical-action '{"tool":"terraform","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":1,"resource_shape_hash":"sha256:test"}' \
+  --signing-mode optional \
+  --evidence-dir "$tmpdir/evidence")"
+
+prescription_id="$(printf '%s\n' "$prescribe_out" | rg -o '"prescription_id"\s*:\s*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"$/\1/')"
+if [[ -z "${prescription_id:-}" ]]; then
+  fail "could not parse prescription_id from prescribe output"
+fi
+
+go run ./cmd/evidra report \
+  --prescription "$prescription_id" \
+  --exit-code 0 \
+  --signing-mode optional \
+  --evidence-dir "$tmpdir/evidence" >/dev/null
+
+echo "doc checks passed"

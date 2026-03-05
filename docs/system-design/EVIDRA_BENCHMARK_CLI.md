@@ -3,6 +3,12 @@
 ## Status
 Draft. Defines the `evidra benchmark` subcommand for running the benchmark dataset against any automation system.
 
+Implementation status (2026-03-05):
+- `evidra benchmark` command group exists as a scaffold
+- `run|list|validate|record|compare` are deterministic stubs (no dataset engine wired yet)
+- stubs are gated by `EVIDRA_BENCHMARK_EXPERIMENTAL=1`
+- roadmap for full engine is tracked in this document
+
 ## Document Type
 **Non-normative (consumer).** This document defines the benchmark CLI experience and execution model. It does NOT define signal detection (see EVIDRA_SIGNAL_SPEC.md) or scoring formula (see EVIDRA_AGENT_RELIABILITY_BENCHMARK.md).
 

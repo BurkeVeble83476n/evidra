@@ -237,6 +237,13 @@ detect(entry, evidence_chain) → SignalEvent | nil
 No side effects. No external I/O. No state beyond the evidence
 chain. Deterministic: same input → same output.
 
+### Prescription Risk Field Contract
+
+- Canonical field: `risk_details` (array of detector-emitted tags)
+- Legacy compatibility field: `risk_tags` (deprecated)
+- Consumers SHOULD read `risk_details` first, and MAY fallback to `risk_tags` for older evidence
+- Producers SHOULD dual-write both fields during migration; removal target for `risk_tags` is v0.5.0
+
 ---
 
 ## Signal Registry
