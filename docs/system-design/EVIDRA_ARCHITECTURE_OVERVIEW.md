@@ -1157,13 +1157,14 @@ via evidra-mcp (v0.3.0). Python/TypeScript SDKs at v0.4.0.
 ┌────────────┐   ┌──────────────┐  ┌────────────┐  ┌────────────┐
 │ CONTRACTS  │   │ SPECS        │  │ CONSUMER   │  │ EXAMPLES   │
 │            │   │              │  │            │  │            │
-│ Canon [1]  │   │ Signal [2]   │  │ Benchmark  │  │ E2E [6]    │
+│ Canon [1]  │   │ Signal [2]   │  │ Benchmark  │  │ E2E [7]    │
 │ Data Mdl   │   │ Protocol [5] │  │ [4]        │  │            │
-│ [3]        │   │              │  │            │  │            │
+│ [3]        │   │              │  │ Bench CLI  │  │            │
+│            │   │              │  │ [6]        │  │            │
 └────────────┘   └──────────────┘  └────────────┘  └────────────┘
 ```
 
-### Active Documents (7 total)
+### Active Documents (8 total)
 
 | # | Document | Role | Type |
 |---|----------|------|------|
@@ -1172,8 +1173,9 @@ via evidra-mcp (v0.3.0). Python/TypeScript SDKs at v0.4.0.
 | 3 | [EVIDRA_CORE_DATA_MODEL.md](EVIDRA_CORE_DATA_MODEL.md) | **Core data model: CanonicalAction, Prescription, Report, EvidenceEntry, Signal, Scorecard** | **Normative** |
 | 4 | [EVIDRA_AGENT_RELIABILITY_BENCHMARK.md](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Scoring, comparison, benchmark methodology, protocol, risk analysis | Consumer |
 | 5 | [EVIDRA_PROTOCOL.md](EVIDRA_PROTOCOL.md) | **Integration protocol: session/run lifecycle, correlation model, scope dimensions, actor identity, findings ingestion** | **Normative** |
-| 6 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, strategic positioning, inspector model, roadmap, document map | Non-normative |
-| 7 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
+| 6 | [EVIDRA_BENCHMARK_CLI.md](EVIDRA_BENCHMARK_CLI.md) | Benchmark CLI: `evidra benchmark run`, dataset contract, exit codes, CI integration, leaderboard | Consumer |
+| 7 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, strategic positioning, inspector model, roadmap, document map | Non-normative |
+| 8 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
 
 ### Archived Documents (in `done/`)
 
@@ -1217,6 +1219,10 @@ Consolidated into the active documents above.
 | How are adapters tested? | Canon Contract §19 | Normative |
 | Why inspector model? | Architecture Overview §Inspector Model | Non-normative |
 | How is CI integrated? | Benchmark §12 | Non-normative |
+| How does `evidra benchmark run` work? | Benchmark CLI §3 | Consumer |
+| What are benchmark exit codes? | Benchmark CLI §5 | Consumer |
+| What's in results.json? | Benchmark CLI §4 | Consumer |
+| How does the GitHub Action work? | Benchmark CLI §10 | Consumer |
 | What's in Prescription/Report? | **Data Model** §2-3 | Normative |
 | What's in EvidenceEntry? | **Data Model** §5 | Normative |
 | What is session_id / span model? | **Protocol** §1-3 | Normative |
