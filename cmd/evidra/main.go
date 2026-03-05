@@ -50,6 +50,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdValidate(args[1:], stdout, stderr)
 	case "ingest-findings":
 		return cmdIngestFindings(args[1:], stdout, stderr)
+	case "keygen":
+		return cmdKeygen(args[1:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0
@@ -966,6 +968,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  report            Record outcome after execution")
 	fmt.Fprintln(w, "  validate          Validate evidence chain integrity and signatures")
 	fmt.Fprintln(w, "  ingest-findings   Ingest SARIF scanner findings as evidence entries")
+	fmt.Fprintln(w, "  keygen            Generate Ed25519 signing keypair")
 	fmt.Fprintln(w, "  version           Print version information")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Run 'evidra <command> --help' for command-specific flags.")
