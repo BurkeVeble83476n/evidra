@@ -4,7 +4,17 @@ import (
 	"testing"
 
 	"samebits.com/evidra-benchmark/internal/testutil"
+	"samebits.com/evidra-benchmark/pkg/version"
 )
+
+func TestDefaultServerVersion_UsesRuntimeVersion(t *testing.T) {
+	t.Parallel()
+
+	got := defaultServerVersion("")
+	if got != version.Version {
+		t.Fatalf("defaultServerVersion(\"\") = %q, want %q", got, version.Version)
+	}
+}
 
 func TestPrescribe_SimpleK8s(t *testing.T) {
 	t.Parallel()

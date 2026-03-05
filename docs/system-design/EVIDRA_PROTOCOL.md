@@ -113,7 +113,7 @@ To support complex agent workflows, the protocol supports hierarchical tracing.
 |------|-------------|
 | session_id | MUST |
 | event_id | MUST |
-| trace_id | SHOULD |
+| trace_id | MUST |
 | span_id | SHOULD |
 | parent_span_id | MAY |
 | operation_id | SHOULD |
@@ -358,7 +358,7 @@ Every stored evidence entry MUST include:
 Protocol invariants for write paths:
 
 - every persisted entry MUST have session linkage (`session_id`)
-- every persisted entry SHOULD include a non-empty `trace_id`
+- every persisted entry MUST include a non-empty `trace_id`
 - validator/internal auxiliary entries (`signal`, `canonicalization_failure`) MUST preserve originating correlation fields when known
 
 Optional:

@@ -289,7 +289,7 @@ make tidy           # go mod tidy
 make golden-update  # regenerate golden test files
 ```
 
-Requires Go 1.24+.
+Requires Go 1.23.0+.
 
 ---
 

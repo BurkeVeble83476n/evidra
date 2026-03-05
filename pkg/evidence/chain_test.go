@@ -23,6 +23,7 @@ func TestChainIntegrity_AppendAndValidate(t *testing.T) {
 		payload, _ := json.Marshal(map[string]string{"index": fmt.Sprintf("%d", i)})
 		entry, err := BuildEntry(EntryBuildParams{
 			Type:           EntryTypePrescribe,
+			SessionID:      "session-chain",
 			TraceID:        "01TRACE",
 			Actor:          Actor{Type: "ci", ID: "test", Provenance: "cli"},
 			Payload:        payload,
@@ -80,6 +81,7 @@ func TestBuildEntry_WithSigner(t *testing.T) {
 
 	entry, err := BuildEntry(EntryBuildParams{
 		Type:           EntryTypePrescribe,
+		SessionID:      "session-sign",
 		TraceID:        "TRACE-SIGN",
 		Actor:          Actor{Type: "ci", ID: "test", Provenance: "cli"},
 		Payload:        json.RawMessage(`{"test":"signing"}`),
@@ -116,6 +118,7 @@ func TestValidateChainWithSignatures_Valid(t *testing.T) {
 		payload, _ := json.Marshal(map[string]string{"i": fmt.Sprintf("%d", i)})
 		entry, err := BuildEntry(EntryBuildParams{
 			Type:           EntryTypePrescribe,
+			SessionID:      "session-sig-valid",
 			TraceID:        "01TRACE",
 			Actor:          Actor{Type: "ci", ID: "test", Provenance: "cli"},
 			Payload:        payload,
@@ -148,6 +151,7 @@ func TestValidateChainWithSignatures_WrongKey(t *testing.T) {
 	payload, _ := json.Marshal(map[string]string{"data": "test"})
 	entry, err := BuildEntry(EntryBuildParams{
 		Type:           EntryTypePrescribe,
+		SessionID:      "session-sig-wrong",
 		TraceID:        "01T",
 		Actor:          Actor{Type: "ci", ID: "t", Provenance: "cli"},
 		Payload:        payload,
@@ -177,7 +181,7 @@ func TestChainIntegrity_TamperDetection(t *testing.T) {
 
 	payload, _ := json.Marshal(map[string]string{"data": "first"})
 	entry1, _ := BuildEntry(EntryBuildParams{
-		Type: EntryTypePrescribe, TraceID: "01T",
+		Type: EntryTypePrescribe, SessionID: "session-tamper", TraceID: "01T",
 		Actor:   Actor{Type: "ci", ID: "t", Provenance: "cli"},
 		Payload: payload, SpecVersion: "0.3.0",
 		CanonVersion: "test/v1", AdapterVersion: "0.3.0",
@@ -188,7 +192,7 @@ func TestChainIntegrity_TamperDetection(t *testing.T) {
 	}
 
 	entry2, _ := BuildEntry(EntryBuildParams{
-		Type: EntryTypeReport, TraceID: "01T",
+		Type: EntryTypeReport, SessionID: "session-tamper", TraceID: "01T",
 		Actor:   Actor{Type: "ci", ID: "t", Provenance: "cli"},
 		Payload: payload, PreviousHash: entry1.Hash,
 		SpecVersion: "0.3.0", CanonVersion: "test/v1", AdapterVersion: "0.3.0",

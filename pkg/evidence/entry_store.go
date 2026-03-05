@@ -20,6 +20,10 @@ func AppendEntryAtPath(path string, entry EvidenceEntry) error {
 }
 
 func appendEntryUnlocked(path string, entry EvidenceEntry) error {
+	if err := validatePersistedEntry(entry); err != nil {
+		return err
+	}
+
 	maxBytes := segmentMaxBytesFromEnv()
 	manifest, err := loadOrInitManifest(path, maxBytes, true)
 	if err != nil {
@@ -74,6 +78,16 @@ func appendEntryUnlocked(path string, entry EvidenceEntry) error {
 	}
 
 	return writeManifestAtomic(path, manifest)
+}
+
+func validatePersistedEntry(entry EvidenceEntry) error {
+	if entry.SessionID == "" {
+		return fmt.Errorf("append entry: session_id is required")
+	}
+	if entry.TraceID == "" {
+		return fmt.Errorf("append entry: trace_id is required")
+	}
+	return nil
 }
 
 // ReadAllEntriesAtPath reads all EvidenceEntry records from the segmented store.

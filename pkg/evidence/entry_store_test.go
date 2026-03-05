@@ -20,6 +20,7 @@ func buildTestEntry(t *testing.T, typ EntryType, previousHash string) EvidenceEn
 	}
 	entry, err := BuildEntry(EntryBuildParams{
 		Type:           typ,
+		SessionID:      "session-unit-test",
 		TraceID:        GenerateTraceID(),
 		Actor:          Actor{Type: "agent", ID: "test-agent", Provenance: "unit-test"},
 		Payload:        payload,
@@ -187,5 +188,28 @@ func TestFindEntryByID_NotFound(t *testing.T) {
 	}
 	if found {
 		t.Error("expected not found, but found")
+	}
+}
+
+func TestAppendEntryAtPath_RejectsMissingSessionID(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	entry := buildTestEntry(t, EntryTypePrescribe, "")
+	entry.SessionID = ""
+	if err := AppendEntryAtPath(dir, entry); err == nil {
+		t.Fatal("expected error for missing session_id")
+	}
+}
+
+func TestAppendEntryAtPath_RejectsMissingTraceID(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	entry := buildTestEntry(t, EntryTypePrescribe, "")
+	entry.SessionID = "session-test"
+	entry.TraceID = ""
+	if err := AppendEntryAtPath(dir, entry); err == nil {
+		t.Fatal("expected error for missing trace_id")
 	}
 }

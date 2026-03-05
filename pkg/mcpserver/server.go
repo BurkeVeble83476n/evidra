@@ -11,6 +11,7 @@ import (
 	"samebits.com/evidra-benchmark/internal/canon"
 	"samebits.com/evidra-benchmark/internal/lifecycle"
 	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra-benchmark/pkg/version"
 )
 
 // Options configures the benchmark MCP server.
@@ -128,9 +129,7 @@ func NewServer(opts Options) (*mcp.Server, error) {
 	if opts.Name == "" {
 		opts.Name = "evidra-benchmark"
 	}
-	if opts.Version == "" {
-		opts.Version = "v0.3.0-dev"
-	}
+	opts.Version = defaultServerVersion(opts.Version)
 
 	svc := &BenchmarkService{
 		evidencePath: opts.EvidencePath,
@@ -228,6 +227,14 @@ func NewServer(opts Options) (*mcp.Server, error) {
 	}, svc.readResourceManifest)
 
 	return server, nil
+}
+
+func defaultServerVersion(input string) string {
+	v := strings.TrimSpace(input)
+	if v != "" {
+		return v
+	}
+	return version.Version
 }
 
 func (h *prescribeHandler) Handle(

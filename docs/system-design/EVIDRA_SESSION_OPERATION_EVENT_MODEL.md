@@ -78,7 +78,8 @@ Session (session_id)
 | operation_id | MUST for operation events | Unique within a session; ULID or UUID |
 | event_id | MUST | Globally unique; ULID/UUID |
 | attempt | SHOULD | Integer retry counter per operation |
-| trace_id/span_id | MAY | For OTel; see mapping below |
+| trace_id | MUST | Correlation ID for related events |
+| span_id | MAY | For OTel span hierarchy |
 
 **Implementation status:** `operation_id` and `attempt` are fields on
 `EvidenceEntry` (see [EVIDRA_CORE_DATA_MODEL.md, §5](EVIDRA_CORE_DATA_MODEL.md#5-evidenceentry)).
