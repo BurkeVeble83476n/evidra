@@ -21,6 +21,12 @@ const (
 	EntryTypeReceipt EntryType = "receipt"
 	// EntryTypeCanonFailure records a canonicalization failure.
 	EntryTypeCanonFailure EntryType = "canonicalization_failure"
+	// EntryTypeSessionStart marks the beginning of a session.
+	EntryTypeSessionStart EntryType = "session_start"
+	// EntryTypeSessionEnd marks the end of a session.
+	EntryTypeSessionEnd EntryType = "session_end"
+	// EntryTypeAnnotation is a human or system annotation on a session.
+	EntryTypeAnnotation EntryType = "annotation"
 )
 
 // validEntryTypes enumerates all allowed EntryType values.
@@ -31,6 +37,9 @@ var validEntryTypes = map[EntryType]bool{
 	EntryTypeSignal:       true,
 	EntryTypeReceipt:      true,
 	EntryTypeCanonFailure: true,
+	EntryTypeSessionStart: true,
+	EntryTypeSessionEnd:   true,
+	EntryTypeAnnotation:   true,
 }
 
 // Valid reports whether et is a recognised entry type.

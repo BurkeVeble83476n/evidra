@@ -148,6 +148,9 @@ func TestEntryType_Validate(t *testing.T) {
 		{name: "signal", et: EntryTypeSignal, valid: true},
 		{name: "receipt", et: EntryTypeReceipt, valid: true},
 		{name: "canonicalization_failure", et: EntryTypeCanonFailure, valid: true},
+		{name: "session_start", et: EntryTypeSessionStart, valid: true},
+		{name: "session_end", et: EntryTypeSessionEnd, valid: true},
+		{name: "annotation", et: EntryTypeAnnotation, valid: true},
 		{name: "empty string", et: EntryType(""), valid: false},
 		{name: "unknown type", et: EntryType("unknown"), valid: false},
 		{name: "uppercase", et: EntryType("PRESCRIBE"), valid: false},
@@ -162,5 +165,19 @@ func TestEntryType_Validate(t *testing.T) {
 				t.Errorf("EntryType(%q).Valid() = %v, want %v", tt.et, got, tt.valid)
 			}
 		})
+	}
+}
+
+func TestEntryType_NewTypesAreValid(t *testing.T) {
+	t.Parallel()
+	newTypes := []EntryType{
+		EntryTypeSessionStart,
+		EntryTypeSessionEnd,
+		EntryTypeAnnotation,
+	}
+	for _, et := range newTypes {
+		if !et.Valid() {
+			t.Errorf("expected %q to be valid", et)
+		}
 	}
 }

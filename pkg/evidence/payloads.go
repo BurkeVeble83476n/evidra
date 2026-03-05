@@ -82,3 +82,20 @@ type CanonFailurePayload struct {
 	Adapter      string `json:"adapter"`
 	RawDigest    string `json:"raw_digest"`
 }
+
+// SessionStartPayload is the typed payload for EntryTypeSessionStart entries.
+type SessionStartPayload struct {
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// SessionEndPayload is the typed payload for EntryTypeSessionEnd entries.
+type SessionEndPayload struct {
+	Status string `json:"status"` // "completed", "aborted", "error"
+}
+
+// AnnotationPayload is the typed payload for EntryTypeAnnotation entries.
+type AnnotationPayload struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Message string `json:"message,omitempty"`
+}

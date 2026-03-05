@@ -59,7 +59,7 @@ func EvidenceToSignalEntries(entries []evidence.EvidenceEntry) ([]signal.Entry, 
 			se.ExitCode = &exitCode
 
 		default:
-			// Skip finding, signal, receipt, canonicalization_failure entries
+			// Skip finding, signal, receipt, canonicalization_failure, session_start, session_end, annotation entries
 			continue
 		}
 
