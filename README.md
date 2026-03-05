@@ -11,6 +11,15 @@ Works with:
 - Terraform workflows
 - Kubernetes manifests
 
+## Contents
+
+- [How It Works](#how-it-works)
+- [Signals](#signals)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Documentation](#documentation)
+- [License](#license)
+
 ---
 
 ## How It Works
@@ -105,9 +114,9 @@ Three binaries:
 ### Architecture & Design
 
 - [Architecture Overview](docs/system-design/EVIDRA_ARCHITECTURE_OVERVIEW.md) — system diagram, component map, data flow
-- [Inspector Model Architecture](docs/system-design/EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) — why Evidra observes instead of enforcing
-- [Architecture Review](docs/system-design/EVIDRA_ARCHITECTURE_REVIEW.md) — gap analysis and trade-offs
-- [Architecture Recommendation](docs/system-design/EVIDRA_ARCHITECTURE_RECOMMENTATION_V1.md) — v1 architecture decisions
+- [Inspector Model Architecture](docs/system-design/done/EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) — why Evidra observes instead of enforcing
+- [Architecture Review](docs/system-design/done/EVIDRA_ARCHITECTURE_REVIEW.md) — gap analysis and trade-offs
+- [Architecture Recommendation](docs/system-design/done/EVIDRA_ARCHITECTURE_RECOMMENTATION_V1.md) — v1 architecture decisions
 
 ### Specifications
 
@@ -122,7 +131,7 @@ Three binaries:
 - [Product Positioning](docs/product/EVIDRA_PRODUCT_POSITIONING.md) — market position and value proposition
 - [Roadmap](docs/product/EVIDRA_ROADMAP.md) — release plan and milestones
 - [Strategic Direction](docs/product/EVIDRA_STRATEGIC_DIRECTION.md) — long-term vision
-- [Strategic Moat & Standardization](docs/system-design/EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) — competitive positioning
+- [Strategic Moat & Standardization](docs/system-design/done/EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) — competitive positioning
 - [Integration Roadmap](docs/system-design/done/EVIDRA_INTEGRATION_ROADMAP.md) — tool integration plan
 - [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md) — Trivy + Kubescape defaults with one contract
 
@@ -141,4 +150,4 @@ Three binaries:
 
 ## License
 
-Proprietary.
+Licensed under the [Apache License 2.0](LICENSE).
