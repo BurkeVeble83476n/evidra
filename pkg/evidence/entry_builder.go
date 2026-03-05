@@ -28,18 +28,22 @@ func FormatDigest(d string) string {
 
 // EntryBuildParams holds all inputs needed to construct an EvidenceEntry.
 type EntryBuildParams struct {
-	Type           EntryType
-	TenantID       string
-	TraceID        string
-	Actor          Actor
-	IntentDigest   string
-	ArtifactDigest string
-	Payload        json.RawMessage
-	PreviousHash   string
-	SpecVersion    string
-	CanonVersion   string
-	AdapterVersion string
-	ScoringVersion string
+	Type            EntryType
+	TenantID        string
+	SessionID       string
+	TraceID         string
+	SpanID          string
+	ParentSpanID    string
+	Actor           Actor
+	IntentDigest    string
+	ArtifactDigest  string
+	Payload         json.RawMessage
+	PreviousHash    string
+	ScopeDimensions map[string]string
+	SpecVersion     string
+	CanonVersion    string
+	AdapterVersion  string
+	ScoringVersion  string
 }
 
 // BuildEntry constructs a complete EvidenceEntry from the given parameters.
@@ -51,20 +55,24 @@ func BuildEntry(p EntryBuildParams) (EvidenceEntry, error) {
 	}
 
 	entry := EvidenceEntry{
-		EntryID:        ulid.Make().String(),
-		Type:           p.Type,
-		TenantID:       p.TenantID,
-		TraceID:        p.TraceID,
-		Actor:          p.Actor,
-		Timestamp:      time.Now().UTC(),
-		IntentDigest:   FormatDigest(p.IntentDigest),
-		ArtifactDigest: FormatDigest(p.ArtifactDigest),
-		Payload:        p.Payload,
-		PreviousHash:   p.PreviousHash,
-		SpecVersion:    p.SpecVersion,
-		CanonVersion:   p.CanonVersion,
-		AdapterVersion: p.AdapterVersion,
-		ScoringVersion: p.ScoringVersion,
+		EntryID:         ulid.Make().String(),
+		Type:            p.Type,
+		TenantID:        p.TenantID,
+		SessionID:       p.SessionID,
+		TraceID:         p.TraceID,
+		SpanID:          p.SpanID,
+		ParentSpanID:    p.ParentSpanID,
+		Actor:           p.Actor,
+		Timestamp:       time.Now().UTC(),
+		IntentDigest:    FormatDigest(p.IntentDigest),
+		ArtifactDigest:  FormatDigest(p.ArtifactDigest),
+		Payload:         p.Payload,
+		PreviousHash:    p.PreviousHash,
+		ScopeDimensions: p.ScopeDimensions,
+		SpecVersion:     p.SpecVersion,
+		CanonVersion:    p.CanonVersion,
+		AdapterVersion:  p.AdapterVersion,
+		ScoringVersion:  p.ScoringVersion,
 	}
 
 	hash, err := computeEntryHash(entry)
@@ -79,39 +87,47 @@ func BuildEntry(p EntryBuildParams) (EvidenceEntry, error) {
 // hashableEntry is a projection of EvidenceEntry that excludes Hash and
 // Signature so they do not participate in hash computation.
 type hashableEntry struct {
-	EntryID        string          `json:"entry_id"`
-	PreviousHash   string          `json:"previous_hash"`
-	Type           EntryType       `json:"type"`
-	TenantID       string          `json:"tenant_id,omitempty"`
-	TraceID        string          `json:"trace_id"`
-	Actor          Actor           `json:"actor"`
-	Timestamp      time.Time       `json:"timestamp"`
-	IntentDigest   string          `json:"intent_digest,omitempty"`
-	ArtifactDigest string          `json:"artifact_digest,omitempty"`
-	Payload        json.RawMessage `json:"payload"`
-	SpecVersion    string          `json:"spec_version"`
-	CanonVersion   string          `json:"canonical_version"`
-	AdapterVersion string          `json:"adapter_version"`
-	ScoringVersion string          `json:"scoring_version,omitempty"`
+	EntryID         string            `json:"entry_id"`
+	PreviousHash    string            `json:"previous_hash"`
+	Type            EntryType         `json:"type"`
+	TenantID        string            `json:"tenant_id,omitempty"`
+	SessionID       string            `json:"session_id,omitempty"`
+	TraceID         string            `json:"trace_id"`
+	SpanID          string            `json:"span_id,omitempty"`
+	ParentSpanID    string            `json:"parent_span_id,omitempty"`
+	Actor           Actor             `json:"actor"`
+	Timestamp       time.Time         `json:"timestamp"`
+	IntentDigest    string            `json:"intent_digest,omitempty"`
+	ArtifactDigest  string            `json:"artifact_digest,omitempty"`
+	Payload         json.RawMessage   `json:"payload"`
+	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
+	SpecVersion     string            `json:"spec_version"`
+	CanonVersion    string            `json:"canonical_version"`
+	AdapterVersion  string            `json:"adapter_version"`
+	ScoringVersion  string            `json:"scoring_version,omitempty"`
 }
 
 // computeEntryHash computes sha256:<hex> over all entry fields except hash and signature.
 func computeEntryHash(e EvidenceEntry) (string, error) {
 	h := hashableEntry{
-		EntryID:        e.EntryID,
-		PreviousHash:   e.PreviousHash,
-		Type:           e.Type,
-		TenantID:       e.TenantID,
-		TraceID:        e.TraceID,
-		Actor:          e.Actor,
-		Timestamp:      e.Timestamp,
-		IntentDigest:   e.IntentDigest,
-		ArtifactDigest: e.ArtifactDigest,
-		Payload:        e.Payload,
-		SpecVersion:    e.SpecVersion,
-		CanonVersion:   e.CanonVersion,
-		AdapterVersion: e.AdapterVersion,
-		ScoringVersion: e.ScoringVersion,
+		EntryID:         e.EntryID,
+		PreviousHash:    e.PreviousHash,
+		Type:            e.Type,
+		TenantID:        e.TenantID,
+		SessionID:       e.SessionID,
+		TraceID:         e.TraceID,
+		SpanID:          e.SpanID,
+		ParentSpanID:    e.ParentSpanID,
+		Actor:           e.Actor,
+		Timestamp:       e.Timestamp,
+		IntentDigest:    e.IntentDigest,
+		ArtifactDigest:  e.ArtifactDigest,
+		Payload:         e.Payload,
+		ScopeDimensions: e.ScopeDimensions,
+		SpecVersion:     e.SpecVersion,
+		CanonVersion:    e.CanonVersion,
+		AdapterVersion:  e.AdapterVersion,
+		ScoringVersion:  e.ScoringVersion,
 	}
 
 	data, err := json.Marshal(h)

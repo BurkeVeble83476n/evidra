@@ -43,25 +43,31 @@ type Actor struct {
 	Type       string `json:"type"`
 	ID         string `json:"id"`
 	Provenance string `json:"provenance"`
+	InstanceID string `json:"instance_id,omitempty"`
+	Version    string `json:"version,omitempty"`
 }
 
 // EvidenceEntry is an append-only event log entry. Every JSONL line in an
 // evidence segment file is one EvidenceEntry.
 type EvidenceEntry struct {
-	EntryID        string          `json:"entry_id"`
-	PreviousHash   string          `json:"previous_hash"`
-	Hash           string          `json:"hash"`
-	Signature      string          `json:"signature"`
-	Type           EntryType       `json:"type"`
-	TenantID       string          `json:"tenant_id,omitempty"`
-	TraceID        string          `json:"trace_id"`
-	Actor          Actor           `json:"actor"`
-	Timestamp      time.Time       `json:"timestamp"`
-	IntentDigest   string          `json:"intent_digest,omitempty"`
-	ArtifactDigest string          `json:"artifact_digest,omitempty"`
-	Payload        json.RawMessage `json:"payload"`
-	SpecVersion    string          `json:"spec_version"`
-	CanonVersion   string          `json:"canonical_version"`
-	AdapterVersion string          `json:"adapter_version"`
-	ScoringVersion string          `json:"scoring_version,omitempty"`
+	EntryID         string            `json:"entry_id"`
+	PreviousHash    string            `json:"previous_hash"`
+	Hash            string            `json:"hash"`
+	Signature       string            `json:"signature"`
+	Type            EntryType         `json:"type"`
+	TenantID        string            `json:"tenant_id,omitempty"`
+	SessionID       string            `json:"session_id,omitempty"`
+	TraceID         string            `json:"trace_id"`
+	SpanID          string            `json:"span_id,omitempty"`
+	ParentSpanID    string            `json:"parent_span_id,omitempty"`
+	Actor           Actor             `json:"actor"`
+	Timestamp       time.Time         `json:"timestamp"`
+	IntentDigest    string            `json:"intent_digest,omitempty"`
+	ArtifactDigest  string            `json:"artifact_digest,omitempty"`
+	Payload         json.RawMessage   `json:"payload"`
+	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
+	SpecVersion     string            `json:"spec_version"`
+	CanonVersion    string            `json:"canonical_version"`
+	AdapterVersion  string            `json:"adapter_version"`
+	ScoringVersion  string            `json:"scoring_version,omitempty"`
 }
