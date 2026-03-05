@@ -239,6 +239,174 @@ func TestE2E_ListResources(t *testing.T) {
 	}
 }
 
+func TestE2E_ProtocolV1Fields(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	server := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: dir,
+		Environment:  "test",
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer session.Close()
+
+	// Prescribe with all protocol v1.0 fields
+	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "prescribe",
+		Arguments: map[string]any{
+			"actor": map[string]any{
+				"type":        "ai_agent",
+				"id":          "test-agent",
+				"origin":      "mcp",
+				"instance_id": "pod-abc123",
+				"version":     "v1.3",
+			},
+			"tool":         "kubectl",
+			"operation":    "apply",
+			"raw_artifact": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test-cm\n  namespace: staging\ndata:\n  key: value\n",
+			"session_id":   "session-e2e-001",
+			"trace_id":     "trace-e2e-001",
+			"span_id":      "span-prescribe-001",
+			"scope_dimensions": map[string]any{
+				"cluster":   "staging-us-east",
+				"namespace": "staging",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("prescribe: %v", err)
+	}
+
+	var prescribeOut PrescribeOutput
+	if err := extractStructuredContent(prescribeResult, &prescribeOut); err != nil {
+		t.Fatalf("parse prescribe output: %v", err)
+	}
+	if !prescribeOut.OK {
+		t.Fatalf("prescribe not ok: %+v", prescribeOut)
+	}
+
+	// Read the prescription entry and verify protocol fields
+	readResult, err := session.ReadResource(ctx, &mcp.ReadResourceParams{
+		URI: "evidra://event/" + prescribeOut.PrescriptionID,
+	})
+	if err != nil {
+		t.Fatalf("read resource: %v", err)
+	}
+	if len(readResult.Contents) == 0 {
+		t.Fatal("read resource returned no contents")
+	}
+
+	var entry evidence.EvidenceEntry
+	if err := json.Unmarshal([]byte(readResult.Contents[0].Text), &entry); err != nil {
+		t.Fatalf("parse entry: %v", err)
+	}
+
+	// Verify session_id
+	if entry.SessionID != "session-e2e-001" {
+		t.Errorf("session_id: got %q, want %q", entry.SessionID, "session-e2e-001")
+	}
+
+	// Verify caller-provided trace_id
+	if entry.TraceID != "trace-e2e-001" {
+		t.Errorf("trace_id: got %q, want %q", entry.TraceID, "trace-e2e-001")
+	}
+
+	// Verify span_id
+	if entry.SpanID != "span-prescribe-001" {
+		t.Errorf("span_id: got %q, want %q", entry.SpanID, "span-prescribe-001")
+	}
+
+	// Verify actor extended fields
+	if entry.Actor.InstanceID != "pod-abc123" {
+		t.Errorf("actor.instance_id: got %q, want %q", entry.Actor.InstanceID, "pod-abc123")
+	}
+	if entry.Actor.Version != "v1.3" {
+		t.Errorf("actor.version: got %q, want %q", entry.Actor.Version, "v1.3")
+	}
+
+	// Verify scope_dimensions
+	if entry.ScopeDimensions == nil {
+		t.Fatal("scope_dimensions is nil")
+	}
+	if entry.ScopeDimensions["cluster"] != "staging-us-east" {
+		t.Errorf("scope_dimensions.cluster: got %q, want %q",
+			entry.ScopeDimensions["cluster"], "staging-us-east")
+	}
+	if entry.ScopeDimensions["namespace"] != "staging" {
+		t.Errorf("scope_dimensions.namespace: got %q, want %q",
+			entry.ScopeDimensions["namespace"], "staging")
+	}
+
+	// Report with protocol v1.0 fields
+	reportResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "report",
+		Arguments: map[string]any{
+			"prescription_id": prescribeOut.PrescriptionID,
+			"exit_code":       0,
+			"session_id":      "session-e2e-001",
+			"span_id":         "span-report-001",
+			"parent_span_id":  "span-prescribe-001",
+		},
+	})
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+
+	var reportOut ReportOutput
+	if err := extractStructuredContent(reportResult, &reportOut); err != nil {
+		t.Fatalf("parse report output: %v", err)
+	}
+	if !reportOut.OK {
+		t.Fatalf("report not ok: %+v", reportOut)
+	}
+
+	// Read the report entry and verify protocol fields
+	readResult, err = session.ReadResource(ctx, &mcp.ReadResourceParams{
+		URI: "evidra://event/" + reportOut.ReportID,
+	})
+	if err != nil {
+		t.Fatalf("read report resource: %v", err)
+	}
+	if len(readResult.Contents) == 0 {
+		t.Fatal("read report resource returned no contents")
+	}
+
+	var reportEntry evidence.EvidenceEntry
+	if err := json.Unmarshal([]byte(readResult.Contents[0].Text), &reportEntry); err != nil {
+		t.Fatalf("parse report entry: %v", err)
+	}
+
+	if reportEntry.SessionID != "session-e2e-001" {
+		t.Errorf("report session_id: got %q, want %q", reportEntry.SessionID, "session-e2e-001")
+	}
+	if reportEntry.SpanID != "span-report-001" {
+		t.Errorf("report span_id: got %q, want %q", reportEntry.SpanID, "span-report-001")
+	}
+	if reportEntry.ParentSpanID != "span-prescribe-001" {
+		t.Errorf("report parent_span_id: got %q, want %q", reportEntry.ParentSpanID, "span-prescribe-001")
+	}
+}
+
 // extractStructuredContent parses the structured content from a CallToolResult.
 func extractStructuredContent(result *mcp.CallToolResult, v any) error {
 	if result.StructuredContent != nil {
