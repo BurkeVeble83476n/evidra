@@ -39,7 +39,6 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 ```bash
 brew install colima k3d kubectl helm jq go python3
-pip3 install litellm pyyaml --break-system-packages
 ```
 
 | Tool | Purpose |
@@ -51,8 +50,6 @@ pip3 install litellm pyyaml --break-system-packages
 | jq | JSON parsing in all scripts |
 | go | Build Evidra from source |
 | python3 | Agent experiment runner |
-| litellm | Multi-model LLM router (DeepSeek, GPT, Claude, Gemini) |
-| pyyaml | Parse scenario YAML files |
 
 ### Step 3: Start Colima
 
@@ -108,14 +105,32 @@ kubectl get nodes >/dev/null && echo "✓ kubectl" || echo "✗ kubectl"
 helm version         && echo "✓ helm"   || echo "✗ helm"
 evidra version       && echo "✓ evidra" || echo "✗ evidra"
 command -v jq >/dev/null && echo "✓ jq" || echo "✗ jq"
-python3 -c "import litellm; print('✓ litellm')" || echo "✗ litellm"
-python3 -c "import yaml; print('✓ pyyaml')"     || echo "✗ pyyaml"
+python3 -c "import json, urllib.request; print('✓ python stdlib http client')"
 echo "--- Done ---"
 ```
 
 All lines must show ✓.
 
 ---
+
+| Provider (--provider) | --model-id example | API key env var |
+|---|---|---|
+| claude (headless CLI) | claude/haiku | not required (CLI login required) |
+| anthropic | anthropic/claude-3-5-haiku | ANTHROPIC_API_KEY |
+| openai | openai/gpt-4o-mini | OPENAI_API_KEY |
+| deepseek | deepseek/deepseek-chat | DEEPSEEK_API_KEY |
+| gemini | gemini/gemini-2.5-flash-lite | GEMINI_API_KEY |
+| openrouter | openrouter/<model> | OPENROUTER_API_KEY |
+| ollama (local) | ollama/llama3.2 | not required |
+
+Sources:
+
+- Gemini pricing/billing: https://ai.google.dev/pricing , https://ai.google.dev/gemini-api/docs/billing/
+- OpenRouter free router: https://openrouter.ai/docs/guides/routing/routers/free-models-router
+- Bifrost OpenAI SDK integration: https://docs.getbifrost.ai/integrations/openai-sdk/overview
+- Ollama local auth-free API: https://docs.ollama.com/api/authentication
+- Anthropic prepaid credits: https://support.anthropic.com/en/articles/8977456-how-do-i-pay-for-my-claude-api-usage
+- OpenAI ChatGPT vs API billing: https://help.openai.com/en/articles/9039756-billing-settings-in-chatgpt-vs-platform
 
 ## 3. API Keys
 
@@ -148,8 +163,31 @@ Minimum 2 keys needed. DeepSeek + one other.
 Test:
 ```bash
 source ~/.evidra-experiment/.env
-python3 -c "from litellm import completion; r = completion(model='deepseek/deepseek-chat', messages=[{'role':'user','content':'say ok'}], max_tokens=5); print('OK:', r.choices[0].message.content)"
+echo "keys loaded"
 ```
+
+### Optional: Bifrost Gateway Runner
+
+If you run a local Bifrost gateway, use the Bifrost wrapper directly:
+
+```bash
+export EVIDRA_BIFROST_BASE_URL="http://localhost:8080/openai"
+# optional Bifrost headers
+# export EVIDRA_BIFROST_VK="vk_..."
+# export EVIDRA_BIFROST_AUTH_BEARER="..."
+
+bash scripts/run-agent-experiments.sh \
+  --model-id anthropic/claude-3-5-haiku \
+  --provider bifrost \
+  --mode local-mcp \
+  --prompt-file prompts/experiments/runtime/system_instructions.txt \
+  --repeats 1 \
+  --max-cases 1 \
+  --timeout-seconds 300 \
+  --agent-cmd 'bash scripts/agent-cmd-bifrost.sh'
+```
+
+In this mode credentials can be handled by Bifrost configuration or by Bifrost-specific headers above.
 
 ---
 
@@ -185,7 +223,7 @@ Full layout after all three phases:
 ├── run_all_faults.sh                 # Master fault injection runner
 │
 ├── # ── Phase 2: Agent Experiment (EVIDRA_EXPERIMENT_DESIGN_V1.md) ──
-├── runner.py                         # LiteLLM ReAct agent loop
+├── runner.py                         # Agent loop
 ├── experiment-scenarios/
 │   ├── scenario-01.yaml              # 10 adversarial agent scenarios
 │   ├── scenario-02.yaml
@@ -500,13 +538,12 @@ colima status
 | docker connection refused | `docker context use colima` |
 | kubectl connection refused | `k3d cluster start evidra-bench` |
 | nodes NotReady | Wait 15s |
-| LiteLLM timeout | Check provider status page; skip model |
-| LiteLLM 401 | Re-check key in `.env`; `source .env` |
-| LiteLLM rate limit | Add `sleep 5` between runs |
+| Bifrost timeout | Check gateway/provider status; skip model |
+| Bifrost 401/403 | Re-check Bifrost auth headers or gateway auth config |
+| Bifrost rate limit | Add `sleep 5` between runs |
 | Mac sleeping | Always use `caffeinate -dims` |
 | Disk full | `du -sh results/*` then remove old runs |
 | `evidra: not found` | `source ~/.zshrc` |
-| Python import error | `python3 -m pip install litellm pyyaml --break-system-packages` |
 | Fault injection F03 fails | TTL issue — ensure `FAULT_TTL=1s` in helpers.sh |
 | Agent runner hangs | `--timeout 300` in runner.py kills after 5 min |
 

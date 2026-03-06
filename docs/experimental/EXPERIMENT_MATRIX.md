@@ -61,16 +61,27 @@ Each run must produce:
 Use:
 
 ```bash
-export LITELLM_MODEL_ID="anthropic/claude-3-5-haiku"
-
 bash scripts/run-agent-experiments.sh \
-  --model-id "$LITELLM_MODEL_ID" \
-  --provider anthropic \
+  --model-id anthropic/claude-3-5-haiku \
+  --provider bifrost \
   --mode local-mcp \
-  --prompt-file prompts/experiments/litellm/system_instructions.txt \
+  --prompt-file prompts/experiments/runtime/system_instructions.txt \
   --repeats 3 \
   --timeout-seconds 300 \
-  --agent-cmd 'bash scripts/agent-cmd-litellm.sh'
+  --agent-cmd 'bash scripts/agent-cmd-bifrost.sh'
 ```
 
 Then aggregate from `experiments/results/<run_stamp>/summary.jsonl`.
+
+Claude headless alternative for the same runner:
+
+```bash
+bash scripts/run-agent-experiments.sh \
+  --model-id claude/haiku \
+  --provider claude \
+  --mode local-mcp \
+  --prompt-file prompts/experiments/runtime/system_instructions.txt \
+  --repeats 3 \
+  --timeout-seconds 300 \
+  --agent-cmd 'bash scripts/agent-cmd-claude.sh'
+```

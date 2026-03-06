@@ -5,10 +5,11 @@ This folder is for running and storing real-agent benchmark experiment outputs.
 ## What to use
 
 - Runner script: `scripts/run-agent-experiments.sh`
-- LiteLLM agent command wrapper: `scripts/agent-cmd-litellm.sh`
+- Bifrost OpenAI-compatible agent command wrapper: `scripts/agent-cmd-bifrost.sh`
+- Claude headless agent command wrapper: `scripts/agent-cmd-claude.sh`
 - Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
 - Result schema: `docs/experimental/RESULT_SCHEMA.json`
-- LiteLLM prompt contract: `prompts/experiments/litellm/system_instructions.txt`
+- Experiment prompt contract: `prompts/experiments/runtime/system_instructions.txt`
 - Prompt source contract: `prompts/source/contracts/v1.0.1/`
 - Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
 
@@ -34,28 +35,48 @@ Real run (agent command must write JSON to `$EVIDRA_AGENT_OUTPUT`):
 ```bash
 bash scripts/run-agent-experiments.sh \
   --model-id anthropic/claude-3-5-haiku \
-  --provider anthropic \
+  --provider bifrost \
   --prompt-version v1 \
   --repeats 3 \
   --timeout-seconds 300 \
-  --agent-cmd '...your harness command...'
+  --agent-cmd 'bash scripts/agent-cmd-bifrost.sh'
 ```
 
-LiteLLM run (prompted, contract-versioned):
+If you use a custom harness, replace `--agent-cmd` with your real command string.
+
+Bifrost run (prompted, contract-versioned):
 
 ```bash
-export LITELLM_MODEL_ID="anthropic/claude-3-5-haiku"
-export LITELLM_TEMPERATURE="0"
+export EVIDRA_BIFROST_BASE_URL="http://localhost:8080/openai"
+# optional Bifrost headers:
+# export EVIDRA_BIFROST_VK="vk_..."
+# export EVIDRA_BIFROST_AUTH_BEARER="..."
 
 bash scripts/run-agent-experiments.sh \
-  --model-id "$LITELLM_MODEL_ID" \
-  --provider anthropic \
+  --model-id anthropic/claude-3-5-haiku \
+  --provider bifrost \
   --mode local-mcp \
-  --prompt-file prompts/experiments/litellm/system_instructions.txt \
+  --prompt-file prompts/experiments/runtime/system_instructions.txt \
   --repeats 3 \
   --timeout-seconds 300 \
-  --agent-cmd 'bash scripts/agent-cmd-litellm.sh'
+  --agent-cmd 'bash scripts/agent-cmd-bifrost.sh'
 ```
+
+Claude headless run (chat subscription path, no Anthropic API credits required):
+
+```bash
+# prerequisite: claude CLI installed and logged in
+bash scripts/run-agent-experiments.sh \
+  --model-id claude/haiku \
+  --provider claude \
+  --mode local-mcp \
+  --prompt-file prompts/experiments/runtime/system_instructions.txt \
+  --repeats 3 \
+  --timeout-seconds 300 \
+  --agent-cmd 'bash scripts/agent-cmd-claude.sh'
+```
+
+The Claude wrapper maps `claude/<alias>` to CLI `--model <alias>` (for example `claude/haiku`, `claude/sonnet`, `claude/opus`).
 
 Notes:
 - If `--prompt-version` is omitted, the runner uses prompt file `# contract: ...` header.

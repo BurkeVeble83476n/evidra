@@ -10,7 +10,7 @@
 
 Evidra currently has multiple prompt surfaces:
 - MCP server prompts (`prompts/mcpserver/*`)
-- LiteLLM experiment prompts (`prompts/experiments/litellm/*`)
+- Runtime experiment prompts (`prompts/experiments/runtime/*`)
 - framework-specific integrations (future)
 
 If these prompts evolve independently, protocol behavior drifts and experiment results become non-comparable.
@@ -69,7 +69,7 @@ prompts/
             report.tmpl
             get_event.tmpl
             agent_contract.tmpl
-          litellm/
+          runtime/
             system_instructions.tmpl
             agent_contract.tmpl
 
@@ -82,7 +82,7 @@ prompts/
         tools/get_event_description.txt
         resources/content/agent_contract_v1.md
       experiments/
-        litellm/
+        runtime/
           system_instructions.txt
           agent_contract_v1.md
 
@@ -90,11 +90,11 @@ prompts/
     v1.0.1.json                            # hash manifest for generated outputs
 
   mcpserver/                               # active runtime location (compat)
-  experiments/litellm/                     # active runtime location (compat)
+  experiments/runtime/                     # active runtime location (compat)
 ```
 
 Compatibility rule:
-- Runtime continues reading current active paths (`prompts/mcpserver/*`, `prompts/experiments/litellm/*`).
+- Runtime continues reading current active paths (`prompts/mcpserver/*`, `prompts/experiments/runtime/*`).
 - Generation pipeline MUST materialize outputs into those active paths.
 
 ---
@@ -151,7 +151,7 @@ Must preserve:
 - retry and failure-path rules
 - `actor.skill_version` guidance
 
-### LiteLLM (Artifact Assessment + Execution Harness)
+### Runtime Harness (Artifact Assessment + Execution Harness)
 
 Generated files:
 - `system_instructions.txt`

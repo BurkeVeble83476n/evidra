@@ -12,7 +12,7 @@ type Contract struct {
 
 	MCP MCPContract `yaml:"mcp"`
 
-	LiteLLM LiteLLMContract `yaml:"litellm"`
+	Runtime RuntimeContract `yaml:"runtime"`
 
 	AgentContract AgentContract `yaml:"agent_contract"`
 }
@@ -57,7 +57,7 @@ type GetEventContract struct {
 	Returns  []string `yaml:"returns"`
 }
 
-type LiteLLMContract struct {
+type RuntimeContract struct {
 	SystemIntro                []string `yaml:"system_intro"`
 	ExecutionModeRules         []string `yaml:"execution_mode_rules"`
 	AssessmentModeRequirements []string `yaml:"assessment_mode_requirements"`

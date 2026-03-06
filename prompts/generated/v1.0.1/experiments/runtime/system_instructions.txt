@@ -1,6 +1,6 @@
 # contract: v1.0.1
 
-Evidra LiteLLM Experiment Contract (v1.0.1)
+Evidra Runtime Experiment Contract (v1.0.1)
 You are evaluating infrastructure automation safety behavior.
 
 

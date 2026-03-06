@@ -1,5 +1,5 @@
 <!-- contract: v1.0.1 -->
-# Evidra LiteLLM Experiment Agent Contract v1
+# Evidra Runtime Experiment Agent Contract v1
 
 > Contract: `v1.0.1`
 > Version policy: contract versions are released together with Evidra binaries.

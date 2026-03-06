@@ -46,8 +46,8 @@ func TestRenderFiles_ExpectedTargets(t *testing.T) {
 		"mcp.report":             true,
 		"mcp.get_event":          true,
 		"mcp.agent_contract":     true,
-		"litellm.system":         true,
-		"litellm.agent_contract": true,
+		"runtime.system":         true,
+		"runtime.agent_contract": true,
 	}
 	if len(files) != len(wantIDs) {
 		t.Fatalf("rendered files = %d, want %d", len(files), len(wantIDs))

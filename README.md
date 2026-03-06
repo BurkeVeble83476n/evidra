@@ -220,7 +220,7 @@ agent integrations should pass that value in `actor.skill_version` for behavior 
 
 ### Prompt Source-of-Truth Workflow
 
-Prompt edits must be made in `prompts/source/contracts/<version>/` (not in `prompts/mcpserver/*` or `prompts/experiments/litellm/*`).
+Prompt edits must be made in `prompts/source/contracts/<version>/` (not in `prompts/mcpserver/*` or `prompts/experiments/runtime/*`).
 
 ```bash
 make prompts-generate
@@ -228,7 +228,7 @@ make prompts-verify
 ```
 
 `prompts-generate` writes:
-- active runtime paths (`prompts/mcpserver/*`, `prompts/experiments/litellm/*`)
+- active runtime paths (`prompts/mcpserver/*`, `prompts/experiments/runtime/*`)
 - generated snapshot (`prompts/generated/<version>/*`)
 - hash manifest (`prompts/manifests/<version>.json`)
 

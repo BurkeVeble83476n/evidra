@@ -11,7 +11,7 @@ func ValidateBundle(bundle Bundle, expectedVersion string) error {
 	if err := validateMCPContract(bundle.Contract.MCP); err != nil {
 		return err
 	}
-	if err := validateLiteLLMContract(bundle.Contract.LiteLLM); err != nil {
+	if err := validateRuntimeContract(bundle.Contract.Runtime); err != nil {
 		return err
 	}
 	if err := validateClassification(bundle.Classification); err != nil {
@@ -82,15 +82,15 @@ func validateMCPContract(mcp MCPContract) error {
 	return nil
 }
 
-func validateLiteLLMContract(contract LiteLLMContract) error {
+func validateRuntimeContract(contract RuntimeContract) error {
 	if len(contract.SystemIntro) == 0 {
-		return fmt.Errorf("litellm.system_intro is required")
+		return fmt.Errorf("runtime.system_intro is required")
 	}
 	if len(contract.ExecutionModeRules) == 0 {
-		return fmt.Errorf("litellm.execution_mode_rules is required")
+		return fmt.Errorf("runtime.execution_mode_rules is required")
 	}
 	if len(contract.AssessmentModeRequirements) == 0 {
-		return fmt.Errorf("litellm.assessment_mode_requirements is required")
+		return fmt.Errorf("runtime.assessment_mode_requirements is required")
 	}
 	return nil
 }

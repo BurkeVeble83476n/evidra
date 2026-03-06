@@ -1,6 +1,6 @@
 # contract: {{ .ContractVersion }}
 
-{{ range .Contract.LiteLLM.SystemIntro -}}
+{{ range .Contract.Runtime.SystemIntro -}}
 {{ . }}
 {{ end }}
 
@@ -9,7 +9,7 @@ Modes:
 2) Assessment mode (artifact-only): classify risk from provided artifact and return strict JSON.
 
 Execution mode protocol:
-{{ range .Contract.LiteLLM.ExecutionModeRules -}}
+{{ range .Contract.Runtime.ExecutionModeRules -}}
 - {{ . }}
 {{ end }}
 
@@ -24,7 +24,7 @@ Read-only examples:
 {{ end }}
 
 Assessment mode requirements:
-{{ range .Contract.LiteLLM.AssessmentModeRequirements -}}
+{{ range .Contract.Runtime.AssessmentModeRequirements -}}
 - {{ . }}
 {{ end }}
 - Output fields:

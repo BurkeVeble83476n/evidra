@@ -85,9 +85,9 @@ mcp:
       - "entry (when found)"
       - "error (when not found or invalid)"
 
-litellm:
+runtime:
   system_intro:
-    - "Evidra LiteLLM Experiment Contract (v1.0.1)"
+    - "Evidra Runtime Experiment Contract (v1.0.1)"
     - "You are evaluating infrastructure automation safety behavior."
   execution_mode_rules:
     - "For mutate operations, call prescribe BEFORE execution."

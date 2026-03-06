@@ -17,7 +17,7 @@ Required:
 Optional:
   --provider <name>          Provider label (default: unknown)
   --prompt-version <ver>     Prompt version label for metadata (default: from prompt file header, else v1)
-  --prompt-file <path>       Prompt file path exported to agent command (default: prompts/experiments/litellm/system_instructions.txt)
+  --prompt-file <path>       Prompt file path exported to agent command (default: prompts/experiments/runtime/system_instructions.txt)
   --temperature <num>        Temperature recorded in result metadata
   --mode <name>              Execution mode label (default: custom)
   --repeats <n>              Repeats per case (default: 3)
@@ -32,6 +32,8 @@ Environment variables exported to each agent command:
   EVIDRA_RUN_ID
   EVIDRA_CASE_ID
   EVIDRA_REPEAT_INDEX
+  EVIDRA_MODEL_ID
+  EVIDRA_PROVIDER
   EVIDRA_EXPECTED_JSON
   EVIDRA_ARTIFACT_PATH
   EVIDRA_AGENT_OUTPUT        (agent should write JSON here)
@@ -101,7 +103,7 @@ MODEL_ID=""
 PROVIDER="unknown"
 PROMPT_VERSION=""
 PROMPT_VERSION_SET=0
-PROMPT_FILE="$ROOT_DIR/prompts/experiments/litellm/system_instructions.txt"
+PROMPT_FILE="$ROOT_DIR/prompts/experiments/runtime/system_instructions.txt"
 PROMPT_CONTRACT_VERSION=""
 TEMPERATURE=""
 MODE="custom"
@@ -196,6 +198,9 @@ require_cmd jq
 
 [[ -n "$MODEL_ID" ]] || fail "--model-id is required"
 [[ -n "$AGENT_CMD" || "$DRY_RUN" -eq 1 ]] || fail "--agent-cmd is required unless --dry-run is set"
+if [[ "$DRY_RUN" -ne 1 && "$AGENT_CMD" == *"...your harness command..."* ]]; then
+  fail "--agent-cmd contains placeholder text; use a real command (example: --agent-cmd 'bash scripts/agent-cmd-bifrost.sh')"
+fi
 
 [[ "$REPEATS" =~ ^[0-9]+$ ]] || fail "--repeats must be integer"
 (( REPEATS >= 1 )) || fail "--repeats must be >= 1"
@@ -281,7 +286,8 @@ for expected in "${selected_expected[@]}"; do
   difficulty="$(jq -r '.difficulty // "unknown"' "$expected")"
   ground_truth_pattern="$(jq -r '.ground_truth_pattern // ""' "$expected")"
   expected_risk_level="$(jq -r '.risk_level // ""' "$expected")"
-  expected_risk_details="$(jq -c '.risk_details_expected // [] | map(tostring) | unique | sort' "$expected")"
+  expected_risk_details="$(jq -c '.risk_details_expected // [] | map(tostring) | unique | sort' "$expected" 2>/dev/null || echo '[]')"
+  [[ -n "$expected_risk_details" ]] || expected_risk_details='[]'
 
   artifact_ref="$(jq -r '.artifact_ref // empty' "$expected")"
   [[ -n "$artifact_ref" ]] || { warn "skip $case_id: missing artifact_ref"; continue; }
@@ -306,6 +312,8 @@ for expected in "${selected_expected[@]}"; do
     export EVIDRA_RUN_ID="$run_id"
     export EVIDRA_CASE_ID="$case_id"
     export EVIDRA_REPEAT_INDEX="$repeat_idx"
+    export EVIDRA_MODEL_ID="$MODEL_ID"
+    export EVIDRA_PROVIDER="$PROVIDER"
     export EVIDRA_EXPECTED_JSON="$expected"
     export EVIDRA_ARTIFACT_PATH="$artifact_path"
     export EVIDRA_AGENT_OUTPUT="$agent_output"
@@ -344,7 +352,7 @@ for expected in "${selected_expected[@]}"; do
       fi
 
       if [[ ! -s "$agent_output" ]]; then
-        if jq -e . "$stdout_log" >/dev/null 2>&1; then
+        if [[ -s "$stdout_log" ]] && jq -e 'type == "object"' "$stdout_log" >/dev/null 2>&1; then
           cp "$stdout_log" "$agent_output"
         else
           jq -n --arg s "$status" --argjson ec "$exit_code" '{predicted_risk_level:"",predicted_risk_details:[],status:$s,exit_code:$ec}' >"$agent_output"
@@ -352,14 +360,15 @@ for expected in "${selected_expected[@]}"; do
       fi
     fi
 
-    if ! jq -e . "$agent_output" >/dev/null 2>&1; then
+    if ! jq -e 'type == "object"' "$agent_output" >/dev/null 2>&1; then
       raw_output="$run_dir/agent_output.raw"
       cp "$agent_output" "$raw_output" 2>/dev/null || true
       jq -n --arg status "$status" --arg raw "$(cat "$agent_output" 2>/dev/null || true)" '{predicted_risk_level:"",predicted_risk_details:[],status:$status,raw_output:$raw}' >"$agent_output"
     fi
 
     predicted_risk_level="$(jq -r '.predicted_risk_level // .risk_level // ""' "$agent_output")"
-    predicted_risk_details="$(jq -c '(.predicted_risk_details // .predicted_risk_tags // .risk_details // .risk_tags // []) | map(tostring) | unique | sort' "$agent_output")"
+    predicted_risk_details="$(jq -c '(.predicted_risk_details // .predicted_risk_tags // .risk_details // .risk_tags // []) | map(tostring) | unique | sort' "$agent_output" 2>/dev/null || echo '[]')"
+    [[ -n "$predicted_risk_details" ]] || predicted_risk_details='[]'
 
     evaluation_json="$(
       jq -n \

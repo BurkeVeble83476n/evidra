@@ -40,3 +40,9 @@ GEMINI.md
 .claude/
 .worktrees/
 .evidra.lock
+
+# Experiment outputs
+experiments/results/
+
+# Local Python virtualenv
+.venv/

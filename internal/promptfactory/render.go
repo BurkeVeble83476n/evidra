@@ -54,16 +54,16 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 			active:    filepath.Join("prompts", "mcpserver", "resources", "content", "agent_contract_v1.md"),
 		},
 		{
-			id:        "litellm.system",
-			template:  "templates/litellm/system_instructions.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "litellm", "system_instructions.txt"),
-			active:    filepath.Join("prompts", "experiments", "litellm", "system_instructions.txt"),
+			id:        "runtime.system",
+			template:  "templates/runtime/system_instructions.tmpl",
+			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "runtime", "system_instructions.txt"),
+			active:    filepath.Join("prompts", "experiments", "runtime", "system_instructions.txt"),
 		},
 		{
-			id:        "litellm.agent_contract",
-			template:  "templates/litellm/agent_contract.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "litellm", "agent_contract_v1.md"),
-			active:    filepath.Join("prompts", "experiments", "litellm", "agent_contract_v1.md"),
+			id:        "runtime.agent_contract",
+			template:  "templates/runtime/agent_contract.tmpl",
+			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "runtime", "agent_contract_v1.md"),
+			active:    filepath.Join("prompts", "experiments", "runtime", "agent_contract_v1.md"),
 		},
 	}
 
