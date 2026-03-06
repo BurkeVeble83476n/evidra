@@ -18,6 +18,8 @@ make test-mcp-inspector
 ```
 
 By default local mode uses `EVIDRA_SIGNING_MODE=optional` in the runner to avoid requiring persistent signing keys for smoke tests.
+If npm registry DNS/network is unavailable, local-mcp preflight skips the suite with a single clear reason.
+Set `EVIDRA_INSPECTOR_STRICT_NETWORK=1` to fail fast instead of skip.
 
 Optional modes:
 

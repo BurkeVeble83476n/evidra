@@ -8,6 +8,7 @@ CASES_DIR="$SCRIPT_DIR/cases"
 CONFIG="$SCRIPT_DIR/mcp-config.json"
 EVIDENCE_DIR="/tmp/evidra-inspector-evidence"
 MODE="${EVIDRA_TEST_MODE:-local-mcp}"
+INSPECTOR_STRICT_NETWORK="${EVIDRA_INSPECTOR_STRICT_NETWORK:-0}"
 
 PASS=0
 FAIL=0
@@ -86,12 +87,37 @@ check_common_prerequisites() {
   }
 }
 
+preflight_inspector_cli() {
+  local out rc
+  set +e
+  out="$(npx -y @modelcontextprotocol/inspector --version 2>&1)"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    return 0
+  fi
+
+  if printf '%s' "$out" | grep -Eq 'ENOTFOUND|EAI_AGAIN|getaddrinfo'; then
+    if [[ "$INSPECTOR_STRICT_NETWORK" == "1" ]]; then
+      echo "ERROR: MCP Inspector CLI preflight failed (npm registry DNS/network unavailable)." >&2
+      echo "$out" >&2
+      exit 1
+    fi
+    skip_all_and_exit "MCP Inspector unavailable (npm registry DNS/network). Set EVIDRA_INSPECTOR_STRICT_NETWORK=1 to fail instead of skip."
+  fi
+
+  echo "ERROR: MCP Inspector CLI preflight failed." >&2
+  echo "$out" >&2
+  exit 1
+}
+
 check_prerequisites() {
   check_common_prerequisites
 
   case "$MODE" in
     local-mcp)
       command -v npx >/dev/null 2>&1 || skip_all_and_exit "npx is required for local-mcp mode"
+      preflight_inspector_cli
       (cd "$REPO_ROOT" && go build -o bin/evidra-mcp ./cmd/evidra-mcp)
       export PATH="$REPO_ROOT/bin:$PATH"
       export EVIDRA_SIGNING_MODE="${EVIDRA_SIGNING_MODE:-optional}"
