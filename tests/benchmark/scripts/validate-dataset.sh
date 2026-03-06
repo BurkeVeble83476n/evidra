@@ -14,6 +14,12 @@ fail() {
   exit 1
 }
 
+warn_count=0
+warn() {
+  echo "dataset-validate: WARN $*" >&2
+  warn_count=$((warn_count + 1))
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   fail "jq is required"
 fi
@@ -39,6 +45,9 @@ jq -e '
   (.dataset_not_for | index("public-comparison")) and
   (.dataset_not_for | index("final-benchmark-score"))
 ' "$DATASET_JSON" >/dev/null || fail "dataset.json missing required fields or limited label contract"
+
+dataset_processed_version="$(jq -r '.evidra_version_processed // empty' "$DATASET_JSON")"
+[[ -n "$dataset_processed_version" ]] || fail "dataset.json missing evidra_version_processed"
 
 # Minimal benchmark.yaml label contract (without yq dependency).
 if ! rg -q '^[[:space:]]*profile:[[:space:]]+limited-contract-baseline[[:space:]]*$' "$BENCHMARK_YAML"; then
@@ -108,6 +117,18 @@ for file in "${expected_files[@]}"; do
     .processing.operation
   ' "$contract_path" >/dev/null || fail "$contract_path missing required contract fields"
 
+  expected_processing_version="$(jq -r '.processing.evidra_version // empty' "$file")"
+  contract_dataset_version="$(jq -r '.processing.dataset_evidra_version // empty' "$contract_path")"
+  if [[ -n "$expected_processing_version" && "$expected_processing_version" != "$dataset_processed_version" ]]; then
+    warn "$file processing.evidra_version=$expected_processing_version differs from dataset.evidra_version_processed=$dataset_processed_version"
+  fi
+  if [[ -n "$contract_dataset_version" && "$contract_dataset_version" != "$dataset_processed_version" ]]; then
+    warn "$contract_path processing.dataset_evidra_version=$contract_dataset_version differs from dataset.evidra_version_processed=$dataset_processed_version"
+  fi
+  if [[ -n "$expected_processing_version" && -n "$contract_dataset_version" && "$expected_processing_version" != "$contract_dataset_version" ]]; then
+    warn "$file processing.evidra_version=$expected_processing_version differs from $contract_path processing.dataset_evidra_version=$contract_dataset_version"
+  fi
+
   expected_digest="$(jq -r '.artifact_digest // empty' "$file")"
   contract_digest="$(jq -r '.artifact_digest // empty' "$contract_path")"
   if [[ -n "$expected_digest" && "$expected_digest" != "TODO" && "$expected_digest" != "$contract_digest" ]]; then
@@ -129,4 +150,4 @@ done
 # Reuse existing ratio gate.
 bash tests/benchmark/scripts/validate-source-composition.sh >/dev/null || fail "source-composition validation failed"
 
-echo "dataset-validate: PASS cases=${#expected_files[@]}"
+echo "dataset-validate: PASS cases=${#expected_files[@]} warnings=$warn_count"

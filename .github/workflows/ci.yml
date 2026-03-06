@@ -51,6 +51,9 @@ jobs:
       - name: Validate benchmark dataset
         run: make benchmark-validate
 
+      - name: Check benchmark golden contract drift
+        run: make benchmark-check-contracts EVIDRA_BIN=bin/evidra
+
       - name: Generate benchmark coverage report
         run: make benchmark-coverage
 
