@@ -101,6 +101,10 @@ implemented as internal entry types.
 - `session.start`
 - `session.end`
 
+Implementation note (v0.3.x): explicit `session.start`/`session.end`
+entries are OPTIONAL. Session boundaries are still required through
+persisted `session_id` on all entries.
+
 ### 4.2 Operation lifecycle
 - `operation.start`  (maps to prescribe)
 - `operation.end`    (maps to report success)
@@ -113,6 +117,16 @@ implemented as internal entry types.
 ### 4.4 Optional (v1.1+)
 - `operation.progress`
 - `llm.start/end/error` (privacy-sensitive; disabled by default)
+
+### 4.5 Canonical Agent Lifecycle (Recommended)
+
+```
+session.start (optional in v0.3.x)
+  -> operation.start
+  -> validator.findings (0..N)
+  -> operation.end | operation.error
+session.end (optional in v0.3.x)
+```
 
 **MUST rules**
 - `operation.end` and `operation.error` MUST close an `operation.start`.
@@ -152,7 +166,7 @@ Recommended common fields:
 {
   "actor": { "id": "ci-bot", "type": "automation" },
   "scope": {
-    "class": "prod",
+    "class": "production",
     "dimensions": { "cluster": "prod-1", "namespace": "payments" }
   },
   "artifact": { "digest": "sha256:...", "type": "terraform-plan" }

@@ -140,11 +140,11 @@ computed by Evidra. This table defines the wire contract.
 | actor | MUST | object | Actor identity (see Actor schema) |
 | actor.type | MUST | string | ai_agent, ci, human, unknown |
 | actor.id | MUST | string | Stable identifier for the actor |
-| actor.provenance | MUST | string | mcp, cli, api, oidc, git, manual |
+| actor.origin | MUST | string | mcp, cli, api, oidc, git, manual |
 | actor.instance_id | MAY | string | Runtime instance identifier |
 | actor.version | MAY | string | Agent or tool version |
 | session_id | MAY | string | Run/session boundary identifier (auto-generated if omitted) |
-| trace_id | MAY | string | Caller-provided correlation ID (auto-generated if omitted) |
+| trace_id | MAY | string | Caller-provided correlation ID (defaults to `session_id` when omitted) |
 | span_id | MAY | string | Span identifier for hierarchical tracing |
 | parent_span_id | MAY | string | Parent span for multi-step agent workflows |
 | scope_dimensions | MAY | object | Environment metadata map (cluster, namespace, account, region) |
@@ -152,8 +152,12 @@ computed by Evidra. This table defines the wire contract.
 | canonical_action | MAY | object | Pre-canonicalized action for self-aware tools (sets canon_source=external) |
 | actor_meta | MAY | object | Comparison dimensions (agent_version, model_id, prompt_id) |
 
+Wire/storage mapping:
+- MCP/CLI wire field is `actor.origin`.
+- Stored evidence field is `actor.provenance`.
+
 Evidra computes and adds to the stored Prescription:
-prescription_id, trace_id (if not caller-provided), tenant_id,
+prescription_id, session_id (if not caller-provided), trace_id (defaults to session_id when not caller-provided), tenant_id,
 canonical_action (if not pre-provided), intent_digest,
 artifact_digest, risk_level, risk_tags, risk_details, ttl_ms,
 canon_source, timestamp.
@@ -165,7 +169,9 @@ canon_source, timestamp.
 | prescription_id | MUST | string | ID from prescribe response |
 | exit_code | MUST | integer | Tool exit code (0 = success) |
 | artifact_digest | MAY | string | SHA256 of artifact actually applied (for drift detection) |
+| actor | MAY | object | Optional override; omitted actor falls back to prescription actor |
 | session_id | MAY | string | Run/session boundary (should match prescribe if same session) |
+| operation_id | MAY | string | Operation identifier (inherits from prescription when omitted) |
 | span_id | MAY | string | Span identifier for this report |
 | parent_span_id | MAY | string | Parent span for multi-step workflows |
 
@@ -223,7 +229,7 @@ All entry types share the same envelope.
 | signature | string | MUST | Ed25519 signature of hash |
 | type | string | MUST | Closed enum (see Entry Types) |
 | tenant_id | string | MUST (service mode) | Empty in local mode |
-| session_id | string | MAY | Run/session boundary identifier |
+| session_id | string | MUST | Run/session boundary identifier |
 | trace_id | string | MUST | Automation task/session correlation key |
 | span_id | string | MAY | Span identifier for hierarchical tracing |
 | parent_span_id | string | MAY | Parent span for multi-step workflows |
@@ -413,6 +419,9 @@ version bump.
 | `development` | Development environment | Namespace contains "dev" |
 | `unknown` | Cannot determine | Default when no match |
 
+Ingress alias normalization and validation requirements are defined in
+[EVIDRA_PROTOCOL.md §5.1](EVIDRA_PROTOCOL.md#51-scope-class).
+
 ### risk_level
 
 | Value | Meaning |
@@ -460,18 +469,18 @@ version bump.
 
 | Context | trace_id lifecycle | Generation |
 |---------|-------------------|------------|
-| evidra-mcp | One MCP server process = one trace_id | ULID generated at server startup |
-| evidra CLI (prescribe) | One command invocation = one trace_id | ULID generated per `evidra prescribe`, included in output |
-| evidra CLI (report) | Same trace_id as corresponding prescribe | Passed via `--trace-id` flag (from prescribe output) |
-| evidra-api | One API request session | ULID generated per request, or caller-provided |
+| evidra-mcp prescribe | Session-scoped by default | Defaults to `session_id` if omitted |
+| evidra CLI prescribe | Session-scoped by default | Defaults to `session_id` if omitted |
+| report (CLI/MCP) | Derived from referenced prescribe when present | Inherited from prescription; generated only when no source exists |
+| evidra-api (planned) | Service-defined | Generated server-side or accepted from trusted caller |
 
 Rules:
-1. trace_id MUST be a ULID.
+1. trace_id SHOULD be ULID-formatted.
 2. A single trace_id MAY span multiple prescribe/report pairs
    (e.g. multi-resource apply).
 3. A trace_id MUST NOT span multiple actors.
 4. A trace_id MUST NOT span multiple tenants.
-5. If trace_id is not provided by the caller, Evidra generates one.
+5. If `trace_id` is not provided by the caller, Evidra MUST default it to `session_id`.
 
 ---
 

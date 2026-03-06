@@ -39,7 +39,7 @@ That's it. Two calls (prescribe, report). Five signals. One score.
 
 ## Architecture
 
-### Three Components
+### Runtime Components
 
 ```
 ┌─────────────────────────┐
@@ -61,20 +61,29 @@ That's it. Two calls (prescribe, report). Five signals. One score.
                                 └────────────────────┘
 ```
 
-**evidra-mcp** — sidecar for AI agents. MCP protocol (stdio/SSE).
-Exposes prescribe + report tools. Local evidence JSONL. Forwards
-to evidra-api if configured. v0.3.0.
+**evidra-mcp** — sidecar for automation clients over MCP (stdio/SSE).
+Common initiator: AI agents. Also usable by any MCP-capable client.
+Exposes prescribe + report tools. Local evidence JSONL.
 
 **evidra CLI** — for CI pipelines. Same protocol, shell wrapper.
 `evidra prescribe`, `evidra report`, `evidra scorecard`, `evidra validate`,
-`evidra ingest-findings`. v0.3.0.
+`evidra ingest-findings`.
 
 **evidra-api** — centralized backend. Aggregates evidence from all
 sources. Scorecards, comparison, Prometheus metrics. Multi-tenant.
-v0.5.0.
+Planned for v0.5.0.
+
+### Initiators and Ingress Paths
+
+| Initiator | Current ingress (v0.3.1) | Planned ingress |
+|---|---|---|
+| AI agent runtimes | MCP (`evidra-mcp`) | REST sidecar/API |
+| CI/CD pipelines | CLI (`evidra prescribe/report`) | REST sidecar/API |
+| Scanner-only workflows | CLI (`evidra ingest-findings`) | REST `/v1/findings` |
+| Custom automation services | CLI wrapper or MCP client | REST sidecar/API + SDKs |
 
 All three share the same core: canon adapters, risk analysis,
-signal detectors, evidence chain. v0.3.0 works fully local
+signal detectors, evidence chain. v0.3.1 works fully local
 without evidra-api.
 
 No OPA. No Rego. No policy engine. No deny.
@@ -334,7 +343,7 @@ pre-canonicalized input — documented as a known limitation.
 
 Source: PO Recommendation §2.5
 
-### Post-Implementation Decisions (v0.3.0)
+### Post-Implementation Decisions (v0.3.x)
 
 ### CLI and MCP Server Both Write Evidence
 MCP server was the sole evidence writer in early v0.3.0. CLI commands
@@ -344,13 +353,11 @@ produce identical `EvidenceEntry` format with the same hash chain.
 ### Session and Correlation Model
 Every evidence entry supports hierarchical correlation:
 
-- **session_id** (MAY) — run/session boundary. Groups all operations
-  within a single automation run (LangChain agent run, CI pipeline
-  execution, Terraform apply workflow). If not provided, Evidra does
-  not generate one — operations are independent.
-- **trace_id** (MUST) — per-operation correlation. MCP server: ULID
-  generated per prescribe call. CLI: ULID generated per invocation.
-  Caller may provide their own trace_id for OpenTelemetry integration.
+- **session_id** (persisted MUST) — run/session boundary. If omitted
+  on ingress, Evidra generates one before writing evidence.
+- **trace_id** (persisted MUST) — correlation key for related events.
+  Prescribe generates one when omitted; report inherits from the
+  referenced prescription when available.
 - **span_id / parent_span_id** (MAY) — hierarchical tracing for
   multi-step agent workflows. Allows tree-structured correlation
   compatible with OpenTelemetry span model.
@@ -360,16 +367,21 @@ correlation model.
 
 ### Report Actor Resolution
 `ReportInput` accepts an optional `actor` field. Falls back to
-`lastActor` from the preceding prescribe call in MCP server. CLI
-requires explicit `--actor` or defaults to "cli".
+the referenced prescription actor when omitted. CLI defaults to
+`actor.id="cli"` when no explicit actor is provided.
 
-### Signing Is Required
+### Signing Modes
 `BuildEntry` requires a `Signer` interface and returns an error if none
 is provided. Every evidence entry is Ed25519-signed — the `signature` field
 (base64-encoded) is mandatory. The `Signer` module lives in
-`internal/evidence/signer.go`. Key sources: `EVIDRA_SIGNING_KEY` (base64),
-`EVIDRA_SIGNING_KEY_PATH` (PEM). Both CLI and MCP server fail early if
-no signing key is configured.
+`internal/evidence/signer.go`.
+
+Runtime modes:
+
+- **strict (default):** requires `EVIDRA_SIGNING_KEY` or
+  `EVIDRA_SIGNING_KEY_PATH`.
+- **optional:** generates an ephemeral in-process key when no key is
+  configured (local/test convenience, not durable across restarts).
 
 - **CLI:** `--signing-key-path key.pem` or `EVIDRA_SIGNING_KEY_PATH` env var
 - **MCP:** `EVIDRA_SIGNING_KEY` or `EVIDRA_SIGNING_KEY_PATH` env vars
@@ -397,8 +409,9 @@ data per actor to be meaningful.
 
 ### SARIF Findings Are Evidence Entries
 Scanner findings (Checkov, Trivy, tfsec) parsed from SARIF format
-are written as `finding` evidence entries linked to the prescription
-by trace_id. CLI uses `--scanner-report`; MCP server can ingest
+are written as `finding` evidence entries linked primarily by
+`artifact_digest` (and optionally by session/trace correlation when
+available). CLI uses `--scanner-report`; MCP server can ingest
 findings through the prescribe flow.
 
 ---
@@ -439,9 +452,10 @@ these, it is architecturally incorrect even if it "works."
   actor.id, actor.provenance (or actor.origin). Optional fields:
   actor.instance_id (runner/pod/container — NOT used in metrics)
   and actor.version (agent software version).
-- **session_id** (MAY) is the run/session boundary. Groups all
-  operations in one automation run (agent run, CI pipeline, etc.).
-  Defines the boundary for metrics and scorecards.
+- **session_id** is the run/session boundary. Persisted entries MUST
+  carry session_id; if omitted at ingress, Evidra generates one.
+  In v0.3.x scorecards are still grouped by actor+period (session
+  grouping is planned for service mode).
 - **trace_id** is the per-operation correlation key. A single
   trace_id MAY span multiple prescribe/report pairs (a terraform
   plan that touches 3 resources = 3 prescriptions under one
@@ -654,7 +668,7 @@ every entry having the same shape.
   "tenant_id":     "",                 // empty in local mode, required in service mode (v0.5.0+)
 
   // === Correlation ===
-  "session_id":    "01JNG...",         // (MAY) run/session boundary
+  "session_id":    "01JNG...",         // run/session boundary (persisted MUST)
   "trace_id":      "01JNG...",         // per-operation correlation key
   "span_id":       "01JNG...",         // (MAY) step within a trace
   "parent_span_id": "01JNG...",        // (MAY) parent span for hierarchical workflows

@@ -23,12 +23,12 @@ First public release of Evidra Benchmark.
 ### MCP Server (`evidra-mcp`)
 - Stdio transport for AI agent integration
 - Tools: prescribe, report, get_event
-- Per-operation trace IDs for correlation
+- Session/trace/span correlation fields for multi-step workflows
 - Optional retry loop tracking
 
 ### Protocol (v1.0 Foundation)
-- Session/run boundary: `session_id` on all evidence entries (optional, auto-generated if omitted)
-- Hierarchical tracing: `trace_id`, `span_id`, `parent_span_id` for multi-step agent workflows
+- Session/run boundary hardened: persisted evidence entries always include `session_id` (generated at ingress when omitted by caller)
+- Correlation defaults documented: `trace_id` defaults to `session_id`, with optional `span_id` and `parent_span_id`
 - Actor identity: `actor.instance_id` and `actor.version` (optional, not used in metrics)
 - Scope dimensions: `scope_dimensions` map for detailed environment metadata (cluster, namespace, account, region)
 - Protocol spec: `docs/system-design/EVIDRA_PROTOCOL.md`
@@ -39,7 +39,7 @@ First public release of Evidra Benchmark.
 - File-based locking for concurrent access
 
 ### Build
-- Go 1.23 minimum (broad adoption)
+- Go 1.23 minimum (CI pinned from `go.mod`)
 - Cross-platform binaries via GoReleaser (linux/darwin/windows, amd64/arm64)
 - Homebrew: `brew install samebits/tap/evidra-mcp`
 - Docker: `ghcr.io/vitas/evidra-mcp:0.3.0`
@@ -47,5 +47,5 @@ First public release of Evidra Benchmark.
 ### Known Limitations
 - ArgoCD uses generic adapter (no Argo-specific metadata)
 - MinOperations=100 required for scoring (low-volume actors get `insufficient_data`)
-- Signing implemented but not wired into pipeline (v0.4.0)
+- Optional signing mode (`EVIDRA_SIGNING_MODE=optional`) uses ephemeral keys and is not durable across restarts
 - No centralized API server (v0.5.0)

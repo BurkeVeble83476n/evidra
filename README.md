@@ -59,6 +59,8 @@ Scorecard formula: `score = 100 * (1 - weighted_penalty)` with bands: excellent 
 
 ## Install
 
+Source builds require **Go 1.23+** (see `go.mod` and CI config).
+
 ```bash
 # Homebrew (macOS / Linux)
 brew install samebits/tap/evidra
@@ -270,6 +272,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 | `EVIDRA_SIGNING_KEY` | Base64-encoded Ed25519 signing key |
 | `EVIDRA_SIGNING_KEY_PATH` | Path to PEM-encoded Ed25519 private key |
 | `EVIDRA_SIGNING_MODE` | Signing behavior: `strict` (default) or `optional` (ephemeral local mode) |
+| `EVIDRA_EVIDENCE_WRITE_MODE` | Evidence write behavior: `strict` (default) or `best_effort` (warn and continue on store I/O failures) |
 | `EVIDRA_EVIDENCE_DIR` | Evidence storage directory (default: `~/.evidra/evidence`) |
 | `EVIDRA_ENVIRONMENT` | Environment label |
 | `EVIDRA_API_URL` | Forward evidence to remote API |

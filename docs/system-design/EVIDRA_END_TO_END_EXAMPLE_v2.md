@@ -170,7 +170,7 @@ Evidence JSONL entry (actual `EvidenceEntry` envelope):
   "entry_id": "01JD7KX9M2...",
   "previous_hash": "sha256:...",
   "hash": "sha256:...",
-  "signature": "",
+  "signature": "base64-ed25519-signature",
   "type": "prescribe",
   "session_id": "session-20260304-staging",
   "trace_id": "01JD7KX9M1...",
@@ -188,14 +188,14 @@ Evidence JSONL entry (actual `EvidenceEntry` envelope):
     "canon_source": "adapter"
   },
   "scope_dimensions": {"cluster":"staging-us-east","namespace":"staging"},
-  "spec_version": "0.3.0",
+  "spec_version": "0.3.1",
   "canonical_version": "k8s/v1",
-  "adapter_version": "dev"
+  "adapter_version": "0.3.1"
 }
 ```
 
-Note: `signature` field is present but empty in v0.3.x. Ed25519 signing
-is deferred to v0.5.0 (signer module exists but is not wired).
+Note: v0.3.1 writes signed entries. Strict mode requires configured keys;
+optional mode uses an ephemeral in-process key for local/test runs.
 
 Evidra returns the prescription to the agent. No allow/deny —
 just risk assessment and the recorded intent:
@@ -206,6 +206,7 @@ just risk assessment and the recorded intent:
   "prescription_id": "01JD7KX9M2...",
   "risk_level": "medium",
   "risk_tags": [],
+  "risk_details": [],
   "artifact_digest": "sha256:...",
   "intent_digest": "sha256:...",
   "resource_shape_hash": "sha256:...",
@@ -239,7 +240,7 @@ Report entry:
   "entry_id": "01JD7KZ1A3...",
   "previous_hash": "sha256:...",
   "hash": "sha256:...",
-  "signature": "",
+  "signature": "base64-ed25519-signature",
   "type": "report",
   "session_id": "session-20260304-staging",
   "trace_id": "01JD7KZ1A2...",
@@ -255,8 +256,8 @@ Report entry:
     "verdict": "success"
   },
   "scope_dimensions": {"cluster":"staging-us-east","namespace":"staging"},
-  "spec_version": "0.3.0",
-  "adapter_version": "dev"
+  "spec_version": "0.3.1",
+  "adapter_version": "0.3.1"
 }
 ```
 
@@ -417,8 +418,8 @@ Output (JSON):
   },
   "actor_id": "claude-code",
   "period": "30d",
-  "scoring_version": "0.3.0",
-  "spec_version": "0.3.0",
+  "scoring_version": "0.3.1",
+  "spec_version": "0.3.1",
   "generated_at": "2026-03-04T12:00:00Z"
 }
 ```

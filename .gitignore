@@ -8,6 +8,8 @@
 /evidra-api
 /evidra
 
+docs/research/
+
 # Test binary, coverage
 *.test
 *.out
