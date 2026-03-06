@@ -4,11 +4,18 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/bench-add.sh <case-id> [--artifact <path>] [--source <source-id>]
+  scripts/bench-add.sh <case-id> [--artifact <path>] [--source <source-id>] [options]
+
+Options:
+  --tool <name>          Tool name for optional artifact processing (default: kubectl)
+  --operation <name>     Operation name for optional artifact processing (default: apply)
+  --evidra-bin <path>    Explicit evidra binary for process-artifact helper
+  --no-process           Do not run process-artifact autofill even when --artifact is provided
+  -h, --help             Show this help
 
 Examples:
   scripts/bench-add.sh k8s-hostpath-mount-fail --artifact /tmp/hostpath.yaml --source kubescape-regolibrary
-  scripts/bench-add.sh tf-s3-public-access-fail --source checkov-terraform
+  scripts/bench-add.sh tf-s3-public-access-fail --source checkov-terraform --tool terraform
 EOF
 }
 
@@ -27,6 +34,10 @@ shift
 
 ARTIFACT=""
 SOURCE=""
+TOOL="kubectl"
+OPERATION="apply"
+EVIDRA_BIN=""
+NO_PROCESS="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -39,6 +50,25 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "bench-add: --source requires a value" >&2; exit 1; }
       SOURCE="$2"
       shift 2
+      ;;
+    --tool)
+      [[ $# -ge 2 ]] || { echo "bench-add: --tool requires a value" >&2; exit 1; }
+      TOOL="$2"
+      shift 2
+      ;;
+    --operation)
+      [[ $# -ge 2 ]] || { echo "bench-add: --operation requires a value" >&2; exit 1; }
+      OPERATION="$2"
+      shift 2
+      ;;
+    --evidra-bin)
+      [[ $# -ge 2 ]] || { echo "bench-add: --evidra-bin requires a value" >&2; exit 1; }
+      EVIDRA_BIN="$2"
+      shift 2
+      ;;
+    --no-process)
+      NO_PROCESS="true"
+      shift 1
       ;;
     -h|--help)
       usage
@@ -67,6 +97,21 @@ mkdir -p "$CASE_DIR/artifacts" "$CASE_DIR/golden"
 
 ARTIFACT_REF="TODO"
 ARTIFACT_DIGEST="TODO"
+CATEGORY="TODO"
+DIFFICULTY="TODO"
+GROUND_TRUTH_PATTERN="TODO"
+RISK_LEVEL="TODO"
+RISK_DETAILS_JSON="[]"
+TAGS_JSON="[]"
+PROCESSING_JSON="{}"
+
+case "$TOOL" in
+  kubectl) CATEGORY="kubernetes" ;;
+  terraform) CATEGORY="terraform" ;;
+  helm) CATEGORY="helm" ;;
+  argocd) CATEGORY="argocd" ;;
+esac
+
 if [[ -n "$ARTIFACT" ]]; then
   if [[ ! -f "$ARTIFACT" ]]; then
     echo "bench-add: artifact not found: $ARTIFACT" >&2
@@ -79,6 +124,55 @@ if [[ -n "$ARTIFACT" ]]; then
     ARTIFACT_DIGEST="sha256:$(shasum -a 256 "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" | awk '{print $1}')"
   elif command -v sha256sum >/dev/null 2>&1; then
     ARTIFACT_DIGEST="sha256:$(sha256sum "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" | awk '{print $1}')"
+  fi
+
+  if [[ "$NO_PROCESS" == "false" && -x "tests/benchmark/scripts/process-artifact.sh" ]]; then
+    process_tmp="$(mktemp)"
+    process_cmd=(bash tests/benchmark/scripts/process-artifact.sh --artifact "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" --tool "$TOOL" --operation "$OPERATION" --out "$process_tmp")
+    if [[ -n "$EVIDRA_BIN" ]]; then
+      process_cmd+=(--evidra-bin "$EVIDRA_BIN")
+    fi
+
+    if "${process_cmd[@]}" >/tmp/bench-add-process.log 2>&1; then
+      processed_digest="$(jq -r '.artifact_digest // empty' "$process_tmp")"
+      [[ -n "$processed_digest" ]] && ARTIFACT_DIGEST="$processed_digest"
+
+      processed_level="$(jq -r '.risk_level // empty' "$process_tmp")"
+      case "$processed_level" in
+        low|medium|high|critical) RISK_LEVEL="$processed_level" ;;
+      esac
+
+      RISK_DETAILS_JSON="$(jq -c '.risk_details // []' "$process_tmp")"
+      TAGS_JSON="$RISK_DETAILS_JSON"
+
+      processed_pattern="$(jq -r '.ground_truth_pattern // empty' "$process_tmp")"
+      if [[ -n "$processed_pattern" ]]; then
+        GROUND_TRUTH_PATTERN="$processed_pattern"
+      else
+        single_risk_detail="$(jq -r 'if ((.risk_details // []) | length) == 1 then .risk_details[0] else empty end' "$process_tmp")"
+        [[ -n "$single_risk_detail" ]] && GROUND_TRUTH_PATTERN="$single_risk_detail"
+      fi
+
+      case "$RISK_LEVEL" in
+        low) DIFFICULTY="easy" ;;
+        medium) DIFFICULTY="medium" ;;
+        high) DIFFICULTY="hard" ;;
+        critical) DIFFICULTY="catastrophic" ;;
+      esac
+
+      PROCESSING_JSON="$(jq -c '{
+        dataset_evidra_version: (.processing.dataset_evidra_version // ""),
+        processed_at: (.processing.processed_at // ""),
+        tool: (.processing.tool // ""),
+        operation: (.processing.operation // ""),
+        evidra_version: (.evidra_version // "")
+      }' "$process_tmp")"
+
+      echo "bench-add: autofill from process-artifact applied"
+    else
+      echo "bench-add: WARN process-artifact failed, keeping TODO defaults (see /tmp/bench-add-process.log)" >&2
+    fi
+    rm -f "$process_tmp"
   fi
 fi
 
@@ -105,15 +199,16 @@ cat > "$CASE_DIR/expected.json" <<EOF
   "case_id": "$CASE_ID",
   "dataset_label": "limited-contract-baseline",
   "case_kind": "artifact",
-  "category": "TODO",
-  "difficulty": "TODO",
-  "ground_truth_pattern": "TODO",
+  "category": "$CATEGORY",
+  "difficulty": "$DIFFICULTY",
+  "ground_truth_pattern": "$GROUND_TRUTH_PATTERN",
   "artifact_ref": "$ARTIFACT_REF",
   "artifact_digest": "$ARTIFACT_DIGEST",
-  "risk_details_expected": [],
-  "risk_level": "TODO",
+  "risk_details_expected": $RISK_DETAILS_JSON,
+  "risk_level": "$RISK_LEVEL",
   "signals_expected": {},
-  "tags": [],
+  "tags": $TAGS_JSON,
+  "processing": $PROCESSING_JSON,
   "source_refs": [
     {
       "source_id": "${SOURCE:-TODO}",

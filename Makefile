@@ -39,7 +39,7 @@ benchmark-process-artifact:
 	bash tests/benchmark/scripts/process-artifact.sh --artifact "$(ARTIFACT)" $(if $(TOOL),--tool $(TOOL)) $(if $(OPERATION),--operation $(OPERATION)) $(if $(OUT),--out $(OUT)) $(if $(EVIDRA_BIN),--evidra-bin $(EVIDRA_BIN))
 
 bench-add:
-	bash scripts/bench-add.sh $(CASE_ID) $(if $(ARTIFACT),--artifact $(ARTIFACT)) $(if $(SOURCE),--source $(SOURCE))
+	bash scripts/bench-add.sh $(CASE_ID) $(if $(ARTIFACT),--artifact $(ARTIFACT)) $(if $(SOURCE),--source $(SOURCE)) $(if $(TOOL),--tool $(TOOL)) $(if $(OPERATION),--operation $(OPERATION)) $(if $(EVIDRA_BIN),--evidra-bin $(EVIDRA_BIN)) $(if $(NO_PROCESS),--no-process)
 
 golden-update:
 	EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update ./internal/canon/...
