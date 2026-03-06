@@ -131,8 +131,16 @@ inspector_call_tool() {
   cmd+=( --method tools/call --tool-name "$tool" )
 
   while IFS= read -r key; do
+    local value_type
+    value_type=$(echo "$args_json" | jq -r --arg k "$key" '.[$k] | type')
     local val
-    val=$(echo "$args_json" | jq -c --arg k "$key" '.[$k]')
+    if [[ "$value_type" == "string" ]]; then
+      # Inspector CLI expects plain string values for scalar args.
+      val=$(echo "$args_json" | jq -r --arg k "$key" '.[$k]')
+    else
+      # Keep structured values (objects/arrays/numbers/bools/null) JSON-encoded.
+      val=$(echo "$args_json" | jq -c --arg k "$key" '.[$k]')
+    fi
     cmd+=( --tool-arg "${key}=${val}" )
   done < <(echo "$args_json" | jq -r 'keys[]')
 
@@ -264,7 +272,11 @@ lookup_event_from_local_store() {
   local segments_dir="$EVIDENCE_DIR/segments"
   [[ -d "$segments_dir" ]] || return 1
   local line
-  line=$(rg --no-filename --fixed-strings "\"entry_id\":\"${local_event_id}\"" "$segments_dir"/*.jsonl 2>/dev/null | tail -n1 || true)
+  if command -v rg >/dev/null 2>&1; then
+    line=$(rg --no-filename --fixed-strings "\"entry_id\":\"${local_event_id}\"" "$segments_dir"/*.jsonl 2>/dev/null | tail -n1 || true)
+  else
+    line=$(grep -hF "\"entry_id\":\"${local_event_id}\"" "$segments_dir"/*.jsonl 2>/dev/null | tail -n1 || true)
+  fi
   [[ -n "$line" ]] || return 1
   printf '%s\n' "$line" | jq -c '{ok:true, entry:., _source:"local_evidence_fallback"}'
 }
