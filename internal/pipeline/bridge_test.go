@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"samebits.com/evidra-benchmark/internal/canon"
 	"samebits.com/evidra-benchmark/internal/signal"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 )
@@ -170,4 +171,26 @@ var _ = func() {
 	var err error
 	result, err = EvidenceToSignalEntries(entries)
 	_, _ = result, err
+}
+
+func TestExtractCanonicalAction(t *testing.T) {
+	t.Parallel()
+
+	raw := json.RawMessage(`{"tool":"kubectl","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":3,"resource_shape_hash":"sha256:shape1"}`)
+	got, err := extractCanonicalAction(raw)
+	if err != nil {
+		t.Fatalf("extractCanonicalAction: %v", err)
+	}
+	want := canon.CanonicalAction{
+		Tool:              "kubectl",
+		Operation:         "apply",
+		OperationClass:    "mutate",
+		ScopeClass:        "production",
+		ResourceCount:     3,
+		ResourceShapeHash: "sha256:shape1",
+	}
+	if got.Tool != want.Tool || got.Operation != want.Operation || got.OperationClass != want.OperationClass ||
+		got.ScopeClass != want.ScopeClass || got.ResourceCount != want.ResourceCount || got.ResourceShapeHash != want.ResourceShapeHash {
+		t.Fatalf("unexpected canonical action: got=%+v want=%+v", got, want)
+	}
 }

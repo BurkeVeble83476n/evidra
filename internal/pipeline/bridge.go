@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"samebits.com/evidra-benchmark/internal/canon"
 	"samebits.com/evidra-benchmark/internal/signal"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 )
@@ -31,22 +32,14 @@ func EvidenceToSignalEntries(entries []evidence.EvidenceEntry) ([]signal.Entry, 
 			}
 			// Canonical contract is risk_details with legacy fallback to risk_tags.
 			se.RiskTags = p.EffectiveRiskDetails()
-			// Extract fields from canonical_action
-			var ca struct {
-				Tool           string `json:"tool"`
-				Operation      string `json:"operation"`
-				OperationClass string `json:"operation_class"`
-				ScopeClass     string `json:"scope_class"`
-				ResourceCount  int    `json:"resource_count"`
-				ShapeHash      string `json:"resource_shape_hash"`
-			}
-			if err := json.Unmarshal(p.CanonicalAction, &ca); err == nil {
+			// Extract fields from canonical_action.
+			if ca, err := extractCanonicalAction(p.CanonicalAction); err == nil {
 				se.Tool = ca.Tool
 				se.Operation = ca.Operation
 				se.OperationClass = ca.OperationClass
 				se.ScopeClass = ca.ScopeClass
 				se.ResourceCount = ca.ResourceCount
-				se.ShapeHash = ca.ShapeHash
+				se.ShapeHash = ca.ResourceShapeHash
 			}
 
 		case evidence.EntryTypeReport:
@@ -68,4 +61,12 @@ func EvidenceToSignalEntries(entries []evidence.EvidenceEntry) ([]signal.Entry, 
 	}
 
 	return result, nil
+}
+
+func extractCanonicalAction(raw json.RawMessage) (canon.CanonicalAction, error) {
+	var ca canon.CanonicalAction
+	if err := json.Unmarshal(raw, &ca); err != nil {
+		return canon.CanonicalAction{}, err
+	}
+	return ca, nil
 }
