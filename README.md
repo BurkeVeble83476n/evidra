@@ -161,6 +161,15 @@ make benchmark-validate
 bash tests/benchmark/scripts/validate-dataset.sh
 ```
 
+Process a raw artifact with dataset-pinned Evidra version and emit a contract snapshot:
+
+```bash
+make benchmark-process-artifact \
+  ARTIFACT=tests/inspector/fixtures/safe-nginx-deployment.yaml \
+  EVIDRA_BIN=bin/evidra \
+  OUT=/tmp/contract.json
+```
+
 ---
 
 ## CLI Commands
@@ -305,6 +314,7 @@ make build          # bin/evidra + bin/evidra-mcp
 make test           # go test ./... -v -count=1
 make benchmark-validate  # validate tests/benchmark metadata, case structure, source provenance gates
 make benchmark-coverage  # generate tests/benchmark/COVERAGE.md coverage snapshot
+make benchmark-process-artifact ARTIFACT=<path> [TOOL=kubectl] [OPERATION=apply] [OUT=/tmp/contract.json]
 make lint           # golangci-lint run (includes function-size/complexity guardrails for non-test code)
 make fmt            # gofmt -w .
 make tidy           # go mod tidy

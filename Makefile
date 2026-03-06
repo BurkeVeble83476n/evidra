@@ -1,5 +1,5 @@
 .PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
-	benchmark-validate benchmark-coverage bench-add \
+	benchmark-validate benchmark-coverage benchmark-process-artifact bench-add \
 	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
 
 build:
@@ -33,6 +33,10 @@ benchmark-validate:
 
 benchmark-coverage:
 	bash tests/benchmark/scripts/generate-coverage.sh > tests/benchmark/COVERAGE.md
+
+benchmark-process-artifact:
+	@test -n "$(ARTIFACT)" || (echo "ARTIFACT is required, e.g. make benchmark-process-artifact ARTIFACT=tests/inspector/fixtures/safe-nginx-deployment.yaml" >&2; exit 2)
+	bash tests/benchmark/scripts/process-artifact.sh --artifact "$(ARTIFACT)" $(if $(TOOL),--tool $(TOOL)) $(if $(OPERATION),--operation $(OPERATION)) $(if $(OUT),--out $(OUT)) $(if $(EVIDRA_BIN),--evidra-bin $(EVIDRA_BIN))
 
 bench-add:
 	bash scripts/bench-add.sh $(CASE_ID) $(if $(ARTIFACT),--artifact $(ARTIFACT)) $(if $(SOURCE),--source $(SOURCE))
