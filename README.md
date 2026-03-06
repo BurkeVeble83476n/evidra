@@ -286,7 +286,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 ```bash
 make build          # bin/evidra + bin/evidra-mcp
 make test           # go test ./... -v -count=1
-make lint           # golangci-lint run
+make lint           # golangci-lint run (includes function-size/complexity guardrails for non-test code)
 make fmt            # gofmt -w .
 make tidy           # go mod tidy
 make golden-update  # regenerate golden test files

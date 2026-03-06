@@ -353,83 +353,18 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 }
 
 func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("prescribe", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	artifactFlag := fs.String("artifact", "", "Path to artifact file (YAML or JSON)")
-	toolFlag := fs.String("tool", "", "Tool name (kubectl, terraform)")
-	operationFlag := fs.String("operation", "apply", "Operation (apply, delete, plan)")
-	envFlag := fs.String("environment", "", "Environment (production, staging, development)")
-	scannerFlag := fs.String("scanner-report", "", "SARIF scanner report file")
-	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
-	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
-	canonicalActionFlag := fs.String("canonical-action", "", "Pre-canonicalized action JSON (bypasses adapter)")
-	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID (generated if omitted)")
-	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
-	attemptFlag := fs.Int("attempt", 0, "Retry attempt counter")
-	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
-	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
-	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	opts, code := parsePrescribeFlags(args, stderr)
+	if code != 0 {
+		return code
 	}
 
-	sessionID := *sessionIDFlag
-
-	if *artifactFlag == "" || *toolFlag == "" {
-		fmt.Fprintln(stderr, "prescribe requires --artifact and --tool")
-		return 2
-	}
-
-	writeMode, err := config.ResolveEvidenceWriteMode("")
+	cmd, err := preparePrescribeCommand(opts)
 	if err != nil {
-		fmt.Fprintf(stderr, "resolve evidence write mode: %v\n", err)
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
-	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag, *signingModeFlag)
-	if err != nil {
-		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
-		return 1
-	}
-
-	data, err := os.ReadFile(*artifactFlag)
-	if err != nil {
-		fmt.Fprintf(stderr, "read artifact: %v\n", err)
-		return 1
-	}
-
-	actorID := *actorFlag
-	if actorID == "" {
-		actorID = "cli"
-	}
-	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
-
-	evidencePath := resolveEvidencePath(*evidenceFlag)
-	var preCanon *canon.CanonicalAction
-	if *canonicalActionFlag != "" {
-		preCanon = &canon.CanonicalAction{}
-		if err := json.Unmarshal([]byte(*canonicalActionFlag), preCanon); err != nil {
-			fmt.Fprintf(stderr, "parse --canonical-action: %v\n", err)
-			return 1
-		}
-	}
-
-	svc := lifecycle.NewService(lifecycle.Options{
-		EvidencePath:     evidencePath,
-		Signer:           signer,
-		BestEffortWrites: writeMode == config.EvidenceWriteModeBestEffort,
-	})
-	prescOut, err := svc.Prescribe(context.Background(), lifecycle.PrescribeInput{
-		Actor:           actor,
-		Tool:            *toolFlag,
-		Operation:       *operationFlag,
-		RawArtifact:     data,
-		Environment:     *envFlag,
-		CanonicalAction: preCanon,
-		SessionID:       sessionID,
-		OperationID:     *operationIDFlag,
-		Attempt:         *attemptFlag,
-	})
+	prescOut, err := cmd.service.Prescribe(context.Background(), cmd.input)
 	if err != nil {
 		if lifecycle.ErrorCode(err) == lifecycle.ErrCodeParseError {
 			result := map[string]interface{}{
@@ -460,59 +395,186 @@ func cmdPrescribe(args []string, stdout, stderr io.Writer) int {
 		"canon_version":   prescOut.CanonVersion,
 	}
 
-	// Write scanner findings as evidence entries.
-	if *scannerFlag != "" {
-		sarifData, err := os.ReadFile(*scannerFlag)
+	if opts.scannerReportPath != "" {
+		findings, err := loadSARIFFindings(opts.scannerReportPath, "scanner report")
 		if err != nil {
-			fmt.Fprintf(stderr, "read scanner report: %v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		findings, err := sarif.Parse(sarifData)
-		if err != nil {
-			fmt.Fprintf(stderr, "parse scanner report: %v\n", err)
-			return 1
-		}
-		writtenFindings := 0
-		for _, f := range findings {
-			findingPayload, _ := json.Marshal(f)
-			lastHash, _ := evidence.LastHashAtPath(evidencePath)
-			findingEntry, err := evidence.BuildEntry(evidence.EntryBuildParams{
-				Type:           evidence.EntryTypeFinding,
-				SessionID:      prescOut.SessionID,
-				OperationID:    *operationIDFlag,
-				Attempt:        *attemptFlag,
-				TraceID:        prescOut.TraceID,
-				Actor:          prescOut.Actor,
-				ArtifactDigest: prescOut.ArtifactDigest,
-				Payload:        findingPayload,
-				PreviousHash:   lastHash,
-				SpecVersion:    version.SpecVersion,
-				AdapterVersion: version.Version,
-				Signer:         signer,
-			})
-			if err != nil {
-				fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", f.RuleID, err)
-				continue
-			}
-			if err := evidence.AppendEntryAtPath(evidencePath, findingEntry); err != nil {
-				fmt.Fprintf(stderr, "warning: write finding entry failed for rule %s: %v\n", f.RuleID, err)
-				continue
-			}
-			writtenFindings++
-		}
-		result["findings_count"] = writtenFindings
+		result["findings_count"] = appendFindingsAsEvidence(findings, findingAppendConfig{
+			evidencePath:   cmd.evidencePath,
+			signer:         cmd.signer,
+			sessionID:      prescOut.SessionID,
+			operationID:    opts.operationID,
+			attempt:        opts.attempt,
+			traceID:        prescOut.TraceID,
+			actor:          prescOut.Actor,
+			artifactDigest: prescOut.ArtifactDigest,
+		}, stderr)
 	}
 
-	enc := json.NewEncoder(stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		fmt.Fprintf(stderr, "encode prescription: %v\n", err)
-		return 1
+	return writeJSON(stdout, stderr, "encode prescription", result)
+}
+
+type prescribeFlags struct {
+	artifactPath        string
+	tool                string
+	operation           string
+	environment         string
+	scannerReportPath   string
+	evidenceDir         string
+	actorID             string
+	canonicalActionJSON string
+	sessionID           string
+	operationID         string
+	attempt             int
+	signingKey          string
+	signingKeyPath      string
+	signingMode         string
+}
+
+type prescribeCommand struct {
+	service      *lifecycle.Service
+	input        lifecycle.PrescribeInput
+	evidencePath string
+	signer       evidence.Signer
+}
+
+func parsePrescribeFlags(args []string, stderr io.Writer) (prescribeFlags, int) {
+	fs := flag.NewFlagSet("prescribe", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	artifactFlag := fs.String("artifact", "", "Path to artifact file (YAML or JSON)")
+	toolFlag := fs.String("tool", "", "Tool name (kubectl, terraform)")
+	operationFlag := fs.String("operation", "apply", "Operation (apply, delete, plan)")
+	envFlag := fs.String("environment", "", "Environment (production, staging, development)")
+	scannerFlag := fs.String("scanner-report", "", "SARIF scanner report file")
+	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
+	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
+	canonicalActionFlag := fs.String("canonical-action", "", "Pre-canonicalized action JSON (bypasses adapter)")
+	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID (generated if omitted)")
+	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
+	attemptFlag := fs.Int("attempt", 0, "Retry attempt counter")
+	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
+	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
+	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
+	if err := fs.Parse(args); err != nil {
+		return prescribeFlags{}, 2
 	}
-	return 0
+	if *artifactFlag == "" || *toolFlag == "" {
+		fmt.Fprintln(stderr, "prescribe requires --artifact and --tool")
+		return prescribeFlags{}, 2
+	}
+
+	return prescribeFlags{
+		artifactPath:        *artifactFlag,
+		tool:                *toolFlag,
+		operation:           *operationFlag,
+		environment:         *envFlag,
+		scannerReportPath:   *scannerFlag,
+		evidenceDir:         *evidenceFlag,
+		actorID:             *actorFlag,
+		canonicalActionJSON: *canonicalActionFlag,
+		sessionID:           *sessionIDFlag,
+		operationID:         *operationIDFlag,
+		attempt:             *attemptFlag,
+		signingKey:          *signingKeyFlag,
+		signingKeyPath:      *signingKeyPathFlag,
+		signingMode:         *signingModeFlag,
+	}, 0
+}
+
+func preparePrescribeCommand(opts prescribeFlags) (prescribeCommand, error) {
+	svc, evidencePath, signer, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
+	if err != nil {
+		return prescribeCommand{}, err
+	}
+
+	data, err := os.ReadFile(opts.artifactPath)
+	if err != nil {
+		return prescribeCommand{}, fmt.Errorf("read artifact: %w", err)
+	}
+
+	preCanon, err := parseCanonicalActionFlag(opts.canonicalActionJSON)
+	if err != nil {
+		return prescribeCommand{}, err
+	}
+
+	actorID := opts.actorID
+	if actorID == "" {
+		actorID = "cli"
+	}
+	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
+
+	return prescribeCommand{
+		service: svc,
+		input: lifecycle.PrescribeInput{
+			Actor:           actor,
+			Tool:            opts.tool,
+			Operation:       opts.operation,
+			RawArtifact:     data,
+			Environment:     opts.environment,
+			CanonicalAction: preCanon,
+			SessionID:       opts.sessionID,
+			OperationID:     opts.operationID,
+			Attempt:         opts.attempt,
+		},
+		evidencePath: evidencePath,
+		signer:       signer,
+	}, nil
 }
 
 func cmdReport(args []string, stdout, stderr io.Writer) int {
+	opts, code := parseReportFlags(args, stderr)
+	if code != 0 {
+		return code
+	}
+
+	cmd, err := prepareReportCommand(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	reportOut, err := cmd.service.Report(context.Background(), cmd.input)
+	if err != nil {
+		if lifecycle.ErrorCode(err) == lifecycle.ErrCodeNotFound {
+			fmt.Fprintf(stderr, "prescription %s not found in evidence\n", opts.prescriptionID)
+			return 1
+		}
+		fmt.Fprintf(stderr, "report: %v\n", err)
+		return 1
+	}
+
+	result := map[string]interface{}{
+		"ok":              true,
+		"report_id":       reportOut.ReportID,
+		"prescription_id": opts.prescriptionID,
+		"exit_code":       opts.exitCode,
+		"verdict":         evidence.VerdictFromExitCode(opts.exitCode),
+	}
+	return writeJSON(stdout, stderr, "encode report", result)
+}
+
+type reportFlags struct {
+	prescriptionID string
+	exitCode       int
+	evidenceDir    string
+	actorID        string
+	artifactDigest string
+	externalRefs   string
+	sessionID      string
+	operationID    string
+	signingKey     string
+	signingKeyPath string
+	signingMode    string
+}
+
+type reportCommand struct {
+	service *lifecycle.Service
+	input   lifecycle.ReportInput
+}
+
+func parseReportFlags(args []string, stderr io.Writer) (reportFlags, int) {
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	prescriptionFlag := fs.String("prescription", "", "Prescription event ID")
@@ -527,82 +589,101 @@ func cmdReport(args []string, stdout, stderr io.Writer) int {
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
 	if err := fs.Parse(args); err != nil {
-		return 2
+		return reportFlags{}, 2
 	}
-
-	sessionID := *sessionIDFlag
-
 	if *prescriptionFlag == "" {
 		fmt.Fprintln(stderr, "report requires --prescription")
-		return 2
+		return reportFlags{}, 2
 	}
 
-	writeMode, err := config.ResolveEvidenceWriteMode("")
+	return reportFlags{
+		prescriptionID: *prescriptionFlag,
+		exitCode:       *exitCodeFlag,
+		evidenceDir:    *evidenceFlag,
+		actorID:        *actorFlag,
+		artifactDigest: *artifactDigestFlag,
+		externalRefs:   *externalRefsFlag,
+		sessionID:      *sessionIDFlag,
+		operationID:    *operationIDFlag,
+		signingKey:     *signingKeyFlag,
+		signingKeyPath: *signingKeyPathFlag,
+		signingMode:    *signingModeFlag,
+	}, 0
+}
+
+func prepareReportCommand(opts reportFlags) (reportCommand, error) {
+	svc, _, _, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
 	if err != nil {
-		fmt.Fprintf(stderr, "resolve evidence write mode: %v\n", err)
-		return 1
+		return reportCommand{}, err
 	}
 
-	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag, *signingModeFlag)
+	externalRefs, err := parseExternalRefsFlag(opts.externalRefs)
 	if err != nil {
-		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
-		return 1
+		return reportCommand{}, err
 	}
 
-	evidencePath := resolveEvidencePath(*evidenceFlag)
-
-	actorID := *actorFlag
+	actorID := opts.actorID
 	if actorID == "" {
 		actorID = "cli"
 	}
-
 	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
 
-	var externalRefs []evidence.ExternalRef
-	if *externalRefsFlag != "" {
-		if err := json.Unmarshal([]byte(*externalRefsFlag), &externalRefs); err != nil {
-			fmt.Fprintf(stderr, "parse --external-refs: %v\n", err)
-			return 1
-		}
+	return reportCommand{
+		service: svc,
+		input: lifecycle.ReportInput{
+			PrescriptionID: opts.prescriptionID,
+			ExitCode:       opts.exitCode,
+			ArtifactDigest: opts.artifactDigest,
+			Actor:          actor,
+			ExternalRefs:   externalRefs,
+			SessionID:      opts.sessionID,
+			OperationID:    opts.operationID,
+		},
+	}, nil
+}
+
+func newLifecycleServiceForCommand(evidenceDir, signingKey, signingKeyPath, signingMode string) (*lifecycle.Service, string, evidence.Signer, error) {
+	writeMode, err := config.ResolveEvidenceWriteMode("")
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("resolve evidence write mode: %w", err)
 	}
 
+	signer, err := resolveSigner(signingKey, signingKeyPath, signingMode)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("resolve signer: %w", err)
+	}
+
+	evidencePath := resolveEvidencePath(evidenceDir)
 	svc := lifecycle.NewService(lifecycle.Options{
 		EvidencePath:     evidencePath,
 		Signer:           signer,
 		BestEffortWrites: writeMode == config.EvidenceWriteModeBestEffort,
 	})
-	reportOut, err := svc.Report(context.Background(), lifecycle.ReportInput{
-		PrescriptionID: *prescriptionFlag,
-		ExitCode:       *exitCodeFlag,
-		ArtifactDigest: *artifactDigestFlag,
-		Actor:          actor,
-		ExternalRefs:   externalRefs,
-		SessionID:      sessionID,
-		OperationID:    *operationIDFlag,
-	})
-	if err != nil {
-		if lifecycle.ErrorCode(err) == lifecycle.ErrCodeNotFound {
-			fmt.Fprintf(stderr, "prescription %s not found in evidence\n", *prescriptionFlag)
-			return 1
-		}
-		fmt.Fprintf(stderr, "report: %v\n", err)
-		return 1
+	return svc, evidencePath, signer, nil
+}
+
+func parseCanonicalActionFlag(raw string) (*canon.CanonicalAction, error) {
+	if raw == "" {
+		return nil, nil
 	}
 
-	result := map[string]interface{}{
-		"ok":              true,
-		"report_id":       reportOut.ReportID,
-		"prescription_id": *prescriptionFlag,
-		"exit_code":       *exitCodeFlag,
-		"verdict":         evidence.VerdictFromExitCode(*exitCodeFlag),
+	preCanon := &canon.CanonicalAction{}
+	if err := json.Unmarshal([]byte(raw), preCanon); err != nil {
+		return nil, fmt.Errorf("parse --canonical-action: %w", err)
 	}
-	enc := json.NewEncoder(stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		fmt.Fprintf(stderr, "encode report: %v\n", err)
-		return 1
+	return preCanon, nil
+}
+
+func parseExternalRefsFlag(raw string) ([]evidence.ExternalRef, error) {
+	if raw == "" {
+		return nil, nil
 	}
-	return 0
+
+	var externalRefs []evidence.ExternalRef
+	if err := json.Unmarshal([]byte(raw), &externalRefs); err != nil {
+		return nil, fmt.Errorf("parse --external-refs: %w", err)
+	}
+	return externalRefs, nil
 }
 
 // resolveSigner creates a Signer from explicit flags or environment variables.
@@ -737,6 +818,56 @@ func cmdValidate(args []string, stdout, stderr io.Writer) int {
 }
 
 func cmdIngestFindings(args []string, stdout, stderr io.Writer) int {
+	opts, code := parseIngestFindingsFlags(args, stderr)
+	if code != 0 {
+		return code
+	}
+
+	cmd, err := prepareIngestFindingsCommand(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	written := appendFindingsAsEvidence(cmd.findings, findingAppendConfig{
+		evidencePath:   cmd.evidencePath,
+		signer:         cmd.signer,
+		sessionID:      cmd.sessionID,
+		traceID:        cmd.sessionID,
+		actor:          cmd.actor,
+		artifactDigest: cmd.artifactDigest,
+	}, stderr)
+
+	result := map[string]interface{}{
+		"ok":              true,
+		"findings_count":  written,
+		"artifact_digest": cmd.artifactDigest,
+	}
+	return writeJSON(stdout, stderr, "encode result", result)
+}
+
+type ingestFindingsFlags struct {
+	sarifPath      string
+	artifactPath   string
+	toolVersion    string
+	evidenceDir    string
+	actorID        string
+	sessionID      string
+	signingKey     string
+	signingKeyPath string
+	signingMode    string
+}
+
+type ingestFindingsCommand struct {
+	findings       []evidence.FindingPayload
+	evidencePath   string
+	artifactDigest string
+	actor          evidence.Actor
+	sessionID      string
+	signer         evidence.Signer
+}
+
+func parseIngestFindingsFlags(args []string, stderr io.Writer) (ingestFindingsFlags, int) {
 	fs := flag.NewFlagSet("ingest-findings", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	sarifFlag := fs.String("sarif", "", "Path to SARIF scanner report")
@@ -749,98 +880,141 @@ func cmdIngestFindings(args []string, stdout, stderr io.Writer) int {
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
 	if err := fs.Parse(args); err != nil {
-		return 2
+		return ingestFindingsFlags{}, 2
+	}
+	if *sarifFlag == "" {
+		fmt.Fprintln(stderr, "ingest-findings requires --sarif")
+		return ingestFindingsFlags{}, 2
 	}
 
-	sessionID := *sessionIDFlag
+	return ingestFindingsFlags{
+		sarifPath:      *sarifFlag,
+		artifactPath:   *artifactFlag,
+		toolVersion:    *toolVersionFlag,
+		evidenceDir:    *evidenceFlag,
+		actorID:        *actorFlag,
+		sessionID:      *sessionIDFlag,
+		signingKey:     *signingKeyFlag,
+		signingKeyPath: *signingKeyPathFlag,
+		signingMode:    *signingModeFlag,
+	}, 0
+}
+
+func prepareIngestFindingsCommand(opts ingestFindingsFlags) (ingestFindingsCommand, error) {
+	sessionID := opts.sessionID
 	if sessionID == "" {
 		sessionID = evidence.GenerateSessionID()
 	}
 
-	if *sarifFlag == "" {
-		fmt.Fprintln(stderr, "ingest-findings requires --sarif")
-		return 2
+	signer, err := resolveSigner(opts.signingKey, opts.signingKeyPath, opts.signingMode)
+	if err != nil {
+		return ingestFindingsCommand{}, fmt.Errorf("resolve signer: %w", err)
 	}
 
-	signer, err := resolveSigner(*signingKeyFlag, *signingKeyPathFlag, *signingModeFlag)
+	findings, err := loadSARIFFindings(opts.sarifPath, "sarif")
 	if err != nil {
-		fmt.Fprintf(stderr, "resolve signer: %v\n", err)
-		return 1
+		return ingestFindingsCommand{}, err
 	}
-
-	sarifData, err := os.ReadFile(*sarifFlag)
-	if err != nil {
-		fmt.Fprintf(stderr, "read sarif: %v\n", err)
-		return 1
-	}
-	findings, err := sarif.Parse(sarifData)
-	if err != nil {
-		fmt.Fprintf(stderr, "parse sarif: %v\n", err)
-		return 1
-	}
-
-	// Override tool_version from CLI flag if provided.
-	if *toolVersionFlag != "" {
+	if opts.toolVersion != "" {
 		for i := range findings {
-			findings[i].ToolVersion = *toolVersionFlag
+			findings[i].ToolVersion = opts.toolVersion
 		}
 	}
 
-	// Compute artifact digest if artifact provided
-	var artifactDigest string
-	if *artifactFlag != "" {
-		artifactData, err := os.ReadFile(*artifactFlag)
+	artifactDigest := ""
+	if opts.artifactPath != "" {
+		artifactData, err := os.ReadFile(opts.artifactPath)
 		if err != nil {
-			fmt.Fprintf(stderr, "read artifact: %v\n", err)
-			return 1
+			return ingestFindingsCommand{}, fmt.Errorf("read artifact: %w", err)
 		}
 		artifactDigest = canon.ComputeArtifactDigest(artifactData)
 	}
 
-	evidencePath := resolveEvidencePath(*evidenceFlag)
-	actorID := *actorFlag
+	actorID := opts.actorID
 	if actorID == "" {
 		actorID = "cli"
 	}
-	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
 
-	traceID := sessionID
+	return ingestFindingsCommand{
+		findings:       findings,
+		evidencePath:   resolveEvidencePath(opts.evidenceDir),
+		artifactDigest: artifactDigest,
+		actor: evidence.Actor{
+			Type:       "cli",
+			ID:         actorID,
+			Provenance: "cli",
+		},
+		sessionID: sessionID,
+		signer:    signer,
+	}, nil
+}
+
+func loadSARIFFindings(path, sourceLabel string) ([]evidence.FindingPayload, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", sourceLabel, err)
+	}
+
+	findings, err := sarif.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
+	}
+	return findings, nil
+}
+
+type findingAppendConfig struct {
+	evidencePath   string
+	signer         evidence.Signer
+	sessionID      string
+	operationID    string
+	attempt        int
+	traceID        string
+	actor          evidence.Actor
+	artifactDigest string
+}
+
+func appendFindingsAsEvidence(findings []evidence.FindingPayload, cfg findingAppendConfig, stderr io.Writer) int {
+	traceID := cfg.traceID
+	if traceID == "" {
+		traceID = cfg.sessionID
+	}
+
 	written := 0
-	for _, f := range findings {
-		findingPayload, _ := json.Marshal(f)
-		lastHash, _ := evidence.LastHashAtPath(evidencePath)
+	for _, finding := range findings {
+		findingPayload, _ := json.Marshal(finding)
+		lastHash, _ := evidence.LastHashAtPath(cfg.evidencePath)
 		entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 			Type:           evidence.EntryTypeFinding,
-			SessionID:      sessionID,
+			SessionID:      cfg.sessionID,
+			OperationID:    cfg.operationID,
+			Attempt:        cfg.attempt,
 			TraceID:        traceID,
-			Actor:          actor,
-			ArtifactDigest: artifactDigest,
+			Actor:          cfg.actor,
+			ArtifactDigest: cfg.artifactDigest,
 			Payload:        findingPayload,
 			PreviousHash:   lastHash,
 			SpecVersion:    version.SpecVersion,
 			AdapterVersion: version.Version,
-			Signer:         signer,
+			Signer:         cfg.signer,
 		})
 		if err != nil {
-			fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", f.RuleID, err)
+			fmt.Fprintf(stderr, "warning: build finding entry failed for rule %s: %v\n", finding.RuleID, err)
 			continue
 		}
-		if err := evidence.AppendEntryAtPath(evidencePath, entry); err != nil {
-			fmt.Fprintf(stderr, "warning: write finding entry failed for rule %s: %v\n", f.RuleID, err)
+		if err := evidence.AppendEntryAtPath(cfg.evidencePath, entry); err != nil {
+			fmt.Fprintf(stderr, "warning: write finding entry failed for rule %s: %v\n", finding.RuleID, err)
 			continue
 		}
 		written++
 	}
+	return written
+}
 
-	result := map[string]interface{}{
-		"ok":              true,
-		"findings_count":  written,
-		"artifact_digest": artifactDigest,
-	}
+func writeJSON(stdout, stderr io.Writer, context string, payload interface{}) int {
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		fmt.Fprintf(stderr, "encode result: %v\n", err)
+	if err := enc.Encode(payload); err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", context, err)
 		return 1
 	}
 	return 0
