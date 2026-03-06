@@ -5,8 +5,17 @@ This folder is for running and storing real-agent benchmark experiment outputs.
 ## What to use
 
 - Runner script: `scripts/run-agent-experiments.sh`
-- Matrix definition: `docs/system-design/EXPERIMENT_MATRIX.md`
-- Result schema: `docs/system-design/RESULT_SCHEMA.json`
+- LiteLLM agent command wrapper: `scripts/agent-cmd-litellm.sh`
+- Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
+- Result schema: `docs/experimental/RESULT_SCHEMA.json`
+- LiteLLM prompt contract: `prompts/experiments/litellm/system_instructions.txt`
+- Prompt source contract: `prompts/source/contracts/v1.0.1/`
+- Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
+
+Prompt editing policy:
+- Edit only `prompts/source/contracts/<version>/...`
+- Regenerate active prompts with `make prompts-generate`
+- Verify no drift with `make prompts-verify`
 
 ## Quick Start
 
@@ -31,6 +40,27 @@ bash scripts/run-agent-experiments.sh \
   --timeout-seconds 300 \
   --agent-cmd '...your harness command...'
 ```
+
+LiteLLM run (prompted, contract-versioned):
+
+```bash
+export LITELLM_MODEL_ID="anthropic/claude-3-5-haiku"
+export LITELLM_TEMPERATURE="0"
+
+bash scripts/run-agent-experiments.sh \
+  --model-id "$LITELLM_MODEL_ID" \
+  --provider anthropic \
+  --mode local-mcp \
+  --prompt-file prompts/experiments/litellm/system_instructions.txt \
+  --repeats 3 \
+  --timeout-seconds 300 \
+  --agent-cmd 'bash scripts/agent-cmd-litellm.sh'
+```
+
+Notes:
+- If `--prompt-version` is omitted, the runner uses prompt file `# contract: ...` header.
+- `EVIDRA_PROMPT_FILE`, `EVIDRA_PROMPT_VERSION`, and `EVIDRA_PROMPT_CONTRACT_VERSION`
+  are exported to each agent run.
 
 ## Expected Agent Output JSON
 

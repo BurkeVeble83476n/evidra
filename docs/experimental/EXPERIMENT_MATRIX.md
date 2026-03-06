@@ -17,7 +17,7 @@ Do not compare agents publicly from Phase 1-2 results.
 ## Fixed Controls (Must Stay Constant per Matrix Run)
 
 - `model_id` and provider
-- prompt template + `prompt_version`
+- prompt template file + `prompt_version`
 - tool access policy
 - timeout / retry policy
 - dataset label (`limited-contract-baseline` for current baseline)
@@ -61,13 +61,16 @@ Each run must produce:
 Use:
 
 ```bash
+export LITELLM_MODEL_ID="anthropic/claude-3-5-haiku"
+
 bash scripts/run-agent-experiments.sh \
-  --model-id anthropic/claude-3-5-haiku \
+  --model-id "$LITELLM_MODEL_ID" \
   --provider anthropic \
-  --prompt-version v1 \
+  --mode local-mcp \
+  --prompt-file prompts/experiments/litellm/system_instructions.txt \
   --repeats 3 \
   --timeout-seconds 300 \
-  --agent-cmd 'jq -n --arg lvl "unknown" --argjson tags "[]" "{predicted_risk_level:$lvl,predicted_risk_details:$tags}" > "$EVIDRA_AGENT_OUTPUT"'
+  --agent-cmd 'bash scripts/agent-cmd-litellm.sh'
 ```
 
 Then aggregate from `experiments/results/<run_stamp>/summary.jsonl`.

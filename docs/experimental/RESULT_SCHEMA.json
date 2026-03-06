@@ -49,6 +49,8 @@
         "id": {"type": "string", "minLength": 1},
         "provider": {"type": "string", "minLength": 1},
         "prompt_version": {"type": "string", "minLength": 1},
+        "prompt_file": {"type": "string", "minLength": 1},
+        "prompt_contract_version": {"type": "string", "minLength": 1},
         "temperature": {"type": ["number", "null"]},
         "repeat_index": {"type": "integer", "minimum": 1}
       }

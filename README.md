@@ -197,6 +197,7 @@ make bench-add \
 | `validate` | Validate evidence chain integrity and signatures |
 | `ingest-findings` | Ingest SARIF scanner findings as evidence |
 | `benchmark` | Benchmark command group (`run/list/validate/record/compare` stubs) |
+| `prompts` | Generate/verify prompt artifacts from canonical source contracts |
 | `version` | Print version information |
 
 Run `evidra <command> --help` for command-specific flags.
@@ -216,6 +217,22 @@ docker build -t evidra-mcp:dev -f Dockerfile .
 Tools exposed: `prescribe`, `report`, `get_event`. JSON schemas in `pkg/mcpserver/schemas/`.
 MCP prompt files are versioned via `# contract: ...` header and released with the binary;
 agent integrations should pass that value in `actor.skill_version` for behavior slicing.
+
+### Prompt Source-of-Truth Workflow
+
+Prompt edits must be made in `prompts/source/contracts/<version>/` (not in `prompts/mcpserver/*` or `prompts/experiments/litellm/*`).
+
+```bash
+make prompts-generate
+make prompts-verify
+```
+
+`prompts-generate` writes:
+- active runtime paths (`prompts/mcpserver/*`, `prompts/experiments/litellm/*`)
+- generated snapshot (`prompts/generated/<version>/*`)
+- hash manifest (`prompts/manifests/<version>.json`)
+
+CI/release run `make prompts-verify` to enforce no drift.
 
 ---
 
@@ -293,6 +310,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 | [Architecture Overview](docs/system-design/EVIDRA_ARCHITECTURE_OVERVIEW.md) | System diagram, component map, invariants |
 | [Benchmark CLI](docs/system-design/EVIDRA_BENCHMARK_CLI.md) | CLI design and command reference |
 | [MCP Prompt Tuning Method](docs/system-design/EVIDRA_MCP_PROMPT_TUNING_METHOD.md) | Prompt hardening loop, trigger/functional tests, troubleshooting playbook |
+| [Prompt Factory Spec](docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md) | Single-source prompt artifact model and generation structure across targets |
 | [CNCF Standards Alignment](docs/system-design/EVIDRA_CNCF_STANDARDS_ALIGNMENT.md) | CloudEvents, OTel, SARIF, in-toto, OPA mapping |
 | [Canonicalization Test Strategy](docs/system-design/EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Golden corpus, determinism testing |
 | [End-to-End Example](docs/system-design/EVIDRA_END_TO_END_EXAMPLE_v2.md) | Full prescribe/report walkthrough |

@@ -7,7 +7,7 @@
 Current implementation note:
 - `evidra benchmark` exists as a CLI scaffold only (stub commands behind `EVIDRA_BENCHMARK_EXPERIMENTAL=1`)
 - dataset execution engine is not yet wired; this proposal defines the target model
-- implementation tracking is in `docs/plans/2026-03-06-benchmark-dataset-p0-bootstrap-implementation-plan.md`
+- implementation tracking is in `docs/plans/done/archive/2026-03-06-benchmark-dataset-p0-bootstrap-implementation-plan.md`
 - current in-repo dataset baseline is labeled `limited-contract-baseline` (contract validation only, not leaderboard/public benchmark reporting)
 
 ---

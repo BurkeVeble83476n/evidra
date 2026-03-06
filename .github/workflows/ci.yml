@@ -45,6 +45,9 @@ jobs:
           go build -o bin/evidra ./cmd/evidra
           go build -o bin/evidra-mcp ./cmd/evidra-mcp
 
+      - name: Verify generated prompts
+        run: make prompts-verify
+
       - name: Check doc command paths
         run: bash scripts/check-doc-commands.sh
 

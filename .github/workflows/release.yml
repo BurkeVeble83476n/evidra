@@ -96,6 +96,9 @@ jobs:
           version: v2.10.1
           args: --timeout=5m
 
+      - name: Verify generated prompts
+        run: make prompts-verify
+
   e2e:
     needs: [test]
     runs-on: ubuntu-latest

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CASES_DIR="$ROOT_DIR/tests/benchmark/cases"
-RESULT_SCHEMA_PATH="$ROOT_DIR/docs/system-design/RESULT_SCHEMA.json"
+RESULT_SCHEMA_PATH="$ROOT_DIR/docs/experimental/RESULT_SCHEMA.json"
 
 usage() {
   cat <<'USAGE'
@@ -16,7 +16,8 @@ Required:
 
 Optional:
   --provider <name>          Provider label (default: unknown)
-  --prompt-version <ver>     Prompt version (default: v1)
+  --prompt-version <ver>     Prompt version label for metadata (default: from prompt file header, else v1)
+  --prompt-file <path>       Prompt file path exported to agent command (default: prompts/experiments/litellm/system_instructions.txt)
   --temperature <num>        Temperature recorded in result metadata
   --mode <name>              Execution mode label (default: custom)
   --repeats <n>              Repeats per case (default: 3)
@@ -34,6 +35,9 @@ Environment variables exported to each agent command:
   EVIDRA_EXPECTED_JSON
   EVIDRA_ARTIFACT_PATH
   EVIDRA_AGENT_OUTPUT        (agent should write JSON here)
+  EVIDRA_PROMPT_FILE
+  EVIDRA_PROMPT_VERSION
+  EVIDRA_PROMPT_CONTRACT_VERSION
 
 Agent output JSON should ideally contain:
   {
@@ -64,9 +68,41 @@ safe_model_id() {
   printf '%s' "$1" | tr '/: ' '---' | tr -cd '[:alnum:]_.-'
 }
 
+parse_contract_version() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  awk '
+    {
+      line=$0
+      gsub(/^[ \t]+|[ \t]+$/, "", line)
+      if (line == "") next
+      if (line ~ /^<!--/ && line ~ /-->$/) {
+        sub(/^<!--[ \t]*/, "", line)
+        sub(/[ \t]*-->$/, "", line)
+      }
+      if (line ~ /^#/) {
+        sub(/^#[ \t]*/, "", line)
+      }
+      low=tolower(line)
+      if (index(low, "contract:") != 1) {
+        exit 1
+      }
+      val=line
+      sub(/^[^:]*:[ \t]*/, "", val)
+      if (val == "") exit 1
+      print val
+      exit 0
+    }
+    END { if (NR == 0) exit 1 }
+  ' "$path"
+}
+
 MODEL_ID=""
 PROVIDER="unknown"
-PROMPT_VERSION="v1"
+PROMPT_VERSION=""
+PROMPT_VERSION_SET=0
+PROMPT_FILE="$ROOT_DIR/prompts/experiments/litellm/system_instructions.txt"
+PROMPT_CONTRACT_VERSION=""
 TEMPERATURE=""
 MODE="custom"
 REPEATS=3
@@ -92,6 +128,12 @@ while [[ $# -gt 0 ]]; do
     --prompt-version)
       [[ $# -ge 2 ]] || fail "--prompt-version requires a value"
       PROMPT_VERSION="$2"
+      PROMPT_VERSION_SET=1
+      shift 2
+      ;;
+    --prompt-file)
+      [[ $# -ge 2 ]] || fail "--prompt-file requires a value"
+      PROMPT_FILE="$2"
       shift 2
       ;;
     --temperature)
@@ -163,6 +205,23 @@ require_cmd jq
 
 [[ "$MAX_CASES" =~ ^[0-9]+$ ]] || fail "--max-cases must be integer"
 
+if [[ -n "$PROMPT_FILE" ]]; then
+  [[ -f "$PROMPT_FILE" ]] || fail "prompt file not found: $PROMPT_FILE"
+  if PROMPT_CONTRACT_VERSION="$(parse_contract_version "$PROMPT_FILE" 2>/dev/null)"; then
+    :
+  else
+    PROMPT_CONTRACT_VERSION="unknown"
+  fi
+fi
+
+if [[ "$PROMPT_VERSION_SET" -eq 0 ]]; then
+  if [[ -n "$PROMPT_CONTRACT_VERSION" && "$PROMPT_CONTRACT_VERSION" != "unknown" ]]; then
+    PROMPT_VERSION="$PROMPT_CONTRACT_VERSION"
+  else
+    PROMPT_VERSION="v1"
+  fi
+fi
+
 temperature_json="null"
 if [[ -n "$TEMPERATURE" ]]; then
   if ! temperature_json="$(jq -n --arg t "$TEMPERATURE" '$t|tonumber' 2>/dev/null)"; then
@@ -213,7 +272,7 @@ runs_failure=0
 runs_timeout=0
 runs_dry=0
 
-echo "run-agent-experiments: selected_cases=${#selected_expected[@]} repeats=$REPEATS out_dir=$OUT_DIR"
+echo "run-agent-experiments: selected_cases=${#selected_expected[@]} repeats=$REPEATS out_dir=$OUT_DIR prompt_version=$PROMPT_VERSION prompt_file=$PROMPT_FILE"
 
 for expected in "${selected_expected[@]}"; do
   case_dir="$(dirname "$expected")"
@@ -250,6 +309,9 @@ for expected in "${selected_expected[@]}"; do
     export EVIDRA_EXPECTED_JSON="$expected"
     export EVIDRA_ARTIFACT_PATH="$artifact_path"
     export EVIDRA_AGENT_OUTPUT="$agent_output"
+    export EVIDRA_PROMPT_FILE="$PROMPT_FILE"
+    export EVIDRA_PROMPT_VERSION="$PROMPT_VERSION"
+    export EVIDRA_PROMPT_CONTRACT_VERSION="$PROMPT_CONTRACT_VERSION"
 
     exit_code=0
     status="success"
@@ -346,6 +408,8 @@ for expected in "${selected_expected[@]}"; do
       --arg model_id "$MODEL_ID" \
       --arg provider "$PROVIDER" \
       --arg prompt_version "$PROMPT_VERSION" \
+      --arg prompt_file "$PROMPT_FILE" \
+      --arg prompt_contract_version "$PROMPT_CONTRACT_VERSION" \
       --argjson temperature "$temperature_json" \
       --argjson repeat_index "$repeat_idx" \
       --arg case_id "$case_id" \
@@ -377,6 +441,8 @@ for expected in "${selected_expected[@]}"; do
           id: $model_id,
           provider: $provider,
           prompt_version: $prompt_version,
+          prompt_file: $prompt_file,
+          prompt_contract_version: $prompt_contract_version,
           temperature: $temperature,
           repeat_index: $repeat_index
         },

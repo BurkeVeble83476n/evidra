@@ -1,7 +1,8 @@
 .PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
-	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
+	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest \
+	prompts-generate prompts-verify
 
 build:
 	go build -o bin/evidra ./cmd/evidra
@@ -50,6 +51,12 @@ benchmark-detect-duplicates:
 
 bench-add:
 	bash scripts/bench-add.sh $(CASE_ID) $(if $(ARTIFACT),--artifact $(ARTIFACT)) $(if $(SOURCE),--source $(SOURCE)) $(if $(TOOL),--tool $(TOOL)) $(if $(OPERATION),--operation $(OPERATION)) $(if $(EVIDRA_BIN),--evidra-bin $(EVIDRA_BIN)) $(if $(NO_PROCESS),--no-process)
+
+prompts-generate:
+	bash scripts/prompts-generate.sh
+
+prompts-verify:
+	bash scripts/prompts-verify.sh
 
 golden-update:
 	EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update ./internal/canon/...

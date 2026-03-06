@@ -5,7 +5,7 @@ Entry point. Start here. This document links to everything else.
 
 This is the **single architecture reference** for Evidra. It consolidates
 content from the architecture review and PO recommendation documents
-(archived in `done/`).
+(from prior drafts).
 
 ## Document Type
 **Non-normative.** This is an overview for orientation. It does
@@ -256,7 +256,8 @@ Why: Evidra is a telemetry layer, not a tool-specific product.
 prescribe() never denies. Never blocks. Returns risk_level and
 risk_details. Agent decides. Both behaviors recorded.
 
-Why: [Inspector Model Architecture](EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) §3
+Why: inspector boundary is part of the core architecture and protocol semantics
+(`EVIDRA_PROTOCOL.md`, `EVIDRA_AGENT_RELIABILITY_BENCHMARK.md`).
 
 ### Five Signals, Not Policies
 No OPA. No Rego. No policy rules. Five behavioral signals detect
@@ -790,8 +791,7 @@ lifecycle: findings may arrive before, during, or after execution.
 
 ## Strategic Positioning
 
-Consolidated from the strategic moat analysis (archived in `done/`).
-Key points below.
+Consolidated from prior design iterations. Key points below.
 
 ### What is defensible
 
@@ -1195,19 +1195,8 @@ via evidra-mcp (v0.3.0). Python/TypeScript SDKs at v0.4.0.
 | 7 | [EVIDRA_ARCHITECTURE_OVERVIEW.md](EVIDRA_ARCHITECTURE_OVERVIEW.md) | Entry point, strategic positioning, inspector model, roadmap, document map | Non-normative |
 | 8 | [EVIDRA_END_TO_END_EXAMPLE_v2.md](EVIDRA_END_TO_END_EXAMPLE_v2.md) | Worked examples, failure cases | Non-normative |
 
-### Archived Documents (in `done/`)
-
-Consolidated into the active documents above.
-
-| Document | Merged into |
-|----------|------------|
-| [EVIDRA_ARCHITECTURE_REVIEW.md](done/EVIDRA_ARCHITECTURE_REVIEW.md) | Architecture Overview (Key Decisions, Known Gaps) |
-| [EVIDRA_ARCHITECTURE_RECOMMENTATION_V1.md](done/EVIDRA_ARCHITECTURE_RECOMMENTATION_V1.md) | Architecture Overview (Key Decisions, Known Gaps) |
-| [EVIDRA_ARCHITECTURE_INVARIANTS.md](done/EVIDRA_ARCHITECTURE_INVARIANTS.md) | Architecture Overview (Architecture Invariants) |
-| [EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md](done/EVIDRA_STRATEGIC_MOAT_AND_STANDARDIZATION.md) | Architecture Overview (Strategic Positioning) |
-| [EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md](done/EVIDRA_INSPECTOR_MODEL_ARCHITECTURE.md) | Architecture Overview (Inspector Model) |
-| [EVIDRA_INTEGRATION_ROADMAP.md](done/EVIDRA_INTEGRATION_ROADMAP.md) | Architecture Overview (Implementation Roadmap) |
-| [EVIDRA_CANONICALIZATION_TEST_STRATEGY.md](done/EVIDRA_CANONICALIZATION_TEST_STRATEGY.md) | Canonicalization Contract §19 (Testing) |
+Historical drafts are not part of the active architecture set.
+Active architecture decisions are captured only in the active documents list above.
 
 ### Documents Not in Repo (referenced only)
 

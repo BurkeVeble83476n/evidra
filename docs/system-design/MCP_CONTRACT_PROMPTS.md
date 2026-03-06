@@ -1,14 +1,18 @@
 # Evidra MCP Contract Prompts — Design Document
 
-**Status:** Implemented (v1.0.1 prompt hardening applied)
+**Status:** Implemented (generated from canonical source contracts)
 **Date:** March 2026
 **Replaces:** Current prompts in `prompts/mcpserver/` (inherited from old project)
 **Based on:** EVIDRA_AGENT_SKILL.md
 **Operational tuning guide:** `docs/system-design/EVIDRA_MCP_PROMPT_TUNING_METHOD.md`
+**Source-of-truth model:** `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
 
 ---
 
-> Note: this document captures the rollout design. The source of truth for active wording and contract header is the prompt files in `prompts/mcpserver/`.
+> Note: this document captures design intent and rationale.
+> Source of truth is `prompts/source/contracts/<version>/` plus templates.
+> Files under `prompts/mcpserver/*` are generated artifacts and should not be edited manually.
+> Prompt text examples below are design snapshots; authoritative wording is generated from source contracts.
 
 ## 1. Problem
 

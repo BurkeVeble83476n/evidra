@@ -2,7 +2,7 @@
 
 **Status:** Active guidance  
 **Last updated:** 2026-03-06  
-**Applies to:** `prompts/mcpserver/` contract prompts and MCP tool descriptions
+**Applies to:** source contracts in `prompts/source/contracts/*` that generate MCP prompt surfaces
 
 ## 1. Purpose
 
@@ -147,18 +147,21 @@ Prompts are part of Evidra releases; they are not versioned as a separate produc
 
 ## 9. Required Update Points per Prompt Change
 
-1. Update prompt files under `prompts/mcpserver/`.
-2. Update `agent_contract_v1.md` changelog.
-3. Ensure parser defaults in `prompts/embed.go` and `pkg/mcpserver/server.go` are aligned with latest contract version.
-4. Update docs that describe prompt behavior:
+1. Update canonical source files under `prompts/source/contracts/<version>/`.
+2. Regenerate prompts and manifest (`make prompts-generate`).
+3. Verify no drift (`make prompts-verify`).
+4. Update `agent_contract_v1.md` changelog in source template data (`CONTRACT.yaml` changelog section).
+5. Ensure parser defaults in `prompts/embed.go` and `pkg/mcpserver/server.go` are aligned with latest contract version.
+6. Update docs that describe prompt behavior:
    - `docs/system-design/MCP_CONTRACT_PROMPTS.md`
    - `README.md` MCP section (if guidance changed materially)
-
 ## 10. Verification Commands
 
 Use these checks before claiming completion:
 
 ```bash
+make prompts-generate
+make prompts-verify
 go test ./prompts ./pkg/mcpserver -count=1
 make test-mcp-inspector-ci
 bash scripts/check-doc-commands.sh
