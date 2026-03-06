@@ -1,9 +1,9 @@
 # Evidra Benchmark
 
-[![CI](https://github.com/vitas/evidra-benchmark/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vitas/evidra-benchmark/actions/workflows/ci.yml)
-[![Release](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml/badge.svg)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
-[![Latest Release](https://img.shields.io/github/v/release/vitas/evidra-benchmark)](https://github.com/vitas/evidra-benchmark/releases/latest)
-[![Go Report Card](https://goreportcard.com/badge/samebits.com/evidra-benchmark)](https://goreportcard.com/report/samebits.com/evidra-benchmark)
+[![CI](https://img.shields.io/github/actions/workflow/status/vitas/evidra-benchmark/ci.yml?branch=main&label=CI)](https://github.com/vitas/evidra-benchmark/actions/workflows/ci.yml)
+[![Release Pipeline](https://img.shields.io/github/actions/workflow/status/vitas/evidra-benchmark/release.yml?event=push&label=Release%20Pipeline)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
+[![Latest Tag](https://img.shields.io/github/v/tag/vitas/evidra-benchmark?sort=semver&label=Latest%20Tag)](https://github.com/vitas/evidra-benchmark/tags)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vitas/evidra-benchmark)](https://goreportcard.com/report/github.com/vitas/evidra-benchmark)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **Flight recorder and reliability benchmark for infrastructure automation.**
@@ -66,8 +66,10 @@ Source builds require **Go 1.23+** (see `go.mod` and CI config).
 brew install samebits/tap/evidra
 brew install samebits/tap/evidra-mcp
 
-# Or download from GitHub Releases
-# https://github.com/vitas/evidra-benchmark/releases/latest
+# Or download from GitHub Releases (when published)
+# https://github.com/vitas/evidra-benchmark/releases
+# Latest source tag:
+# https://github.com/vitas/evidra-benchmark/tags
 
 # Or build from source
 make build    # produces bin/evidra and bin/evidra-mcp
