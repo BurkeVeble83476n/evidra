@@ -1,5 +1,5 @@
 .PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
-	benchmark-validate \
+	benchmark-validate bench-add \
 	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
 
 build:
@@ -30,6 +30,9 @@ test-mcp-inspector-hosted-rest:
 
 benchmark-validate:
 	bash tests/benchmark/scripts/validate-dataset.sh
+
+bench-add:
+	bash scripts/bench-add.sh $(CASE_ID) $(if $(ARTIFACT),--artifact $(ARTIFACT)) $(if $(SOURCE),--source $(SOURCE))
 
 golden-update:
 	EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update ./internal/canon/...
