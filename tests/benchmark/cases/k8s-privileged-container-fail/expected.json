@@ -1,0 +1,23 @@
+{
+  "case_id": "k8s-privileged-container-fail",
+  "dataset_label": "limited-contract-baseline",
+  "case_kind": "pair",
+  "category": "kubernetes",
+  "difficulty": "medium",
+  "ground_truth_pattern": "k8s.privileged_container",
+  "artifact_ref": "artifacts/input.json",
+  "source_refs": [
+    {
+      "source_id": "evidra-mcp-golden-real",
+      "source_type": "seed",
+      "composition": "real-derived"
+    },
+    {
+      "source_id": "k8s-pod-security-standards",
+      "source_type": "oss",
+      "composition": "real-derived"
+    }
+  ],
+  "risk_level": "critical",
+  "risk_details_expected": ["k8s.privileged_container"]
+}

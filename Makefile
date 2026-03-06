@@ -1,4 +1,5 @@
 .PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
+	benchmark-validate \
 	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest
 
 build:
@@ -26,6 +27,9 @@ test-mcp-inspector-hosted:
 
 test-mcp-inspector-hosted-rest:
 	EVIDRA_TEST_MODE=hosted-rest bash tests/inspector/run_inspector_tests.sh
+
+benchmark-validate:
+	bash tests/benchmark/scripts/validate-dataset.sh
 
 golden-update:
 	EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update ./internal/canon/...

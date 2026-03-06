@@ -47,3 +47,6 @@ jobs:
 
       - name: Check doc command paths
         run: bash scripts/check-doc-commands.sh
+
+      - name: Validate benchmark dataset
+        run: make benchmark-validate

@@ -1,0 +1,15 @@
+{
+  "dataset_version": "0.1.0-limited",
+  "schema_version": "1.0",
+  "evidra_version_processed": "v0.3.x",
+  "generated_at": "2026-03-06T00:00:00Z",
+  "case_count": 10,
+  "dataset_label": "limited-contract-baseline",
+  "dataset_scope": "limited",
+  "dataset_track": "contract-validation",
+  "dataset_not_for": [
+    "leaderboard",
+    "public-comparison",
+    "final-benchmark-score"
+  ]
+}

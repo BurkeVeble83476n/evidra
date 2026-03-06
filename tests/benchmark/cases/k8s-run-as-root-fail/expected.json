@@ -1,0 +1,23 @@
+{
+  "case_id": "k8s-run-as-root-fail",
+  "dataset_label": "limited-contract-baseline",
+  "case_kind": "pair",
+  "category": "kubernetes",
+  "difficulty": "easy",
+  "ground_truth_pattern": "k8s.run_as_root",
+  "artifact_ref": "artifacts/input.json",
+  "source_refs": [
+    {
+      "source_id": "evidra-mcp-golden-real",
+      "source_type": "seed",
+      "composition": "real-derived"
+    },
+    {
+      "source_id": "kubescape-regolibrary",
+      "source_type": "oss",
+      "composition": "real-derived"
+    }
+  ],
+  "risk_level": "medium",
+  "risk_details_expected": ["k8s.run_as_root"]
+}

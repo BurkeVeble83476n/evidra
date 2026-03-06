@@ -54,14 +54,14 @@ Status legend: `TODO` | `IN_PROGRESS` | `DONE` | `BLOCKED`
 
 | ID | Milestone | Status | Owner | Verification Command | Evidence (commit/PR/log) |
 |---|---|---|---|---|---|
-| M0 | P0 scope frozen + tracker created | TODO | @agent | `test -f docs/plans/2026-03-06-benchmark-dataset-p0-bootstrap-implementation-plan.md` | |
-| M1 | Dataset metadata/schema + limited labels created | TODO | @agent | `jq -e '.dataset_label==\"limited-contract-baseline\" and .dataset_scope==\"limited\" and .dataset_track==\"contract-validation\"' tests/benchmark/dataset.json` | |
-| M2 | 10 seed cases imported (real-derived-first) and labeled | TODO | @agent | `find tests/benchmark/cases -name expected.json | wc -l` | |
-| M3 | Source manifests linked for all source refs | TODO | @agent | `bash tests/benchmark/scripts/validate-source-composition.sh` | |
-| M4 | `validate-dataset.sh` enforces hard checks + limited label contract | TODO | @agent | `bash tests/benchmark/scripts/validate-dataset.sh` | |
-| M5 | Makefile + CI include dataset validation | TODO | @agent | `make benchmark-validate` | |
-| M6 | Docs cross-links + limited-dataset warnings updated | TODO | @agent | `bash scripts/check-doc-commands.sh` | |
-| M7 | Final verification pass | TODO | @agent | `go test ./... -count=1` | |
+| M0 | P0 scope frozen + tracker created | DONE | @agent | `test -f docs/plans/2026-03-06-benchmark-dataset-p0-bootstrap-implementation-plan.md` | plan file created (2026-03-06 local) |
+| M1 | Dataset metadata/schema + limited labels created | DONE | @agent | `jq -e '.dataset_label==\"limited-contract-baseline\" and .dataset_scope==\"limited\" and .dataset_track==\"contract-validation\"' tests/benchmark/dataset.json` | `dataset.json` + `benchmark.yaml` labels validated |
+| M2 | 10 seed cases imported (real-derived-first) and labeled | DONE | @agent | `find tests/benchmark/cases -name expected.json | wc -l` | 10 cases present; case labels validated via jq loop |
+| M3 | Source manifests linked for all source refs | DONE | @agent | `bash tests/benchmark/scripts/validate-source-composition.sh` | PASS: real-derived=100%, custom-only=0% |
+| M4 | `validate-dataset.sh` enforces hard checks + limited label contract | DONE | @agent | `bash tests/benchmark/scripts/validate-dataset.sh` | PASS: cases=10 |
+| M5 | Makefile + CI include dataset validation | DONE | @agent | `make benchmark-validate` | target added + CI step in `.github/workflows/ci.yml` |
+| M6 | Docs cross-links + limited-dataset warnings updated | DONE | @agent | `bash scripts/check-doc-commands.sh` | doc checks passed |
+| M7 | Final verification pass | DONE | @agent | `go test ./... -count=1` | all packages passed |
 
 Tracking update rule (mandatory during execution):
 - After each milestone, set `Status`, fill `Evidence`, and include command output summary in commit message body.

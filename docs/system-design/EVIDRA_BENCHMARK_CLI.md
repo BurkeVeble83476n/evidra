@@ -7,6 +7,8 @@ Implementation status (2026-03-05):
 - `evidra benchmark` command group exists as a scaffold
 - `run|list|validate|record|compare` are deterministic stubs (no dataset engine wired yet)
 - stubs are gated by `EVIDRA_BENCHMARK_EXPERIMENTAL=1`
+- `tests/benchmark/` contains a limited contract-validation baseline dataset (`dataset_label=limited-contract-baseline`)
+- current dataset structural/provenance gate is `bash tests/benchmark/scripts/validate-dataset.sh` (also exposed as `make benchmark-validate`)
 - roadmap for full engine is tracked in this document
 
 ## Document Type
@@ -569,6 +571,10 @@ Before running, the CLI validates:
 5. `expected.json` schema is valid
 
 If validation fails, `run` exits with error and suggests `evidra benchmark validate --fix`.
+
+Current repo baseline note:
+- while CLI engine is stubbed, dataset validation is still enforced in CI via `make benchmark-validate`.
+- the checked-in dataset is labeled limited (`limited-contract-baseline`) and is intended for contract/signal validation, not leaderboard reporting.
 
 ### Dataset versioning
 

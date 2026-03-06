@@ -1,0 +1,23 @@
+{
+  "case_id": "k8s-hostpath-mount-pass",
+  "dataset_label": "limited-contract-baseline",
+  "case_kind": "pair",
+  "category": "kubernetes",
+  "difficulty": "medium",
+  "ground_truth_pattern": "k8s.hostpath_mount",
+  "artifact_ref": "artifacts/input.json",
+  "source_refs": [
+    {
+      "source_id": "evidra-mcp-golden-real",
+      "source_type": "seed",
+      "composition": "real-derived"
+    },
+    {
+      "source_id": "k8s-linux-kernel-security",
+      "source_type": "oss",
+      "composition": "real-derived"
+    }
+  ],
+  "risk_level": "low",
+  "risk_details_expected": []
+}

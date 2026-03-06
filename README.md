@@ -144,6 +144,23 @@ evidra validate --evidence-dir ./evidence
 evidra validate --evidence-dir ./evidence --public-key pub.pem
 ```
 
+### Benchmark Dataset (Current P0 Baseline)
+
+Dataset files live under `tests/benchmark/`.
+
+Current status is intentionally limited:
+- `dataset_label=limited-contract-baseline`
+- `dataset_scope=limited`
+- contract-validation only (not for leaderboard/public comparison/final benchmark score)
+
+Validate local dataset structure and provenance gates:
+
+```bash
+make benchmark-validate
+# equivalent:
+bash tests/benchmark/scripts/validate-dataset.sh
+```
+
 ---
 
 ## CLI Commands
@@ -286,6 +303,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 ```bash
 make build          # bin/evidra + bin/evidra-mcp
 make test           # go test ./... -v -count=1
+make benchmark-validate  # validate tests/benchmark metadata, case structure, source provenance gates
 make lint           # golangci-lint run (includes function-size/complexity guardrails for non-test code)
 make fmt            # gofmt -w .
 make tidy           # go mod tidy

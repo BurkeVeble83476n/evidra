@@ -1,0 +1,23 @@
+{
+  "case_id": "tf-iam-wildcard-policy-pass",
+  "dataset_label": "limited-contract-baseline",
+  "case_kind": "pair",
+  "category": "terraform",
+  "difficulty": "hard",
+  "ground_truth_pattern": "tf.iam_wildcard_policy",
+  "artifact_ref": "artifacts/input.json",
+  "source_refs": [
+    {
+      "source_id": "evidra-mcp-golden-real",
+      "source_type": "seed",
+      "composition": "real-derived"
+    },
+    {
+      "source_id": "checkov-terraform",
+      "source_type": "oss",
+      "composition": "real-derived"
+    }
+  ],
+  "risk_level": "low",
+  "risk_details_expected": []
+}

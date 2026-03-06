@@ -11,6 +11,7 @@ Save as:
 ```yaml
 source_id: <kebab-case-id>
 source_type: <seed|oss|incident|custom>
+source_composition: <real-derived|custom-only>
 source_url: <https://... or local path reference>
 source_path: <upstream directory/file path used>
 source_commit_or_tag: <git sha, tag, or date snapshot>
@@ -30,5 +31,6 @@ linked_cases:
 - License is in the allowed list.
 - No secrets, credentials, or real cloud account IDs are present.
 - URL/path + commit/tag + date are sufficient to reproduce retrieval.
+- `source_composition` accurately reflects how this source contributes to case provenance.
 - `linked_cases` references only existing `tests/benchmark/cases/<case-id>` entries.
 - `transformation_notes` explains all non-trivial edits.

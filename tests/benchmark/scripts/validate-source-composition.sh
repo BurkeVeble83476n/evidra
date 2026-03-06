@@ -17,7 +17,10 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 2
 fi
 
-mapfile -t expected_files < <(find "$CASES_DIR" -type f -name "expected.json" | sort)
+expected_files=()
+while IFS= read -r file; do
+  expected_files+=("$file")
+done < <(find "$CASES_DIR" -type f -name "expected.json" | sort)
 if [[ ${#expected_files[@]} -eq 0 ]]; then
   echo "source-composition: skip (no expected.json cases yet)"
   exit 0
@@ -37,7 +40,10 @@ for file in "${expected_files[@]}"; do
   fi
 
   # All source refs must resolve to a source manifest.
-  mapfile -t source_ids < <(jq -r '.source_refs[] | (.source_id // .id // .source // empty)' "$file")
+  source_ids=()
+  while IFS= read -r source_id; do
+    source_ids+=("$source_id")
+  done < <(jq -r '.source_refs[] | (.source_id // .id // .source // empty)' "$file")
   if [[ ${#source_ids[@]} -eq 0 ]]; then
     echo "source-composition: $file has source_refs but no source_id/id/source fields" >&2
     exit 1

@@ -1,0 +1,23 @@
+{
+  "case_id": "tf-s3-public-access-fail",
+  "dataset_label": "limited-contract-baseline",
+  "case_kind": "pair",
+  "category": "terraform",
+  "difficulty": "medium",
+  "ground_truth_pattern": "tf.s3_public_access",
+  "artifact_ref": "artifacts/input.json",
+  "source_refs": [
+    {
+      "source_id": "evidra-mcp-golden-real",
+      "source_type": "seed",
+      "composition": "real-derived"
+    },
+    {
+      "source_id": "checkov-terraform",
+      "source_type": "oss",
+      "composition": "real-derived"
+    }
+  ],
+  "risk_level": "high",
+  "risk_details_expected": ["terraform.s3_public_access"]
+}
