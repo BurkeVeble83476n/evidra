@@ -1,6 +1,27 @@
 # contract: v1.0
 
-Report the result of an infrastructure operation. Provide the prescription ID
-from prescribe and the exit code. Optionally provide the artifact digest of
-what was actually applied (for drift detection). Always call after the
-operation completes, even on failure.
+Record outcome AFTER an infrastructure operation completes.
+
+Required inputs:
+- prescription_id (from prescribe)
+- exit_code (0 success, non-zero failure)
+
+Optional inputs:
+- actor (type, id, origin; should match prescribe actor)
+- actor.version, actor.skill_version
+- artifact_digest (actual applied artifact digest)
+- session_id, operation_id, span_id, parent_span_id
+
+Rules:
+1) Every prescribe must have one matching report.
+2) Always report failures; do not hide non-zero exit codes.
+3) Do not report twice for the same prescription_id.
+4) Do not report another actor's prescription_id.
+5) If prescription_id is lost, call prescribe again before execution.
+6) Retries require a new prescribe/report pair per attempt.
+
+Returns:
+- ok
+- report_id
+- signals (optional)
+- error (if ok=false)

@@ -1,6 +1,31 @@
 # contract: v1.0
 
-Record intent before an infrastructure operation. Provide the tool name,
-operation, and raw artifact (manifest, plan, etc.). Returns risk assessment,
-prescription ID, and artifact digest. Always call before kubectl apply,
-terraform apply, helm upgrade, or any infrastructure mutation.
+Record intent BEFORE an infrastructure operation that creates, modifies, or deletes resources.
+
+Required inputs:
+- tool
+- operation
+- raw_artifact
+- actor (type, id, origin)
+
+Recommended actor fields for behavior slicing:
+- actor.version
+- actor.skill_version
+
+Optional correlation inputs:
+- session_id, operation_id, attempt
+- trace_id, span_id, parent_span_id
+- scope_dimensions
+
+When to call:
+- Must call for mutate operations (apply/delete/patch/create/replace/upgrade/destroy/import/rollback).
+- Skip for read-only operations (get/describe/logs/plan/show/status/template).
+- If unsure, call prescribe.
+
+Returns:
+- prescription_id (required for report)
+- risk_level, risk_tags
+- artifact_digest, intent_digest
+- resource_shape_hash, operation_class, scope_class
+
+If prescribe fails, do not execute the infrastructure command.

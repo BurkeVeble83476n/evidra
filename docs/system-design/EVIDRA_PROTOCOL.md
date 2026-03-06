@@ -162,11 +162,13 @@ Fields:
 | actor.type | SHOULD |
 | actor.instance_id | MAY |
 | actor.version | MAY |
+| actor.skill_version | MAY |
 
 Rules:
 
 - `actor.id` MUST be stable and low-cardinality
 - `actor.instance_id` MUST NOT be used as a metrics label
+- `actor.skill_version` SHOULD be set by agent integrations to track contract/prompt version used during execution
 
 Example:
 
@@ -176,6 +178,7 @@ actor:
   type: automation
   instance_id: runner-234
   version: 1.4.2
+  skill_version: 1.0.0
 ```
 
 ---

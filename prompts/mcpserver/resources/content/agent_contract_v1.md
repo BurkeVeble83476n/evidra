@@ -1,37 +1,72 @@
+<!-- contract: v1.0 -->
 # Evidra Agent Contract v1
 
 > Contract: `v1.0`
-> Version policy: contract version is released with Evidra binaries.
+> Version policy: contract versions are released together with Evidra binaries.
 
 ## Changelog
-- `v1.0` (2026-03-06): Added contract header and changelog section. This file remains the single source of prompt history.
+- `v1.0` (2026-03-06): Initial contract for prescribe/report protocol guidance and behavior tracking via `actor.skill_version`.
 
-## 1. Always Prescribe First
-Before any infrastructure operation, call the `prescribe` tool
-with the raw artifact. This records your intent and returns risk
-assessment.
+## Protocol
+Every infrastructure mutation must follow two calls:
+1. `prescribe` before execution
+2. `report` after execution
 
-## 2. Always Report After
-After every operation (success or failure), call the `report` tool
-with the prescription ID and exit code. This closes the protocol
-loop.
+Evidra records behavior. It does not block operations.
 
-## 3. Risk Level Is Informational
-prescribe returns risk_level: low, medium, or high.
-This is information, not a command.
-- low: proceed normally
-- medium: proceed with awareness
-- high: consider requesting human approval before proceeding
+## What Requires Prescribe/Report
+Mutating commands require protocol calls, including:
+- `kubectl apply|delete|patch|create|replace|rollout restart`
+- `helm install|upgrade|uninstall|rollback`
+- `terraform apply|destroy|import`
 
-## 4. Your Reliability Is Measured
-Every prescribe/report pair is recorded. Protocol compliance,
-artifact consistency, and operational patterns are measured.
-Your reliability score depends on following the protocol
-consistently.
+Read-only commands should not use protocol calls, including:
+- `kubectl get|describe|logs|top|events`
+- `helm list|status|template`
+- `terraform plan|show|output`
 
-## 5. Payload Format
-Send raw artifacts in their native format:
-- Kubernetes: YAML manifests
-- Terraform: JSON plan output (terraform show -json)
-- Helm: template output (helm template)
-- Other tools: raw artifact + optional canonical_action
+If uncertain, call `prescribe`.
+
+## Required Inputs
+`prescribe` requires:
+- `tool`, `operation`, `raw_artifact`, `actor.type`, `actor.id`, `actor.origin`
+
+`report` requires:
+- `prescription_id`, `exit_code`
+
+Recommended actor metadata:
+- `actor.version`
+- `actor.skill_version` (set from contract version, for benchmark slicing)
+
+## Correlation Guidance
+Use these fields for stable grouping and tracing:
+- `session_id`, `operation_id`, `attempt`
+- `trace_id`, `span_id`, `parent_span_id`
+
+If you want one task grouped in one session, reuse the same `session_id`.
+
+## Retry and Failure Rules
+- Every `prescribe` must be followed by exactly one `report`.
+- Failures must still be reported (`exit_code != 0`).
+- Retries require new `prescribe` calls; do not reuse old `prescription_id`.
+- If `prescription_id` is lost, call `prescribe` again before execution.
+- Do not report another actor's `prescription_id`.
+- Do not report the same `prescription_id` twice.
+
+## Risk Output
+`prescribe` may return:
+- `risk_level` (`low`, `medium`, `high`, `critical`)
+- `risk_tags` for known patterns
+- digests and canonical metadata for auditability
+
+Risk level is informational guidance for decision quality.
+
+## Reliability Measurement
+Your reliability is measured from evidence-chain behavior, including:
+- protocol violations
+- retry loops
+- artifact drift
+- blast radius
+- new scope transitions
+
+Better protocol compliance improves score quality and comparability.

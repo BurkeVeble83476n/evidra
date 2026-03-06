@@ -451,7 +451,8 @@ these, it is architecturally incorrect even if it "works."
 - **actor is mandatory** for every prescribe/report: actor.type,
   actor.id, actor.provenance (or actor.origin). Optional fields:
   actor.instance_id (runner/pod/container — NOT used in metrics)
-  and actor.version (agent software version).
+  actor.version (agent software version), and actor.skill_version
+  (contract/prompt version used by the agent).
 - **session_id** is the run/session boundary. Persisted entries MUST
   carry session_id; if omitted at ingress, Evidra generates one.
   In v0.3.x scorecards are still grouped by actor+period (session

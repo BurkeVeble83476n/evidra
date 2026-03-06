@@ -169,17 +169,17 @@ RETURNS:
 ## 6. File: `prompts/mcpserver/tools/get_event_description.txt`
 
 ```
-Look up a specific evidence record by its event_id.
+# contract: v1.0
 
-Use this to inspect a previous prescribe or report entry —
-for example, to verify what was prescribed before reporting,
-or to check the risk assessment of a past operation.
+Look up a single evidence record by event_id.
 
-INPUTS:
-  event_id — the entry_id of the evidence record to retrieve
+INPUT:
+  event_id
 
 RETURNS:
-  entry — the full evidence record including type, payload, timestamps, and digests
+  ok
+  entry (when found)
+  error (when not found or invalid)
 ```
 
 **Changes:** New file. Currently get_event has an inline description in server.go. Moving to file for consistency.

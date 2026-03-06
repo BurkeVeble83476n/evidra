@@ -214,6 +214,8 @@ docker build -t evidra-mcp:dev -f Dockerfile .
 ```
 
 Tools exposed: `prescribe`, `report`, `get_event`. JSON schemas in `pkg/mcpserver/schemas/`.
+MCP prompt files are versioned via `# contract: ...` header and released with the binary;
+agent integrations should pass that value in `actor.skill_version` for behavior slicing.
 
 ---
 

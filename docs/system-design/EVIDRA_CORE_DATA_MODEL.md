@@ -143,6 +143,7 @@ computed by Evidra. This table defines the wire contract.
 | actor.origin | MUST | string | mcp, cli, api, oidc, git, manual |
 | actor.instance_id | MAY | string | Runtime instance identifier |
 | actor.version | MAY | string | Agent or tool version |
+| actor.skill_version | MAY | string | Contract/prompt version used by the actor (for behavior slicing) |
 | session_id | MAY | string | Run/session boundary identifier (auto-generated if omitted) |
 | trace_id | MAY | string | Caller-provided correlation ID (defaults to `session_id` when omitted) |
 | span_id | MAY | string | Span identifier for hierarchical tracing |
