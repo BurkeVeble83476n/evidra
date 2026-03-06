@@ -1,3 +1,5 @@
+# contract: v1.0
+
 Report the result of an infrastructure operation. Provide the prescription ID
 from prescribe and the exit code. Optionally provide the artifact digest of
 what was actually applied (for drift detection). Always call after the

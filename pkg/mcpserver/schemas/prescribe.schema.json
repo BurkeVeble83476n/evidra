@@ -32,7 +32,8 @@
         "id": { "type": "string", "description": "Stable, low-cardinality actor identifier" },
         "origin": { "type": "string", "description": "How the actor connected (mcp-stdio, cli, etc.)" },
         "instance_id": { "type": "string", "description": "Runner/pod/container instance (not used in metrics)" },
-        "version": { "type": "string", "description": "Actor software version" }
+        "version": { "type": "string", "description": "Actor software version" },
+        "skill_version": { "type": "string", "description": "Prompt/skill contract version used by the actor (for behavior slicing)" }
       }
     },
     "actor_meta": {

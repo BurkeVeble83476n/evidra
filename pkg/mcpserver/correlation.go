@@ -14,12 +14,17 @@ func toRetryRecorder(rt *RetryTracker) lifecycle.RetryRecorder {
 }
 
 func toEvidenceActor(actor InputActor) evidence.Actor {
+	skillVersion := actor.SkillVersion
+	if skillVersion == "" {
+		skillVersion = contractSkillVersion
+	}
 	return evidence.Actor{
-		Type:       actor.Type,
-		ID:         actor.ID,
-		Provenance: actor.Origin,
-		InstanceID: actor.InstanceID,
-		Version:    actor.Version,
+		Type:         actor.Type,
+		ID:           actor.ID,
+		Provenance:   actor.Origin,
+		InstanceID:   actor.InstanceID,
+		Version:      actor.Version,
+		SkillVersion: skillVersion,
 	}
 }
 

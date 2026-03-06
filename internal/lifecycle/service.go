@@ -404,6 +404,7 @@ func normalizeActor(actor evidence.Actor) evidence.Actor {
 	actor.Provenance = strings.TrimSpace(actor.Provenance)
 	actor.InstanceID = strings.TrimSpace(actor.InstanceID)
 	actor.Version = strings.TrimSpace(actor.Version)
+	actor.SkillVersion = strings.TrimSpace(actor.SkillVersion)
 	return actor
 }
 

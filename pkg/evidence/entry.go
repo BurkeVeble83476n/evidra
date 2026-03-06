@@ -49,11 +49,12 @@ func (et EntryType) Valid() bool {
 
 // Actor identifies who or what produced the evidence entry.
 type Actor struct {
-	Type       string `json:"type"`
-	ID         string `json:"id"`
-	Provenance string `json:"provenance"`
-	InstanceID string `json:"instance_id,omitempty"`
-	Version    string `json:"version,omitempty"`
+	Type         string `json:"type"`
+	ID           string `json:"id"`
+	Provenance   string `json:"provenance"`
+	InstanceID   string `json:"instance_id,omitempty"`
+	Version      string `json:"version,omitempty"`
+	SkillVersion string `json:"skill_version,omitempty"`
 }
 
 // EvidenceEntry is an append-only event log entry. Every JSONL line in an

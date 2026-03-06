@@ -1,5 +1,11 @@
 # Evidra Agent Contract v1
 
+> Contract: `v1.0`
+> Version policy: contract version is released with Evidra binaries.
+
+## Changelog
+- `v1.0` (2026-03-06): Added contract header and changelog section. This file remains the single source of prompt history.
+
 ## 1. Always Prescribe First
 Before any infrastructure operation, call the `prescribe` tool
 with the raw artifact. This records your intent and returns risk

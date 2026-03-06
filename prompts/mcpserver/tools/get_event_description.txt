@@ -1,0 +1,4 @@
+# contract: v1.0
+
+Look up a specific evidence record by event_id. Use this to inspect a prior
+prescribe or report entry, verify correlation fields, or audit payload details.

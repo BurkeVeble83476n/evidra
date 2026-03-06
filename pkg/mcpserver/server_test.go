@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"strings"
 	"testing"
 
 	"samebits.com/evidra-benchmark/internal/testutil"
@@ -13,6 +14,14 @@ func TestDefaultServerVersion_UsesRuntimeVersion(t *testing.T) {
 	got := defaultServerVersion("")
 	if got != version.Version {
 		t.Fatalf("defaultServerVersion(\"\") = %q, want %q", got, version.Version)
+	}
+}
+
+func TestInitializeInstructions_IncludeContractVersion(t *testing.T) {
+	t.Parallel()
+
+	if !strings.Contains(initializeInstructions, "Contract version: "+contractVersion) {
+		t.Fatalf("initialize instructions missing contract version marker for %q", contractVersion)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"samebits.com/evidra-benchmark/internal/lifecycle"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/version"
+	promptdata "samebits.com/evidra-benchmark/prompts"
 )
 
 // Options configures the benchmark MCP server.
@@ -27,11 +28,12 @@ type Options struct {
 
 // InputActor identifies the caller in a prescribe request.
 type InputActor struct {
-	Type       string `json:"type"`
-	ID         string `json:"id"`
-	Origin     string `json:"origin"`
-	InstanceID string `json:"instance_id,omitempty"`
-	Version    string `json:"version,omitempty"`
+	Type         string `json:"type"`
+	ID           string `json:"id"`
+	Origin       string `json:"origin"`
+	InstanceID   string `json:"instance_id,omitempty"`
+	Version      string `json:"version,omitempty"`
+	SkillVersion string `json:"skill_version,omitempty"`
 }
 
 // PrescribeInput is the input schema for the prescribe tool.
@@ -113,18 +115,44 @@ type BenchmarkService struct {
 }
 
 const (
-	prescribeToolDescription = "Analyze an infrastructure artifact BEFORE execution. " +
+	defaultPrescribeToolDescription = "Analyze an infrastructure artifact BEFORE execution. " +
 		"Returns risk level, canonical digests, and a prescription ID. " +
 		"Call this BEFORE running kubectl apply, terraform apply, or similar commands."
 
-	reportToolDescription = "Report the outcome of an infrastructure operation AFTER execution. " +
+	defaultReportToolDescription = "Report the outcome of an infrastructure operation AFTER execution. " +
 		"Provide the prescription_id from a previous prescribe call and the exit code."
 
-	getEventToolDescription = "Look up an evidence record by event_id."
+	defaultGetEventToolDescription = "Look up an evidence record by event_id."
 
-	initializeInstructions = "Evidra Benchmark — flight recorder for infrastructure automation. " +
+	defaultInitializeInstructions = "Evidra Benchmark — flight recorder for infrastructure automation. " +
 		"Call `prescribe` BEFORE any infrastructure operation and `report` AFTER."
 )
+
+var (
+	prescribeToolDescription = defaultPrescribeToolDescription
+	reportToolDescription    = defaultReportToolDescription
+	getEventToolDescription  = defaultGetEventToolDescription
+	initializeInstructions   = defaultInitializeInstructions
+	contractVersion          = "v1.0"
+	contractSkillVersion     = "1.0.0"
+)
+
+func init() {
+	if s, err := promptdata.Read(promptdata.MCPPrescribeDescriptionPath); err == nil {
+		prescribeToolDescription = promptdata.StripContractHeader(s)
+	}
+	if s, err := promptdata.Read(promptdata.MCPReportDescriptionPath); err == nil {
+		reportToolDescription = promptdata.StripContractHeader(s)
+	}
+	if s, err := promptdata.Read(promptdata.MCPGetEventDescriptionPath); err == nil {
+		getEventToolDescription = promptdata.StripContractHeader(s)
+	}
+	if instructions, cv, sv, err := promptdata.ReadMCPInitializeInstructions(); err == nil {
+		initializeInstructions = instructions
+		contractVersion = cv
+		contractSkillVersion = sv
+	}
+}
 
 // NewServer creates a new benchmark MCP server with prescribe and report tools.
 func NewServer(opts Options) (*mcp.Server, error) {

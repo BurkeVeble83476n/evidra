@@ -119,11 +119,12 @@ func TestToLifecycleReportInput_MapsActorAndRefs(t *testing.T) {
 		ExitCode:       2,
 		ArtifactDigest: "abc",
 		Actor: evidence.Actor{
-			Type:       "agent",
-			ID:         "actor-1",
-			Provenance: "mcp",
-			InstanceID: "pod-1",
-			Version:    "v1",
+			Type:         "agent",
+			ID:           "actor-1",
+			Provenance:   "mcp",
+			InstanceID:   "pod-1",
+			Version:      "v1",
+			SkillVersion: contractSkillVersion,
 		},
 		ExternalRefs: []evidence.ExternalRef{{Type: "github_run", ID: "123"}},
 		SessionID:    "session-1",
@@ -134,6 +135,22 @@ func TestToLifecycleReportInput_MapsActorAndRefs(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("toLifecycleReportInput() = %#v, want %#v", got, want)
+	}
+}
+
+func TestToEvidenceActor_UsesProvidedSkillVersion(t *testing.T) {
+	t.Parallel()
+
+	in := InputActor{
+		Type:         "agent",
+		ID:           "actor-1",
+		Origin:       "mcp",
+		SkillVersion: "1.1.0",
+	}
+
+	got := toEvidenceActor(in)
+	if got.SkillVersion != "1.1.0" {
+		t.Fatalf("actor.skill_version=%q, want %q", got.SkillVersion, "1.1.0")
 	}
 }
 

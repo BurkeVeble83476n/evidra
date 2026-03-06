@@ -22,7 +22,8 @@
         "id": { "type": "string" },
         "origin": { "type": "string" },
         "instance_id": { "type": "string" },
-        "version": { "type": "string" }
+        "version": { "type": "string" },
+        "skill_version": { "type": "string", "description": "Prompt/skill contract version used by the actor" }
       }
     },
     "session_id": {

@@ -1,3 +1,5 @@
+# contract: v1.0
+
 Evidra reliability benchmark is active.
 Call `prescribe` before infrastructure operations.
 Call `report` after execution completes.
