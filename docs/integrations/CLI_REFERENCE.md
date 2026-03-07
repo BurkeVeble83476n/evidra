@@ -24,7 +24,6 @@ For architecture and protocol semantics, see:
 | `report` | Record post-execution outcome |
 | `validate` | Validate evidence chain/signatures |
 | `ingest-findings` | Ingest SARIF findings as evidence entries |
-| `benchmark` | Benchmark command group (preview stubs) |
 | `prompts` | Prompt artifact generation/verification |
 | `keygen` | Generate Ed25519 keypair |
 | `version` | Print version |
@@ -153,11 +152,6 @@ evidra run --tool kubectl --artifact deploy.yaml -- -- sh -c "kubectl apply -f d
 | `--signing-key` | Base64 Ed25519 private key |
 | `--signing-key-path` | PEM Ed25519 private key path |
 | `--signing-mode` | `strict` (default) or `optional` |
-
-### `evidra benchmark` Subcommands
-
-`run`, `list`, `validate`, `record`, `compare`, `version`  
-Current state: preview stubs, controlled by `EVIDRA_BENCHMARK_EXPERIMENTAL=1`.
 
 ### `evidra prompts` Subcommands and Flags
 
