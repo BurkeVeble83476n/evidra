@@ -186,6 +186,9 @@ make bench-add \
 
 ## CLI Commands
 
+Full flags reference for all binaries:
+[CLI Reference](docs/integrations/CLI_REFERENCE.md).
+
 | Command | Purpose |
 |---------|---------|
 | `keygen` | Generate Ed25519 signing keypair |
@@ -310,6 +313,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 |----------|-------|
 | [Architecture Overview](docs/system-design/EVIDRA_ARCHITECTURE_OVERVIEW.md) | System diagram, component map, invariants |
 | [Benchmark CLI](docs/system-design/EVIDRA_BENCHMARK_CLI.md) | CLI design and command reference |
+| [CLI Reference](docs/integrations/CLI_REFERENCE.md) | User-facing flags and usage for `evidra`, `evidra-mcp`, `evidra-exp` |
 | [MCP Prompt Tuning Method](docs/system-design/EVIDRA_MCP_PROMPT_TUNING_METHOD.md) | Prompt hardening loop, trigger/functional tests, troubleshooting playbook |
 | [Prompt Factory Spec](docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md) | Single-source prompt artifact model and generation structure across targets |
 | [CNCF Standards Alignment](docs/system-design/EVIDRA_CNCF_STANDARDS_ALIGNMENT.md) | CloudEvents, OTel, SARIF, in-toto, OPA mapping |

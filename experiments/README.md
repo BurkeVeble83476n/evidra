@@ -5,6 +5,7 @@ This folder is for running and storing real-agent benchmark experiment outputs.
 ## What to use
 
 - Go CLI: `evidra-exp` (`go run ./cmd/evidra-exp ...` or `bin/evidra-exp` after build)
+- CLI flags reference: `docs/integrations/CLI_REFERENCE.md`
 - Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
 - Result schema: `docs/experimental/RESULT_SCHEMA.json`
 - Execution result schema: `docs/experimental/EXECUTION_RESULT_SCHEMA.json`

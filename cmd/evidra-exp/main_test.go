@@ -169,3 +169,48 @@ func TestParseArtifactFlagsInvalidDelay(t *testing.T) {
 		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
 	}
 }
+
+func TestArtifactHelpIncludesExtendedFlags(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := run([]string{"artifact", "--help"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
+	}
+	helpText := out.String()
+	for _, needle := range []string{
+		"--provider <name>",
+		"--prompt-version <label>",
+		"--prompt-file <path>",
+		"--temperature <float>",
+		"--mode <name>",
+		"--timeout-seconds <n>",
+		"--case-filter <regex>",
+		"--max-cases <n>",
+	} {
+		if !strings.Contains(helpText, needle) {
+			t.Fatalf("help missing %q: %s", needle, helpText)
+		}
+	}
+}
+
+func TestExecutionHelpIncludesExtendedFlags(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	code := run([]string{"execution", "--help"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
+	}
+	helpText := out.String()
+	for _, needle := range []string{
+		"--provider <name>",
+		"--prompt-version <label>",
+		"--prompt-file <path>",
+		"--mode <name>",
+		"--timeout-seconds <n>",
+		"--scenario-filter <regex>",
+		"--max-scenarios <n>",
+	} {
+		if !strings.Contains(helpText, needle) {
+			t.Fatalf("help missing %q: %s", needle, helpText)
+		}
+	}
+}
