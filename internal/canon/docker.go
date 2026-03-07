@@ -24,12 +24,12 @@ type DockerAdapter struct{}
 //
 // Tools with different CLI syntax (ctr, crictl) use GenericAdapter + canonical_action override.
 var dockerCompatibleTools = map[string]bool{
-	"docker":        true,
-	"nerdctl":       true,
-	"podman":        true,
-	"lima":          true,
+	"docker":         true,
+	"nerdctl":        true,
+	"podman":         true,
+	"lima":           true,
 	"docker-compose": true,
-	"compose":       true,
+	"compose":        true,
 }
 
 // composeTool returns true for tools whose artifact is a compose YAML file.
