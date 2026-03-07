@@ -1,5 +1,61 @@
 # Changelog
 
+## v0.3.1 — 2026-03-07
+
+### CLI
+- `evidra run` — execute commands live and record lifecycle outcome (prescribe + execute + report in one call)
+- `evidra record` — ingest completed operations from structured JSON input
+- `evidra keygen` — generate Ed25519 signing keypair
+- Assessment output includes `score`, `score_band`, `basis` (preview vs sufficient), and `signal_summary`
+- `--canonical-action` flag for pre-canonicalized actions (Pulumi, Ansible, CDK escape hatch)
+- Kustomize support added to K8s adapter (`--tool kustomize`)
+
+### Observability
+- OTLP/HTTP metrics export: `evidra.operation.signal.count` and `evidra.operation.duration_ms`
+- Bounded-cardinality labels: tool, environment, result_class, signal_name, score_band, assessment_mode
+- Configuration via `EVIDRA_METRICS_TRANSPORT`, `EVIDRA_METRICS_OTLP_ENDPOINT`, `EVIDRA_METRICS_TIMEOUT`
+- [Observability Quickstart](docs/guides/observability-quickstart.md) with collector setup and PromQL examples
+
+### Protocol
+- Session ID auto-generated at ingress when omitted
+- `operation_id` and `attempt` fields on evidence entries
+- `session_start`, `session_end`, `annotation` entry types
+- Signing enforced on every evidence entry (strict mode default)
+- Trace defaults: `trace_id` defaults to `session_id`, optional `span_id`/`parent_span_id`
+- Evidence write mode: `strict` (default) or `best_effort`
+
+### Canonicalization
+- Docker adapter: docker, nerdctl, podman, compose
+- OpenShift resources: DeploymentConfig, Route, BuildConfig, ImageStream
+- Noise filtering: managedFields, uid, resourceVersion, creationTimestamp, last-applied-configuration
+
+### Documentation
+- [Supported Tools](docs/SUPPORTED_TOOLS.md) reference with adapter matrix and risk detectors
+- [Observability Quickstart](docs/guides/observability-quickstart.md) — OTLP setup, Grafana/Prometheus queries, CI examples
+- [Terraform CI Quickstart](docs/guides/terraform-ci-quickstart.md)
+- [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md) rewritten with run/record patterns
+- [CLI Reference](docs/integrations/CLI_REFERENCE.md) — unified command reference
+- [Setup Evidra Action](docs/guides/setup-evidra-action.md) — GitHub Actions + generic CI install
+
+### Testing
+- Real-world e2e test suite: K8s, Terraform, Helm (Redis, ingress-nginx), ArgoCD, Kustomize, OpenShift
+- E2e tests verify actual canonicalization output (resource_count, resource_identity, risk_tags, noise immunity)
+- Run/record parity contract tests
+- MCP schema-struct parity contract test
+- Signal validation scenarios in CI
+
+### CI/CD
+- E2e tests gate release pipeline (release-guard → test → e2e → snapshot + docker → goreleaser)
+- Homebrew tap publishing via GoReleaser
+- Docker image: `ghcr.io/vitas/evidra-mcp`
+- `setup-evidra` GitHub Action for CI adoption
+
+### Fixes
+- Evidence chain: in-process ID cache for faster entry lookup
+- Findings correlation: correct TraceID, attach SessionID/OperationID/Attempt
+- Lifecycle flows unified with session invariant enforcement
+- Removed dead code (MaxBaseSeverity, RehashEntry, SegmentFiles)
+
 ## v0.3.0 — 2026-03-05
 
 First public release of Evidra Benchmark.
