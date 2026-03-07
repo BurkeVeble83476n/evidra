@@ -66,6 +66,10 @@ type EvidenceEntry struct {
 	Signature       string            `json:"signature"`
 	Type            EntryType         `json:"type"`
 	TenantID        string            `json:"tenant_id,omitempty"`
+	// SessionID groups operations from one automation attempt (for example:
+	// one CI pipeline run, one AI agent task, or one operator workflow).
+	// For meaningful signal detection and scorecards, callers should generate
+	// one session_id at task start and reuse it across prescribe/report calls.
 	SessionID       string            `json:"session_id,omitempty"`
 	OperationID     string            `json:"operation_id,omitempty"`
 	Attempt         int               `json:"attempt,omitempty"`

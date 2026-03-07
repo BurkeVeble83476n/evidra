@@ -39,9 +39,9 @@ func TestAllSignals_EndToEnd(t *testing.T) {
 		resultMap[r.Name] = r
 	}
 
-	// Should have all 5 signals.
-	if len(results) != 5 {
-		t.Errorf("expected 5 signal results, got %d", len(results))
+	// Should have all 7 signals.
+	if len(results) != 7 {
+		t.Errorf("expected 7 signal results, got %d", len(results))
 	}
 
 	// artifact_drift should fire for p3/r3.

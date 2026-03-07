@@ -43,7 +43,7 @@ type SignalEvent struct {
 	Details   string    `json:"details"`
 }
 
-// AllSignals runs all five signal detectors and returns their results.
+// AllSignals runs all signal detectors and returns their results.
 // TTL controls the window for unreported prescription detection. Use
 // DefaultTTL if no override is needed.
 func AllSignals(entries []Entry, ttl time.Duration) []SignalResult {
@@ -53,5 +53,7 @@ func AllSignals(entries []Entry, ttl time.Duration) []SignalResult {
 		DetectRetryLoops(entries),
 		DetectBlastRadius(entries),
 		DetectNewScope(entries),
+		DetectRepairLoop(entries),
+		DetectThrashing(entries),
 	}
 }

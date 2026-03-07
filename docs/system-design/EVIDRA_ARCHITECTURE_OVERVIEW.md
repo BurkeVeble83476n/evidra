@@ -3,9 +3,8 @@
 ## Status
 Entry point. Start here. This document links to everything else.
 
-This is the **single architecture reference** for Evidra. It consolidates
-content from the architecture review and PO recommendation documents
-(from prior drafts).
+This is the orientation document for Evidra architecture.
+For v1 design decisions, use the dedicated architecture sources below.
 
 ## Document Type
 **Non-normative.** This is an overview for orientation. It does
@@ -17,9 +16,16 @@ not define contracts. Normative sources:
 - **EVIDRA_SESSION_OPERATION_EVENT_MODEL.md** — session/operation/event hierarchy, OTel and CloudEvents mappings
 - **EVIDRA_CNCF_STANDARDS_ALIGNMENT.md** — CloudEvents, SARIF, in-toto, OTel alignment
 
+## Architecture Sources (v1)
+
+Use these as the architecture source stack:
+
+- **V1_ARCHITECTURE.md** — one-page end-to-end system map (pipeline, layers, interfaces, access points)
+- **DETECTOR_ARCHITECTURE.md** — detector/package redesign, registry model, provider structure, migration plan
+- **EVIDRA_ARCHITECTURE_OVERVIEW.md** (this file) — narrative entry point and cross-links to normative contracts
+
 ## One-liner
-Evidra is the standard signal and metrics layer for infrastructure
-automation.
+Evidra is a flight recorder + reliability score for infrastructure automation.
 
 ---
 
@@ -305,7 +311,7 @@ context) AND raw artifact bytes (for content inspection). The
 canonical_action tells them "what kind of resource." The raw
 artifact tells them "what's inside."
 
-Source: Architecture Review §3.2
+Source: [V1 Architecture](V1_ARCHITECTURE.md) §Layers
 
 ### risk_tags Belong to Prescription, Not CanonicalAction
 risk_tags are computed by catastrophic risk detectors AFTER
@@ -313,7 +319,8 @@ canonicalization. They live in Prescription, not CanonicalAction.
 canonical_action is adapter output (deterministic, testable).
 risk_tags are detector output (separate concern).
 
-Source: Architecture Review §3.1
+Source: [V1 Architecture](V1_ARCHITECTURE.md) §Data Flow Example,
+[Core Data Model](EVIDRA_CORE_DATA_MODEL.md) §Prescription
 
 ### TTL Detection at Scorecard Time, Not Real-Time
 TTL detection happens when `evidra scorecard` scans the evidence
@@ -322,7 +329,8 @@ retroactively marks them as protocol violations. No background
 process needed. Real-time TTL detection is a v0.5.0 feature of
 evidra-api (long-running, can run periodic scans).
 
-Source: Architecture Review §1.1
+Source: [V1 Architecture](V1_ARCHITECTURE.md) §Layers,
+[Signal Spec](EVIDRA_SIGNAL_SPEC.md)
 
 ### Prescription Matching: 1:1, ULID-Keyed, Four Violation Types
 - prescription_id is globally unique (ULID)
@@ -332,7 +340,7 @@ Source: Architecture Review §1.1
 - Batched apply (e.g. terraform apply with 10 resources) = one
   prescription with resource_count=10, one report
 
-Source: PO Recommendation §2.2
+Source: [Core Data Model](EVIDRA_CORE_DATA_MODEL.md) §Prescription/Report
 
 ### Pre-Canonicalized Path: Accepted Trade-Off
 When a tool sends its own canonical_action, Evidra trusts the
@@ -342,7 +350,7 @@ Signals are only as good as the input. Entries are marked with
 data is self-reported. Blast radius may be inaccurate for
 pre-canonicalized input — documented as a known limitation.
 
-Source: PO Recommendation §2.5
+Source: [Core Data Model](EVIDRA_CORE_DATA_MODEL.md) §MCP/CLI tool inputs
 
 ### Post-Implementation Decisions (v0.3.x)
 

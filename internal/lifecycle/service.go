@@ -10,6 +10,8 @@ import (
 	"github.com/oklog/ulid/v2"
 
 	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra-benchmark/internal/detectors"
+	_ "samebits.com/evidra-benchmark/internal/detectors/all"
 	"samebits.com/evidra-benchmark/internal/risk"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/version"
@@ -59,7 +61,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		}
 	}
 
-	riskTags := risk.RunAll(cr.CanonicalAction, input.RawArtifact)
+	riskTags := detectors.ProduceAll(cr.CanonicalAction, input.RawArtifact)
 	riskLevel := risk.ElevateRiskLevel(
 		risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass),
 		riskTags,

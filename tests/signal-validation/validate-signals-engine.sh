@@ -269,6 +269,8 @@ done
 for i in $(seq 1 5); do
   cat > "$WORKSPACE/e-terraform-$i.json" << EOF
 {
+  "format_version": "0.1",
+  "terraform_version": "1.6.0",
   "resource_changes": [
     {
       "type": "null_resource",

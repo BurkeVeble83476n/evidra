@@ -9,6 +9,8 @@ var DefaultWeights = map[string]float64{
 	"retry_loop":         0.20,
 	"blast_radius":       0.10,
 	"new_scope":          0.05,
+	"repair_loop":        -0.05,
+	"thrashing":          0.15,
 }
 
 // MinOperations is the minimum number of operations required for scoring.
@@ -16,14 +18,20 @@ const MinOperations = 100
 
 // Scorecard holds the computed reliability score and its components.
 type Scorecard struct {
-	TotalOperations int                `json:"total_operations"`
-	Signals         map[string]int     `json:"signals"`
-	Rates           map[string]float64 `json:"rates"`
-	Penalty         float64            `json:"penalty"`
-	Score           float64            `json:"score"`
-	Band            string             `json:"band"`
-	Sufficient      bool               `json:"sufficient"`
-	Confidence      Confidence         `json:"confidence"`
+	TotalOperations int                      `json:"total_operations"`
+	Signals         map[string]int           `json:"signals"`
+	Rates           map[string]float64       `json:"rates"`
+	SignalProfiles  map[string]SignalProfile `json:"signal_profiles"`
+	Penalty         float64                  `json:"penalty"`
+	Score           float64                  `json:"score"`
+	Band            string                   `json:"band"`
+	Sufficient      bool                     `json:"sufficient"`
+	Confidence      Confidence               `json:"confidence"`
+}
+
+// SignalProfile captures qualitative signal severity from rate.
+type SignalProfile struct {
+	Level string `json:"level"`
 }
 
 // Compute calculates a reliability scorecard from signal results.
@@ -33,6 +41,7 @@ func Compute(results []signal.SignalResult, totalOps int, externalPct float64) S
 		TotalOperations: totalOps,
 		Signals:         make(map[string]int),
 		Rates:           make(map[string]float64),
+		SignalProfiles:  make(map[string]SignalProfile),
 	}
 
 	for _, r := range results {
@@ -51,6 +60,7 @@ func Compute(results []signal.SignalResult, totalOps int, externalPct float64) S
 	for name, count := range sc.Signals {
 		rate := float64(count) / float64(totalOps)
 		sc.Rates[name] = rate
+		sc.SignalProfiles[name] = SignalProfile{Level: signalProfileLevel(rate)}
 		weight, ok := DefaultWeights[name]
 		if !ok {
 			continue
@@ -59,6 +69,9 @@ func Compute(results []signal.SignalResult, totalOps int, externalPct float64) S
 	}
 
 	// Clamp penalty to [0, 1]
+	if penalty < 0 {
+		penalty = 0
+	}
 	if penalty > 1 {
 		penalty = 1
 	}
@@ -108,5 +121,18 @@ func scoreBand(score float64) string {
 		return "fair"
 	default:
 		return "poor"
+	}
+}
+
+func signalProfileLevel(rate float64) string {
+	switch {
+	case rate == 0:
+		return "none"
+	case rate < 0.02:
+		return "low"
+	case rate < 0.10:
+		return "medium"
+	default:
+		return "high"
 	}
 }

@@ -58,6 +58,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdBenchmark(args[1:], stdout, stderr)
 	case "prompts":
 		return cmdPrompts(args[1:], stdout, stderr)
+	case "detectors":
+		return cmdDetectors(args[1:], stdout, stderr)
 	case "help", "--help", "-h":
 		printUsage(stdout)
 		return 0
@@ -1035,6 +1037,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  ingest-findings   Ingest SARIF scanner findings as evidence entries")
 	fmt.Fprintln(w, "  benchmark         Benchmark dataset command group (stub)")
 	fmt.Fprintln(w, "  prompts           Prompt contract generation and verification")
+	fmt.Fprintln(w, "  detectors         Detector registry command group")
 	fmt.Fprintln(w, "  keygen            Generate Ed25519 signing keypair")
 	fmt.Fprintln(w, "  version           Print version information")
 	fmt.Fprintln(w)
