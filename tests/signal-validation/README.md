@@ -64,7 +64,7 @@ tests/signal-validation/
 ## Related Planning Docs
 
 - [`2026-03-07-parallel-execution-implementation-plan.md`](../../docs/plans/2026-03-07-parallel-execution-implementation-plan.md)
-- [`V1_IMPLEMENTATION_NOTES.md`](../../docs/system-design/V1_IMPLEMENTATION_NOTES.md)
+- [`V1_ARCHITECTURE.md`](../../docs/system-design/V1_ARCHITECTURE.md)
 
 ## After Running
 

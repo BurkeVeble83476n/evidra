@@ -1,6 +1,7 @@
 # Evidra v1 Architecture
 
 **One page. The complete system.**
+**Consolidated source:** delivered implementation notes from removed `V1_IMPLEMENTATION_NOTES.md` are preserved in this document.
 
 ---
 
@@ -227,11 +228,12 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 
 | Component | Document | Status |
 |-----------|----------|--------|
-| Detector architecture (registry, metadata, producer chain) | V1_IMPLEMENTATION_NOTES | Delivered |
-| Docker adapter + Docker detectors | V1_IMPLEMENTATION_NOTES | Delivered |
-| Signal validation harness (A-G scenarios) | V1_IMPLEMENTATION_NOTES | Delivered (score sufficiency still gated by operation count) |
+| Detector architecture (registry, metadata, producer chain) | V1_ARCHITECTURE (this doc) | Delivered |
+| Docker adapter + Docker detectors | V1_ARCHITECTURE (this doc) | Delivered |
+| Signal validation harness (A-G scenarios) | V1_ARCHITECTURE (this doc) | Delivered (score sufficiency still gated by operation count) |
 | REST API + LLM augmentation | [2026-03-07-parallel-execution-implementation-plan.md](../plans/2026-03-07-parallel-execution-implementation-plan.md) | In progress |
 | LLM tag discovery | LLM_RISK_PREDICTION_CONTRACT | Architecture done |
+| Detector registry export + prompt contract integration (Task 1 work plan) | LLM_RISK_PREDICTION_CONTRACT | Planned |
 | MCP contract prompts | MCP_CONTRACT_PROMPTS | Ready to commit |
 | Signal validation | `tests/signal-validation/` scripts | Running in CI/manual flows |
 
@@ -243,7 +245,7 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | Benchmark dataset (corpus + cases) | DATASET_ARCHITECTURE |
 | Agent experiment (multi-model) | EXPERIMENT_DESIGN |
 | Fault injection CI job | FAULT_INJECTION_RUNBOOK |
-| Scanner mapping lifecycle (Trivy/Checkov/Kubescape) | V1_IMPLEMENTATION_NOTES |
+| Scanner mapping lifecycle (Trivy/Checkov/Kubescape) | V1_ARCHITECTURE + LLM_RISK_PREDICTION_CONTRACT |
 
 ### v1.1+ (designed, not started — requires signal validation first)
 
@@ -252,6 +254,101 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | Intent Graph | Model operations as directed graph (nodes=intents, edges=transitions). Enables: repair_loop detection (`A→B→C→success`), thrashing detection (`A→B→C→A`). Lives inside Signals Engine, no changes to adapters or detectors. |
 | Repair bonus | Positive scoring for successful recovery chains. Requires Intent Graph. |
 | External scanner mappings | Trivy/Checkov/Kubescape rule → tag mappings (YAML config, loaded at startup via TagProducer) |
+
+---
+
+## Consolidated Implementation Notes
+
+This section preserves the useful implementation notes that previously lived in `V1_IMPLEMENTATION_NOTES.md`.
+
+### Detector Architecture (delivered snapshot)
+
+Package layout:
+
+```text
+internal/detectors/
+  registry.go
+  producer.go
+  producers.go
+  native_producer.go
+  sarif_producer.go
+  all/all.go
+  k8s/*.go
+  terraform/aws/*.go
+  terraform/helpers.go
+  terraform/gcp/
+  terraform/azure/
+  docker/*.go
+  ops/*.go
+```
+
+Core model:
+
+- `Detector` is self-registering (`init()` + `Register`).
+- One detector pattern lives in one file.
+- `TagMetadata` is required for every detector and exported via registry calls.
+- `RunAll` provides native deterministic tags.
+- `TagProducer` is the extension boundary for non-native sources.
+- `ProduceAll` merges producers with de-duplication.
+
+Vocabulary separation:
+
+- resource risk (detectors on artifact content)
+- operation risk (detectors on canonical action context)
+- behavior signals (signal engine on evidence sequences)
+
+Detectors emit resource/operation risks only; behavioral signals are computed later from prescribe/report sequences.
+
+### Delivered Detector Scope
+
+Current deterministic detector set is 20 tags:
+
+- K8s: privileged, host namespace escape, hostPath, docker socket, run as root, dangerous capabilities, cluster-admin binding, writable rootfs
+- Ops: mass delete, kube-system mutation, namespace delete
+- Terraform/AWS: wildcard IAM (strict + broad), S3 public access, security group open, RDS public, EBS unencrypted
+- Docker/Compose: privileged, host network, socket mount
+
+CLI verification:
+
+```bash
+evidra detectors list
+```
+
+### Signal + Scoring Rules (delivered snapshot)
+
+Signal pipeline includes 7 behavior signals:
+
+- `protocol_violation`
+- `artifact_drift`
+- `retry_loop`
+- `blast_radius`
+- `new_scope`
+- `repair_loop`
+- `thrashing`
+
+Score model additions:
+
+- `repair_loop` bonus (negative weight, reduces penalty)
+- `thrashing` penalty (positive weight, increases penalty)
+- `signal_profiles` map (`none|low|medium|high`) for each signal
+
+Scoring confidence/min-operations behavior remains unchanged (`MinOperations=100`).
+
+### Validation Gate
+
+Operational validation scripts:
+
+- `tests/signal-validation/helpers.sh`
+- `tests/signal-validation/validate-signals-engine.sh`
+
+The sequence harness covers A-G scenarios, including explicit repair and thrashing.
+Score comparison between scenarios is meaningful only when operation count reaches scorecard sufficiency (`MinOperations`).
+
+### Remaining Scope (not delivered in this snapshot)
+
+- REST API + hosted LLM integration remains a separate dependency stream.
+- External scanner mappings are scaffolded via `TagProducer` and SARIF producer, but need production mapping/config lifecycle.
+- Intent graph is not required for the currently delivered signal set.
 
 ---
 
