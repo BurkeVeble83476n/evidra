@@ -127,8 +127,7 @@ func TestRunOutput_ContainsFirstUsefulOutputFields(t *testing.T) {
 }
 
 func TestRunCommandFailOpenOnMetricsExportError(t *testing.T) {
-	t.Parallel()
-
+	// Not parallel: mutates package-level emitRunMetricsHook.
 	signingKey := testutil.TestSigningKeyBase64(t)
 	tmp := t.TempDir()
 	evidenceDir := filepath.Join(tmp, "evidence")
