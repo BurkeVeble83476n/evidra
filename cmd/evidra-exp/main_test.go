@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func repoRoot(t *testing.T) string {
@@ -69,6 +70,9 @@ func TestArtifactRunDryRunCleansOutDir(t *testing.T) {
 	if !strings.Contains(string(b), "\"status\":\"dry_run\"") {
 		t.Fatalf("summary missing dry_run status: %s", string(b))
 	}
+	if !strings.Contains(string(b), "\"pass\":") {
+		t.Fatalf("summary missing pass field: %s", string(b))
+	}
 }
 
 func TestExecutionRunDryRun(t *testing.T) {
@@ -118,5 +122,50 @@ func TestExecutionRunDryRun(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "\"status\":\"dry_run\"") {
 		t.Fatalf("summary missing dry_run status: %s", string(b))
+	}
+	if !strings.Contains(string(b), "\"pass\":") {
+		t.Fatalf("summary missing pass field: %s", string(b))
+	}
+}
+
+func TestParseArtifactFlagsDelayBetweenRuns(t *testing.T) {
+	var errBuf bytes.Buffer
+	opts, code := parseArtifactFlags([]string{
+		"--model-id", "test/model",
+		"--agent", "dry-run",
+		"--delay-between-runs", "250ms",
+	}, &errBuf)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
+	}
+	if opts.DelayBetweenRuns != 250*time.Millisecond {
+		t.Fatalf("DelayBetweenRuns=%s", opts.DelayBetweenRuns)
+	}
+}
+
+func TestParseExecutionFlagsDelayBetweenRuns(t *testing.T) {
+	var errBuf bytes.Buffer
+	opts, code := parseExecutionFlags([]string{
+		"--model-id", "test/model",
+		"--agent", "dry-run",
+		"--delay-between-runs", "1s",
+	}, &errBuf)
+	if code != 0 {
+		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
+	}
+	if opts.DelayBetweenRuns != time.Second {
+		t.Fatalf("DelayBetweenRuns=%s", opts.DelayBetweenRuns)
+	}
+}
+
+func TestParseArtifactFlagsInvalidDelay(t *testing.T) {
+	var errBuf bytes.Buffer
+	_, code := parseArtifactFlags([]string{
+		"--model-id", "test/model",
+		"--agent", "dry-run",
+		"--delay-between-runs", "oops",
+	}, &errBuf)
+	if code != 2 {
+		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
 	}
 }

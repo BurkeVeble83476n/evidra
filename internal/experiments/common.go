@@ -1,6 +1,7 @@
 package experiments
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,20 @@ type PromptInfo struct {
 
 func runStampNow() string {
 	return time.Now().UTC().Format("20060102T150405Z")
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func safeModelID(v string) string {

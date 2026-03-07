@@ -24,6 +24,10 @@ Prompt editing policy:
 | `docs/experimental/RESULT_SCHEMA.json` | `evidra-exp artifact run` | Artifact-only risk classification quality | `case` | `evidra.result.v1` |
 | `docs/experimental/EXECUTION_RESULT_SCHEMA.json` | `evidra-exp execution run` | Real execution behavior (MCP + command execution) | `scenario` + `agent_result` | `evidra.exec-result.v1` |
 
+Status semantics:
+- `execution.status` is runtime outcome (`success|failure|timeout|dry_run`), not quality.
+- Quality is `evaluation.pass` in `result.json` and `pass` in `summary.jsonl`.
+
 ## Quick Start
 
 Dry run (sanity check):
@@ -44,6 +48,7 @@ go run ./cmd/evidra-exp artifact run \
   --provider bifrost \
   --agent bifrost \
   --prompt-version v1 \
+  --delay-between-runs 2s \
   --repeats 3 \
   --timeout-seconds 300
 ```
@@ -62,6 +67,7 @@ go run ./cmd/evidra-exp artifact run \
   --agent bifrost \
   --mode local-mcp \
   --prompt-file prompts/experiments/runtime/system_instructions.txt \
+  --delay-between-runs 2s \
   --repeats 3 \
   --timeout-seconds 300
 ```
@@ -76,7 +82,10 @@ go run ./cmd/evidra-exp artifact run \
   --agent claude \
   --mode local-mcp \
   --prompt-file prompts/experiments/runtime/system_instructions.txt \
+  --delay-between-runs 2s \
   --repeats 3 \
+  --max-cases 1 \
+  --clean-out-dir \
   --timeout-seconds 300
 ```
 
@@ -100,6 +109,7 @@ go run ./cmd/evidra-exp execution run \
   --provider local \
   --agent mcp-kubectl \
   --mode local-mcp \
+  --delay-between-runs 2s \
   --repeats 1 \
   --timeout-seconds 600
 ```
@@ -117,4 +127,6 @@ Each run contains:
 - `agent_raw_stream.jsonl`
 - `result.json`
 
-A run index is written to `summary.jsonl` in the timestamp folder.
+A run index is written to `summary.jsonl` in the timestamp folder with fields:
+- Artifact mode: `run_id`, `case_id`, `status`, `pass`, `result_json`
+- Execution mode: `run_id`, `scenario_id`, `status`, `pass`, `result_json`

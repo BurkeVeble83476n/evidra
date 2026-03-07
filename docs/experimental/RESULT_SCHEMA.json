@@ -118,7 +118,8 @@
         "false_negative",
         "precision",
         "recall",
-        "f1"
+        "f1",
+        "pass"
       ],
       "properties": {
         "predicted_risk_level": {"type": "string"},
@@ -132,7 +133,8 @@
         "false_negative": {"type": "integer", "minimum": 0},
         "precision": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
         "recall": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-        "f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        "f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "pass": {"type": "boolean"}
       }
     }
   }

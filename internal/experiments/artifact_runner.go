@@ -47,25 +47,39 @@ func RunArtifact(ctx context.Context, opts ArtifactRunOptions, stdout, stderr io
 	useDryStatus := opts.DryRun || agent.Name() == "dry-run"
 
 	fmt.Fprintf(stdout,
-		"run-agent-experiments: selected_cases=%d repeats=%d out_dir=%s prompt_version=%s prompt_file=%s\n",
-		len(cases), opts.Repeats, opts.OutDir, promptInfo.Version, promptInfo.File,
+		"run-agent-experiments: selected_cases=%d repeats=%d out_dir=%s prompt_version=%s prompt_file=%s delay_between_runs=%s\n",
+		len(cases), opts.Repeats, opts.OutDir, promptInfo.Version, promptInfo.File, opts.DelayBetweenRuns,
 	)
 
 	counters := RunCounters{}
 	statusCounts := map[string]int{}
 	runStamp := runStampNow()
+	totalRuns := len(cases) * opts.Repeats
+	runIndex := 0
 
 	for _, c := range cases {
 		for repeat := 1; repeat <= opts.Repeats; repeat++ {
 			counters.Total++
+			runIndex++
 			runID := fmt.Sprintf("%s-%s-%s-r%d", runStamp, safeModelID(opts.ModelID), c.CaseID, repeat)
-			oneStatus, err := runArtifactCase(ctx, opts, promptInfo, agent, c, repeat, runID, summaryPath, useDryStatus)
+			oneStatus, evalPass, err := runArtifactCase(ctx, opts, promptInfo, agent, c, repeat, runID, summaryPath, useDryStatus)
 			if err != nil {
 				return err
 			}
 			statusCounts[oneStatus]++
 			applyStatus(&counters, oneStatus)
-			fmt.Fprintf(stdout, "run-agent-experiments: run_id=%s status=%s result=%s\n", runID, oneStatus, filepath.Join(opts.OutDir, runID, "result.json"))
+			if evalPass {
+				counters.EvalPass++
+			} else {
+				counters.EvalFail++
+			}
+			fmt.Fprintf(stdout, "run-agent-experiments: run_id=%s status=%s pass=%v result=%s\n", runID, oneStatus, evalPass, filepath.Join(opts.OutDir, runID, "result.json"))
+			if runIndex < totalRuns && opts.DelayBetweenRuns > 0 {
+				fmt.Fprintf(stdout, "run-agent-experiments: sleeping_between_runs=%s\n", opts.DelayBetweenRuns)
+				if err := sleepWithContext(ctx, opts.DelayBetweenRuns); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -116,6 +130,9 @@ func validateArtifactOptions(opts ArtifactRunOptions) error {
 	if opts.TimeoutSeconds < 1 {
 		return errors.New("--timeout-seconds must be >= 1")
 	}
+	if opts.DelayBetweenRuns < 0 {
+		return errors.New("--delay-between-runs must be >= 0")
+	}
 	info, err := os.Stat(opts.CasesDir)
 	if err != nil || !info.IsDir() {
 		return fmt.Errorf("cases dir not found: %s", opts.CasesDir)
@@ -136,7 +153,7 @@ func runArtifactCase(
 	runID string,
 	summaryPath string,
 	forceDry bool,
-) (string, error) {
+) (string, bool, error) {
 	runDir, stdoutPath, stderrPath, outputPath, rawPath, resultPath := runPaths(opts.OutDir, runID)
 	start := time.Now().UTC()
 	result, status, agentExitCode := executeArtifactAgent(parent, opts, prompt, agent, c, repeat, runID, rawPath, outputPath, forceDry)
@@ -148,7 +165,7 @@ func runArtifactCase(
 	})
 
 	if err := writeRunArtifacts(runDir, stdoutPath, stderrPath, outputPath, rawPath, result.StdoutLog, result.StderrLog, output, result.RawStream); err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	predictedLevel, predictedTags := extractRiskPrediction(output)
@@ -157,19 +174,20 @@ func runArtifactCase(
 	end := time.Now().UTC()
 	resultObj := buildArtifactResult(resultPath, runID, opts, prompt, c, runDir, stdoutPath, stderrPath, outputPath, rawPath, status, agentExitCode, repeat, start, end, eval)
 	if err := writeJSONFile(resultPath, resultObj); err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	summaryRow := map[string]any{
 		"run_id":      runID,
 		"case_id":     c.CaseID,
 		"status":      status,
+		"pass":        eval.Pass,
 		"result_json": resultPath,
 	}
 	if err := writeJSONL(summaryPath, summaryRow); err != nil {
-		return "", err
+		return "", false, err
 	}
-	return status, nil
+	return status, eval.Pass, nil
 }
 
 func executeArtifactAgent(
@@ -291,6 +309,8 @@ func printArtifactSummary(stdout io.Writer, counters RunCounters, summaryPath st
 	fmt.Fprintf(stdout, "  failure:  %d\n", counters.Failure)
 	fmt.Fprintf(stdout, "  timeout:  %d\n", counters.Timeout)
 	fmt.Fprintf(stdout, "  dry_run:  %d\n", counters.DryRun)
+	fmt.Fprintf(stdout, "  eval_pass:%d\n", counters.EvalPass)
+	fmt.Fprintf(stdout, "  eval_fail:%d\n", counters.EvalFail)
 	fmt.Fprintf(stdout, "  index:    %s\n", summaryPath)
 	fmt.Fprintln(stdout)
 	fmt.Fprintln(stdout, "run-agent-experiments: top statuses from summary")

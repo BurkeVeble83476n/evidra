@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"samebits.com/evidra-benchmark/internal/experiments"
 	"samebits.com/evidra-benchmark/pkg/version"
@@ -99,6 +100,7 @@ func parseArtifactFlags(args []string, stderr io.Writer) (experiments.ArtifactRu
 	casesDir := fs.String("cases-dir", experiments.DefaultArtifactCasesDir, "Cases directory")
 	outDir := fs.String("out-dir", "", "Output directory")
 	cleanOutDir := fs.Bool("clean-out-dir", false, "Remove existing files in out-dir before run")
+	delayBetweenRuns := fs.String("delay-between-runs", "0s", "Sleep duration between runs (e.g. 2s, 500ms)")
 	agent := fs.String("agent", "", "Agent adapter: claude|bifrost|dry-run")
 	dryRun := fs.Bool("dry-run", false, "Skip real adapter execution")
 	if err := fs.Parse(args); err != nil {
@@ -114,23 +116,29 @@ func parseArtifactFlags(args []string, stderr io.Writer) (experiments.ArtifactRu
 		}
 		tempPtr = &v
 	}
+	delayValue, err := time.ParseDuration(strings.TrimSpace(*delayBetweenRuns))
+	if err != nil {
+		fmt.Fprintln(stderr, "--delay-between-runs must be a duration like 2s or 500ms")
+		return experiments.ArtifactRunOptions{}, 2
+	}
 
 	return experiments.ArtifactRunOptions{
-		ModelID:        strings.TrimSpace(*modelID),
-		Provider:       strings.TrimSpace(*provider),
-		PromptVersion:  strings.TrimSpace(*promptVersion),
-		PromptFile:     strings.TrimSpace(*promptFile),
-		Temperature:    tempPtr,
-		Mode:           strings.TrimSpace(*mode),
-		Repeats:        *repeats,
-		TimeoutSeconds: *timeoutSeconds,
-		CaseFilter:     *caseFilter,
-		MaxCases:       *maxCases,
-		CasesDir:       strings.TrimSpace(*casesDir),
-		OutDir:         strings.TrimSpace(*outDir),
-		CleanOutDir:    *cleanOutDir,
-		Agent:          strings.TrimSpace(*agent),
-		DryRun:         *dryRun,
+		ModelID:          strings.TrimSpace(*modelID),
+		Provider:         strings.TrimSpace(*provider),
+		PromptVersion:    strings.TrimSpace(*promptVersion),
+		PromptFile:       strings.TrimSpace(*promptFile),
+		Temperature:      tempPtr,
+		Mode:             strings.TrimSpace(*mode),
+		Repeats:          *repeats,
+		TimeoutSeconds:   *timeoutSeconds,
+		CaseFilter:       *caseFilter,
+		MaxCases:         *maxCases,
+		CasesDir:         strings.TrimSpace(*casesDir),
+		OutDir:           strings.TrimSpace(*outDir),
+		CleanOutDir:      *cleanOutDir,
+		DelayBetweenRuns: delayValue,
+		Agent:            strings.TrimSpace(*agent),
+		DryRun:           *dryRun,
 	}, 0
 }
 
@@ -149,27 +157,34 @@ func parseExecutionFlags(args []string, stderr io.Writer) (experiments.Execution
 	maxScenarios := fs.Int("max-scenarios", 0, "Max selected scenarios")
 	outDir := fs.String("out-dir", "", "Output directory")
 	cleanOutDir := fs.Bool("clean-out-dir", false, "Remove existing files in out-dir before run")
+	delayBetweenRuns := fs.String("delay-between-runs", "0s", "Sleep duration between runs (e.g. 2s, 500ms)")
 	agent := fs.String("agent", "", "Agent adapter: mcp-kubectl|dry-run")
 	dryRun := fs.Bool("dry-run", false, "Skip real adapter execution")
 	if err := fs.Parse(args); err != nil {
 		return experiments.ExecutionRunOptions{}, 2
 	}
+	delayValue, err := time.ParseDuration(strings.TrimSpace(*delayBetweenRuns))
+	if err != nil {
+		fmt.Fprintln(stderr, "--delay-between-runs must be a duration like 2s or 500ms")
+		return experiments.ExecutionRunOptions{}, 2
+	}
 
 	return experiments.ExecutionRunOptions{
-		ModelID:        strings.TrimSpace(*modelID),
-		Provider:       strings.TrimSpace(*provider),
-		PromptVersion:  strings.TrimSpace(*promptVersion),
-		PromptFile:     strings.TrimSpace(*promptFile),
-		ScenariosDir:   strings.TrimSpace(*scenariosDir),
-		Mode:           strings.TrimSpace(*mode),
-		Repeats:        *repeats,
-		TimeoutSeconds: *timeoutSeconds,
-		ScenarioFilter: *scenarioFilter,
-		MaxScenarios:   *maxScenarios,
-		OutDir:         strings.TrimSpace(*outDir),
-		CleanOutDir:    *cleanOutDir,
-		Agent:          strings.TrimSpace(*agent),
-		DryRun:         *dryRun,
+		ModelID:          strings.TrimSpace(*modelID),
+		Provider:         strings.TrimSpace(*provider),
+		PromptVersion:    strings.TrimSpace(*promptVersion),
+		PromptFile:       strings.TrimSpace(*promptFile),
+		ScenariosDir:     strings.TrimSpace(*scenariosDir),
+		Mode:             strings.TrimSpace(*mode),
+		Repeats:          *repeats,
+		TimeoutSeconds:   *timeoutSeconds,
+		ScenarioFilter:   *scenarioFilter,
+		MaxScenarios:     *maxScenarios,
+		OutDir:           strings.TrimSpace(*outDir),
+		CleanOutDir:      *cleanOutDir,
+		DelayBetweenRuns: delayValue,
+		Agent:            strings.TrimSpace(*agent),
+		DryRun:           *dryRun,
 	}, 0
 }
 
@@ -196,6 +211,7 @@ func printArtifactUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --cases-dir <path>       Default: tests/benchmark/cases")
 	fmt.Fprintln(w, "  --out-dir <path>         Default: experiments/results/<timestamp>")
 	fmt.Fprintln(w, "  --clean-out-dir          Remove files in out-dir before run")
+	fmt.Fprintln(w, "  --delay-between-runs <d> Sleep duration between runs (e.g. 2s)")
 	fmt.Fprintln(w, "  --dry-run                Skip real adapter execution")
 }
 
@@ -208,5 +224,6 @@ func printExecutionUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --scenarios-dir <path>   Default: tests/experiments/execution-scenarios")
 	fmt.Fprintln(w, "  --out-dir <path>         Default: experiments/results/<timestamp>-execution")
 	fmt.Fprintln(w, "  --clean-out-dir          Remove files in out-dir before run")
+	fmt.Fprintln(w, "  --delay-between-runs <d> Sleep duration between runs (e.g. 2s)")
 	fmt.Fprintln(w, "  --dry-run                Skip real adapter execution")
 }

@@ -10,6 +10,7 @@ type ArtifactEvaluation struct {
 	Precision            *float64 `json:"precision"`
 	Recall               *float64 `json:"recall"`
 	F1                   *float64 `json:"f1"`
+	Pass                 bool     `json:"pass"`
 }
 
 func evaluateArtifact(expectedLevel, predictedLevel string, expectedTags, predictedTags []string) ArtifactEvaluation {
@@ -19,6 +20,8 @@ func evaluateArtifact(expectedLevel, predictedLevel string, expectedTags, predic
 	precision := safeDiv(float64(tp), float64(tp+fp))
 	recall := safeDiv(float64(tp), float64(tp+fn))
 	f1 := calcF1(precision, recall)
+	levelPass := expectedLevel == "" || (predictedLevel != "" && expectedLevel == predictedLevel)
+	pass := levelPass && fp == 0 && fn == 0
 
 	return ArtifactEvaluation{
 		PredictedRiskLevel:   predictedLevel,
@@ -30,6 +33,7 @@ func evaluateArtifact(expectedLevel, predictedLevel string, expectedTags, predic
 		Precision:            precision,
 		Recall:               recall,
 		F1:                   f1,
+		Pass:                 pass,
 	}
 }
 

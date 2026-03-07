@@ -82,6 +82,43 @@ STREAM
 	}
 }
 
+func TestClaudeAgentRunArtifactCodeFenceJSON(t *testing.T) {
+	artifact := writeTempFile(t, "artifact.yaml", "apiVersion: v1\nkind: Pod\n")
+	fakeBinDir := t.TempDir()
+	writeExecutable(t, filepath.Join(fakeBinDir, "claude"), "#!/usr/bin/env bash\n"+
+		"set -euo pipefail\n"+
+		"cat <<'STREAM'\n"+
+		"{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"```json\\n{\\\"predicted_risk_level\\\":\\\"high\\\",\\\"predicted_risk_details\\\":[\\\"k8s.hostpath_mount\\\"]}\\n```\"}]}}\n"+
+		"{\"type\":\"result\",\"result\":\"```json\\n{\\\"predicted_risk_level\\\":\\\"high\\\",\\\"predicted_risk_details\\\":[\\\"k8s.hostpath_mount\\\"]}\\n```\"}\n"+
+		"STREAM\n")
+	t.Setenv("PATH", fakeBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	agent := &claudeAgent{}
+	result, err := agent.RunArtifact(context.Background(), ArtifactAgentRequest{
+		Case: ArtifactCase{
+			CaseID:       "case-1",
+			Category:     "kubernetes",
+			Difficulty:   "low",
+			ArtifactPath: artifact,
+		},
+		ModelID: "claude/sonnet",
+		Prompt: PromptInfo{
+			ContractVersion: "v1.0.1",
+			SystemPrompt:    "system",
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunArtifact error: %v", err)
+	}
+	if got := readString(result.Output, "predicted_risk_level"); got != "high" {
+		t.Fatalf("predicted_risk_level=%q", got)
+	}
+	tags := readStringSlice(result.Output, "predicted_risk_details")
+	if len(tags) != 1 || tags[0] != "k8s.hostpath_mount" {
+		t.Fatalf("predicted_risk_details=%v", tags)
+	}
+}
+
 func TestClaudeAgentRunArtifactParseError(t *testing.T) {
 	artifact := writeTempFile(t, "artifact.yaml", "apiVersion: v1\nkind: Pod\n")
 	fakeBinDir := t.TempDir()

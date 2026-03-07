@@ -26,32 +26,106 @@ func extractJSONObject(text string) map[string]any {
 		return map[string]any{}
 	}
 
-	var direct map[string]any
-	if err := json.Unmarshal([]byte(trimmed), &direct); err == nil {
-		return direct
+	if obj := tryParseJSONObject(trimmed); len(obj) > 0 {
+		return obj
 	}
-
-	decoder := json.NewDecoder(strings.NewReader(trimmed))
-	for {
-		var v any
-		if err := decoder.Decode(&v); err != nil {
-			break
-		}
-		if m, ok := v.(map[string]any); ok {
-			return m
+	for _, block := range extractCodeFenceBlocks(trimmed) {
+		if obj := tryParseJSONObject(block); len(obj) > 0 {
+			return obj
 		}
 	}
-
-	for i := 0; i < len(trimmed); i++ {
-		if trimmed[i] != '{' {
-			continue
-		}
-		var candidate map[string]any
-		if err := json.Unmarshal([]byte(trimmed[i:]), &candidate); err == nil {
-			return candidate
+	if candidate, ok := firstBalancedJSONObject(trimmed); ok {
+		if obj := tryParseJSONObject(candidate); len(obj) > 0 {
+			return obj
 		}
 	}
 	return map[string]any{}
+}
+
+func tryParseJSONObject(s string) map[string]any {
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(s)), &obj); err == nil {
+		return obj
+	}
+	return map[string]any{}
+}
+
+func extractCodeFenceBlocks(s string) []string {
+	var blocks []string
+	rest := s
+	for {
+		start := strings.Index(rest, "```")
+		if start < 0 {
+			return blocks
+		}
+		afterStart := rest[start+3:]
+		end := strings.Index(afterStart, "```")
+		if end < 0 {
+			return blocks
+		}
+		block := strings.TrimSpace(afterStart[:end])
+		if nl := strings.Index(block, "\n"); nl >= 0 {
+			firstLine := strings.ToLower(strings.TrimSpace(block[:nl]))
+			if firstLine == "json" || strings.HasPrefix(firstLine, "json ") {
+				block = strings.TrimSpace(block[nl+1:])
+			}
+		}
+		if block != "" {
+			blocks = append(blocks, block)
+		}
+		rest = afterStart[end+3:]
+	}
+}
+
+func firstBalancedJSONObject(s string) (string, bool) {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '{' {
+			continue
+		}
+		if candidate, ok := scanBalancedObjectFrom(s, i); ok {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func scanBalancedObjectFrom(s string, start int) (string, bool) {
+	depth := 0
+	inString := false
+	escapeNext := false
+	for i := start; i < len(s); i++ {
+		ch := s[i]
+		if inString {
+			if escapeNext {
+				escapeNext = false
+				continue
+			}
+			if ch == '\\' {
+				escapeNext = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		switch ch {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return s[start : i+1], true
+			}
+			if depth < 0 {
+				return "", false
+			}
+		}
+	}
+	return "", false
 }
 
 func normalizeArtifactPrediction(raw map[string]any) map[string]any {

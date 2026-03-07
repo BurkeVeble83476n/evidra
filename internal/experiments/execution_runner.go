@@ -46,17 +46,20 @@ func RunExecution(ctx context.Context, opts ExecutionRunOptions, stdout, stderr 
 	useDryStatus := opts.DryRun || agent.Name() == "dry-run"
 
 	fmt.Fprintf(stdout,
-		"run-agent-execution-experiments: selected_scenarios=%d repeats=%d out_dir=%s mode=%s\n",
-		len(scenarios), opts.Repeats, opts.OutDir, opts.Mode,
+		"run-agent-execution-experiments: selected_scenarios=%d repeats=%d out_dir=%s mode=%s delay_between_runs=%s\n",
+		len(scenarios), opts.Repeats, opts.OutDir, opts.Mode, opts.DelayBetweenRuns,
 	)
 
 	counters := RunCounters{}
 	statusCounts := map[string]int{}
 	runStamp := runStampNow()
+	totalRuns := len(scenarios) * opts.Repeats
+	runIndex := 0
 
 	for _, scenario := range scenarios {
 		for repeat := 1; repeat <= opts.Repeats; repeat++ {
 			counters.Total++
+			runIndex++
 			runID := fmt.Sprintf("%s-%s-%s-r%d", runStamp, safeModelID(opts.ModelID), scenario.ScenarioID, repeat)
 			oneStatus, evalPass, err := runExecutionScenario(ctx, opts, promptInfo, agent, scenario, repeat, runID, summaryPath, useDryStatus)
 			if err != nil {
@@ -70,6 +73,12 @@ func RunExecution(ctx context.Context, opts ExecutionRunOptions, stdout, stderr 
 				counters.EvalFail++
 			}
 			fmt.Fprintf(stdout, "run-agent-execution-experiments: run_id=%s status=%s pass=%v result=%s\n", runID, oneStatus, evalPass, filepath.Join(opts.OutDir, runID, "result.json"))
+			if runIndex < totalRuns && opts.DelayBetweenRuns > 0 {
+				fmt.Fprintf(stdout, "run-agent-execution-experiments: sleeping_between_runs=%s\n", opts.DelayBetweenRuns)
+				if err := sleepWithContext(ctx, opts.DelayBetweenRuns); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -119,6 +128,9 @@ func validateExecutionOptions(opts ExecutionRunOptions) error {
 	}
 	if opts.TimeoutSeconds < 1 {
 		return errors.New("--timeout-seconds must be >= 1")
+	}
+	if opts.DelayBetweenRuns < 0 {
+		return errors.New("--delay-between-runs must be >= 0")
 	}
 	info, err := os.Stat(opts.ScenariosDir)
 	if err != nil || !info.IsDir() {

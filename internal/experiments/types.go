@@ -1,38 +1,42 @@
 package experiments
 
+import "time"
+
 type ArtifactRunOptions struct {
-	ModelID        string
-	Provider       string
-	PromptVersion  string
-	PromptFile     string
-	Temperature    *float64
-	Mode           string
-	Repeats        int
-	TimeoutSeconds int
-	CaseFilter     string
-	MaxCases       int
-	CasesDir       string
-	OutDir         string
-	CleanOutDir    bool
-	Agent          string
-	DryRun         bool
+	ModelID          string
+	Provider         string
+	PromptVersion    string
+	PromptFile       string
+	Temperature      *float64
+	Mode             string
+	Repeats          int
+	TimeoutSeconds   int
+	CaseFilter       string
+	MaxCases         int
+	CasesDir         string
+	OutDir           string
+	CleanOutDir      bool
+	DelayBetweenRuns time.Duration
+	Agent            string
+	DryRun           bool
 }
 
 type ExecutionRunOptions struct {
-	ModelID        string
-	Provider       string
-	PromptVersion  string
-	PromptFile     string
-	ScenariosDir   string
-	Mode           string
-	Repeats        int
-	TimeoutSeconds int
-	ScenarioFilter string
-	MaxScenarios   int
-	OutDir         string
-	CleanOutDir    bool
-	Agent          string
-	DryRun         bool
+	ModelID          string
+	Provider         string
+	PromptVersion    string
+	PromptFile       string
+	ScenariosDir     string
+	Mode             string
+	Repeats          int
+	TimeoutSeconds   int
+	ScenarioFilter   string
+	MaxScenarios     int
+	OutDir           string
+	CleanOutDir      bool
+	DelayBetweenRuns time.Duration
+	Agent            string
+	DryRun           bool
 }
 
 type ArtifactCase struct {
