@@ -23,8 +23,9 @@ type recordFlags struct {
 }
 
 type recordCommand struct {
-	service *lifecycle.Service
-	input   automationevent.RecordInput
+	service      *lifecycle.Service
+	evidencePath string
+	input        automationevent.RecordInput
 }
 
 func cmdRecord(args []string, stdout, stderr io.Writer) int {
@@ -74,18 +75,34 @@ func cmdRecord(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	assessment, err := buildOperationAssessment(
+		cmd.evidencePath,
+		opResult.ReportOutput.SessionID,
+		opResult.PrescribeOutput.RiskLevel,
+	)
+	if err != nil {
+		fmt.Fprintf(stderr, "record assessment: %v\n", err)
+		return 1
+	}
+
 	result := map[string]interface{}{
-		"ok":               true,
-		"contract_version": cmd.input.ContractVersion,
-		"session_id":       opResult.ReportOutput.SessionID,
-		"operation_id":     cmd.input.OperationID,
-		"prescription_id":  opResult.PrescribeOutput.PrescriptionID,
-		"report_id":        opResult.ReportOutput.ReportID,
-		"exit_code":        cmd.input.ExitCode,
-		"verdict":          evidence.VerdictFromExitCode(cmd.input.ExitCode),
-		"duration_ms":      cmd.input.DurationMs,
-		"risk_level":       opResult.PrescribeOutput.RiskLevel,
-		"risk_tags":        opResult.PrescribeOutput.RiskTags,
+		"ok":                  true,
+		"contract_version":    cmd.input.ContractVersion,
+		"session_id":          opResult.ReportOutput.SessionID,
+		"operation_id":        cmd.input.OperationID,
+		"prescription_id":     opResult.PrescribeOutput.PrescriptionID,
+		"report_id":           opResult.ReportOutput.ReportID,
+		"exit_code":           cmd.input.ExitCode,
+		"verdict":             evidence.VerdictFromExitCode(cmd.input.ExitCode),
+		"duration_ms":         cmd.input.DurationMs,
+		"risk_classification": assessment.RiskClassification,
+		"risk_level":          assessment.RiskLevel,
+		"risk_tags":           opResult.PrescribeOutput.RiskTags,
+		"score":               assessment.Score,
+		"score_band":          assessment.ScoreBand,
+		"signal_summary":      assessment.SignalSummary,
+		"basis":               assessment.Basis,
+		"confidence":          assessment.Confidence,
 	}
 	return writeJSON(stdout, stderr, "encode record", result)
 }
@@ -112,7 +129,7 @@ func parseRecordFlags(args []string, stderr io.Writer) (recordFlags, int) {
 }
 
 func prepareRecordCommand(opts recordFlags) (recordCommand, error) {
-	svc, _, _, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
+	svc, evidencePath, _, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
 	if err != nil {
 		return recordCommand{}, err
 	}
@@ -131,8 +148,9 @@ func prepareRecordCommand(opts recordFlags) (recordCommand, error) {
 	}
 
 	return recordCommand{
-		service: svc,
-		input:   in,
+		service:      svc,
+		evidencePath: evidencePath,
+		input:        in,
 	}, nil
 }
 

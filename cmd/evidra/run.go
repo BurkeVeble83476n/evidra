@@ -32,6 +32,7 @@ type runFlags struct {
 
 type runCommand struct {
 	service        *lifecycle.Service
+	evidencePath   string
 	prescribeInput lifecycle.PrescribeInput
 	wrapped        []string
 }
@@ -78,6 +79,16 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	assessment, err := buildOperationAssessment(
+		cmd.evidencePath,
+		opResult.ReportOutput.SessionID,
+		opResult.PrescribeOutput.RiskLevel,
+	)
+	if err != nil {
+		fmt.Fprintf(stderr, "run assessment: %v\n", err)
+		return 1
+	}
+
 	if err := emitRunMetricsHook(context.Background(), runMetricsPayload{
 		Tool:        cmd.prescribeInput.Tool,
 		Environment: cmd.prescribeInput.Environment,
@@ -88,16 +99,22 @@ func cmdRun(args []string, stdout, stderr io.Writer) int {
 	}
 
 	result := map[string]interface{}{
-		"ok":              true,
-		"session_id":      opResult.ReportOutput.SessionID,
-		"operation_id":    cmd.prescribeInput.OperationID,
-		"prescription_id": opResult.PrescribeOutput.PrescriptionID,
-		"report_id":       opResult.ReportOutput.ReportID,
-		"exit_code":       exitCode,
-		"verdict":         evidence.VerdictFromExitCode(exitCode),
-		"duration_ms":     durationMs,
-		"risk_level":      opResult.PrescribeOutput.RiskLevel,
-		"risk_tags":       opResult.PrescribeOutput.RiskTags,
+		"ok":                  true,
+		"session_id":          opResult.ReportOutput.SessionID,
+		"operation_id":        cmd.prescribeInput.OperationID,
+		"prescription_id":     opResult.PrescribeOutput.PrescriptionID,
+		"report_id":           opResult.ReportOutput.ReportID,
+		"exit_code":           exitCode,
+		"verdict":             evidence.VerdictFromExitCode(exitCode),
+		"duration_ms":         durationMs,
+		"risk_classification": assessment.RiskClassification,
+		"risk_level":          assessment.RiskLevel,
+		"risk_tags":           opResult.PrescribeOutput.RiskTags,
+		"score":               assessment.Score,
+		"score_band":          assessment.ScoreBand,
+		"signal_summary":      assessment.SignalSummary,
+		"basis":               assessment.Basis,
+		"confidence":          assessment.Confidence,
 	}
 	if writeJSON(stdout, stderr, "encode run", result) != 0 {
 		return 1
@@ -167,7 +184,7 @@ func splitRunArgs(args []string) ([]string, []string) {
 }
 
 func prepareRunCommand(opts runFlags, wrapped []string) (runCommand, error) {
-	svc, _, _, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
+	svc, evidencePath, _, err := newLifecycleServiceForCommand(opts.evidenceDir, opts.signingKey, opts.signingKeyPath, opts.signingMode)
 	if err != nil {
 		return runCommand{}, err
 	}
@@ -189,7 +206,8 @@ func prepareRunCommand(opts runFlags, wrapped []string) (runCommand, error) {
 	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
 
 	return runCommand{
-		service: svc,
+		service:      svc,
+		evidencePath: evidencePath,
 		prescribeInput: lifecycle.PrescribeInput{
 			Actor:           actor,
 			Tool:            opts.tool,
