@@ -29,12 +29,15 @@ Both modes feed the same lifecycle and scoring engine.
 ### Install
 
 ```bash
-# Build locally
-make build
+# Homebrew
+brew install samebits/tap/evidra
 
-# binaries:
-#   bin/evidra
-#   bin/evidra-mcp
+# Binary release (Linux/macOS)
+curl -fsSL https://github.com/samebits/evidra-benchmark/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \
+  | tar -xz -C /usr/local/bin evidra
+
+# Build from source
+make build    # produces bin/evidra and bin/evidra-mcp
 ```
 
 ### Quick Start (10-minute path)
@@ -118,18 +121,25 @@ Details:
 - [MCP server schemas](pkg/mcpserver/schemas/)
 - [MCP contract prompts](docs/system-design/MCP_CONTRACT_PROMPTS.md)
 
-## GitHub Actions
+## CI Integration
 
-Setup-only action (recommended):
+### GitHub Actions
 
 ```yaml
 - name: Setup Evidra
-  id: setup-evidra
   uses: samebits/evidra-benchmark/.github/actions/setup-evidra@main
 ```
 
-Guide:
+### Generic CI (GitLab, Jenkins, CircleCI, etc.)
+
+```bash
+curl -fsSL https://github.com/samebits/evidra-benchmark/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \
+  | tar -xz -C /usr/local/bin evidra
+```
+
+Guides:
 - [Setup Evidra Action](docs/guides/setup-evidra-action.md)
+- [Terraform CI Quickstart](docs/guides/terraform-ci-quickstart.md)
 
 ## Docs Map
 
@@ -142,7 +152,6 @@ Architecture and contracts:
 - [Signal Spec](docs/system-design/EVIDRA_SIGNAL_SPEC.md)
 
 Operational guides:
-- [Terraform CI Quickstart](docs/guides/terraform-ci-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md)
 - [Artifact Runner Guide](docs/experimental/ARTIFACT_RUNNER_GUIDE.md)
 - [Signal Validation Guide](docs/experimental/SIGNAL_VALIDATION_GUIDE.md)

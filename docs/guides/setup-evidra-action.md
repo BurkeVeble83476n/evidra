@@ -58,17 +58,46 @@ jobs:
             -- terraform apply -auto-approve tfplan
 ```
 
-## Migration from benchmark composite action
+## Generic CI (GitLab, Jenkins, CircleCI, etc.)
 
-If your workflow currently uses:
+Evidra is a single static binary. Install it in any CI with curl:
 
-```yaml
-uses: samebits/evidra-benchmark/.github/actions/evidra@main
+```bash
+VERSION="latest"
+REPO="samebits/evidra-benchmark"
+
+# Resolve latest tag
+if [ "$VERSION" = "latest" ]; then
+  VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+    | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+fi
+
+# Detect platform
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+
+# Download and extract
+curl -fsSL "https://github.com/${REPO}/releases/download/${VERSION}/evidra_${VERSION#v}_${OS}_${ARCH}.tar.gz" \
+  | tar -xz -C /usr/local/bin evidra
 ```
 
-move to:
+### GitLab CI example
 
-1. `setup-evidra` for installation
-2. explicit `evidra run` / `evidra record` / `evidra scorecard` steps in your workflow
-
-This keeps install concerns separate from product workflow logic.
+```yaml
+evidra-terraform:
+  image: ubuntu:latest
+  script:
+    - apt-get update && apt-get install -y curl
+    - |
+      VERSION=$(curl -fsSL "https://api.github.com/repos/samebits/evidra-benchmark/releases/latest" \
+        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+      ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+      curl -fsSL "https://github.com/samebits/evidra-benchmark/releases/download/${VERSION}/evidra_${VERSION#v}_${OS}_${ARCH}.tar.gz" \
+        | tar -xz -C /usr/local/bin evidra
+    - terraform plan -out=tfplan && terraform show -json tfplan > plan.json
+    - evidra run --tool terraform --operation apply --artifact plan.json
+        --environment staging -- terraform apply -auto-approve tfplan
+  variables:
+    EVIDRA_SIGNING_MODE: optional
+```
