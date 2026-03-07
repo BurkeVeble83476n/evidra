@@ -176,6 +176,15 @@ This writes:
 - `go test ./cmd/evidra-exp ./internal/experiments -count=1`
 - Expected: agreement metrics produced; candidate tag counts within expected range.
 
+Execution evidence (2026-03-07):
+- Run command:
+  - `go run ./cmd/evidra-exp artifact baseline --model-ids claude/haiku,claude/sonnet --provider claude --agent claude --repeats 1 --max-cases 2 --out-dir experiments/results/llm/20260307T160012Z-m4a --timeout-seconds 180`
+- Aggregate output:
+  - `experiments/results/llm/20260307T160012Z-m4a/summary.json`
+- Notes:
+  - Multi-model baseline pipeline executed end-to-end and wrote `evidra.llm-baseline.v1` summary.
+  - Runtime status was `failure` for both models in this environment due Claude auth/session setup (`Not logged in · Please run /login` and sandbox EPERM under `~/.claude/session-env`), so agreement quality metrics are not yet representative.
+
 ### M4b: REST API Integration (Week 2+)
 
 **Outcome:** LLM prediction integrated into REST API, safely degradable.
@@ -224,7 +233,7 @@ This writes:
 - [x] M1 P0 signal gate passed and artifacts stored (`experiments/results/signals/*/summary.json`, assertions green)
 - [x] M2 detectors #8-#16 merged
 - [x] M3 Docker risk detectors #17-#19 merged (adapter already complete)
-- [ ] M4a LLM experiment completed and results stored
+- [x] M4a LLM experiment run executed and artifacts stored (`experiments/results/llm/20260307T160012Z-m4a/summary.json`; environment auth/session issue noted)
 - [ ] M4b REST API integration merged (blocked on REST API work item)
 - [ ] M5 release hardening complete (`local-mcp` gate + CI artifact upload for signal-validation outputs)
 
