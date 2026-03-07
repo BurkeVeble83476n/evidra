@@ -1,4 +1,4 @@
-# Evidra — Agent Reliability Benchmark
+# Evidra — Infrastructure Automation Reliability Benchmark
 
 ## Status
 Active. Defines scoring, comparison, and benchmark methodology.
@@ -11,20 +11,21 @@ It does NOT define canonicalization — that is in
 CANONICALIZATION_CONTRACT_V1.md (normative).
 
 ## One-liner
-Evidra is a flight recorder and reliability benchmark for infrastructure automation.
+Evidra — reliability benchmark for infrastructure automation.
 
-Five signals. One score. Compare any agent, version, model, or
-prompt against the same reliability standard.
+Five signals. One score. Compare any automation actor — CI pipeline,
+script, controller, or AI agent — against the same reliability standard.
 
 ---
 
 ## 1. What Evidra Is
 
-Evidra is a reliability benchmark for AI infrastructure agents.
+Evidra is a reliability benchmark for infrastructure automation,
+including AI agents.
 
 It answers one question:
 
-> Which agent is safer to run on my production infrastructure?
+> Which automation actor is safer to run on my production infrastructure?
 
 Not by opinion. By measurement.
 
@@ -43,7 +44,7 @@ Not by opinion. By measurement.
 
 That table is the product.
 
-### Beyond AI agents
+### Including AI agents (not only AI agents)
 
 The prescribe/report protocol works for any automated actor that
 mutates infrastructure: CI pipelines, GitOps controllers, Ansible
@@ -51,10 +52,9 @@ playbooks, cron jobs, custom automation scripts. Anywhere something
 non-human changes production — the same five signals apply, the
 same score formula works.
 
-AI agents are the entry point because the need is most acute —
-agents are non-deterministic, their behavior changes with model
-updates, and enterprises have no way to measure their reliability
-today.
+AI agents are a high-urgency use case because they are
+non-deterministic, their behavior shifts with model updates, and
+enterprises often have no reliability baseline for them.
 
 But the benchmark applies to all infrastructure automation.
 "How safely does this automation operate?" is a universal question.
@@ -716,11 +716,12 @@ This gives the "fire alarm" without the enforcement responsibility.
 
 ### Component Responsibilities
 
-**evidra-mcp** — MCP server. Runs alongside the AI agent.
-Communicates via stdio or SSE transport. Exposes `prescribe` and
-`report` tools. Contains canonicalization adapters, risk analysis,
-and a local evidence JSONL. Forwards evidence entries to evidra-api
-if configured. Stateless except for the local evidence file.
+**evidra-mcp** — MCP integration point for automation clients,
+including AI agents. Communicates via stdio or SSE transport.
+Exposes `prescribe` and `report` tools. Contains canonicalization
+adapters, risk analysis, and a local evidence JSONL. Forwards
+evidence entries to evidra-api if configured. Stateless except for
+the local evidence file.
 
 Deployment: sidecar process on the agent host. No network listener
 needed (stdio). One instance per agent.
@@ -850,8 +851,9 @@ via API, Prometheus metrics.
 
 ## 9. What This Becomes
 
-**Short term:** A tool that teams install to measure AI agents
-and CI pipelines before putting them in production.
+**Short term:** A tool teams install to measure infrastructure
+automation reliability in CI pipelines, scripts, and AI agents before
+putting that automation in production.
 
 **Medium term:** The standard behavioral telemetry layer for
 infrastructure automation. Like how Prometheus standardized metrics
@@ -874,7 +876,7 @@ The path to standard:
 4. Agent frameworks integrate prescribe/report natively.
 5. Security platforms enrich signals with infrastructure context.
 6. Scores become comparable across organizations.
-7. Evidra score becomes a procurement criterion for AI agents.
+7. Evidra score becomes a procurement criterion for automation tooling, including AI agents.
 8. Same standard adopted for all infrastructure automation.
 ```
 
@@ -1115,7 +1117,7 @@ artifact drift."
 
 ```yaml
 # .github/workflows/agent-scorecard.yml
-name: Agent Reliability Check
+name: Automation Reliability Check
 on:
   schedule:
     - cron: '0 9 * * 1'    # weekly Monday 9am
@@ -1144,7 +1146,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `**Agent Reliability Score: ${score.score}**\nOps: ${score.operations} | Drift: ${score.drift_rate} | Violations: ${score.violation_rate}`
+              body: `**Automation Reliability Score: ${score.score}**\nOps: ${score.operations} | Drift: ${score.drift_rate} | Violations: ${score.violation_rate}`
             });
 ```
 

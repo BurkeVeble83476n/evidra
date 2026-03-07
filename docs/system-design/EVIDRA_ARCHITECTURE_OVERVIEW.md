@@ -62,7 +62,7 @@ That's it. Two calls (prescribe, report). Five signals. One score.
 ```
 
 **evidra-mcp** — sidecar for automation clients over MCP (stdio/SSE).
-Common initiator: AI agents. Also usable by any MCP-capable client.
+Common initiators include AI agents, but any MCP-capable client can use it.
 Exposes prescribe + report tools. Local evidence JSONL.
 
 **evidra CLI** — for CI pipelines. Same protocol, shell wrapper.
@@ -77,7 +77,7 @@ Planned for v0.5.0.
 
 | Initiator | Current ingress (v0.3.1) | Planned ingress |
 |---|---|---|
-| AI agent runtimes | MCP (`evidra-mcp`) | REST sidecar/API |
+| MCP-capable automation clients (including AI agents) | MCP (`evidra-mcp`) | REST sidecar/API |
 | CI/CD pipelines | CLI (`evidra prescribe/report`) | REST sidecar/API |
 | Scanner-only workflows | CLI (`evidra ingest-findings`) | REST `/v1/findings` |
 | Custom automation services | CLI wrapper or MCP client | REST sidecar/API + SDKs |
@@ -906,9 +906,10 @@ an execution proxy (Spacelift, Terraform Cloud), NOT a runtime
 scanner (Trivy, Falco), NOT a post-execution verifier (AWS Config).
 All of these exist. Competing with them is a losing strategy.
 
-Evidra is an **independent inspector** for AI agent infrastructure
-operations. The primary customer is **the team building the agent**
-— their problem is "How do I prove my agent behaves correctly?"
+Evidra is an **independent inspector** for infrastructure automation
+operations. AI agents are one use case; CI and scripted automation are
+equally in scope. The primary customer is **the platform team running
+automation** — their problem is "How do I prove this automation behaves correctly?"
 
 ### The Accountability Chain
 
@@ -959,7 +960,7 @@ Evidra has **zero infrastructure privileges**:
 | Customer | Value |
 |----------|-------|
 | Agent developers | Deviation rate as a quality metric. Bug discovery from prescription/report mismatches. |
-| Enterprise security | 90-day pilot protocol for AI agent approval. Signed evidence for security review. |
+| Enterprise security | 90-day pilot protocol for automation approval (including AI agents). Signed evidence for security review. |
 | Compliance auditors | Independently verifiable prescriptions. Hash-linked, tamper-evident evidence chain. |
 
 ---

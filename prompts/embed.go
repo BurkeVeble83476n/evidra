@@ -46,7 +46,7 @@ func ReadMCPInitializeInstructions() (instructions string, contractVersion strin
 
 	body := stripContractHeader(raw)
 	if body == "" {
-		body = "Evidra Benchmark — flight recorder for infrastructure automation."
+		body = "Evidra — reliability benchmark for infrastructure automation."
 	}
 	instructions = strings.TrimSpace(body) + "\n\nContract version: " + contractVersion + " (skill_version=" + skillVersion + ")"
 	return instructions, contractVersion, skillVersion, nil

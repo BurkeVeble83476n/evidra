@@ -4,15 +4,15 @@
 [![Release Pipeline](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Flight recorder and reliability benchmark for infrastructure automation.**
+**Evidra — reliability benchmark for infrastructure automation.**
 
-Evidra observes AI agents, CI pipelines, and IaC workflows — recording evidence, computing behavioral signals, and producing reliability scorecards. It never blocks operations.
+Evidra measures operational reliability across infrastructure automation — CI pipelines, IaC workflows, shell scripts, and AI agents. It records evidence, computes behavioral signals, and produces reliability scorecards. It never blocks operations.
 
 ---
 
 ## Why
 
-AI agents and automation pipelines make infrastructure changes at scale — but nobody measures whether they do it reliably. When an agent retries the same failed terraform apply five times, drifts from its own plan, or touches production without a prescription, there is no record and no signal.
+Infrastructure automation makes infrastructure changes at scale — but most teams still do not measure whether that automation behaves reliably. When automation retries the same failed terraform apply five times, drifts from its own plan, or touches production without a prescription, there is no record and no signal.
 
 Evidra fills this gap. It provides:
 
@@ -207,7 +207,7 @@ Run `evidra <command> --help` for command-specific flags.
 
 ---
 
-## MCP Server (for AI Agents)
+## MCP Server (Integration Point, Including AI Agents)
 
 ```bash
 # Run as MCP server on stdio
@@ -216,6 +216,8 @@ evidra-mcp --evidence-dir ~/.evidra/evidence
 # Or via Docker
 docker build -t evidra-mcp:dev -f Dockerfile .
 ```
+
+Evidra speaks MCP — any AI agent that supports MCP can report to Evidra out of the box (Claude Code, Cursor, custom agents).
 
 Tools exposed: `prescribe`, `report`, `get_event`. JSON schemas in `pkg/mcpserver/schemas/`.
 MCP prompt files are versioned via `# contract: ...` header and released with the binary;
@@ -261,7 +263,7 @@ Three binaries, one evidence chain:
 | Binary | Transport | Purpose |
 |--------|-----------|---------|
 | `evidra` | CLI | Human and CI pipeline interface |
-| `evidra-mcp` | stdio (MCP) | AI agent interface |
+| `evidra-mcp` | stdio (MCP) | MCP interface for automation clients (including AI agents) |
 | `evidra-exp` | CLI | Experiment runner (artifact + execution datasets) |
 
 ### Core Pipeline
@@ -305,7 +307,7 @@ exit code + prescription_id -> Report -> signal detectors -> Scorecard
 | [Session/Operation Event Model](docs/system-design/EVIDRA_SESSION_OPERATION_EVENT_MODEL.md) | Normative | Session/operation hierarchy, event taxonomy, OTel/CloudEvents/K8s mapping |
 | [Signal Spec](docs/system-design/EVIDRA_SIGNAL_SPEC.md) | Normative | Formal definitions of all five signals |
 | [Canonicalization Contract v1](docs/system-design/CANONICALIZATION_CONTRACT_V1.md) | Frozen | Adapter interface, digest model, compatibility rules |
-| [Agent Reliability Benchmark](docs/system-design/EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Normative | Scoring formula, Prometheus metrics |
+| [Infrastructure Automation Reliability Benchmark](docs/system-design/EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) | Normative | Scoring formula, Prometheus metrics |
 
 ### Non-Normative References
 

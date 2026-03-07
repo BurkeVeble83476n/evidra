@@ -451,9 +451,9 @@ This protocol ensures:
 
 - deterministic evidence
 - consistent scope classification
-- robust agent tracing
+- robust automation tracing
 - safe validator ingestion
-- scalable telemetry for AI automation
+- scalable telemetry for infrastructure automation (including AI)
 
 It establishes a stable foundation for:
 

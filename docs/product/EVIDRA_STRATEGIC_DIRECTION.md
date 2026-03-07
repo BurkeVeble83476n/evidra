@@ -8,7 +8,7 @@ Status: Strategic draft
 
 # 1. Vision
 
-Evidra aims to become the **standard signal and metrics layer for infrastructure automation and AI DevOps agents**.
+Evidra aims to become the **standard signal and metrics layer for infrastructure automation, including AI DevOps agents**.
 
 In the same way that **Prometheus became the standard metrics system for infrastructure**, Evidra can become the standard **automation behavior telemetry system**.
 
@@ -35,7 +35,7 @@ However there is **no standard way to measure automation reliability**.
 Organizations currently lack answers to questions like:
 
 - Which automation causes most infrastructure incidents?
-- Which AI agent behaves safely?
+- Which automation actor behaves safely (including AI agents)?
 - Which automation repeatedly retries failing operations?
 - Which automation performs risky operations with large blast radius?
 
@@ -126,7 +126,7 @@ Terraform
 Kubernetes controllers
 GitHub Actions
 GitOps platforms
-AI agent frameworks
+AI agent frameworks (as one integration class)
 
 These tools could expose **Evidra-compatible telemetry**.
 
@@ -228,4 +228,3 @@ Agent safety
 Infrastructure change risk
 
 using a common Evidra telemetry model.
-

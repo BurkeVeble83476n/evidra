@@ -109,7 +109,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/vitas/evidra-benchmark"
-    description: "Flight recorder and reliability benchmark for infrastructure automation."
+    description: "Evidra — reliability benchmark for infrastructure automation."
     license: "Apache-2.0"
     install: |
       bin.install "evidra-mcp"
@@ -125,7 +125,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/vitas/evidra-benchmark"
-    description: "CLI for Evidra reliability benchmark — scorecard, compare, prescribe, report."
+    description: "CLI for infrastructure automation reliability scoring and evidence workflows."
     license: "Apache-2.0"
     install: |
       bin.install "evidra"

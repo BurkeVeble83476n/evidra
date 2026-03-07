@@ -11,8 +11,8 @@
 
 The pivot from **OPA Enforcement** to the **Reliability Benchmark** model is not just a technical refactor; it is a category-defining shift. We are moving from being a "Judge" (blocking operations) to being a **"Flight Recorder"** (Behavioral Telemetry).
 
-**The Problem:** Enterprises are terrified of non-deterministic AI agents (Claude, Cursor, Devin) mutating production infrastructure. Current tools (Gatekeeper, Sentinel) are too rigid for agentic workflows.
-**The Solution:** Evidra provides the first **"Credit Score for Automation."** We enable teams to observe, measure, and compare agents before granting them production privileges.
+**The Problem:** Enterprises are dealing with non-deterministic infrastructure automation, including AI agents (Claude, Cursor, Devin), CI pipelines, and scripted deployers mutating production infrastructure. Current tools (Gatekeeper, Sentinel) are too rigid for these workflows.
+**The Solution:** Evidra provides the first **"Credit Score for Automation."** We enable teams to observe, measure, and compare automation actors before granting them production privileges.
 
 ---
 
@@ -29,9 +29,9 @@ By being an "Inspector" rather than an "Enforcer," we bypass the #1 barrier to D
 ## 3. Killer Features
 
 ### A. Integrity Check: Artifact Drift Detection
-AI agents often regenerate code between their "prescribe" (intent) and "report" (execution) phases. 
+Automation actors (especially AI agents) often regenerate or mutate artifacts between their "prescribe" (intent) and "report" (execution) phases.
 *   **Feature:** Flagging when the `artifact_digest` changes mid-lifecycle.
-*   **Value:** "You promised a label change, but you applied a Security Group update." This is the first integrity-check for AI hallucinations.
+*   **Value:** "You promised a label change, but you applied a Security Group update." This is the first integrity-check for automation intent drift (including AI hallucinations).
 
 ### B. Procurement Shield: Model-vs-Model Benchmarking
 *   **Feature:** Side-by-side reliability scorecards for different LLMs/Prompts using `actor_meta`.

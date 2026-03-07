@@ -9,9 +9,9 @@
 
 ## 1. The Strategic Bet: Telemetry over Enforcement
 
-As CTO, I am officially retiring the "Policy Engine" model. Competing with Open Policy Agent (OPA) or Kyverno is a commodity race. Our strategic bet is **Behavioral Telemetry for AI Agents.**
+As CTO, I am officially retiring the "Policy Engine" model. Competing with Open Policy Agent (OPA) or Kyverno is a commodity race. Our strategic bet is **Behavioral Telemetry for Infrastructure Automation (including AI Agents).**
 
-**The Core Thesis:** AI agents are non-deterministic. You cannot "rule-base" them into safety. You must "benchmark" them into trust. Evidra is the system that provides that benchmark.
+**The Core Thesis:** Infrastructure automation is high-impact and increasingly non-deterministic. You cannot "rule-base" every automation path into safety. You must "benchmark" automation behavior into trust. Evidra is the system that provides that benchmark.
 
 ---
 
@@ -27,10 +27,10 @@ Our **Canonicalization Contract** is our most defensible asset.
 ## 3. Killer Features (The "Why We Win")
 
 ### 3.1 Hallucination Detection (Artifact Drift)
-We are the only tool that records what an agent *intended* to do versus what it *actually* did. If an agent hallucinates a change between the "Prescribe" and "Report" phase, we flag it. This is the "Seatbelt" for AI DevOps.
+We are the only tool that records what an automation actor *intended* to do versus what it *actually* did. If an AI agent hallucinates a change between the "Prescribe" and "Report" phase, we flag it. This is the "Seatbelt" for infrastructure automation.
 
 ### 3.2 Infinite Loop Suppression (Retry Signal)
-AI agents often get stuck trying the same failing command. By correlating `intent_digest` + `resource_shape_hash` over time, Evidra can trigger a system-level kill signal to stop compute-waste and potential infra-instability.
+Automation actors (especially AI agents) often get stuck trying the same failing command. By correlating `intent_digest` + `resource_shape_hash` over time, Evidra can trigger a system-level kill signal to stop compute-waste and potential infra-instability.
 
 ### 3.3 Zero-Privilege Security Model
 Unlike Spacelift or Terraform Cloud, Evidra requires **zero infrastructure credentials.** It reads the artifact the agent provides. This makes us the easiest tool to "vendor-approve" in highly regulated enterprises (Banking, Healthcare).

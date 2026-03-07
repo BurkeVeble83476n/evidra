@@ -1,79 +1,36 @@
 # Evidra — Product Positioning
 
-**Reliability inspector for infrastructure automation and AI agents.**
+**Evidra — reliability benchmark for infrastructure automation.**
 
-Evidra observes infrastructure automation, records tamper‑evident evidence, and measures operational reliability.
-
-It does **not enforce policy** and does not block infrastructure actions.
-Instead, it produces **verifiable evidence and behavioral signals** that allow teams to understand how automation behaves.
-
----
-
-## The problem
-
-Infrastructure is increasingly operated by:
-
-- CI/CD pipelines
-- Infrastructure‑as‑Code
-- internal automation tools
-- AI DevOps agents
-
-But organizations cannot answer simple questions:
-
-- Which automation breaks infrastructure most often?
-- Which AI agent produces fewer operational anomalies?
-- What actually executed during an incident?
-
-Evidra introduces a **standard reliability benchmark for automation**.
+Evidra records infrastructure mutations, measures operational reliability, and produces scorecards.
+It works across CI/CD pipelines, shell scripts, IaC workflows, and AI agents.
+It is an inspector, not an enforcer: no blocking, only evidence and measurement.
 
 ---
 
-## What Evidra does
+## Pitch By Audience
 
-Evidra records automation activity and produces signals describing operational behavior.
+**Platform team (without AI):**
+"Evidra records every terraform apply / kubectl deploy in your CI, measures operational reliability, and shows a scorecard. You see retry storms, broken deployments, and config drift before they become incidents."
 
-Signals include:
+**Platform team (with AI agents):**
+"Your AI agents already run kubectl apply. Evidra measures how reliably they do it. Connect evidra-mcp and the agent reports what it planned and what happened. The score shows which agent is ready for production and which is only safe for staging."
 
-- Protocol violations
-- Artifact drift
-- Retry loops
-- Blast radius events
-- New scope operations
-
-Signals are aggregated into **automation reliability scorecards**.
+**CTO / CISO:**
+"Evidra is a flight recorder plus a reliability score for infrastructure automation. Like a black box for planes, but for your CI/CD and AI agents. Tamper-evident evidence chain, signed entries, compliance-ready audit trail."
 
 ---
 
-## Evidence first
+## Messaging Rule
 
-Every operation recorded by Evidra produces a cryptographically verifiable evidence record.
-
-Evidence records are:
-
-- append‑only
-- hash‑linked
-- optionally signed (Ed25519)
-- exportable and verifiable offline
-
-Evidence provides the factual basis for reliability signals and incident analysis.
+Use **including AI**, not **for AI**.
+Evidra is for all infrastructure automation, with AI agents as one high-value use case.
+This lowers adoption friction (no AI program required to start) and keeps strategic upside (when AI expands, Evidra already measures it).
 
 ---
 
-## Hosted and offline modes
+## MCP Positioning
 
-Evidra works in two modes:
+MCP is an integration point, not a product feature.
 
-Offline:
-- CLI / MCP server
-- local evidence chain
-
-Hosted:
-- multi‑tenant API
-- Postgres evidence storage
-- signed evidence records
-
-Both modes share the same **evidence contract**.
-
----
-
-Evidra is an **inspector** that measures automation behavior.
+"Evidra speaks MCP — any AI agent that supports MCP can report to Evidra out of the box. Claude Code, Cursor, custom agents: plug in and measure."

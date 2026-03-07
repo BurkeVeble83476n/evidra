@@ -55,10 +55,11 @@ Tool descriptions are read most often. They must be self-contained — an agent 
 ## 3. File: `prompts/mcpserver/initialize/instructions.txt`
 
 ```
-# contract: v1.0
+# contract: v1.0.1
 
-Evidra is a reliability recorder for infrastructure automation.
-It measures how safely your operations are executed — not to block, but to record.
+Evidra — reliability benchmark for infrastructure automation.
+It measures operational reliability across CI pipelines, scripts, and AI agents; it does not block operations.
+Evidra speaks MCP: any MCP-capable AI agent can report to Evidra out of the box.
 
 PROTOCOL — two calls per infrastructure operation:
 1. prescribe — call BEFORE any kubectl/terraform/helm command that modifies resources

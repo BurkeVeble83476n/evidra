@@ -1023,7 +1023,7 @@ func writeJSON(stdout, stderr io.Writer, context string, payload interface{}) in
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "evidra-benchmark — flight recorder for infrastructure automation")
+	fmt.Fprintln(w, "evidra-benchmark — reliability benchmark for infrastructure automation")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "COMMANDS:")
 	fmt.Fprintln(w, "  scorecard         Generate reliability scorecard for an actor")

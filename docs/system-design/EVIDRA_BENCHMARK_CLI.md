@@ -1186,4 +1186,4 @@ Case IDs MUST be stable, kebab-case, and unique across dataset:
 
 - [Benchmark Dataset Proposal](../plans/2026-03-05-benchmark-dataset-proposal.md) — dataset design, cases, recording pipeline
 - [Signal Spec](EVIDRA_SIGNAL_SPEC.md) — normative signal definitions
-- [Agent Reliability Benchmark](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) — scoring, comparison methodology
+- [Infrastructure Automation Reliability Benchmark](EVIDRA_AGENT_RELIABILITY_BENCHMARK.md) — scoring, comparison methodology

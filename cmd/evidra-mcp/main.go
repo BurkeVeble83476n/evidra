@@ -148,7 +148,7 @@ func resolveSigner(modeRaw string) (evidence.Signer, error) {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprintln(w, "evidra-mcp — benchmark flight recorder for AI agent infrastructure operations.")
+	fmt.Fprintln(w, "evidra-mcp — MCP integration point for infrastructure automation reliability (including AI agents).")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "USAGE:")
 	fmt.Fprintln(w, "  evidra-mcp [flags]")

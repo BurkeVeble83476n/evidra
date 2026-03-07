@@ -21,7 +21,7 @@ First public release of Evidra Benchmark.
 - Tool and scope filtering on scorecard/explain/compare
 
 ### MCP Server (`evidra-mcp`)
-- Stdio transport for AI agent integration
+- Stdio transport for MCP-based automation integration (including AI agents)
 - Tools: prescribe, report, get_event
 - Session/trace/span correlation fields for multi-step workflows
 - Optional retry loop tracking

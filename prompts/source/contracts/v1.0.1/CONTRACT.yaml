@@ -7,8 +7,9 @@ invariants:
 mcp:
   initialize:
     product_summary:
-      - "Evidra is a reliability recorder for infrastructure automation."
-      - "It measures safe execution behavior. It does not block operations."
+      - "Evidra — reliability benchmark for infrastructure automation."
+      - "It measures operational reliability across CI pipelines, scripts, and AI agents; it does not block operations."
+      - "Evidra speaks MCP: any MCP-capable AI agent can report to Evidra out of the box."
     protocol_intro: "Protocol for every infrastructure mutation:"
     critical_invariants:
       - "Do not execute mutate commands until prescribe returns ok=true with prescription_id."
