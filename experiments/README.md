@@ -5,10 +5,13 @@ This folder is for running and storing real-agent benchmark experiment outputs.
 ## What to use
 
 - Runner script: `scripts/run-agent-experiments.sh`
+- Execution runner script: `scripts/run-agent-execution-experiments.sh`
 - Bifrost OpenAI-compatible agent command wrapper: `scripts/agent-cmd-bifrost.sh`
 - Claude headless agent command wrapper: `scripts/agent-cmd-claude.sh`
+- MCP + kubectl execution wrapper: `scripts/agent-cmd-mcp-kubectl.sh`
 - Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
 - Result schema: `docs/experimental/RESULT_SCHEMA.json`
+- Execution result schema: `docs/experimental/EXECUTION_RESULT_SCHEMA.json`
 - Experiment prompt contract: `prompts/experiments/runtime/system_instructions.txt`
 - Prompt source contract: `prompts/source/contracts/v1.0.1/`
 - Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
@@ -82,6 +85,26 @@ Notes:
 - If `--prompt-version` is omitted, the runner uses prompt file `# contract: ...` header.
 - `EVIDRA_PROMPT_FILE`, `EVIDRA_PROMPT_VERSION`, and `EVIDRA_PROMPT_CONTRACT_VERSION`
   are exported to each agent run.
+- `EVIDRA_AGENT_RAW_STREAM` is exported per run and can be used to persist raw model/MCP output.
+
+## Execution-Mode Runs (MCP + Real kubectl)
+
+This mode is for real behavior validation (prescribe -> execute -> report), not artifact-only classification.
+
+```bash
+# prerequisites:
+# - kube context points to a test cluster
+# - npx + MCP inspector available
+# - evidra-mcp built (or buildable via go)
+
+bash scripts/run-agent-execution-experiments.sh \
+  --model-id execution/mcp-kubectl \
+  --provider local \
+  --mode local-mcp \
+  --repeats 1 \
+  --timeout-seconds 600 \
+  --agent-cmd 'bash scripts/agent-cmd-mcp-kubectl.sh'
+```
 
 ## Expected Agent Output JSON
 
@@ -100,6 +123,7 @@ Each run contains:
 - `agent_stdout.log`
 - `agent_stderr.log`
 - `agent_output.json`
+- `agent_raw_stream.jsonl`
 - `result.json`
 
 A run index is written to `summary.jsonl` in the timestamp folder.

@@ -1,0 +1,12 @@
+{
+  "scenario_id": "k8s-safe-nginx-apply",
+  "category": "kubernetes",
+  "difficulty": "low",
+  "tool": "kubectl",
+  "operation": "apply",
+  "artifact_path": "tests/inspector/fixtures/safe-nginx-deployment.yaml",
+  "execute_cmd": "kubectl apply -f \"$EVIDRA_EXEC_ARTIFACT\"",
+  "expected_exit_code": 0,
+  "expected_risk_level": "low",
+  "expected_risk_tags": []
+}

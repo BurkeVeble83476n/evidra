@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://samebits.com/evidra-benchmark/result-schema-v1.json",
-  "title": "Evidra Agent Experiment Result v1",
+  "$id": "https://samebits.com/evidra-benchmark/execution-result-schema-v1.json",
+  "title": "Evidra Execution Experiment Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,14 +12,15 @@
     "duration_seconds",
     "mode",
     "model",
-    "case",
+    "scenario",
     "execution",
     "artifacts",
+    "agent_result",
     "evaluation"
   ],
   "properties": {
     "schema_version": {
-      "const": "evidra.result.v1"
+      "const": "evidra.exec-result.v1"
     },
     "run_id": {
       "type": "string",
@@ -51,46 +52,45 @@
         "prompt_version": {"type": "string", "minLength": 1},
         "prompt_file": {"type": "string", "minLength": 1},
         "prompt_contract_version": {"type": "string", "minLength": 1},
-        "temperature": {"type": ["number", "null"]},
         "repeat_index": {"type": "integer", "minimum": 1}
       }
     },
-    "case": {
+    "scenario": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "id",
-        "category",
-        "difficulty",
-        "ground_truth_pattern",
-        "expected_risk_level",
-        "expected_risk_details",
+        "tool",
+        "operation",
         "artifact_path",
-        "expected_json_path"
+        "execute_cmd"
       ],
       "properties": {
         "id": {"type": "string", "minLength": 1},
-        "category": {"type": "string", "minLength": 1},
-        "difficulty": {"type": "string", "minLength": 1},
-        "ground_truth_pattern": {"type": "string"},
+        "category": {"type": "string"},
+        "difficulty": {"type": "string"},
+        "tool": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1},
+        "artifact_path": {"type": "string", "minLength": 1},
+        "execute_cmd": {"type": "string", "minLength": 1},
+        "expected_exit_code": {"type": ["integer", "null"]},
         "expected_risk_level": {"type": "string"},
-        "expected_risk_details": {
+        "expected_risk_tags": {
           "type": "array",
           "items": {"type": "string"}
         },
-        "artifact_path": {"type": "string", "minLength": 1},
-        "expected_json_path": {"type": "string", "minLength": 1}
+        "source_json_path": {"type": "string", "minLength": 1}
       }
     },
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["agent_cmd", "timeout_seconds", "status", "exit_code"],
+      "required": ["agent_cmd", "timeout_seconds", "status", "agent_exit_code"],
       "properties": {
         "agent_cmd": {"type": "string", "minLength": 1},
         "timeout_seconds": {"type": "integer", "minimum": 1},
         "status": {"type": "string", "enum": ["success", "failure", "timeout", "dry_run"]},
-        "exit_code": {"type": "integer"}
+        "agent_exit_code": {"type": "integer"}
       }
     },
     "artifacts": {
@@ -106,33 +106,48 @@
         "result_json": {"type": "string", "minLength": 1}
       }
     },
+    "agent_result": {
+      "type": "object"
+    },
     "evaluation": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "predicted_risk_level",
-        "predicted_risk_details",
+        "prescribe_ok",
+        "report_ok",
+        "protocol_ok",
+        "command_exit_code",
+        "exit_code_match",
+        "observed_risk_level",
+        "observed_risk_tags",
         "risk_level_match",
         "true_positive",
         "false_positive",
         "false_negative",
         "precision",
         "recall",
-        "f1"
+        "f1",
+        "pass"
       ],
       "properties": {
-        "predicted_risk_level": {"type": "string"},
-        "predicted_risk_details": {
+        "prescribe_ok": {"type": "boolean"},
+        "report_ok": {"type": "boolean"},
+        "protocol_ok": {"type": "boolean"},
+        "command_exit_code": {"type": ["integer", "null"]},
+        "exit_code_match": {"type": "boolean"},
+        "observed_risk_level": {"type": "string"},
+        "observed_risk_tags": {
           "type": "array",
           "items": {"type": "string"}
         },
-        "risk_level_match": {"type": "boolean"},
+        "risk_level_match": {"type": ["boolean", "null"]},
         "true_positive": {"type": "integer", "minimum": 0},
         "false_positive": {"type": "integer", "minimum": 0},
         "false_negative": {"type": "integer", "minimum": 0},
         "precision": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
         "recall": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-        "f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        "f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "pass": {"type": "boolean"}
       }
     }
   }

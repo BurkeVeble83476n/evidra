@@ -37,6 +37,7 @@ Environment variables exported to each agent command:
   EVIDRA_EXPECTED_JSON
   EVIDRA_ARTIFACT_PATH
   EVIDRA_AGENT_OUTPUT        (agent should write JSON here)
+  EVIDRA_AGENT_RAW_STREAM    (optional raw model stream output path)
   EVIDRA_PROMPT_FILE
   EVIDRA_PROMPT_VERSION
   EVIDRA_PROMPT_CONTRACT_VERSION
@@ -304,6 +305,7 @@ for expected in "${selected_expected[@]}"; do
     stdout_log="$run_dir/agent_stdout.log"
     stderr_log="$run_dir/agent_stderr.log"
     agent_output="$run_dir/agent_output.json"
+    agent_raw_stream="$run_dir/agent_raw_stream.jsonl"
     result_json="$run_dir/result.json"
 
     start_epoch="$(date +%s)"
@@ -317,6 +319,7 @@ for expected in "${selected_expected[@]}"; do
     export EVIDRA_EXPECTED_JSON="$expected"
     export EVIDRA_ARTIFACT_PATH="$artifact_path"
     export EVIDRA_AGENT_OUTPUT="$agent_output"
+    export EVIDRA_AGENT_RAW_STREAM="$agent_raw_stream"
     export EVIDRA_PROMPT_FILE="$PROMPT_FILE"
     export EVIDRA_PROMPT_VERSION="$PROMPT_VERSION"
     export EVIDRA_PROMPT_CONTRACT_VERSION="$PROMPT_CONTRACT_VERSION"
@@ -437,6 +440,7 @@ for expected in "${selected_expected[@]}"; do
       --arg stdout_log "$stdout_log" \
       --arg stderr_log "$stderr_log" \
       --arg agent_output "$agent_output" \
+      --arg agent_raw_stream "$agent_raw_stream" \
       --arg result_json "$result_json" \
       --argjson evaluation "$evaluation_json" \
       '{
@@ -476,6 +480,7 @@ for expected in "${selected_expected[@]}"; do
           stdout_log: $stdout_log,
           stderr_log: $stderr_log,
           agent_output: $agent_output,
+          agent_raw_stream: $agent_raw_stream,
           result_json: $result_json
         },
         evaluation: $evaluation

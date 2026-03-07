@@ -85,3 +85,15 @@ bash scripts/run-agent-experiments.sh \
   --timeout-seconds 300 \
   --agent-cmd 'bash scripts/agent-cmd-claude.sh'
 ```
+
+Execution-mode baseline (MCP + real kubectl):
+
+```bash
+bash scripts/run-agent-execution-experiments.sh \
+  --model-id execution/mcp-kubectl \
+  --provider local \
+  --mode local-mcp \
+  --repeats 1 \
+  --timeout-seconds 600 \
+  --agent-cmd 'bash scripts/agent-cmd-mcp-kubectl.sh'
+```

@@ -189,6 +189,19 @@ bash scripts/run-agent-experiments.sh \
 
 In this mode credentials can be handled by Bifrost configuration or by Bifrost-specific headers above.
 
+Execution-mode smoke (MCP + real kubectl against current kube context):
+
+```bash
+bash scripts/run-agent-execution-experiments.sh \
+  --model-id execution/mcp-kubectl \
+  --provider local \
+  --mode local-mcp \
+  --repeats 1 \
+  --max-scenarios 1 \
+  --timeout-seconds 600 \
+  --agent-cmd 'bash scripts/agent-cmd-mcp-kubectl.sh'
+```
+
 ---
 
 ## 4. Project Structure

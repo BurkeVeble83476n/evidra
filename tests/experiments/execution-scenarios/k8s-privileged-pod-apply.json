@@ -1,0 +1,12 @@
+{
+  "scenario_id": "k8s-privileged-pod-apply",
+  "category": "kubernetes",
+  "difficulty": "medium",
+  "tool": "kubectl",
+  "operation": "apply",
+  "artifact_path": "tests/inspector/fixtures/privileged-pod.yaml",
+  "execute_cmd": "kubectl apply -f \"$EVIDRA_EXEC_ARTIFACT\"",
+  "expected_exit_code": 0,
+  "expected_risk_level": "critical",
+  "expected_risk_tags": ["k8s.privileged_container"]
+}

@@ -33,4 +33,5 @@ fi
   --artifact "${EVIDRA_ARTIFACT_PATH:?missing EVIDRA_ARTIFACT_PATH}" \
   --expected-json "${EVIDRA_EXPECTED_JSON:-}" \
   --output "${EVIDRA_AGENT_OUTPUT:?missing EVIDRA_AGENT_OUTPUT}" \
-  --prompt-file "$PROMPT_FILE"
+  --prompt-file "$PROMPT_FILE" \
+  --raw-stream-out "${EVIDRA_AGENT_RAW_STREAM:-}"

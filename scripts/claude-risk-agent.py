@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("CLAUDE_HEADLESS_MODEL", ""),
         help="Claude CLI model alias override (e.g. sonnet, haiku, opus)",
     )
+    parser.add_argument(
+        "--raw-stream-out",
+        default=os.getenv("EVIDRA_AGENT_RAW_STREAM", ""),
+        help="Optional path to store raw Claude stream-json output",
+    )
     return parser.parse_args()
 
 
@@ -46,6 +51,14 @@ def read_text(path: str, what: str) -> str:
     if not p.is_file():
         fail(f"{what} not found: {path}")
     return p.read_text(encoding="utf-8")
+
+
+def write_text(path: str, content: str) -> None:
+    if not path:
+        return
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(content, encoding="utf-8")
 
 
 def parse_contract_version(text: str) -> str:
@@ -247,7 +260,16 @@ def main() -> None:
     cli_model = resolve_claude_model(args.model_id, args.cli_model)
 
     stream = run_claude(system_prompt=system_prompt, user_prompt=user_prompt, cli_model=cli_model)
-    parsed = extract_json(extract_text_from_stream(stream))
+    write_text(args.raw_stream_out, stream)
+
+    extracted = extract_text_from_stream(stream)
+    if not extracted:
+        fail("no parseable text events found in Claude stream output")
+
+    parsed = extract_json(extracted)
+    if not parsed:
+        fail("could not parse JSON object from Claude stream output")
+
     out = normalize_output(parsed)
     out["prompt_contract_version"] = contract_version
     out["model_id"] = args.model_id
