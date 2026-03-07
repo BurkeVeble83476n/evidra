@@ -19,7 +19,7 @@ Actors:
   - Append-only evidence chain (JSONL, hash-linked)
 
 Goal:
-- Record actions, compute the five signals, produce a comparable scorecard.
+- Record actions, compute the seven signals, produce a comparable scorecard.
 
 ---
 
@@ -265,7 +265,7 @@ Report entry:
 
 Signals are computed **batch** at `evidra scorecard` time, not at
 report() time. The scorecard reads the full evidence chain and
-evaluates all five signal detectors across all entries:
+evaluates all seven signal detectors across all entries:
 
 - **Protocol Violation**: prescriptions without reports (TTL-based),
   reports without prescriptions, duplicate reports, cross-actor reports
@@ -274,6 +274,8 @@ evaluates all five signal detectors across all entries:
   times after failure within 30-minute window
 - **Blast Radius**: destroy operations with resource_count > 5
 - **New Scope**: first time an actor operates in a given tool+scope combination
+- **Repair Loop**: repeated fix attempts after failures on the same resource
+- **Thrashing**: rapid create/delete cycles on the same resource
 
 In this example, all signals are zero:
 
@@ -283,6 +285,8 @@ Artifact Drift: 0
 Retry Loop: 0
 Blast Radius: 0
 New Scope: 0
+Repair Loop: 0
+Thrashing: 0
 ```
 
 ---
@@ -460,8 +464,7 @@ on different tools and scopes. Filter by shared dimensions for fair
 comparison using `--tool` and `--scope` flags.
 
 Version comparison (same agent, different versions) uses
-`actor.version` (protocol v1.0) or `actor_meta.agent_version`
-for finer-grained variant tracking.
+`actor.version` (protocol v1.0) for variant tracking.
 
 ---
 
