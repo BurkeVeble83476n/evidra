@@ -73,7 +73,9 @@ func (a *bifrostAgent) RunArtifact(ctx context.Context, req ArtifactAgentRequest
 		}
 		return ArtifactAgentResult{}, fmt.Errorf("bifrost request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

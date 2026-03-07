@@ -143,9 +143,6 @@ func runExecutionScenario(
 ) (status string, evalPass bool, err error) {
 	runDir, stdoutPath, stderrPath, outputPath, rawPath, resultPath := runPaths(opts.OutDir, runID)
 	start := time.Now().UTC()
-	status = "success"
-	agentExitCode := 0
-
 	result, status, agentExitCode := executeExecutionAgent(parent, opts, prompt, agent, scenario, repeat, runID, rawPath, outputPath, forceDry)
 	output := ensureObjectOutput(result.Output, map[string]any{
 		"prescribe_ok": false,

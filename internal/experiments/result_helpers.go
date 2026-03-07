@@ -16,7 +16,9 @@ func writeJSONL(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	if _, err := f.Write(b); err != nil {
 		return err
 	}

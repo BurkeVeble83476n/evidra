@@ -36,10 +36,6 @@ type PromptInfo struct {
 	SystemPrompt    string
 }
 
-func utcNowRFC3339() string {
-	return time.Now().UTC().Format(time.RFC3339)
-}
-
 func runStampNow() string {
 	return time.Now().UTC().Format("20060102T150405Z")
 }

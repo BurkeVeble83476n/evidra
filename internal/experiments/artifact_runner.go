@@ -139,9 +139,6 @@ func runArtifactCase(
 ) (string, error) {
 	runDir, stdoutPath, stderrPath, outputPath, rawPath, resultPath := runPaths(opts.OutDir, runID)
 	start := time.Now().UTC()
-	status := "success"
-	agentExitCode := 0
-
 	result, status, agentExitCode := executeArtifactAgent(parent, opts, prompt, agent, c, repeat, runID, rawPath, outputPath, forceDry)
 	output := ensureObjectOutput(result.Output, map[string]any{
 		"predicted_risk_level":   "",
