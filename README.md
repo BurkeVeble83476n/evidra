@@ -4,7 +4,7 @@
 [![Release Pipeline](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra — reliability benchmark for infrastructure automation.**
+**Evidra — Observability for Automation Behavior. With Evidence (Optional)**
 
 Evidra measures operational reliability across infrastructure automation — CI pipelines, IaC workflows, shell scripts, and AI agents. It records evidence, computes behavioral signals, and produces reliability scorecards. It never blocks operations.
 

@@ -57,6 +57,10 @@ This keeps current product momentum while preserving a clean path to a broader A
 
 ### 4.1 Ingestion Interfaces
 
+Normative boundary:
+- `run` = Evidra executes and observes the command live.
+- `record` = Evidra ingests a completed automation execution from structured input.
+
 1. `run` interface
 - Wraps a real command.
 - Auto-captures intent/execution/result.
@@ -89,6 +93,21 @@ Canonical event model used by both interfaces:
 - `SignalsSnapshot`
 
 This contract is the bridge to future v1.x spec/SDK without requiring current architectural rewrite.
+
+Minimum required fields in v1 (mandatory contract surface):
+
+- `contract_version`
+- `session_id`
+- `operation_id`
+- `tool`
+- `operation`
+- `actor`
+- `environment`
+- `exit_code`
+- `duration_ms`
+- `risk_level`
+- `risk_classification`
+- `signal_summary`
 
 ---
 
@@ -149,11 +168,27 @@ Default profile for V1:
 2. `hardened`: optional persistent keys and stronger evidence guarantees.
 3. `strict-ci`: policy-gated CI profile with strict signing/completeness.
 
+### 7.3 Scoring sufficiency policy (v1)
+
+- Canonical reliability sufficiency threshold remains `MinOperations=100`.
+- V1 first-use UX must not block on 100 operations. Early output is allowed as preview with explicit basis labeling.
+- `run` output should distinguish:
+  - preview assessment (below sufficiency threshold)
+  - sufficient assessment (at or above threshold)
+- CLI already supports configurable threshold via `--min-operations`; v1 quickstart should use this deliberately for demos/small teams, while keeping default governance semantics intact.
+
 ---
 
 ## 8. Observability Fit (V1 requirement)
 
 V1 uses **metrics-first** integration.
+
+Why metrics-first (not traces-first) in v1:
+
+- Fits existing Grafana/Prometheus stacks with the lowest operational friction.
+- Faster implementation path for <=10 minute time-to-first-value.
+- Lower runtime and ownership complexity for platform teams.
+- Traces/logs can be added later on top of the same event contract without redesigning ingestion.
 
 ### 8.1 Metric groups
 
@@ -181,14 +216,33 @@ Every metric/event path should expose correlation IDs where appropriate:
 
 This enables drill-down in existing observability systems without mandatory custom UI.
 
+Cardinality discipline (mandatory):
+
+- Correlation IDs are not high-cardinality metric labels by default.
+- Default metric labels must stay bounded (tool, environment, result class, signal name, band).
+- Correlation IDs are exposed via controlled drill-down pathways (event payloads, evidence records, optional debug endpoints/exemplars), not broad timeseries dimensions.
+
+### 8.3 Fleet view before centralized API
+
+- Until centralized API rollout, fleet-level visibility is provided via aggregated metrics in existing observability stacks.
+- Local JSONL evidence remains the durable local record; fleet dashboards/alerts come from metrics pipelines (Prometheus scrape/remote_write and standard Grafana views).
+- v1 does not require a centralized evidence database for initial multi-cluster value, but it keeps compatibility with a future API-backed aggregation layer.
+
 ---
 
 ## 9. Acceptance Criteria
 
-1. First useful output (signals + score context) can be obtained within 10 minutes from install.
-2. Metrics appear in existing observability stack with no bespoke UI dependency.
-3. `run` and `record` parity holds for equivalent inputs.
-4. Default -> strict profile migration is incremental, not architectural.
+1. First useful output can be obtained within 10 minutes from install.
+2. For v1, `run` first useful output MUST include at minimum:
+- `risk_classification`
+- `risk_level`
+- `score` or `score_band`
+- evaluated `signal_summary`
+- confidence or basis indicator (for example: operation count sufficiency / evidence basis)
+3. If operation count is below sufficiency threshold, output MUST be clearly labeled as preview (not final reliability grade).
+4. Metrics appear in existing observability stack with no bespoke UI dependency.
+5. `run` and `record` parity holds for equivalent inputs.
+6. Default -> strict profile migration is incremental, not architectural.
 
 ---
 
@@ -209,6 +263,8 @@ This enables drill-down in existing observability systems without mandatory cust
 3. 10-minute quickstart documentation.
 4. CI integration guide for `record`.
 5. OTel metrics reference and starter alerts.
+6. CLI command layering and help-text updates reflecting primary/integration/advanced protocol modes.
+7. Publish standalone `setup-evidra` GitHub Action (Marketplace-ready) so CI onboarding is one-line and does not depend on local path usage.
 
 ---
 
@@ -221,3 +277,64 @@ Why:
 - hits primary KPI fastest
 - satisfies observability requirement in current customer stacks
 - preserves clear evolution path to broader event standard later
+
+---
+
+## 13. CLI UX Model (Integrated from CLI Redesign Review)
+
+This section incorporates user-authored CLI redesign feedback and aligns it to approved V1 goals.
+
+### 13.1 Three command layers
+
+1. Primary runtime capture (first-use path)
+- `evidra run -- <command>`
+- `evidra scorecard`
+- `evidra explain`
+
+2. Integration mode (CI/platform ingestion)
+- `evidra record`
+- `evidra ingest-findings`
+
+3. Advanced evidence/protocol mode (power users, regulated environments)
+- `evidra prescribe`
+- `evidra report`
+- `evidra validate`
+- `evidra keygen`
+
+Design intent:
+- Keep cognitive load low for first-use users.
+- Preserve protocol depth for audit/compliance workflows.
+- Avoid splitting the underlying engine or semantic model.
+
+### 13.2 Command hierarchy target
+
+```text
+evidra
+  run
+  scorecard
+  explain
+  record
+  ingest-findings
+  prescribe
+  report
+  validate
+  keygen
+  detectors
+  prompts
+  benchmark
+  version
+```
+
+This is a UX hierarchy, not a new architecture. Existing command behavior remains backward-compatible unless explicitly deprecated.
+
+For v1 prioritization:
+- primary story: `run` / `record` / `scorecard` / `explain`
+- secondary story: `benchmark` (experimental/aggregation-oriented, not first-use north star)
+
+### 13.3 Backward compatibility contract
+
+1. `run` is orchestration, not a second engine.
+2. Existing `prescribe -> report` workflows remain supported unchanged.
+3. `run` is a convenience orchestration path over existing lifecycle primitives.
+4. CI teams may choose `record` or existing explicit protocol flows.
+5. Migration is additive, not breaking.
