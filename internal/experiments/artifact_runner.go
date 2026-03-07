@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 func RunArtifact(ctx context.Context, opts ArtifactRunOptions, stdout, stderr io.Writer) error {
+	userProvidedOutDir := strings.TrimSpace(opts.OutDir) != ""
 	opts = withArtifactDefaults(opts)
 	if err := validateArtifactOptions(opts); err != nil {
 		return err
@@ -23,7 +25,11 @@ func RunArtifact(ctx context.Context, opts ArtifactRunOptions, stdout, stderr io
 	}
 
 	if opts.CleanOutDir {
-		if err := ensureDirClean(opts.OutDir); err != nil {
+		cleanTarget := opts.OutDir
+		if !userProvidedOutDir {
+			cleanTarget = DefaultArtifactOutRoot
+		}
+		if err := ensureDirClean(cleanTarget); err != nil {
 			return err
 		}
 	}
