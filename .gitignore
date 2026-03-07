@@ -9,6 +9,7 @@
 /evidra
 
 docs/research/
+docs/experimental/
 
 # Test binary, coverage
 *.test

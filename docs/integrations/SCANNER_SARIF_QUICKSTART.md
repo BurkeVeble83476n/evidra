@@ -162,7 +162,7 @@ deploy:
 ## Signing
 
 - Default (`strict`): configure `EVIDRA_SIGNING_KEY` or `EVIDRA_SIGNING_KEY_PATH`
-- Local testing: `export EVIDRA_SIGNING_MODE=optional`
+- Local testing: `export EVIDRA_SIGNING_MODE=optional` or pass `--signing-mode optional` per command
 
 ## What Evidra records from SARIF
 

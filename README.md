@@ -163,9 +163,8 @@ Architecture and contracts:
 - [Signal Spec](docs/system-design/EVIDRA_SIGNAL_SPEC.md)
 
 Operational guides:
+- [Observability Quickstart](docs/guides/observability-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md)
-- [Artifact Runner Guide](docs/experimental/ARTIFACT_RUNNER_GUIDE.md)
-- [Signal Validation Guide](docs/experimental/SIGNAL_VALIDATION_GUIDE.md)
 
 Product and roadmap:
 - [Product Positioning](docs/product/EVIDRA_PRODUCT_POSITIONING.md)
