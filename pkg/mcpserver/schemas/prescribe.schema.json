@@ -36,10 +36,6 @@
         "skill_version": { "type": "string", "description": "Prompt/skill contract version used by the actor (for behavior slicing)" }
       }
     },
-    "actor_meta": {
-      "type": "object",
-      "description": "Optional comparison dimensions (agent_version, model_id, prompt_id)"
-    },
     "session_id": {
       "type": "string",
       "description": "Run/session boundary identifier. If omitted, Evidra generates one per operation."
