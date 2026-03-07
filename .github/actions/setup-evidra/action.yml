@@ -1,0 +1,90 @@
+name: 'Setup Evidra'
+description: 'Install evidra CLI without running benchmark/score steps'
+
+inputs:
+  evidra-version:
+    description: 'Version tag to install (for example v0.5.0 or latest)'
+    required: false
+    default: 'latest'
+  install-dir:
+    description: 'Directory where evidra binary will be installed'
+    required: false
+    default: '${{ runner.temp }}/evidra-bin'
+  add-to-path:
+    description: 'When true, prepend install-dir to PATH'
+    required: false
+    default: 'true'
+
+outputs:
+  evidra-path:
+    description: 'Absolute path to evidra binary'
+    value: ${{ steps.install.outputs.evidra-path }}
+  evidra-version:
+    description: 'Resolved version that was installed'
+    value: ${{ steps.install.outputs.evidra-version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install evidra
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        REPO="samebits/evidra-benchmark"
+        VERSION="${{ inputs.evidra-version }}"
+        INSTALL_DIR="${{ inputs.install-dir }}"
+
+        if [[ "$VERSION" == "latest" ]]; then
+          VERSION="$({
+            curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+              | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+              | head -n1
+          } || true)"
+        fi
+        if [[ -z "$VERSION" ]]; then
+          echo "failed to resolve latest release tag" >&2
+          exit 1
+        fi
+
+        case "$(uname -s | tr '[:upper:]' '[:lower:]')" in
+          linux) OS="linux" ;;
+          darwin) OS="darwin" ;;
+          *)
+            echo "unsupported OS: $(uname -s)" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$(uname -m)" in
+          x86_64|amd64) ARCH="amd64" ;;
+          arm64|aarch64) ARCH="arm64" ;;
+          *)
+            echo "unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+        esac
+
+        ARCHIVE="evidra_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+        URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
+
+        mkdir -p "$INSTALL_DIR"
+        TMP_ARCHIVE="$RUNNER_TEMP/evidra-${VERSION}-${OS}-${ARCH}.tar.gz"
+        curl -fsSL "$URL" -o "$TMP_ARCHIVE"
+        tar -xzf "$TMP_ARCHIVE" -C "$INSTALL_DIR"
+
+        if [[ ! -x "$INSTALL_DIR/evidra" ]]; then
+          chmod +x "$INSTALL_DIR/evidra" || true
+        fi
+        if [[ ! -x "$INSTALL_DIR/evidra" ]]; then
+          echo "evidra binary not found in downloaded archive" >&2
+          exit 1
+        fi
+
+        if [[ "${{ inputs.add-to-path }}" == "true" ]]; then
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+        fi
+
+        echo "evidra-path=$INSTALL_DIR/evidra" >> "$GITHUB_OUTPUT"
+        echo "evidra-version=$VERSION" >> "$GITHUB_OUTPUT"

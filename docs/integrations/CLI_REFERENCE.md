@@ -19,6 +19,8 @@ For architecture and protocol semantics, see:
 | `scorecard` | Generate reliability scorecard for an actor/session/window |
 | `explain` | Show signal-level explanation for scorecard |
 | `compare` | Compare actors and workload overlap |
+| `run` | Execute wrapped command and record lifecycle outcome |
+| `record` | Ingest completed operation from structured JSON input |
 | `prescribe` | Record pre-execution intent/risk |
 | `report` | Record post-execution outcome |
 | `validate` | Validate evidence chain/signatures |
@@ -94,6 +96,40 @@ For architecture and protocol semantics, see:
 | `--external-refs` | External references JSON array |
 | `--session-id` | Session boundary ID |
 | `--operation-id` | Operation identifier |
+| `--signing-key` | Base64 Ed25519 private key |
+| `--signing-key-path` | PEM Ed25519 private key path |
+| `--signing-mode` | `strict` (default) or `optional` |
+
+### `evidra run` Flags
+
+`run` requires `--` before the wrapped command:
+
+```bash
+evidra run --tool kubectl --artifact deploy.yaml -- -- sh -c "kubectl apply -f deploy.yaml"
+```
+
+| Flag | Description |
+|---|---|
+| `--artifact` | Artifact file path (YAML/JSON) |
+| `--tool` | Tool name |
+| `--operation` | Operation name (`apply` default) |
+| `--environment` | Environment label |
+| `--evidence-dir` | Evidence directory override |
+| `--actor` | Actor ID |
+| `--canonical-action` | Pre-canonicalized JSON action |
+| `--session-id` | Session boundary ID (generated if omitted) |
+| `--operation-id` | Operation identifier |
+| `--attempt` | Retry attempt counter |
+| `--signing-key` | Base64 Ed25519 private key |
+| `--signing-key-path` | PEM Ed25519 private key path |
+| `--signing-mode` | `strict` (default) or `optional` |
+
+### `evidra record` Flags
+
+| Flag | Description |
+|---|---|
+| `--input` | Path to record JSON file (`-` for stdin) |
+| `--evidence-dir` | Evidence directory override |
 | `--signing-key` | Base64 Ed25519 private key |
 | `--signing-key-path` | PEM Ed25519 private key path |
 | `--signing-mode` | `strict` (default) or `optional` |

@@ -194,6 +194,8 @@ Full flags reference for all binaries:
 | Command | Purpose |
 |---------|---------|
 | `keygen` | Generate Ed25519 signing keypair |
+| `run` | Execute a command live and record prescribe/report evidence |
+| `record` | Ingest a completed automation execution from structured input |
 | `prescribe` | Record intent before execution |
 | `report` | Record outcome after execution |
 | `scorecard` | Generate reliability scorecard |
@@ -243,7 +245,26 @@ CI/release run `make prompts-verify` to enforce no drift.
 
 ---
 
-## GitHub Action
+## GitHub Actions
+
+### Setup Only (recommended for CI adoption)
+
+Use standalone setup action to install `evidra`, then run explicit `run`/`record`/`scorecard` steps:
+
+```yaml
+- name: Setup Evidra
+  id: setup-evidra
+  uses: samebits/evidra-benchmark/.github/actions/setup-evidra@main
+  with:
+    evidra-version: latest
+
+- name: Evidra version
+  run: "${{ steps.setup-evidra.outputs.evidra-path }} version"
+```
+
+Guide: [Setup Evidra Action](docs/guides/setup-evidra-action.md)
+
+### Benchmark Composite Action (legacy convenience)
 
 ```yaml
 - name: Run Evidra Benchmark
@@ -253,7 +274,7 @@ CI/release run `make prompts-verify` to enforce no drift.
     session-id: ${{ github.run_id }}
     sarif-path: trivy-results.sarif
     public-key: signing.pub.pem
-    fail-on-risk: fair    # fail if band is fair or worse
+    fail-on-risk: fair
 ```
 
 ---
