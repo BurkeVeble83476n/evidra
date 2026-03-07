@@ -63,12 +63,3 @@ func isCompletePublicAccessBlock(after map[string]interface{}) bool {
 	}
 	return true
 }
-
-func hasAction(actions []string, want string) bool {
-	for _, a := range actions {
-		if a == want {
-			return true
-		}
-	}
-	return false
-}

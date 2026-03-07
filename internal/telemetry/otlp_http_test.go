@@ -22,7 +22,9 @@ func TestOTLPExporterFlushesAtEnd(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&requests, 1)
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Fatalf("decode payload: %v", err)
 		}

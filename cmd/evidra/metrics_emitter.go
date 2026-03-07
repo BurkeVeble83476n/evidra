@@ -17,7 +17,9 @@ func emitOperationMetrics(ctx context.Context, payload runMetricsPayload) error 
 	if err != nil {
 		return err
 	}
-	defer transport.Close()
+	defer func() {
+		_ = transport.Close()
+	}()
 
 	resultClass := "failure"
 	if payload.ExitCode == 0 {

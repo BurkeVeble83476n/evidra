@@ -90,7 +90,9 @@ func (t *otlpHTTPTransport) Flush(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("send metrics payload: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 300 {
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
