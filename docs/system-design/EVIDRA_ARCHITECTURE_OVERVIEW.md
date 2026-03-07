@@ -881,6 +881,7 @@ Any tool that modifies infrastructure can integrate:
 | kubectl / K8s | Built-in adapter (raw YAML) | Yes |
 | Terraform | Built-in adapter (plan JSON) | Yes |
 | Helm | Via K8s adapter (template output) | Yes |
+| Docker / nerdctl (containerd) | Built-in adapter (command string parsing) | Yes |
 | Pulumi | Pre-canonicalized prescribe | Ready (no adapter needed) |
 | Ansible | Pre-canonicalized prescribe | Ready |
 | CloudFormation | Pre-canonicalized prescribe | Ready |

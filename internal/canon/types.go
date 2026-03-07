@@ -99,11 +99,13 @@ type Adapter interface {
 	Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error)
 }
 
-// DefaultAdapters returns the built-in adapter chain (k8s, terraform, generic fallback).
+// DefaultAdapters returns the built-in adapter chain in selection order:
+// k8s → terraform → docker → generic fallback.
 func DefaultAdapters() []Adapter {
 	return []Adapter{
 		&K8sAdapter{},
 		&TerraformAdapter{},
+		&DockerAdapter{},
 		&GenericAdapter{},
 	}
 }

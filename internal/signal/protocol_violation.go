@@ -79,6 +79,18 @@ func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration) []SignalE
 			})
 		}
 
+		// Missing artifact digest — prescription had a digest but report omits it.
+		// Artifact drift detection is disabled for this report pair.
+		if rx.ArtifactDigest != "" && e.ArtifactDigest == "" {
+			events = append(events, SignalEvent{
+				Signal:    "protocol_violation",
+				SubSignal: "report_without_digest",
+				Timestamp: e.Timestamp,
+				EntryRef:  e.EventID,
+				Details:   fmt.Sprintf("report %s omits artifact_digest; drift detection unavailable for prescription %s", e.EventID, e.PrescriptionID),
+			})
+		}
+
 		reportedIDs[e.PrescriptionID] = true
 		firstReport[e.PrescriptionID] = e
 	}

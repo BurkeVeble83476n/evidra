@@ -10,7 +10,10 @@ Required inputs:
 Optional inputs:
 - actor (type, id, origin; should match prescribe actor)
 - actor.version, actor.skill_version
-- artifact_digest (actual applied artifact digest)
+- artifact_digest — SHA-256 of the artifact actually applied (format: "sha256:<hex>").
+  Strongly recommended whenever the prescription had a raw_artifact.
+  Omitting this disables artifact drift detection and fires a protocol_violation/report_without_digest signal.
+  Compute with: sha256sum <file> or echo -n "<content>" | sha256sum
 - session_id, operation_id, span_id, parent_span_id
 
 

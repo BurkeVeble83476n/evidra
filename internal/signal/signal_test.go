@@ -419,6 +419,119 @@ func TestAllSignals_ReturnsAllFive(t *testing.T) {
 	}
 }
 
+func TestDetectProtocolViolationEvents_ReportWithoutDigest(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ArtifactDigest: "sha256:abc123"},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ArtifactDigest: ""},
+	}
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
+	assertSubSignal(t, events, "report_without_digest")
+}
+
+func TestDetectProtocolViolationEvents_ReportWithDigest_NoViolation(t *testing.T) {
+	t.Parallel()
+
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ArtifactDigest: "sha256:abc123"},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ArtifactDigest: "sha256:abc123"},
+	}
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
+	for _, e := range events {
+		if e.SubSignal == "report_without_digest" {
+			t.Errorf("report_without_digest fired unexpectedly when digest is present")
+		}
+	}
+}
+
+func TestDetectProtocolViolationEvents_PrescriptionWithoutDigest_NoViolation(t *testing.T) {
+	t.Parallel()
+
+	// If the prescription itself had no digest, omitting it in report is not a violation.
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ArtifactDigest: ""},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ArtifactDigest: ""},
+	}
+	events := DetectProtocolViolationEvents(entries, DefaultTTL)
+	for _, e := range events {
+		if e.SubSignal == "report_without_digest" {
+			t.Errorf("report_without_digest fired unexpectedly when prescription had no digest")
+		}
+	}
+}
+
+func TestDetectVariantRetryLoops_DifferentIntentSameScope(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	fail := intPtr(1)
+	entries := []Entry{
+		// P1 fails — establishes the failure baseline.
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: fail, Timestamp: now.Add(30 * time.Second)},
+		// P2–P5: same scope but different artifacts (agent is mutating between retries).
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "bbb", ShapeHash: "222", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "ccc", ShapeHash: "333", Timestamp: now.Add(2 * time.Minute)},
+		{EventID: "P4", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "ddd", ShapeHash: "444", Timestamp: now.Add(3 * time.Minute)},
+		{EventID: "P5", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "eee", ShapeHash: "555", Timestamp: now.Add(4 * time.Minute)},
+	}
+	// Exact detector should NOT fire (all different intent/shape).
+	exact := DetectRetryLoopsWithConfig(entries, DefaultRetryThreshold, DefaultRetryWindow)
+	if exact.Count != 0 {
+		t.Errorf("exact count = %d, want 0 (different intent digests)", exact.Count)
+	}
+	// Variant detector SHOULD fire (5 ops in same scope after failure).
+	variant := DetectVariantRetryLoopsWithConfig(entries, DefaultVariantRetryThreshold, DefaultRetryWindow)
+	if variant.Count != 5 {
+		t.Errorf("variant count = %d, want 5", variant.Count)
+	}
+	// DetectRetryLoops (merged) should also fire.
+	merged := DetectRetryLoops(entries)
+	if merged.Count != 5 {
+		t.Errorf("merged count = %d, want 5", merged.Count)
+	}
+}
+
+func TestDetectVariantRetryLoops_BelowThreshold(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	fail := intPtr(1)
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: fail, Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "bbb", ShapeHash: "222", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "ccc", ShapeHash: "333", Timestamp: now.Add(2 * time.Minute)},
+	}
+	// Only 3 entries in chain, threshold is 5 — should not fire.
+	result := DetectVariantRetryLoopsWithConfig(entries, DefaultVariantRetryThreshold, DefaultRetryWindow)
+	if result.Count != 0 {
+		t.Errorf("variant count = %d, want 0 (below threshold %d)", result.Count, DefaultVariantRetryThreshold)
+	}
+}
+
+func TestDetectRetryLoops_NoDuplicateCountWhenBothDetectorsMatch(t *testing.T) {
+	t.Parallel()
+
+	// 5 identical retries: exact fires (threshold 3), variant also fires (threshold 5).
+	// Merged result should deduplicate — count stays at 5, not 10.
+	now := time.Now()
+	fail := intPtr(1)
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: fail, Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now.Add(2 * time.Minute)},
+		{EventID: "P4", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now.Add(3 * time.Minute)},
+		{EventID: "P5", IsPrescription: true, ActorID: "alice", Tool: "nerdctl", OperationClass: "mutate", ScopeClass: "development", IntentDigest: "aaa", ShapeHash: "111", Timestamp: now.Add(4 * time.Minute)},
+	}
+	result := DetectRetryLoops(entries)
+	if result.Count != 5 {
+		t.Errorf("merged count = %d, want 5 (no double-counting)", result.Count)
+	}
+}
+
 func assertSubSignal(t *testing.T, events []SignalEvent, want string) {
 	t.Helper()
 	for _, e := range events {

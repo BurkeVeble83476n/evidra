@@ -300,6 +300,11 @@ For each report in the scoring window:
 | cross_actor_report | report actor != prescription actor | Wrong agent reported |
 | stalled_operation | unreported + no further agent activity | Agent is hung |
 | crash_before_report | unreported + agent sent new prescribe | Agent crashed and restarted |
+| report_without_digest | prescription had artifact_digest, report omits it | Drift detection disabled for this pair |
+
+`report_without_digest` does not block the report from being recorded. It signals that
+artifact drift detection is unavailable for this prescribe/report pair. An agent that
+consistently omits artifact_digest at report time has a protocol compliance gap.
 
 Sub-signals are informational breakdowns. All count as
 protocol_violation in the score.
@@ -423,15 +428,26 @@ For each new prescription:
 ```
 
 **Parameters:**
+
+Exact detector:
 - retry_window: default 30 minutes
 - retry_threshold: default 3 (third identical attempt fires)
 
+Variant detector (runs alongside exact, results merged and deduplicated):
+- retry_window: default 30 minutes (same window)
+- variant_retry_threshold: default 5 — higher threshold to tolerate legitimate
+  investigative troubleshooting where the operator genuinely changes the artifact
+- Groups by (actor, tool, operation_class, scope_class) — ignores artifact content
+- Detects agents stuck in an operational area without making real progress, even
+  when each attempt looks syntactically different
+
 **Key distinction:**
 - Same intent_digest + same shape_hash → retry (agent sending
-  identical content after failure)
-- Same intent_digest + different shape_hash → NOT retry (agent
-  modified the artifact between attempts — this is fixing, not
-  retrying)
+  identical content after failure) — detected at threshold 3
+- Same intent_digest + different shape_hash → NOT retry by the exact
+  detector (agent modified the artifact — this is fixing, not retrying)
+- Same (actor, tool, operation_class, scope_class) regardless of digest
+  → variant retry — detected at threshold 5 (see below)
 
 **Output:**
 ```go
