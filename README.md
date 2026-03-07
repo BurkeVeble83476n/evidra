@@ -4,7 +4,7 @@
 [![Release Pipeline](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra-benchmark/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra is a reliability flight recorder for infrastructure automation.**
+**Evidra is a reliability flight recorder and Benchmark for infrastructure automation.**
 
 It measures behavior across CI/CD pipelines, IaC workflows, shell automation, and AI agents.
 Evidra records intent + outcome evidence, computes reliability signals, and returns a scorecard.
