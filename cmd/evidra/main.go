@@ -44,6 +44,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return cmdExplain(args[1:], stdout, stderr)
 	case "compare":
 		return cmdCompare(args[1:], stdout, stderr)
+	case "run":
+		return cmdRun(args[1:], stdout, stderr)
 	case "prescribe":
 		return cmdPrescribe(args[1:], stdout, stderr)
 	case "report":
@@ -1035,6 +1037,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  scorecard         Generate reliability scorecard for an actor")
 	fmt.Fprintln(w, "  explain           Explain signals contributing to a score")
 	fmt.Fprintln(w, "  compare           Compare reliability scores between actors")
+	fmt.Fprintln(w, "  run               Execute command live and record lifecycle outcome")
 	fmt.Fprintln(w, "  prescribe         Analyze artifact before execution")
 	fmt.Fprintln(w, "  report            Record outcome after execution")
 	fmt.Fprintln(w, "  record            Ingest completed automation operation from structured input")
