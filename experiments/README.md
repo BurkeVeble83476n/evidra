@@ -6,6 +6,7 @@ This folder is for running and storing real-agent benchmark experiment outputs.
 
 - Go CLI: `evidra-exp` (`go run ./cmd/evidra-exp ...` or `bin/evidra-exp` after build)
 - CLI flags reference: `docs/integrations/CLI_REFERENCE.md`
+- Artifact runner guide (purpose/how it works/run/interpretation): `docs/experimental/ARTIFACT_RUNNER_GUIDE.md`
 - Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
 - Result schema: `docs/experimental/RESULT_SCHEMA.json`
 - Execution result schema: `docs/experimental/EXECUTION_RESULT_SCHEMA.json`
@@ -46,6 +47,19 @@ Real run with Bifrost adapter:
 ```bash
 go run ./cmd/evidra-exp artifact run \
   --model-id anthropic/claude-3-5-haiku \
+  --provider bifrost \
+  --agent bifrost \
+  --prompt-version v1 \
+  --delay-between-runs 2s \
+  --repeats 3 \
+  --timeout-seconds 300
+```
+
+Multi-model baseline (same cases/settings, aggregated output):
+
+```bash
+go run ./cmd/evidra-exp artifact baseline \
+  --model-ids anthropic/claude-3-5-haiku,openai/gpt-4o-mini \
   --provider bifrost \
   --agent bifrost \
   --prompt-version v1 \
@@ -131,3 +145,5 @@ Each run contains:
 A run index is written to `summary.jsonl` in the timestamp folder with fields:
 - Artifact mode: `run_id`, `case_id`, `status`, `pass`, `result_json`
 - Execution mode: `run_id`, `scenario_id`, `status`, `pass`, `result_json`
+
+For `artifact baseline`, each model gets its own `summary.jsonl`, and the baseline root adds `summary.json` with per-model aggregate metrics (`pass_rate`, average precision/recall/F1, risk-level match rate, and comparison winners).

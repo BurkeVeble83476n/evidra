@@ -163,12 +163,14 @@ Current state: preview stubs, controlled by `EVIDRA_BENCHMARK_EXPERIMENTAL=1`.
 ## 3) `evidra-exp` (experiments)
 
 See also [Experiments README](../../experiments/README.md) for run modes and output schema.
+For execution flow and result interpretation, see [Artifact Runner Guide](../experimental/ARTIFACT_RUNNER_GUIDE.md).
 
 ### Top-Level Commands
 
 | Command | Purpose |
 |---|---|
 | `artifact run` | Artifact-only classification experiments |
+| `artifact baseline` | Multi-model artifact baseline with aggregate summary |
 | `execution run` | Execution-mode experiments (MCP + command outcome) |
 | `version` | Print version |
 | `help` | Print usage |
@@ -189,6 +191,27 @@ See also [Experiments README](../../experiments/README.md) for run modes and out
 | `--max-cases` | Maximum number of selected cases |
 | `--cases-dir` | Cases directory (default `tests/benchmark/cases`) |
 | `--out-dir` | Output directory (default timestamp under `experiments/results`) |
+| `--clean-out-dir` | Clear output directory before run |
+| `--delay-between-runs` | Sleep between runs (duration, for example `2s`, `500ms`) |
+| `--agent` | Adapter: `claude`, `bifrost`, `dry-run` |
+| `--dry-run` | Skip real adapter execution |
+
+### `evidra-exp artifact baseline` Flags
+
+| Flag | Description |
+|---|---|
+| `--model-ids` | Required comma-separated model IDs |
+| `--provider` | Provider label (`unknown` default) |
+| `--prompt-version` | Prompt version label |
+| `--prompt-file` | Prompt file path (default `prompts/experiments/runtime/system_instructions.txt`) |
+| `--temperature` | Temperature override |
+| `--mode` | Execution mode label (`custom` default) |
+| `--repeats` | Repeats per case (`3` default) |
+| `--timeout-seconds` | Per-run timeout in seconds (`300` default) |
+| `--case-filter` | Regex filter for case IDs |
+| `--max-cases` | Maximum number of selected cases |
+| `--cases-dir` | Cases directory (default `tests/benchmark/cases`) |
+| `--out-dir` | Output directory (default timestamp under `experiments/results/llm`) |
 | `--clean-out-dir` | Clear output directory before run |
 | `--delay-between-runs` | Sleep between runs (duration, for example `2s`, `500ms`) |
 | `--agent` | Adapter: `claude`, `bifrost`, `dry-run` |
