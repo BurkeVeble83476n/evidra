@@ -2,7 +2,8 @@
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
 	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest \
-	prompts-generate prompts-verify test-experiments test-signals
+	prompts-generate prompts-verify test-experiments test-signals \
+	ui-build build-api
 
 build:
 	go build -o bin/evidra ./cmd/evidra
@@ -97,3 +98,9 @@ tidy:
 
 clean:
 	rm -rf bin/
+
+ui-build:
+	cd ui && npm ci && npm run build
+
+build-api: ui-build
+	go build -tags embed_ui -o bin/evidra-api ./cmd/evidra-api
