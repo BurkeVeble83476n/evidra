@@ -46,6 +46,16 @@
   --shadow-card-lg: 0 4px 16px rgba(0,0,0,0.4);
 }
 
+/* ── Dark mode button override (matching original HTML) ── */
+[data-theme="dark"] .btn-primary {
+  background: #065f46;
+  color: #d1fae5;
+}
+[data-theme="dark"] .btn-primary:hover {
+  background: #047857;
+  color: #ecfdf5;
+}
+
 /* ── Base styles (layered so Tailwind utilities win) ── */
 @layer base {
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
