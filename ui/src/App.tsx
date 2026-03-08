@@ -1,3 +1,10 @@
+import { Layout } from "./components/Layout";
+import { Landing } from "./pages/Landing";
+
 export function App() {
-  return <div>Evidra</div>;
+  return (
+    <Layout>
+      <Landing />
+    </Layout>
+  );
 }
