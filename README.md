@@ -4,18 +4,11 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra is a reliability flight recorder and Benchmark for infrastructure automation.**
+**Evidra — Reliability Scoring and Behavioral Signals for Infrastructure Automation, including AI agents.**
 
-It measures behavior across CI/CD pipelines, IaC workflows, shell automation, and AI agents.
-Evidra records intent + outcome evidence, computes reliability signals, and returns a scorecard.
-It is an inspector, not an enforcement gate.
+Evidra measures operational reliability across infrastructure automation — CI pipelines, IaC workflows, and AI agents — by recording evidence, computing behavioral signals, and producing scorecards.
 
-## Positioning
-
-**Evidra — reliability benchmark for infrastructure automation (including AI).**
-
-Evidra does not require AI to be useful.
-AI agents are treated as one automation actor type, measured with the same model as CI and scripts.
+Evidra detects retry loops, artifact drift, and protocol violations in infrastructure automation. Reliability scoring for CI/CD, Terraform, Kubernetes, and AI agents.
 
 ## How To Use
 
