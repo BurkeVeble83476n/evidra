@@ -1,0 +1,577 @@
+openapi: 3.0.3
+info:
+  title: Evidra API
+  description: |
+    REST API for the Evidra reliability scoring platform.
+    Receives evidence entries from CLI, MCP server, and CI pipelines.
+    Computes behavioral signals and reliability scorecards.
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    url: https://github.com/vitas/evidra
+
+servers:
+  - url: /
+    description: This server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Evidence
+    description: Evidence entry ingestion and queries
+  - name: Analytics
+    description: Scorecard computation and signal analysis
+  - name: Benchmark
+    description: Benchmark run management and comparison
+  - name: Auth
+    description: Authentication and key management
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: API is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /readyz:
+    get:
+      tags: [Health]
+      summary: Readiness check (database connectivity)
+      security: []
+      responses:
+        '200':
+          description: Database is connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/pubkey:
+    get:
+      tags: [Auth]
+      summary: Get signing public key
+      description: Returns the Ed25519 public key used to sign evidence entries.
+      security: []
+      responses:
+        '200':
+          description: PEM-encoded Ed25519 public key
+          content:
+            application/x-pem-file:
+              schema:
+                type: string
+
+  /v1/keys:
+    post:
+      tags: [Auth]
+      summary: Issue a new API key
+      description: |
+        Create a new API key for a tenant. Requires the invite secret
+        via `X-Invite-Secret` header. Rate limited to 3 keys/hour/IP.
+      security: []
+      parameters:
+        - name: X-Invite-Secret
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label:
+                  type: string
+                  maxLength: 128
+                  example: my-ci-pipeline
+      responses:
+        '201':
+          description: Key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    description: Full API key (only shown once)
+                    example: ev1_abc123...
+                  prefix:
+                    type: string
+                    example: ev1_abc
+                  tenant_id:
+                    type: string
+                    example: default
+                  created_at:
+                    type: string
+                    format: date-time
+        '403':
+          description: Invalid invite secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/check:
+    get:
+      tags: [Auth]
+      summary: Verify authentication token
+      description: Returns 200 with tenant ID for valid tokens. Used as forwardAuth target.
+      responses:
+        '200':
+          description: Token is valid
+          headers:
+            X-Evidra-Tenant:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: string
+                    example: "true"
+                  tenant_id:
+                    type: string
+                    example: default
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/forward:
+    post:
+      tags: [Evidence]
+      summary: Forward a single evidence entry
+      description: Receives a JSON evidence entry, stores it, and returns a receipt ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Any valid JSON evidence entry
+            example:
+              entry_id: "01HXYZ..."
+              type: prescribe
+              trace_id: "trace-123"
+              payload: {}
+      responses:
+        '200':
+          description: Entry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/batch:
+    post:
+      tags: [Evidence]
+      summary: Batch forward multiple entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entries]
+              properties:
+                entries:
+                  type: array
+                  items:
+                    type: object
+                  minItems: 1
+      responses:
+        '200':
+          description: Batch result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: integer
+                    example: 5
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /v1/evidence/findings:
+    post:
+      tags: [Evidence]
+      summary: Ingest SARIF scanner findings
+      description: Accepts SARIF or JSON findings from security scanners.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Findings accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/entries:
+    get:
+      tags: [Evidence]
+      summary: List evidence entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      type: object
+
+  /v1/evidence/entries/{id}:
+    get:
+      tags: [Evidence]
+      summary: Get a single entry by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entry found
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/scorecard:
+    get:
+      tags: [Analytics]
+      summary: Compute a scorecard
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            default: 30d
+          description: Time period (e.g. 30d, 7d)
+        - name: tool
+          in: query
+          schema:
+            type: string
+          description: Filter by tool name
+        - name: scope
+          in: query
+          schema:
+            type: string
+          description: Filter by scope class
+      responses:
+        '200':
+          description: Computed scorecard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_operations:
+                    type: integer
+                  score:
+                    type: number
+                  band:
+                    type: string
+                    enum: [excellent, good, fair, poor, insufficient_data]
+                  sufficient:
+                    type: boolean
+                  signals:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  rates:
+                    type: object
+                    additionalProperties:
+                      type: number
+
+  /v1/evidence/explain:
+    get:
+      tags: [Analytics]
+      summary: Explain signal breakdown
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            default: 30d
+        - name: tool
+          in: query
+          schema:
+            type: string
+        - name: scope
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Signal breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/benchmark/run:
+    post:
+      tags: [Benchmark]
+      summary: Submit a benchmark run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [suite, band, results]
+              properties:
+                suite:
+                  type: string
+                  example: signal-detection-v1
+                score:
+                  type: number
+                  example: 95.5
+                band:
+                  type: string
+                  example: good
+                results:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BenchmarkResult'
+      responses:
+        '201':
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id:
+                    type: string
+                  status:
+                    type: string
+                    example: accepted
+
+  /v1/benchmark/runs:
+    get:
+      tags: [Benchmark]
+      summary: List benchmark runs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BenchmarkRun'
+
+  /v1/benchmark/compare:
+    get:
+      tags: [Benchmark]
+      summary: Compare two benchmark runs
+      parameters:
+        - name: run_a
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: run_b
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_a:
+                    $ref: '#/components/schemas/BenchmarkRun'
+                  run_b:
+                    $ref: '#/components/schemas/BenchmarkRun'
+                  results_a:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BenchmarkResult'
+                  results_b:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BenchmarkResult'
+        '400':
+          description: Missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API key issued via POST /v1/keys or EVIDRA_API_KEY env var
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    ForwardResponse:
+      type: object
+      properties:
+        receipt_id:
+          type: string
+        status:
+          type: string
+          example: accepted
+
+    BenchmarkRun:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        suite:
+          type: string
+        score:
+          type: number
+          nullable: true
+        band:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    BenchmarkResult:
+      type: object
+      properties:
+        id:
+          type: string
+        run_id:
+          type: string
+        case_id:
+          type: string
+        expected_signal:
+          type: string
+        actual_signal:
+          type: string
+        passed:
+          type: boolean
+        details:
+          type: object
+          nullable: true
