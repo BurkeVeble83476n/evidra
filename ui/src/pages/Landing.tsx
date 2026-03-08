@@ -35,6 +35,36 @@ const SYSTEM_CHART = `flowchart TB
   CLI --> LS[("Local Evidence<br/>append-only JSONL")]
   MCP --> LS`;
 
+const SEQUENCE_CHART = `sequenceDiagram
+  participant Agent as AI Agent / CI
+  participant CLI as evidra CLI / MCP
+  participant Canon as Canonicalize
+  participant Risk as Risk Engine
+  participant Chain as Evidence Chain
+  participant Signal as Signal Detectors
+  participant Score as Scoring Engine
+
+  Agent->>CLI: prescribe(tool, operation, artifact)
+  CLI->>Canon: SelectAdapter → Normalize
+  Canon-->>CLI: CanonicalAction + digests
+  CLI->>Risk: RiskLevel(op_class, scope_class)
+  Risk-->>CLI: risk_level + risk_tags
+  CLI->>Chain: append(prescription entry)
+  CLI-->>Agent: prescription_id, risk_level
+
+  Note over Agent: Execute infrastructure operation
+
+  Agent->>CLI: report(prescription_id, exit_code)
+  CLI->>Chain: append(report entry, linked)
+  CLI->>Signal: detect(entries)
+  Signal-->>CLI: signals[]
+  CLI-->>Agent: report_id, signals
+
+  Agent->>CLI: scorecard(filters)
+  CLI->>Score: compute(entries, weights)
+  Score-->>CLI: score, band, confidence
+  CLI-->>Agent: scorecard + band`;
+
 const INSTALL_BINARY = `# Download latest release (Linux/macOS)
 curl -fsSL https://github.com/samebits/evidra/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \\
   | tar -xz -C /usr/local/bin evidra
@@ -164,19 +194,21 @@ function Features() {
 }
 
 function Architecture() {
-  const [tab, setTab] = useState<"pipeline" | "system">("pipeline");
+  const [tab, setTab] = useState<"pipeline" | "system" | "sequence">("pipeline");
   return (
     <section id="architecture" className="py-14 bg-bg-alt">
       <Container>
         <SectionLabel>Architecture</SectionLabel>
         <SectionTitle>How It All Fits Together</SectionTitle>
-        <p className="text-fg-muted mb-10 text-[1.14rem]">Two views: how evidence flows through the scoring pipeline, and how components are deployed.</p>
+        <p className="text-fg-muted mb-10 text-[1.14rem]">Three views: scoring pipeline, system deployment, and the protocol sequence.</p>
         <div className="inline-flex bg-accent-subtle border border-border rounded-lg p-[3px] mb-6">
           <TabBtn active={tab === "pipeline"} onClick={() => setTab("pipeline")}>How It Works</TabBtn>
           <TabBtn active={tab === "system"} onClick={() => setTab("system")}>System Architecture</TabBtn>
+          <TabBtn active={tab === "sequence"} onClick={() => setTab("sequence")}>Protocol Sequence</TabBtn>
         </div>
         {tab === "pipeline" && <MermaidDiagram chart={PIPELINE_CHART} />}
         {tab === "system" && <MermaidDiagram chart={SYSTEM_CHART} />}
+        {tab === "sequence" && <MermaidDiagram chart={SEQUENCE_CHART} />}
       </Container>
     </section>
   );
