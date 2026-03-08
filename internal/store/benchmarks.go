@@ -116,6 +116,9 @@ func (bs *BenchmarkStore) ListRuns(ctx context.Context, tenantID string, limit, 
 		}
 		runs = append(runs, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store.ListRuns: rows: %w", err)
+	}
 	return runs, nil
 }
 
@@ -150,6 +153,9 @@ func (bs *BenchmarkStore) GetRunWithResults(ctx context.Context, tenantID, runID
 			return run, nil, fmt.Errorf("store.GetRunWithResults: scan: %w", err)
 		}
 		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return run, nil, fmt.Errorf("store.GetRunWithResults: rows: %w", err)
 	}
 	return run, results, nil
 }

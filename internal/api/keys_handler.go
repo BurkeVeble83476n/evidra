@@ -1,9 +1,11 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,7 +48,7 @@ func handleKeys(ks *store.KeyStore, inviteSecret string) http.HandlerFunc {
 			writeError(w, http.StatusServiceUnavailable, "key issuance disabled: invite secret not configured")
 			return
 		}
-		if r.Header.Get("X-Invite-Secret") != inviteSecret {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Invite-Secret")), []byte(inviteSecret)) != 1 {
 			writeError(w, http.StatusForbidden, "invite required")
 			return
 		}
@@ -81,7 +83,11 @@ func handleKeys(ks *store.KeyStore, inviteSecret string) http.HandlerFunc {
 
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		// Use only the leftmost (client) IP.
+		if i := strings.IndexByte(xff, ','); i > 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return strings.TrimSpace(xff)
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {

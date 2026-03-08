@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -63,10 +64,9 @@ func handleBatch(store RawEntryStore) http.HandlerFunc {
 		for i, entry := range req.Entries {
 			_, err := store.SaveRaw(r.Context(), tenantID, entry)
 			if err != nil {
-				errs = append(errs, err.Error())
+				errs = append(errs, fmt.Sprintf("entry %d: save failed", i))
 				continue
 			}
-			_ = i
 			accepted++
 		}
 

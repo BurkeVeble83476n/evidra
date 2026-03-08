@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"samebits.com/evidra-benchmark/internal/auth"
 	"samebits.com/evidra-benchmark/internal/store"
@@ -30,10 +31,11 @@ func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {
 		}
 
 		run := store.BenchmarkRun{
-			TenantID: tenantID,
-			Suite:    req.Suite,
-			Score:    req.Score,
-			Band:     req.Band,
+			TenantID:  tenantID,
+			Suite:     req.Suite,
+			Score:     req.Score,
+			Band:      req.Band,
+			StartedAt: time.Now().UTC(),
 		}
 
 		runID, err := bs.SaveRun(r.Context(), run, req.Results)

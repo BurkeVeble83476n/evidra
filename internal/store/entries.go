@@ -123,7 +123,9 @@ func (es *EntryStore) ListEntries(ctx context.Context, tenantID string, opts Lis
 	}
 	if opts.Period != "" {
 		dur := parsePeriod(opts.Period)
-		where = append(where, fmt.Sprintf("created_at >= now() - interval '%d seconds'", int(dur.Seconds())))
+		where = append(where, fmt.Sprintf("created_at >= $%d", argIdx))
+		args = append(args, time.Now().Add(-dur))
+		argIdx++
 	}
 
 	whereClause := strings.Join(where, " AND ")
@@ -163,6 +165,9 @@ func (es *EntryStore) ListEntries(ctx context.Context, tenantID string, opts Lis
 			return nil, 0, fmt.Errorf("store.ListEntries: scan: %w", err)
 		}
 		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("store.ListEntries: rows: %w", err)
 	}
 
 	return entries, total, nil
