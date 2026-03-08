@@ -15,6 +15,9 @@ import (
 	promptdata "samebits.com/evidra-benchmark/prompts"
 )
 
+// ForwardFunc is an optional callback to forward evidence entries to the API.
+type ForwardFunc func(ctx context.Context, entry json.RawMessage)
+
 // Options configures the benchmark MCP server.
 type Options struct {
 	Name             string
@@ -24,6 +27,7 @@ type Options struct {
 	RetryTracker     bool
 	BestEffortWrites bool
 	Signer           evidence.Signer // required: signs evidence entries
+	Forward          ForwardFunc     // optional: best-effort forward to API
 }
 
 // InputActor identifies the caller in a prescribe request.
@@ -112,6 +116,7 @@ type BenchmarkService struct {
 	signer           evidence.Signer
 	bestEffortWrites bool
 	lifecycle        *lifecycle.Service
+	forwardFunc      ForwardFunc
 }
 
 const (
@@ -165,6 +170,7 @@ func NewServer(opts Options) (*mcp.Server, error) {
 		evidencePath:     opts.EvidencePath,
 		signer:           opts.Signer,
 		bestEffortWrites: opts.BestEffortWrites,
+		forwardFunc:      opts.Forward,
 	}
 	if opts.RetryTracker {
 		svc.retryTracker = NewRetryTracker(10 * time.Minute)
@@ -309,6 +315,8 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 		}
 	}
 
+	s.tryForwardEntry(out.PrescriptionID)
+
 	return PrescribeOutput{
 		OK:             true,
 		PrescriptionID: out.PrescriptionID,
@@ -334,10 +342,29 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 			Error: lifecycleErrInfo(err),
 		}
 	}
+
+	s.tryForwardEntry(out.ReportID)
+
 	return ReportOutput{
 		OK:       true,
 		ReportID: out.ReportID,
 	}
+}
+
+// tryForwardEntry best-effort reads an entry by ID and calls the forward func.
+func (s *BenchmarkService) tryForwardEntry(eventID string) {
+	if s.forwardFunc == nil || eventID == "" || s.evidencePath == "" {
+		return
+	}
+	entry, found, err := evidence.FindEntryByID(s.evidencePath, eventID)
+	if err != nil || !found {
+		return
+	}
+	raw, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	s.forwardFunc(context.Background(), raw)
 }
 
 func lifecycleErrInfo(err error) *ErrInfo {

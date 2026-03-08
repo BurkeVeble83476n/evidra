@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -16,6 +18,7 @@ import (
 	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 	"samebits.com/evidra-benchmark/pkg/mcpserver"
+	"samebits.com/evidra-benchmark/pkg/mode"
 	"samebits.com/evidra-benchmark/pkg/version"
 )
 
@@ -31,6 +34,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	environmentFlag := fs.String("environment", "", "Environment label (production, staging, development)")
 	retryFlag := fs.Bool("retry-tracker", false, "Enable retry loop tracking")
 	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
+	urlFlag := fs.String("url", os.Getenv("EVIDRA_URL"), "Evidra API URL")
+	apiKeyFlag := fs.String("api-key", os.Getenv("EVIDRA_API_KEY"), "Evidra API key")
+	offlineFlag := fs.Bool("offline", false, "Force offline mode")
+	fallbackOfflineFlag := fs.Bool("fallback-offline", false, "Fall back to offline on API failure")
 	helpFlag := fs.Bool("help", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
@@ -61,6 +68,36 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	// Resolve online/offline mode.
+	fallbackPolicy := ""
+	if *fallbackOfflineFlag {
+		fallbackPolicy = "offline"
+	}
+	if v := os.Getenv("EVIDRA_FALLBACK"); v != "" && fallbackPolicy == "" {
+		fallbackPolicy = v
+	}
+	resolved, modeErr := mode.Resolve(mode.Config{
+		URL:            *urlFlag,
+		APIKey:         *apiKeyFlag,
+		FallbackPolicy: fallbackPolicy,
+		ForceOffline:   *offlineFlag,
+		Timeout:        30 * time.Second,
+	})
+	if modeErr != nil {
+		fmt.Fprintf(stderr, "resolve mode: %v\n", modeErr)
+		return 1
+	}
+
+	var forwardFn mcpserver.ForwardFunc
+	if resolved.IsOnline {
+		apiClient := resolved.Client
+		forwardFn = func(ctx context.Context, entry json.RawMessage) {
+			if _, fwdErr := apiClient.Forward(ctx, entry); fwdErr != nil {
+				log.New(stderr, "", log.LstdFlags).Printf("warning: forward evidence: %v", fwdErr)
+			}
+		}
+	}
+
 	server, err := mcpserver.NewServer(mcpserver.Options{
 		Name:             "evidra-benchmark",
 		Version:          version.Version,
@@ -69,6 +106,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		RetryTracker:     *retryFlag || envBool("EVIDRA_RETRY_TRACKER", false),
 		BestEffortWrites: writeMode == config.EvidenceWriteModeBestEffort,
 		Signer:           signer,
+		Forward:          forwardFn,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "initialize server: %v\n", err)
