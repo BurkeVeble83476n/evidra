@@ -1,4 +1,4 @@
-.PHONY: build test e2e clean golden-update docker-mcp docker-cli fmt lint tidy \
+.PHONY: build test e2e clean golden-update docker-mcp docker-cli docker-api docker-up docker-down fmt lint tidy \
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
 	test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest \
@@ -7,6 +7,7 @@
 build:
 	go build -o bin/evidra ./cmd/evidra
 	go build -o bin/evidra-mcp ./cmd/evidra-mcp
+	go build -o bin/evidra-api ./cmd/evidra-api
 
 test:
 	go test ./... -v -count=1
@@ -75,6 +76,15 @@ docker-mcp:
 
 docker-cli:
 	docker build -t evidra:dev -f Dockerfile.cli .
+
+docker-api:
+	docker build -t evidra-api:dev -f Dockerfile.api .
+
+docker-up:
+	docker compose up --build -d
+
+docker-down:
+	docker compose down
 
 fmt:
 	gofmt -w .
