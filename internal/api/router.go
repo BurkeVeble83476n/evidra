@@ -94,7 +94,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Embedded landing page.
 	if cfg.UIFS != nil {
-		mux.Handle("/", http.FileServer(http.FS(cfg.UIFS)))
+		mux.Handle("/", uiHandler(cfg.UIFS))
 	}
 
 	return wrapMiddleware(mux)

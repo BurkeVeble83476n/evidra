@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	evidrabenchmark "samebits.com/evidra-benchmark"
 	"samebits.com/evidra-benchmark/internal/api"
 	"samebits.com/evidra-benchmark/internal/db"
 	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
@@ -89,12 +90,16 @@ func run(args []string) int {
 		log.Printf("no DATABASE_URL — running without persistence")
 	}
 
-	// Landing page.
-	uiFS, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("embed static: %v", err)
+	// UI: prefer embedded React build (embed_ui tag), fall back to static/.
+	if evidrabenchmark.UIDistFS != nil {
+		cfg.UIFS = evidrabenchmark.UIDistFS
+	} else {
+		uiFS, err := fs.Sub(staticFS, "static")
+		if err != nil {
+			log.Fatalf("embed static: %v", err)
+		}
+		cfg.UIFS = uiFS
 	}
-	cfg.UIFS = uiFS
 
 	handler := api.NewRouter(cfg)
 
