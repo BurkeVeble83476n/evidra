@@ -1,1 +1,48 @@
-/* placeholder — Tailwind added in Task 2 */
+@import "tailwindcss";
+
+/* ── Theme tokens ── */
+@theme {
+  --color-bg: #fafffe;
+  --color-bg-alt: #f0fdf4;
+  --color-bg-elevated: #ffffff;
+  --color-fg: #064e3b;
+  --color-fg-body: #1a3a2a;
+  --color-fg-muted: #6b8f7b;
+  --color-accent: #059669;
+  --color-accent-bright: #10b981;
+  --color-accent-tint: #d1fae5;
+  --color-accent-subtle: #ecfdf5;
+  --color-border: #c6e8d6;
+  --color-border-subtle: #e0f2e9;
+  --font-sans: "Plus Jakarta Sans", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* ── Dark theme overrides ── */
+[data-theme="dark"] {
+  --color-bg: #0c0f0e;
+  --color-bg-alt: #111916;
+  --color-bg-elevated: #161e1a;
+  --color-fg: #d1fae5;
+  --color-fg-body: #a7cdb8;
+  --color-fg-muted: #6b8f7b;
+  --color-accent: #34d399;
+  --color-accent-bright: #6ee7b7;
+  --color-accent-tint: #064e3b;
+  --color-accent-subtle: #0d2818;
+  --color-border: #1e3a2c;
+  --color-border-subtle: #172b22;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-fg-body);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a { color: var(--color-accent); text-decoration: none; transition: color 0.15s; }
+a:hover { color: var(--color-accent-bright); }
