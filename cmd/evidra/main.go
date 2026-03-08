@@ -35,7 +35,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch args[0] {
-	case "version":
+	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "evidra-benchmark %s (commit: %s, built: %s)\n",
 			version.Version, version.Commit, version.Date)
 		return 0
