@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evidra API</title>
+<style>
+  :root { --bg: #0a0a0a; --fg: #e0e0e0; --accent: #4ade80; --muted: #666; --border: #222; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .container { max-width: 600px; width: 90%; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; }
+  .status-card { background: #111; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+  .status-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .status-row:last-child { border-bottom: none; }
+  .label { color: var(--muted); }
+  .value { font-family: 'JetBrains Mono', monospace; }
+  .healthy { color: var(--accent); }
+  .unhealthy { color: #f87171; }
+  .endpoints { background: #111; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+  .endpoints h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--muted); }
+  .endpoint { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; padding: 0.3rem 0; }
+  .method { color: var(--accent); margin-right: 0.5rem; }
+  footer { margin-top: 2rem; color: var(--muted); font-size: 0.8rem; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Evidra</h1>
+  <p class="subtitle">Reliability benchmark for infrastructure automation</p>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span class="label">API Status</span>
+      <span class="value" id="status">checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="label">Database</span>
+      <span class="value" id="db-status">checking...</span>
+    </div>
+    <div class="status-row">
+      <span class="label">Version</span>
+      <span class="value" id="version">&mdash;</span>
+    </div>
+  </div>
+
+  <div class="endpoints">
+    <h2>API Endpoints</h2>
+    <div class="endpoint"><span class="method">POST</span>/v1/evidence/forward</div>
+    <div class="endpoint"><span class="method">POST</span>/v1/evidence/batch</div>
+    <div class="endpoint"><span class="method">GET </span>/v1/evidence/entries</div>
+    <div class="endpoint"><span class="method">GET </span>/v1/evidence/scorecard</div>
+    <div class="endpoint"><span class="method">GET </span>/v1/evidence/explain</div>
+    <div class="endpoint"><span class="method">POST</span>/v1/evidence/findings</div>
+    <div class="endpoint"><span class="method">POST</span>/v1/benchmark/run</div>
+    <div class="endpoint"><span class="method">GET </span>/v1/benchmark/runs</div>
+    <div class="endpoint"><span class="method">GET </span>/v1/benchmark/compare</div>
+  </div>
+
+  <footer>
+    <a href="https://github.com/samebits/evidra">github.com/samebits/evidra</a> &middot; Apache 2.0
+  </footer>
+</div>
+
+<script>
+  fetch('/healthz').then(r=>r.json()).then(d=>{
+    document.getElementById('status').textContent='healthy';
+    document.getElementById('status').className='value healthy';
+  }).catch(()=>{
+    document.getElementById('status').textContent='unreachable';
+    document.getElementById('status').className='value unhealthy';
+  });
+  fetch('/readyz').then(r=>{
+    if(r.ok){document.getElementById('db-status').textContent='connected';document.getElementById('db-status').className='value healthy';}
+    else{document.getElementById('db-status').textContent='unavailable';document.getElementById('db-status').className='value unhealthy';}
+  }).catch(()=>{
+    document.getElementById('db-status').textContent='unavailable';
+    document.getElementById('db-status').className='value unhealthy';
+  });
+</script>
+</body>
+</html>

@@ -152,6 +152,42 @@ Guides:
 - [Setup Evidra Action](docs/guides/setup-evidra-action.md)
 - [Terraform CI Quickstart](docs/guides/terraform-ci-quickstart.md)
 
+## API Backend (Self-Hosted)
+
+Run the Evidra API backend with Docker Compose for centralized evidence collection.
+
+### Docker Compose Quickstart
+
+```bash
+export EVIDRA_API_KEY=my-secret-key
+docker compose up --build -d
+curl http://localhost:8080/healthz
+```
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | *(required)* |
+| `EVIDRA_API_KEY` | API key for authenticated endpoints | *(required)* |
+| `LISTEN_ADDR` | HTTP listen address | `:8080` |
+| `EVIDRA_SIGNING_KEY` | Base64 Ed25519 private key for signing | *(optional)* |
+| `EVIDRA_SIGNING_KEY_PATH` | Path to PEM Ed25519 private key | *(optional)* |
+| `EVIDRA_SIGNING_MODE` | `strict` or `optional` | `strict` |
+| `EVIDRA_INVITE_SECRET` | Secret for key issuance endpoint | *(optional)* |
+
+### Online Mode (CLI)
+
+Point the CLI at the API backend to forward evidence:
+
+```bash
+evidra run \
+  --api-url http://localhost:8080 \
+  --api-key my-secret-key \
+  --tool kubectl --operation apply --artifact deploy.yaml \
+  -- kubectl apply -f deploy.yaml
+```
+
 ## Docs Map
 
 Architecture and contracts:
