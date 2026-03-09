@@ -11,7 +11,9 @@ describe("App", () => {
   it("renders the landing page with hero heading", () => {
     render(<App />);
     expect(
-      screen.getByRole("heading", { name: /Reliability Scoring for/i }),
+      screen.getByRole("heading", {
+        name: /Behavioral Reliability for Infrastructure Automation/i,
+      }),
     ).toBeInTheDocument();
   });
 

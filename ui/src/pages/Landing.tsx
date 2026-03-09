@@ -260,13 +260,13 @@ function Hero() {
           Open Source &middot; Apache 2.0
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          Reliability Scoring for<br />Infrastructure Automation
+          Behavioral Reliability for <br />Infrastructure Automation
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          Evidra measures operational reliability across CI pipelines, IaC workflows, and AI agents &mdash; by recording evidence, computing behavioral signals, and producing scorecards.
+          A new observability layer for CI/CD, IaC, and AI agents.
         </p>
         <p className="text-[0.92rem] text-fg-muted max-w-[580px] mx-auto mb-10 leading-relaxed opacity-80">
-          Detect retry loops, artifact drift, and protocol violations. Reliability scoring for CI/CD, Terraform, Kubernetes, and AI agents.
+          Detect retry loops, artifact drift, and protocol violations before they become deployment instability.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">

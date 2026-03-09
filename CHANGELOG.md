@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.3 — 2026-03-10
+
+### Positioning
+- Homepage, fallback landing page, and README now lead with `Behavioral reliability for infrastructure automation`
+- Category framing updated to `A new observability layer for CI/CD, IaC, and AI agents`
+- Landing copy now emphasizes deployment instability outcomes instead of generic scoring language
+
+### Documentation
+- Added [Prometheus Positioning Backlog](docs/PROMETHEUS_POSITIONING_BACKLOG.md) to track the next observability-first homepage improvements
+
+### Release Metadata
+- Runtime version, MCP server metadata, and release artifacts aligned to `v0.4.3`
+
 ## v0.4.2 — 2026-03-09
 
 ### Signals

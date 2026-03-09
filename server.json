@@ -1,13 +1,13 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.vitas/evidra",
-  "title": "Evidra Bench",
-  "description": "Evidra — Reliability Benchmark for Infrastructure Automation.",
-  "version": "0.3.0",
+  "title": "Evidra",
+  "description": "Evidra — Behavioral reliability for infrastructure automation.",
+  "version": "0.4.3",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/vitas/evidra-mcp:0.3.0",
+      "identifier": "ghcr.io/vitas/evidra-mcp:0.4.3",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
