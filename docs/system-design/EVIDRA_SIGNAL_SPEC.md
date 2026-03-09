@@ -726,6 +726,82 @@ is not converging — trying many different things without any success.
 
 ---
 
+## Signal 8: risk_escalation
+
+### Identity
+```
+name:    risk_escalation
+version: 1.1
+status:  stable
+```
+
+### Detection Contract
+
+**Input:** All prescription entries with their risk levels computed
+from operation_class, scope_class, and risk_tags.
+
+**Algorithm:**
+
+```
+For each actor+tool behavior stream:
+  Maintain a rolling history of risk levels (30-day window).
+
+  For each prescription P in chronological order:
+    key = (P.actor_id, P.tool)
+    current = ElevateRiskLevel(RiskLevel(op_class, scope_class), risk_tags)
+
+    prior = prescriptions for key within 30 days before P.timestamp
+
+    If len(prior) < MinBaselineSamples → skip (insufficient data)
+
+    baseline = mode(prior risk levels, tie-break: lower severity wins)
+
+    If current > baseline → FIRE (risk_escalation)
+    If current < baseline → emit risk_demotion (informational only)
+
+    Append P to history AFTER baseline check (causal ordering)
+```
+
+**Parameters:**
+- BaselineWindow: 30 days (720 hours)
+- MinBaselineSamples: 3 prior prescriptions
+
+**Key distinctions:**
+- new_scope: detects first occurrence of a (actor, tool, op_class, scope_class) combination
+- risk_escalation: detects when computed risk level exceeds the actor+tool behavioral baseline
+
+**Output:**
+```go
+type SignalEvent struct {
+    Signal    string    // "risk_escalation"
+    SubSignal string    // "risk_escalation" or "risk_demotion"
+    Timestamp time.Time
+    EntryRef  string    // prescription event_id
+    Details   string    // "baseline=medium, actual=high"
+}
+```
+
+### Metric Contract
+
+```
+evidra_signal_total{signal="risk_escalation", agent, tool, scope}
+```
+
+### Score Contribution
+
+```
+escalation_rate = escalation_count / total_prescriptions
+penalty_contribution = 0.10 × escalation_rate
+```
+
+Risk escalation is a "pay attention" signal, not direct evidence of
+execution failure. Weight 0.10 places it at the same certainty tier
+as blast_radius — informative but not diagnostic. Demotions
+(risk_demotion sub-signal) carry zero penalty and are emitted as
+internal SignalEvent only.
+
+---
+
 ## Reliability Score Formula
 
 ```
