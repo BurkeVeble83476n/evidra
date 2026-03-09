@@ -366,6 +366,9 @@ paths:
                     type: boolean
                   signals:
                     type: object
+                    description: >
+                      Per-signal counts. Keys are signal names: protocol_violation,
+                      artifact_drift, retry_loop, blast_radius, new_scope, risk_escalation.
                     additionalProperties:
                       type: integer
                   rates:
@@ -568,8 +571,22 @@ components:
           type: string
         expected_signal:
           type: string
+          enum:
+            - protocol_violation
+            - artifact_drift
+            - retry_loop
+            - blast_radius
+            - new_scope
+            - risk_escalation
         actual_signal:
           type: string
+          enum:
+            - protocol_violation
+            - artifact_drift
+            - retry_loop
+            - blast_radius
+            - new_scope
+            - risk_escalation
         passed:
           type: boolean
         details:
