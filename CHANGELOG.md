@@ -12,6 +12,8 @@
 - `risk_escalation` added to allowed signal names in OTLP metrics export
 
 ### Documentation
+- [MCP Setup Guide](docs/guides/mcp-setup.md) — install, connect agents (Claude Code, Cursor, Codex, Gemini CLI, OpenClaw), configuration, troubleshooting
+- MCP Setup section added to landing page with editor-specific config snippets
 - Signal 8 definition added to EVIDRA_SIGNAL_SPEC.md
 - All "7 signals" references updated to 8 across docs, UI, and OpenAPI spec
 - Architecture overview moved to `docs/ARCHITECTURE.md`
