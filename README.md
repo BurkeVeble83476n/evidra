@@ -184,7 +184,7 @@ evidra run \
 ## Docs Map
 
 Architecture and contracts:
-- [Architecture Overview](docs/system-design/EVIDRA_ARCHITECTURE_OVERVIEW.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
 - [V1 Architecture](docs/system-design/V1_ARCHITECTURE.md)
 - [Protocol](docs/system-design/EVIDRA_PROTOCOL.md)
 - [Core Data Model](docs/system-design/EVIDRA_CORE_DATA_MODEL.md)

@@ -24,7 +24,7 @@ interpreted as described in RFC 2119.
 
 Other documents reference this spec but do not override it:
 - EVIDRA_AGENT_RELIABILITY_BENCHMARK.md is a consumer (scoring, comparison)
-- EVIDRA_ARCHITECTURE_OVERVIEW.md is non-normative (overview)
+- docs/ARCHITECTURE.md is non-normative (overview)
 
 ---
 
