@@ -299,6 +299,7 @@ per-signal confidence. Confidence is a scorecard-level property.
 | retry_loop | Same actor + same intent + same shape, repeated after failure within time window |
 | blast_radius | Operation affects too many resources for its operation_class |
 | new_scope | First operation in a (tool, operation_class, scope_class) tuple |
+| risk_escalation | Risk level increased between consecutive operations in the same session |
 
 ---
 
@@ -332,6 +333,7 @@ Scorecard summarizes reliability over a dataset.
 | retry_rate | float | retry_events / total_ops |
 | blast_rate | float | blast_events / total_ops |
 | scope_rate | float | scope_events / total_ops |
+| escalation_rate | float | escalation_events / total_ops |
 
 ### Score Formula
 
@@ -343,6 +345,7 @@ penalty = 0.35 * violation_rate
         + 0.20 * retry_rate
         + 0.10 * blast_rate
         + 0.05 * scope_rate
+        + 0.10 * escalation_rate
 ```
 
 | Band | Score | Meaning |
