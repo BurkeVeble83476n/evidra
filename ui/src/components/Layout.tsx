@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#architecture", label: "Architecture" },
   { href: "#get-started", label: "Get Started" },
+  { href: "#mcp-setup", label: "MCP Setup" },
   { href: "#api", label: "API" },
   { href: "#guides", label: "Guides" },
 ];

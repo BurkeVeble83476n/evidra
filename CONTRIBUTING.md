@@ -28,7 +28,6 @@ make test-signals  # signal validation scenarios
 - Go stdlib conventions. No web frameworks.
 - `gofmt -w .` before every commit.
 - Error wrapping: `fmt.Errorf("context: %w", err)`.
-- See `CLAUDE.md` for full conventions.
 
 ## Pull Requests
 

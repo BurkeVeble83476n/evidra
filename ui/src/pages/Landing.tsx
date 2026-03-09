@@ -102,10 +102,101 @@ const FEATURES = [
 ];
 
 const GUIDES = [
+  { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude, Cursor, Codex, Gemini, or any MCP-capable agent to Evidra for automatic reliability tracking.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
   { tag: "CI / CD", title: "CI Integration", desc: "Add reliability scoring to your CI pipeline \u2014 Terraform, Kubernetes, Docker, and more.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
   { tag: "Observability", title: "Metrics Export", desc: "Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" },
   { tag: "Scanners", title: "SARIF Integration", desc: "Ingest findings from Trivy, Kubescape, or any SARIF-compatible security scanner.", href: "https://github.com/vitas/evidra/blob/main/docs/integrations/SCANNER_SARIF_QUICKSTART.md" },
 ];
+
+type EditorTab = "claude-code" | "json-config" | "codex" | "gemini";
+
+const EDITOR_TABS: { id: EditorTab; label: string }[] = [
+  { id: "claude-code", label: "Claude Code" },
+  { id: "json-config", label: "Cursor / Claude Desktop" },
+  { id: "codex", label: "Codex" },
+  { id: "gemini", label: "Gemini CLI" },
+];
+
+function mcpConfig(editor: EditorTab, withApi: boolean): string {
+  if (editor === "claude-code") {
+    if (withApi) {
+      return `claude mcp add evidra -- evidra-mcp \\
+  --signing-mode optional \\
+  --url http://localhost:8080 \\
+  --api-key YOUR_KEY \\
+  --fallback-offline`;
+    }
+    return `claude mcp add evidra -- evidra-mcp --signing-mode optional`;
+  }
+  if (editor === "codex") {
+    if (withApi) {
+      return `# ~/.codex/config.toml
+[mcp_servers.evidra]
+command = "evidra-mcp"
+args = ["--signing-mode", "optional"]
+
+[mcp_servers.evidra.env]
+EVIDRA_URL = "http://localhost:8080"
+EVIDRA_API_KEY = "YOUR_KEY"
+EVIDRA_FALLBACK = "offline"`;
+    }
+    return `# ~/.codex/config.toml
+[mcp_servers.evidra]
+command = "evidra-mcp"
+args = ["--signing-mode", "optional"]`;
+  }
+  if (editor === "gemini") {
+    if (withApi) {
+      return `// ~/.gemini/settings.json
+{
+  "mcpServers": {
+    "evidra": {
+      "command": "evidra-mcp",
+      "args": ["--signing-mode", "optional"],
+      "env": {
+        "EVIDRA_URL": "http://localhost:8080",
+        "EVIDRA_API_KEY": "YOUR_KEY",
+        "EVIDRA_FALLBACK": "offline"
+      }
+    }
+  }
+}`;
+    }
+    return `// ~/.gemini/settings.json
+{
+  "mcpServers": {
+    "evidra": {
+      "command": "evidra-mcp",
+      "args": ["--signing-mode", "optional"]
+    }
+  }
+}`;
+  }
+  // json-config (Cursor, Claude Desktop, Windsurf)
+  if (withApi) {
+    return `{
+  "mcpServers": {
+    "evidra": {
+      "command": "evidra-mcp",
+      "args": ["--signing-mode", "optional"],
+      "env": {
+        "EVIDRA_URL": "http://localhost:8080",
+        "EVIDRA_API_KEY": "YOUR_KEY",
+        "EVIDRA_FALLBACK": "offline"
+      }
+    }
+  }
+}`;
+  }
+  return `{
+  "mcpServers": {
+    "evidra": {
+      "command": "evidra-mcp",
+      "args": ["--signing-mode", "optional"]
+    }
+  }
+}`;
+}
 
 export function Landing() {
   return (
@@ -117,6 +208,8 @@ export function Landing() {
       <Architecture />
       <Divider />
       <GettingStarted />
+      <Divider />
+      <McpSetup />
       <Divider />
       <ApiReference />
       <Divider />
@@ -234,6 +327,93 @@ function GettingStarted() {
   );
 }
 
+function McpSetup() {
+  const [editor, setEditor] = useState<EditorTab>("claude-code");
+  const [withApi, setWithApi] = useState(false);
+  const code = mcpConfig(editor, withApi);
+
+  const configPathNote = editor === "json-config"
+    ? "Add to .cursor/mcp.json (Cursor), claude_desktop_config.json (Claude Desktop), or ~/.codeium/windsurf/mcp_config.json (Windsurf)."
+    : editor === "codex" ? "Edit ~/.codex/config.toml."
+    : editor === "gemini" ? "Edit ~/.gemini/settings.json."
+    : "Run in your terminal.";
+
+  return (
+    <section id="mcp-setup" className="py-14 bg-bg-alt">
+      <Container>
+        <SectionLabel>AI Agents</SectionLabel>
+        <SectionTitle>MCP Server Setup</SectionTitle>
+        <p className="text-fg-muted mb-6 text-[1.14rem]">Connect any MCP-capable AI agent to Evidra for automatic reliability tracking.</p>
+
+        <div className="mb-8">
+          <h3 className="text-[0.95rem] font-bold text-fg mb-3">1. Install</h3>
+          <CodeBlock code="brew install samebits/tap/evidra" />
+          <p className="text-[0.83rem] text-fg-muted mt-2">
+            Or: <code className="text-[0.8rem]">go install samebits.com/evidra-benchmark/cmd/evidra-mcp@latest</code>
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-[0.95rem] font-bold text-fg mb-3">2. Connect to your editor</h3>
+
+          <div className="flex items-center gap-4 mb-4 flex-wrap">
+            <div className="inline-flex bg-accent-subtle border border-border rounded-lg p-[3px]">
+              {EDITOR_TABS.map((tab) => (
+                <TabBtn key={tab.id} active={editor === tab.id} onClick={() => setEditor(tab.id)}>{tab.label}</TabBtn>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-[0.82rem] text-fg-muted cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={withApi}
+                onChange={(e) => setWithApi(e.target.checked)}
+                className="accent-accent"
+              />
+              Forward to API server
+            </label>
+          </div>
+
+          <p className="text-[0.83rem] text-fg-muted mb-3">{configPathNote}</p>
+          <CodeBlock code={code} />
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-[0.95rem] font-bold text-fg mb-3">3. Verify</h3>
+          <p className="text-[0.85rem] text-fg-muted">
+            Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>prescribe</code>, <code>report</code>, and <code>get_event</code>.
+          </p>
+        </div>
+
+        <div className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)]">
+          <h3 className="text-[0.92rem] font-bold text-fg mb-2">How it works</h3>
+          <p className="text-[0.83rem] text-fg-muted leading-relaxed mb-3">
+            The MCP server exposes three tools. Your agent calls <code>prescribe</code> before every infrastructure mutation (apply, delete, upgrade) and <code>report</code> after execution with the exit code. Evidra records the evidence, detects behavioral signals, and produces reliability scores.
+          </p>
+          <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+            <div className="text-center">
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe</div>
+              <div className="text-[0.78rem] text-fg-muted">Record intent before execution</div>
+            </div>
+            <div className="text-center">
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">report</div>
+              <div className="text-[0.78rem] text-fg-muted">Record outcome after execution</div>
+            </div>
+            <div className="text-center">
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">get_event</div>
+              <div className="text-[0.78rem] text-fg-muted">Look up evidence for audit</div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[0.85rem] text-fg-muted mt-6">
+          Full setup guide with agent instructions, configuration options, and troubleshooting:{" "}
+          <a href="https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" target="_blank" rel="noopener" className="font-semibold">MCP Setup Guide &rarr;</a>
+        </p>
+      </Container>
+    </section>
+  );
+}
+
 function ApiReference() {
   return (
     <section id="api" className="py-14 bg-bg-alt">
@@ -260,7 +440,7 @@ function GuidesSection() {
         <SectionLabel>Guides</SectionLabel>
         <SectionTitle>Integrate Into Your Workflow</SectionTitle>
         <p className="text-fg-muted mb-10 text-[1.14rem]">Step-by-step guides for common integration patterns.</p>
-        <div className="grid grid-cols-3 gap-5 max-md:grid-cols-1">
+        <div className="grid grid-cols-4 gap-5 max-lg:grid-cols-2 max-sm:grid-cols-1">
           {GUIDES.map((g) => (
             <a key={g.title} href={g.href} target="_blank" rel="noopener" className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:border-accent hover:-translate-y-0.5 no-underline block">
               <div className="font-mono text-[0.7rem] font-medium text-accent tracking-wide uppercase mb-2">{g.tag}</div>
