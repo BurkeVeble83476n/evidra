@@ -103,7 +103,7 @@ clean:
 	rm -rf bin/
 
 ui-build:
-	cd ui && npm ci && npm run build
+	cd ui && npm install && npm run build
 
 build-api: ui-build
 	go build -tags embed_ui -o bin/evidra-api ./cmd/evidra-api
