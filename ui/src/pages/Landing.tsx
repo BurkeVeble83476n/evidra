@@ -24,8 +24,8 @@ const SYSTEM_CHART = `flowchart TB
     MCP["evidra-mcp<br/>MCP Server for AI Agents"]
     CI["CI Systems<br/>GitHub Actions · GitLab CI"]
   end
-  subgraph Backend ["evidra-api (Self-Hosted)"]
-    API["REST API<br/>15 endpoints"]
+  subgraph Backend ["evidra-api<br/>Self-Hosted · analytics experimental"]
+    API["REST API<br/>ingest · browse · analytics experimental"]
     DB[("PostgreSQL")]
     API --> DB
   end
@@ -57,8 +57,8 @@ const SEQUENCE_CHART = `sequenceDiagram
   Agent->>CLI: report(prescription_id, exit_code)
   CLI->>Chain: append(report entry, linked)
   CLI->>Signal: detect(entries)
-  Signal-->>CLI: signals[]
-  CLI-->>Agent: report_id, signals
+  Signal-->>CLI: signal_summary + confidence
+  CLI-->>Agent: report_id, score_band, signal_summary
 
   Agent->>CLI: scorecard(filters)
   CLI->>Score: compute(entries, weights)
@@ -92,7 +92,10 @@ export EVIDRA_API_KEY=my-secret-key
 docker compose up -d
 
 # Verify it's running
-curl http://localhost:8080/healthz`;
+curl http://localhost:8080/healthz
+
+# Hosted /v1/evidence/scorecard and /v1/evidence/explain
+# are experimental today. Use CLI or MCP for authoritative analytics.`;
 
 const SIGNALS = [
   { name: "protocol_violation", weight: "0.35", desc: "Missing prescribe or report, duplicate reports", icon: "\u26A0" },
@@ -317,7 +320,7 @@ function Signals() {
           ))}
         </div>
         <p className="text-[0.82rem] text-fg-muted mt-4 text-center">
-          Score = 100 &times; (1 &minus; weighted penalty). Range 0&ndash;100. Bands: excellent &ge; 90, good &ge; 75, fair &ge; 50, poor &ge; 25, critical &lt; 25.
+          Score = 100 &times; (1 &minus; weighted penalty). Range 0&ndash;100. Bands: excellent &ge; 99, good &ge; 95, fair &ge; 90, poor &lt; 90.
         </p>
       </Container>
     </section>
@@ -360,6 +363,12 @@ function GettingStarted() {
           <TabBtn active={tab === "selfhost"} onClick={() => setTab("selfhost")}>Self-Hosted</TabBtn>
         </div>
         <CodeBlock code={code} />
+        {tab === "selfhost" && (
+          <p className="text-[0.85rem] text-fg-muted mt-4">
+            Self-hosted supports centralized evidence collection today. Hosted <code>/v1/evidence/scorecard</code> and <code>/v1/evidence/explain</code> remain experimental; use CLI or MCP for authoritative analytics.{" "}
+            <a href="https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-experimental-status.md" target="_blank" rel="noopener" className="font-semibold">Status guide &rarr;</a>
+          </p>
+        )}
       </Container>
     </section>
   );
@@ -458,11 +467,11 @@ function ApiReference() {
       <Container>
         <SectionLabel>API</SectionLabel>
         <SectionTitle>API Reference</SectionTitle>
-        <p className="text-fg-muted mb-10 text-[1.14rem]">Full OpenAPI 3.0 documentation for all endpoints.</p>
+        <p className="text-fg-muted mb-10 text-[1.14rem]">Full OpenAPI 3.0 documentation for all endpoints, including the current experimental status of hosted analytics routes.</p>
         <a href="/docs/api" className="flex items-center justify-between bg-bg-elevated border border-border rounded-[10px] p-6 px-8 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:border-accent no-underline">
           <div>
             <h3 className="text-base text-fg mb-1">Interactive API Documentation</h3>
-            <p className="text-[0.85rem] text-fg-muted">Explore all 15 endpoints with request/response schemas, authentication details, and examples.</p>
+            <p className="text-[0.85rem] text-fg-muted">Explore all 15 endpoints with request/response schemas, authentication details, examples, and explicit `501` responses for experimental hosted analytics.</p>
           </div>
           <div className="font-mono text-[0.8rem] text-accent font-medium whitespace-nowrap">/docs/api &rarr;</div>
         </a>

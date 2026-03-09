@@ -329,7 +329,7 @@ paths:
   /v1/evidence/scorecard:
     get:
       tags: [Analytics]
-      summary: Compute a scorecard
+      summary: Experimental hosted scorecard endpoint
       parameters:
         - name: period
           in: query
@@ -348,35 +348,19 @@ paths:
             type: string
           description: Filter by scope class
       responses:
-        '200':
-          description: Computed scorecard
+        '501':
+          description: Experimental endpoint; use CLI or MCP for authoritative analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  total_operations:
-                    type: integer
-                  score:
-                    type: number
-                  band:
-                    type: string
-                    enum: [excellent, good, fair, poor, insufficient_data]
-                  sufficient:
-                    type: boolean
-                  signals:
-                    type: object
-                    additionalProperties:
-                      type: integer
-                  rates:
-                    type: object
-                    additionalProperties:
-                      type: number
+                $ref: '#/components/schemas/Error'
+              example:
+                error: hosted analytics are experimental; use CLI/MCP for authoritative analytics
 
   /v1/evidence/explain:
     get:
       tags: [Analytics]
-      summary: Explain signal breakdown
+      summary: Experimental hosted explain endpoint
       parameters:
         - name: period
           in: query
@@ -392,12 +376,14 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Signal breakdown
+        '501':
+          description: Experimental endpoint; use CLI or MCP for authoritative analytics
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/Error'
+              example:
+                error: hosted analytics are experimental; use CLI/MCP for authoritative analytics
 
   /v1/benchmark/run:
     post:
