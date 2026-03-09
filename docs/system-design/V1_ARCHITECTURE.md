@@ -217,7 +217,7 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | 20 risk detectors | `internal/detectors/` | Stable |
 | Risk matrix | `internal/risk/matrix.go` | Stable |
 | Evidence chain | `pkg/evidence/` | Stable |
-| 7 signal detectors | `internal/signal/` | Stable |
+| 8 signal detectors | `internal/signal/` | Stable |
 | Scorecard + explain | `internal/score/` | Stable |
 | TagProducer chain | `internal/detectors/{producer.go,producers.go}` | Stable |
 | MCP server | `pkg/mcpserver/` | Stable |

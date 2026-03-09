@@ -19,7 +19,7 @@ Actors:
   - Append-only evidence chain (JSONL, hash-linked)
 
 Goal:
-- Record actions, compute the seven signals, produce a comparable scorecard.
+- Record actions, compute the eight signals, produce a comparable scorecard.
 
 ---
 

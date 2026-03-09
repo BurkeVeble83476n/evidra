@@ -64,7 +64,8 @@ func TestDetectRiskEscalation_TieBreakLower(t *testing.T) {
 
 	now := time.Now()
 	entries := []Entry{
-		// Build baseline: 2 low + 1 medium first, then a medium that creates a tie
+		// P4: prior=[P1(low),P2(low),P3(med)] -> baseline=low, P4(med) escalates.
+		// P5: prior=[P1(low),P2(low),P3(med),P4(med)] -> 2 low, 2 med -> tie -> baseline=low, P5(med) escalates.
 		{EventID: "P1", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "read", ScopeClass: "production", Timestamp: now},
 		{EventID: "P2", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "read", ScopeClass: "production", Timestamp: now.Add(1 * time.Minute)},
 		{EventID: "P3", IsPrescription: true, ActorID: "alice", Tool: "kubectl", OperationClass: "mutate", ScopeClass: "staging", Timestamp: now.Add(2 * time.Minute)},
