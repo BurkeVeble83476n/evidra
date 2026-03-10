@@ -5,11 +5,11 @@
   "category": "kubernetes",
   "difficulty": "medium",
   "ground_truth_pattern": "k8s.privileged_container",
-  "artifact_ref": "artifacts/input.json",
+  "artifact_ref": "../../corpus/k8s/kubescape-privileged-container-fail.yaml",
   "source_refs": [
     {
-      "source_id": "evidra-mcp-golden-real",
-      "source_type": "seed",
+      "source_id": "kubescape-regolibrary",
+      "source_type": "oss",
       "composition": "real-derived"
     },
     {
@@ -19,5 +19,11 @@
     }
   ],
   "risk_level": "critical",
-  "risk_details_expected": ["k8s.privileged_container"]
+  "risk_details_expected": [
+    "k8s.privileged_container"
+  ],
+  "scenario_class": "high_risk_ambiguous",
+  "operation_class": "deploy_rollout",
+  "environment_class": "prod_like",
+  "artifact_digest": "sha256:54962efecd53d39cb0c627046ee0bdbeaa0ac08acb70570aa095e65312be3938"
 }

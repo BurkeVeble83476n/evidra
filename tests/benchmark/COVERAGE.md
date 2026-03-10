@@ -1,10 +1,10 @@
 # Evidra Benchmark Dataset - Coverage Report
 
-Generated: 2026-03-06T11:37:19Z
+Generated: 2026-03-10T20:14:08Z
 
 **Dataset label:** `limited-contract-baseline`  
 **Dataset scope:** `limited`  
-**Cases:** 10 | **Corpus artifacts:** 0
+**Cases:** 10 | **Corpus artifacts:** 19
 
 ## Signal Coverage
 
@@ -13,10 +13,8 @@ Generated: 2026-03-06T11:37:19Z
 | `k8s.hostpath_mount` | 1 | 1 | 2 |
 | `k8s.privileged_container` | 1 | 1 | 2 |
 | `k8s.run_as_root` | 1 | 1 | 2 |
-| `terraform.iam_wildcard_policy` | 1 | 0 | 1 |
-| `terraform.s3_public_access` | 1 | 0 | 1 |
-| `tf.iam_wildcard_policy` | 1 | 1 | 2 |
-| `tf.s3_public_access` | 1 | 1 | 2 |
+| `terraform.iam_wildcard_policy` | 1 | 1 | 2 |
+| `terraform.s3_public_access` | 1 | 1 | 2 |
 
 ## Gaps (signals with < 2 FAIL cases)
 
@@ -25,8 +23,6 @@ Generated: 2026-03-06T11:37:19Z
 - `k8s.run_as_root`: FAIL cases=1
 - `terraform.iam_wildcard_policy`: FAIL cases=1
 - `terraform.s3_public_access`: FAIL cases=1
-- `tf.iam_wildcard_policy`: FAIL cases=1
-- `tf.s3_public_access`: FAIL cases=1
 
 ## By Category
 
@@ -39,8 +35,8 @@ Generated: 2026-03-06T11:37:19Z
 
 | Pattern | Cases |
 |---------|-------|
-| `tf.s3_public_access` | 2 |
-| `tf.iam_wildcard_policy` | 2 |
+| `terraform.s3_public_access` | 2 |
+| `terraform.iam_wildcard_policy` | 2 |
 | `k8s.run_as_root` | 2 |
 | `k8s.privileged_container` | 2 |
 | `k8s.hostpath_mount` | 2 |

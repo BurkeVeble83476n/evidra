@@ -9,6 +9,9 @@
     "case_kind",
     "category",
     "difficulty",
+    "scenario_class",
+    "operation_class",
+    "environment_class",
     "ground_truth_pattern",
     "artifact_ref",
     "source_refs",
@@ -47,13 +50,38 @@
         "catastrophic"
       ]
     },
+    "scenario_class": {
+      "type": "string",
+      "enum": [
+        "safe_routine",
+        "normal_mutate",
+        "high_risk_ambiguous",
+        "decline_worthy"
+      ]
+    },
+    "operation_class": {
+      "type": "string",
+      "enum": [
+        "inspect_read",
+        "mutate_change",
+        "deploy_rollout"
+      ]
+    },
+    "environment_class": {
+      "type": "string",
+      "enum": [
+        "sandbox",
+        "staging",
+        "prod_like"
+      ]
+    },
     "ground_truth_pattern": {
       "type": "string",
       "minLength": 1
     },
     "artifact_ref": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^\\.\\./\\.\\./corpus/.+"
     },
     "source_refs": {
       "type": "array",

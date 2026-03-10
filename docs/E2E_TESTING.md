@@ -58,6 +58,8 @@ The benchmark layer is not product e2e. It validates the benchmark dataset and
 its contract surfaces:
 
 - dataset schema and metadata
+- shared OSS corpus provenance under `tests/benchmark/corpus/`
+- importer availability for the first reviewed upstream sources
 - contract drift for promoted cases
 - coverage reporting for the limited benchmark dataset
 
@@ -117,9 +119,15 @@ Rules:
 - no runtime downloading for primary CI acceptance coverage
 - no mirroring of full upstream repositories when a curated artifact slice is enough
 - every real-world artifact should have provenance metadata and intended coverage
+- benchmark cases reference the shared corpus directly instead of copying
+  case-local duplicates
 
 Current reality:
 
+- the limited benchmark dataset now vendors reviewed first-wave fixtures from
+  Kubescape, Checkov, and Kubernetes docs under `tests/benchmark/corpus/`
+- benchmark source manifests must carry exact upstream refs instead of local
+  snapshot placeholders
 - some real fixtures are still curated local slices with partial provenance
 - the next artifact-acquisition wave should replace those with better documented
   open-source fixture captures
@@ -150,6 +158,8 @@ real-world artifact coverage over time:
 - findings ingest on vendored real SARIF outputs from open-source scanners
 - risk-escalation scenarios expressed with realistic workload histories
 - run/record parity on vendored real artifacts instead of handwritten configmaps
+- promotion of corpus-backed OSS artifacts into `tests/artifacts/real/` for the
+  primary acceptance layer
 
 ## CI Mapping
 

@@ -1,19 +1,22 @@
 {
   "ground_truth_pattern": "",
-  "risk_level": "high",
-  "risk_details": [],
-  "operation_class": "unknown",
+  "risk_level": "critical",
+  "risk_details": [
+    "aws_iam.wildcard_policy",
+    "terraform.iam_wildcard_policy"
+  ],
+  "operation_class": "mutate",
   "scope_class": "unknown",
   "resource_count": 0,
-  "canon_version": "generic/v1",
-  "artifact_digest": "sha256:fe7934ca4b154954c2feefbc3c8752834aa461b2b85884e1d9672246e445ebc4",
-  "intent_digest": "sha256:ee5da4b691c6822898feff61b6dc815ab32b679caa3efd5ed00b537ef988d0ef",
-  "prescription_id": "01KK7X2DH62AYSMDZEP3709PJJ",
-  "evidra_version": "0.4.0",
+  "canon_version": "terraform/v1",
+  "artifact_digest": "sha256:6925bedb8d7eb0fc54465f619048d8a2fabf506c966e13b95a3d6f09f83e6024",
+  "intent_digest": "sha256:cb7283db8750711a5195e4c8746d99ac837e4a76b6998878d3a41d2c80e9615b",
+  "prescription_id": "01KKCMWV38NE6J7GH9ND22AXHR",
+  "evidra_version": "0.4.5",
   "processing": {
-    "dataset_evidra_version": "v0.3.x",
-    "processed_at": "2026-03-08T23:38:40Z",
-    "tool": "generic",
+    "dataset_evidra_version": "v0.4.5",
+    "processed_at": "2026-03-10T19:52:01Z",
+    "tool": "terraform",
     "operation": "apply"
   },
   "case_id": "tf-iam-wildcard-policy-fail"

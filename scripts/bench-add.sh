@@ -14,7 +14,7 @@ Options:
   -h, --help             Show this help
 
 Examples:
-  scripts/bench-add.sh k8s-hostpath-mount-fail --artifact /tmp/hostpath.yaml --source kubescape-regolibrary
+  scripts/bench-add.sh k8s-hostpath-mount-fail --artifact tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml --source kubescape-regolibrary
   scripts/bench-add.sh tf-s3-public-access-fail --source checkov-terraform --tool terraform
 EOF
 }
@@ -87,13 +87,14 @@ cd "$ROOT_DIR"
 
 CASE_DIR="tests/benchmark/cases/$CASE_ID"
 SOURCE_FILE="tests/benchmark/sources/${SOURCE:-TODO}.md"
+CORPUS_PREFIX="tests/benchmark/corpus/"
 
 if [[ -d "$CASE_DIR" ]]; then
   echo "bench-add: case already exists at $CASE_DIR" >&2
   exit 1
 fi
 
-mkdir -p "$CASE_DIR/artifacts" "$CASE_DIR/golden"
+mkdir -p "$CASE_DIR/golden"
 
 ARTIFACT_REF="TODO"
 ARTIFACT_DIGEST="TODO"
@@ -104,12 +105,15 @@ RISK_LEVEL="TODO"
 RISK_DETAILS_JSON="[]"
 TAGS_JSON="[]"
 PROCESSING_JSON="{}"
+SCENARIO_CLASS="normal_mutate"
+OPERATION_CLASS="mutate_change"
+ENVIRONMENT_CLASS="sandbox"
 
 case "$TOOL" in
-  kubectl) CATEGORY="kubernetes" ;;
+  kubectl) CATEGORY="kubernetes"; OPERATION_CLASS="deploy_rollout" ;;
   terraform) CATEGORY="terraform" ;;
-  helm) CATEGORY="helm" ;;
-  argocd) CATEGORY="argocd" ;;
+  helm) CATEGORY="helm"; OPERATION_CLASS="deploy_rollout" ;;
+  argocd) CATEGORY="argocd"; OPERATION_CLASS="deploy_rollout" ;;
 esac
 
 if [[ -n "$ARTIFACT" ]]; then
@@ -117,18 +121,29 @@ if [[ -n "$ARTIFACT" ]]; then
     echo "bench-add: artifact not found: $ARTIFACT" >&2
     exit 1
   fi
-  ARTIFACT_BASENAME="$(basename "$ARTIFACT")"
-  cp "$ARTIFACT" "$CASE_DIR/artifacts/$ARTIFACT_BASENAME"
-  ARTIFACT_REF="artifacts/$ARTIFACT_BASENAME"
+
+  ARTIFACT_ROOT_REL="$ARTIFACT"
+  if [[ "$ARTIFACT_ROOT_REL" == "$ROOT_DIR/"* ]]; then
+    ARTIFACT_ROOT_REL="${ARTIFACT_ROOT_REL#$ROOT_DIR/}"
+  elif [[ "$ARTIFACT_ROOT_REL" == "./"* ]]; then
+    ARTIFACT_ROOT_REL="${ARTIFACT_ROOT_REL#./}"
+  fi
+
+  if [[ "$ARTIFACT_ROOT_REL" != ${CORPUS_PREFIX}* ]]; then
+    echo "bench-add: artifact must already live under $CORPUS_PREFIX (import into corpus first)" >&2
+    exit 1
+  fi
+
+  ARTIFACT_REF="../../corpus/${ARTIFACT_ROOT_REL#${CORPUS_PREFIX}}"
   if command -v shasum >/dev/null 2>&1; then
-    ARTIFACT_DIGEST="sha256:$(shasum -a 256 "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" | awk '{print $1}')"
+    ARTIFACT_DIGEST="sha256:$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')"
   elif command -v sha256sum >/dev/null 2>&1; then
-    ARTIFACT_DIGEST="sha256:$(sha256sum "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" | awk '{print $1}')"
+    ARTIFACT_DIGEST="sha256:$(sha256sum "$ARTIFACT" | awk '{print $1}')"
   fi
 
   if [[ "$NO_PROCESS" == "false" && -x "tests/benchmark/scripts/process-artifact.sh" ]]; then
     process_tmp="$(mktemp)"
-    process_cmd=(bash tests/benchmark/scripts/process-artifact.sh --artifact "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" --tool "$TOOL" --operation "$OPERATION" --out "$process_tmp")
+    process_cmd=(bash tests/benchmark/scripts/process-artifact.sh --artifact "$ARTIFACT" --tool "$TOOL" --operation "$OPERATION" --out "$process_tmp")
     if [[ -n "$EVIDRA_BIN" ]]; then
       process_cmd+=(--evidra-bin "$EVIDRA_BIN")
     fi
@@ -137,7 +152,7 @@ if [[ -n "$ARTIFACT" ]]; then
     if "${process_cmd[@]}" >/tmp/bench-add-process.log 2>&1; then
       process_ok="true"
     elif [[ "$TOOL" != "generic" ]]; then
-      process_cmd=(bash tests/benchmark/scripts/process-artifact.sh --artifact "$CASE_DIR/artifacts/$ARTIFACT_BASENAME" --tool generic --operation "$OPERATION" --out "$process_tmp")
+      process_cmd=(bash tests/benchmark/scripts/process-artifact.sh --artifact "$ARTIFACT" --tool generic --operation "$OPERATION" --out "$process_tmp")
       if [[ -n "$EVIDRA_BIN" ]]; then
         process_cmd+=(--evidra-bin "$EVIDRA_BIN")
       fi
@@ -199,6 +214,10 @@ cat > "$CASE_DIR/README.md" <<EOF
 **Difficulty:** TODO  
 **Dataset label:** limited-contract-baseline
 
+**Scenario class:** $SCENARIO_CLASS  
+**Operation class:** $OPERATION_CLASS  
+**Environment class:** $ENVIRONMENT_CLASS
+
 **Story:** TODO describe what automation does.
 
 **Impact:** TODO describe concrete operational impact.
@@ -215,6 +234,9 @@ cat > "$CASE_DIR/expected.json" <<EOF
   "case_kind": "artifact",
   "category": "$CATEGORY",
   "difficulty": "$DIFFICULTY",
+  "scenario_class": "$SCENARIO_CLASS",
+  "operation_class": "$OPERATION_CLASS",
+  "environment_class": "$ENVIRONMENT_CLASS",
   "ground_truth_pattern": "$GROUND_TRUTH_PATTERN",
   "artifact_ref": "$ARTIFACT_REF",
   "artifact_digest": "$ARTIFACT_DIGEST",

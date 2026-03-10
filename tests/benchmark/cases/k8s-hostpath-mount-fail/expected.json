@@ -5,11 +5,11 @@
   "category": "kubernetes",
   "difficulty": "medium",
   "ground_truth_pattern": "k8s.hostpath_mount",
-  "artifact_ref": "artifacts/input.json",
+  "artifact_ref": "../../corpus/k8s/kubescape-hostpath-mount-fail.yaml",
   "source_refs": [
     {
-      "source_id": "evidra-mcp-golden-real",
-      "source_type": "seed",
+      "source_id": "kubescape-regolibrary",
+      "source_type": "oss",
       "composition": "real-derived"
     },
     {
@@ -19,5 +19,11 @@
     }
   ],
   "risk_level": "high",
-  "risk_details_expected": ["k8s.hostpath_mount"]
+  "risk_details_expected": [
+    "k8s.hostpath_mount"
+  ],
+  "scenario_class": "high_risk_ambiguous",
+  "operation_class": "mutate_change",
+  "environment_class": "prod_like",
+  "artifact_digest": "sha256:d84e633afd52ed668552124c7deb7f592db0402db2328eeae3ac3c925a9beb12"
 }

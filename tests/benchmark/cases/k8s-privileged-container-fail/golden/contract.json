@@ -1,18 +1,22 @@
 {
   "ground_truth_pattern": "",
-  "risk_level": "medium",
-  "risk_details": [],
+  "risk_level": "critical",
+  "risk_details": [
+    "k8s.privileged_container",
+    "k8s.run_as_root",
+    "k8s.writable_rootfs"
+  ],
   "operation_class": "mutate",
   "scope_class": "unknown",
   "resource_count": 0,
   "canon_version": "k8s/v1",
-  "artifact_digest": "sha256:f14b4174a0b3d7aec90b1fb28ae1360bd8a8b13645144ffe147b4e195b78c8bb",
-  "intent_digest": "sha256:086cb5509ab4c9514752987f527e43e637916fe86177f0f427d080a348fc8c1c",
-  "prescription_id": "01KK7X2BWR56KC2SSBG3KWCB6C",
-  "evidra_version": "0.4.0",
+  "artifact_digest": "sha256:54962efecd53d39cb0c627046ee0bdbeaa0ac08acb70570aa095e65312be3938",
+  "intent_digest": "sha256:21581e1f4952695c25b85bda2683ce869e9787a467e9e5e43f0a13e3c792650b",
+  "prescription_id": "01KKCMWSN07Y5JS3N5GCR5DY6J",
+  "evidra_version": "0.4.5",
   "processing": {
-    "dataset_evidra_version": "v0.3.x",
-    "processed_at": "2026-03-08T23:38:38Z",
+    "dataset_evidra_version": "v0.4.5",
+    "processed_at": "2026-03-10T19:51:59Z",
     "tool": "kubectl",
     "operation": "apply"
   },

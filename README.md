@@ -202,6 +202,7 @@ evidra run \
 Architecture and contracts:
 - [Public Roadmap](docs/ROAD_MAP.md)
 - [E2E Testing Map](docs/E2E_TESTING.md)
+- [Benchmark Corpus README](tests/benchmark/corpus/README.md)
 - [Architecture Overview](docs/ARCHITECTURE.md)
 - [Decision Tracking v1](docs/system-design/EVIDRA_DECISION_TRACKING_V1.md)
 - [V1 Architecture](docs/system-design/V1_ARCHITECTURE.md)

@@ -39,6 +39,9 @@ fi
 [[ -d "$CASES_DIR" ]] || fail "missing $CASES_DIR"
 [[ -d "$SOURCES_DIR" ]] || fail "missing $SOURCES_DIR"
 
+bash tests/benchmark/scripts/validate-provenance.sh >/dev/null || fail "provenance validation failed"
+bash tests/benchmark/scripts/validate-case-metadata.sh >/dev/null || fail "case metadata validation failed"
+
 # Dataset metadata and limited-label contract.
 jq -e '
   .dataset_version and
@@ -53,7 +56,11 @@ jq -e '
   (.dataset_not_for | type=="array") and
   (.dataset_not_for | index("leaderboard")) and
   (.dataset_not_for | index("public-comparison")) and
-  (.dataset_not_for | index("final-benchmark-score"))
+  (.dataset_not_for | index("final-benchmark-score")) and
+  (.scenario_axes.scenario_class == ["safe_routine", "normal_mutate", "high_risk_ambiguous", "decline_worthy"]) and
+  (.scenario_axes.operation_class == ["inspect_read", "mutate_change", "deploy_rollout"]) and
+  (.scenario_axes.risk_level == ["low", "medium", "high", "critical"]) and
+  (.scenario_axes.environment_class == ["sandbox", "staging", "prod_like"])
 ' "$DATASET_JSON" >/dev/null || fail "dataset.json missing required fields or limited label contract"
 
 dataset_processed_version="$(jq -r '.evidra_version_processed // empty' "$DATASET_JSON")"
@@ -65,6 +72,18 @@ if ! has_pattern '^[[:space:]]*profile:[[:space:]]+limited-contract-baseline[[:s
 fi
 if ! has_pattern '^[[:space:]]*maturity:[[:space:]]+pre-benchmark[[:space:]]*$' "$BENCHMARK_YAML"; then
   fail "benchmark.yaml missing maturity: pre-benchmark"
+fi
+if ! has_pattern '^[[:space:]]*scenario_class:[[:space:]]+\[safe_routine, normal_mutate, high_risk_ambiguous, decline_worthy\][[:space:]]*$' "$BENCHMARK_YAML"; then
+  fail "benchmark.yaml missing scenario_class axis"
+fi
+if ! has_pattern '^[[:space:]]*operation_class:[[:space:]]+\[inspect_read, mutate_change, deploy_rollout\][[:space:]]*$' "$BENCHMARK_YAML"; then
+  fail "benchmark.yaml missing operation_class axis"
+fi
+if ! has_pattern '^[[:space:]]*risk_level:[[:space:]]+\[low, medium, high, critical\][[:space:]]*$' "$BENCHMARK_YAML"; then
+  fail "benchmark.yaml missing risk_level axis"
+fi
+if ! has_pattern '^[[:space:]]*environment_class:[[:space:]]+\[sandbox, staging, prod_like\][[:space:]]*$' "$BENCHMARK_YAML"; then
+  fail "benchmark.yaml missing environment_class axis"
 fi
 
 expected_files=()
@@ -85,6 +104,9 @@ for file in "${expected_files[@]}"; do
     .case_kind and
     .category and
     .difficulty and
+    .scenario_class and
+    .operation_class and
+    .environment_class and
     .ground_truth_pattern and
     .artifact_ref and
     .source_refs and
@@ -108,6 +130,7 @@ for file in "${expected_files[@]}"; do
   seen_case_ids="${seen_case_ids}"$'\n'"${case_id}"
 
   artifact_ref="$(jq -r '.artifact_ref' "$file")"
+  [[ "$artifact_ref" == ../../corpus/* ]] || fail "$file artifact_ref must point into ../../corpus/, got: $artifact_ref"
   artifact_path="$(dirname "$file")/$artifact_ref"
   [[ -f "$artifact_path" ]] || fail "$file artifact_ref does not resolve: $artifact_ref"
 

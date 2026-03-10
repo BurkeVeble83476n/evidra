@@ -4,6 +4,11 @@ profile: limited-contract-baseline
 maturity: pre-benchmark
 labels: [limited, contract-validation, non-comprehensive]
 description: "Limited contract-validation baseline dataset."
+scenario_axes:
+  scenario_class: [safe_routine, normal_mutate, high_risk_ambiguous, decline_worthy]
+  operation_class: [inspect_read, mutate_change, deploy_rollout]
+  risk_level: [low, medium, high, critical]
+  environment_class: [sandbox, staging, prod_like]
 cases:
   - k8s-privileged-container-fail
   - k8s-privileged-container-pass

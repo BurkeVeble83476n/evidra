@@ -44,6 +44,8 @@ toward broader CNCF ecosystem adoption.
   consistent.
 - Add decision tracking so agents can record when they intentionally decline
   to act and why, making refusal evidence a first-class part of the chain.
+- Build a reviewed OSS artifact corpus with exact provenance so benchmark and
+  future acceptance coverage rely less on local synthetic fixtures.
 
 ### Ecosystem Integrations
 
@@ -55,6 +57,8 @@ toward broader CNCF ecosystem adoption.
   documentation.
 - Keep CloudEvents, OpenTelemetry, SARIF, and in-toto alignment visible in the
   public contract and docs.
+- Vendor practical upstream examples from Kubescape, Checkov, and Kubernetes
+  docs as the first shared dataset wave.
 
 ### Community, Governance, and Trust
 

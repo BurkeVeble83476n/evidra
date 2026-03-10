@@ -74,6 +74,18 @@ jobs:
       - name: Check doc command paths
         run: bash scripts/check-doc-commands.sh
 
+      - name: Check OSS dataset provenance
+        run: bash tests/test_oss_dataset_provenance.sh
+
+      - name: Check benchmark case metadata
+        run: bash tests/test_benchmark_case_metadata.sh
+
+      - name: Check OSS dataset corpus
+        run: bash tests/test_oss_dataset_corpus.sh
+
+      - name: Check bench-add corpus scaffolding
+        run: bash tests/test_bench_add_corpus_scaffold.sh
+
       - name: Validate benchmark dataset
         run: make benchmark-validate
 
