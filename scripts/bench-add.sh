@@ -94,7 +94,7 @@ if [[ -d "$CASE_DIR" ]]; then
   exit 1
 fi
 
-mkdir -p "$CASE_DIR/golden"
+mkdir -p "$CASE_DIR/snapshots"
 
 ARTIFACT_REF="TODO"
 ARTIFACT_DIGEST="TODO"

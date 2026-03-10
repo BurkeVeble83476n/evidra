@@ -134,8 +134,8 @@ for file in "${expected_files[@]}"; do
   artifact_path="$(dirname "$file")/$artifact_ref"
   [[ -f "$artifact_path" ]] || fail "$file artifact_ref does not resolve: $artifact_ref"
 
-  contract_path="$(dirname "$file")/golden/contract.json"
-  [[ -f "$contract_path" ]] || fail "$file missing golden contract: $(dirname "$file")/golden/contract.json"
+  contract_path="$(dirname "$file")/snapshots/contract.json"
+  [[ -f "$contract_path" ]] || fail "$file missing contract snapshot: $(dirname "$file")/snapshots/contract.json"
   jq -e '
     .case_id and
     .risk_level and

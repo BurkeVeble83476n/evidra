@@ -1,4 +1,4 @@
-.PHONY: build test e2e clean golden-update docker-mcp docker-cli docker-api docker-up docker-down fmt lint tidy \
+.PHONY: build test e2e clean canon-fixtures-update docker-mcp docker-cli docker-api docker-up docker-down fmt lint tidy \
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
 	test-contracts test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest \
@@ -71,8 +71,8 @@ prompts-generate:
 prompts-verify:
 	bash scripts/prompts-verify.sh
 
-golden-update:
-	EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update ./internal/canon/...
+canon-fixtures-update:
+	EVIDRA_UPDATE_CANON_FIXTURES=1 go test -run TestCanonFixtures -update ./internal/canon/...
 
 docker-mcp:
 	docker build -t evidra-mcp:dev -f Dockerfile .

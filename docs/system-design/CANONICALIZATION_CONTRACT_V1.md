@@ -122,7 +122,7 @@ The Front Contract above is sufficient for integration.
 This document is the ABI of Evidra's domain adapters. It defines
 exactly what is parsed, what is discarded, what produces the
 intent_digest, and which libraries are used. If the output changes,
-the version bumps. If the version bumps, golden corpus updates.
+the version bumps. If the version bumps, canonicalization fixture corpus updates.
 No exceptions.
 
 ---
@@ -847,7 +847,7 @@ ArgoCD demonstrates the pattern for adding any new tool:
 3. Extract resource_identity (what's being touched?)
 4. Map to operation_class (destroy, mutate, read, plan)
 5. Map to scope_class (production, staging, etc.)
-6. Write golden corpus (minimum 5 cases)
+6. Write canonicalization fixture corpus (minimum 5 cases)
 7. Version as `<tool>/v1`
 
 Future adapters follow the same pattern:
@@ -1179,24 +1179,24 @@ changes do not.
 | Change risk matrix thresholds | risk_level not in any digest |
 | Add new adapter for new tool | Existing adapters unchanged |
 | Fix parser bug without output change | Golden corpus unchanged |
-| Library minor version bump | Unless output changes (verify with golden) |
+| Library minor version bump | Unless output changes (verify with fixtures) |
 | Add fields to Prescription wrapper | Prescription is not canonicalization |
 | Add new signal detector | Signals are post-canon |
 | Change scorecard formula/weights | Scoring is post-canon |
 
 **Verification:** Any change to adapter code must pass the existing
-golden corpus without `EVIDRA_UPDATE_GOLDEN=1`. If golden tests
+canonicalization fixture corpus without `EVIDRA_UPDATE_CANON_FIXTURES=1`. If fixture tests
 fail → the change is breaking → version bump required → update
-golden with new version tag.
+fixtures with new version tag.
 
 ---
 
-## 15. Golden Corpus
+## 15. Canonicalization Fixture Corpus
 
-The golden corpus is both a **test suite** and a **strategic asset**.
+The canonicalization fixture corpus is both a **test suite** and a **strategic asset**.
 
 As a test suite: it verifies that canonicalization produces stable
-digests across releases. Any code change that breaks golden files
+digests across releases. Any code change that breaks fixture files
 is a breaking change.
 
 As a strategic asset: over time, the corpus accumulates curated
@@ -1314,7 +1314,7 @@ parsing.
 - Do not put risk_tags into intent_digest. They are analysis
   output, not intent identity.
 - Do not modify the noise list without a version bump.
-- Do not modify golden corpus cases without a version bump.
+- Do not modify canonicalization fixture corpus cases without a version bump.
 - Do not add field values to Terraform intent. Only address +
   type + actions.
 - Do not write custom YAML/JSON parsers. Use the official
@@ -1327,7 +1327,7 @@ parsing.
 Simplified testing contract. One test type per guarantee. No test
 infrastructure that costs more to maintain than the code it tests.
 
-### Test A: Golden Corpus (10 cases)
+### Test A: Canonicalization Fixture Corpus (10 cases)
 
 Each case has an input file and a digest file. 3-5 key cases also
 have a full canonical_action snapshot to catch regressions in
@@ -1335,7 +1335,7 @@ resource_count, scope_class, operation_class that a digest-only
 check would miss.
 
 ```
-tests/golden/
+tests/canon_fixtures/
   k8s_deployment.yaml           → k8s_deployment_digest.txt
   k8s_multidoc.yaml             → k8s_multidoc_digest.txt
                                   k8s_multidoc_action.json     ← snapshot
@@ -1352,14 +1352,14 @@ tests/golden/
   helm_output.yaml              → helm_output_digest.txt
 ```
 
-Test logic: parse input, compare intent_digest against golden
+Test logic: parse input, compare intent_digest against fixture
 digest file. If action snapshot exists, compare canonical_action
-fields with JSONEq. Update requires `EVIDRA_UPDATE_GOLDEN=1`
+fields with JSONEq. Update requires `EVIDRA_UPDATE_CANON_FIXTURES=1`
 env var — prevents accidental overwrites in CI.
 
 ### Test B: Noise Immunity (5 mutators × 10 inputs = 50 subtests)
 
-Take each golden input. Mutate 5 ways. Assert same intent_digest.
+Take each fixture input. Mutate 5 ways. Assert same intent_digest.
 
 | Mutator | What it does |
 |---------|-------------|
@@ -1381,12 +1381,12 @@ resource_shape_hash MUST change.
 
 ### Test D: Crash Safety Fuzz (P1, not P0)
 
-Go native fuzz seeded from golden inputs. Goal: no panics, no
+Go native fuzz seeded from fixture inputs. Goal: no panics, no
 hangs, no OOM. Not correctness — just stability.
 
 ```go
 func FuzzCanonicalize(f *testing.F) {
-    // seed from golden inputs
+    // seed from fixture inputs
     f.Fuzz(func(t *testing.T, input []byte) {
         Canonicalize(input)  // must not panic
     })
@@ -1400,16 +1400,16 @@ Add when adapter is stable. Run with
 
 ```
 1. Change the adapter code
-2. go test → golden tests fail
-3. EVIDRA_UPDATE_GOLDEN=1 go test -run TestGolden -update
-4. git diff tests/golden/ → review: are changes expected?
+2. go test → fixture tests fail
+3. EVIDRA_UPDATE_CANON_FIXTURES=1 go test -run TestCanonFixtures -update
+4. git diff tests/canon_fixtures/ → review: are changes expected?
 5. Bump canonicalization_version in adapter
 6. git commit -m "canon: bump k8s/v2, reason: ..."
 ```
 
 ### When to Add More Tests
 
-- New golden case: new resource type with unusual structure, or
+- New fixture case: new resource type with unusual structure, or
   bug fix where digest was wrong.
 - New noise mutator: new noise field discovered in production.
 - Fuzz testing: crash found in production.

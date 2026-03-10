@@ -74,6 +74,9 @@ jobs:
       - name: Check doc command paths
         run: bash scripts/check-doc-commands.sh
 
+      - name: Check test naming consistency
+        run: bash tests/test_fixture_snapshot_names.sh
+
       - name: Check OSS dataset provenance
         run: bash tests/test_oss_dataset_provenance.sh
 
@@ -92,7 +95,7 @@ jobs:
       - name: Validate benchmark dataset
         run: make benchmark-validate
 
-      - name: Check benchmark golden contract drift
+      - name: Check benchmark contract snapshot drift
         run: make benchmark-check-contracts EVIDRA_BIN=bin/evidra
 
       - name: Generate benchmark coverage report

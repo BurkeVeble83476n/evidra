@@ -36,7 +36,7 @@ for expected in "${expected_files[@]}"; do
     continue
   fi
 
-  contract_path="$(dirname "$expected")/golden/contract.json"
+  contract_path="$(dirname "$expected")/snapshots/contract.json"
   if [[ ! -f "$contract_path" ]]; then
     echo "detect-duplicates: WARN skip $case_id (missing $contract_path)" >&2
     continue

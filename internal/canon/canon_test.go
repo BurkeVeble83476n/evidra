@@ -7,46 +7,46 @@ import (
 	"testing"
 )
 
-const goldenDir = "../../tests/golden"
+const canonFixturesDir = "../../tests/canon_fixtures"
 
-func goldenPath(name string) string {
-	return filepath.Join(goldenDir, name)
+func fixturePath(name string) string {
+	return filepath.Join(canonFixturesDir, name)
 }
 
-func readGolden(t *testing.T, name string) []byte {
+func readFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(goldenPath(name))
+	data, err := os.ReadFile(fixturePath(name))
 	if err != nil {
-		t.Fatalf("read golden file %s: %v", name, err)
+		t.Fatalf("read canon fixture %s: %v", name, err)
 	}
 	return data
 }
 
-func readGoldenDigest(t *testing.T, name string) string {
+func readFixtureDigest(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(goldenPath(name))
+	data, err := os.ReadFile(fixturePath(name))
 	if err != nil {
-		t.Fatalf("read golden digest %s: %v", name, err)
+		t.Fatalf("read fixture digest %s: %v", name, err)
 	}
 	return strings.TrimSpace(string(data))
 }
 
-func writeGoldenDigest(t *testing.T, name, digest string) {
+func writeFixtureDigest(t *testing.T, name, digest string) {
 	t.Helper()
-	if err := os.WriteFile(goldenPath(name), []byte(digest+"\n"), 0o644); err != nil {
-		t.Fatalf("write golden digest %s: %v", name, err)
+	if err := os.WriteFile(fixturePath(name), []byte(digest+"\n"), 0o644); err != nil {
+		t.Fatalf("write fixture digest %s: %v", name, err)
 	}
 }
 
-func shouldUpdate() bool {
-	return os.Getenv("EVIDRA_UPDATE_GOLDEN") == "1"
+func shouldUpdateFixtures() bool {
+	return os.Getenv("EVIDRA_UPDATE_CANON_FIXTURES") == "1"
 }
 
-// --- Golden Corpus Tests ---
+// --- Canonicalization Fixture Tests ---
 
-func TestGolden_K8sDeployment(t *testing.T) {
+func TestCanonFixtures_K8sDeployment(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_deployment.yaml")
+	data := readFixture(t, "k8s_deployment.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -77,20 +77,20 @@ func TestGolden_K8sDeployment(t *testing.T) {
 	}
 
 	digestFile := "k8s_deployment_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
-		t.Logf("updated golden digest: %s", result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
+		t.Logf("updated fixture digest: %s", result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_K8sMultidoc(t *testing.T) {
+func TestCanonFixtures_K8sMultidoc(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_multidoc.yaml")
+	data := readFixture(t, "k8s_multidoc.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -110,19 +110,19 @@ func TestGolden_K8sMultidoc(t *testing.T) {
 	}
 
 	digestFile := "k8s_multidoc_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_K8sPrivileged(t *testing.T) {
+func TestCanonFixtures_K8sPrivileged(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_privileged.yaml")
+	data := readFixture(t, "k8s_privileged.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -138,19 +138,19 @@ func TestGolden_K8sPrivileged(t *testing.T) {
 	}
 
 	digestFile := "k8s_privileged_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_K8sRBAC(t *testing.T) {
+func TestCanonFixtures_K8sRBAC(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_rbac.yaml")
+	data := readFixture(t, "k8s_rbac.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -161,19 +161,19 @@ func TestGolden_K8sRBAC(t *testing.T) {
 	}
 
 	digestFile := "k8s_rbac_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_K8sCRD(t *testing.T) {
+func TestCanonFixtures_K8sCRD(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_crd.yaml")
+	data := readFixture(t, "k8s_crd.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -189,19 +189,19 @@ func TestGolden_K8sCRD(t *testing.T) {
 	}
 
 	digestFile := "k8s_crd_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_TfCreate(t *testing.T) {
+func TestCanonFixtures_TfCreate(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "tf_create.json")
+	data := readFixture(t, "tf_create.json")
 	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -226,19 +226,19 @@ func TestGolden_TfCreate(t *testing.T) {
 	}
 
 	digestFile := "tf_create_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_TfDestroy(t *testing.T) {
+func TestCanonFixtures_TfDestroy(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "tf_destroy.json")
+	data := readFixture(t, "tf_destroy.json")
 	result := Canonicalize("terraform", "destroy", "", data)
 
 	if result.ParseError != nil {
@@ -252,19 +252,19 @@ func TestGolden_TfDestroy(t *testing.T) {
 	}
 
 	digestFile := "tf_destroy_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_TfMixed(t *testing.T) {
+func TestCanonFixtures_TfMixed(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "tf_mixed.json")
+	data := readFixture(t, "tf_mixed.json")
 	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -275,19 +275,19 @@ func TestGolden_TfMixed(t *testing.T) {
 	}
 
 	digestFile := "tf_mixed_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_TfModule(t *testing.T) {
+func TestCanonFixtures_TfModule(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "tf_module.json")
+	data := readFixture(t, "tf_module.json")
 	result := Canonicalize("terraform", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -298,19 +298,19 @@ func TestGolden_TfModule(t *testing.T) {
 	}
 
 	digestFile := "tf_module_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
 	}
 }
 
-func TestGolden_HelmOutput(t *testing.T) {
+func TestCanonFixtures_HelmOutput(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "helm_output.yaml")
+	data := readFixture(t, "helm_output.yaml")
 	result := Canonicalize("kubectl", "apply", "", data)
 
 	if result.ParseError != nil {
@@ -321,10 +321,10 @@ func TestGolden_HelmOutput(t *testing.T) {
 	}
 
 	digestFile := "helm_output_digest.txt"
-	if shouldUpdate() {
-		writeGoldenDigest(t, digestFile, result.IntentDigest)
+	if shouldUpdateFixtures() {
+		writeFixtureDigest(t, digestFile, result.IntentDigest)
 	} else {
-		want := readGoldenDigest(t, digestFile)
+		want := readFixtureDigest(t, digestFile)
 		if result.IntentDigest != want {
 			t.Errorf("intent digest mismatch\n got: %s\nwant: %s", result.IntentDigest, want)
 		}
@@ -335,7 +335,7 @@ func TestGolden_HelmOutput(t *testing.T) {
 
 func TestNoiseImmunity_MetadataUID(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	// Add metadata.uid noise
@@ -353,7 +353,7 @@ func TestNoiseImmunity_MetadataUID(t *testing.T) {
 
 func TestNoiseImmunity_ResourceVersion(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
@@ -369,7 +369,7 @@ func TestNoiseImmunity_ResourceVersion(t *testing.T) {
 
 func TestNoiseImmunity_ManagedFields(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
@@ -385,7 +385,7 @@ func TestNoiseImmunity_ManagedFields(t *testing.T) {
 
 func TestNoiseImmunity_GenerationTimestamp(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := strings.Replace(string(base),
@@ -401,7 +401,7 @@ func TestNoiseImmunity_GenerationTimestamp(t *testing.T) {
 
 func TestNoiseImmunity_Status(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	noisy := string(base) + "\nstatus:\n  availableReplicas: 3\n  readyReplicas: 3\n"
@@ -416,7 +416,7 @@ func TestNoiseImmunity_Status(t *testing.T) {
 
 func TestShapeHashSensitivity_ReplicaChange(t *testing.T) {
 	t.Parallel()
-	base := readGolden(t, "k8s_deployment.yaml")
+	base := readFixture(t, "k8s_deployment.yaml")
 	baseResult := Canonicalize("kubectl", "apply", "", base)
 
 	modified := strings.Replace(string(base), "replicas: 3", "replicas: 5", 1)
@@ -563,7 +563,7 @@ func TestIntentDigest_ExcludesShapeHash(t *testing.T) {
 
 func TestDeterminism_SameInputSameDigest(t *testing.T) {
 	t.Parallel()
-	data := readGolden(t, "k8s_deployment.yaml")
+	data := readFixture(t, "k8s_deployment.yaml")
 
 	r1 := Canonicalize("kubectl", "apply", "", data)
 	r2 := Canonicalize("kubectl", "apply", "", data)

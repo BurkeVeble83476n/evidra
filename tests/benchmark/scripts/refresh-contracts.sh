@@ -10,7 +10,7 @@ Options:
   --case <case-id>       Refresh a single case only
   --evidra-bin <path>    Explicit evidra binary passed to process-artifact
   --operation <name>     Operation to pass to process-artifact (default: apply)
-  --check                Verify golden contracts are in sync (no writes)
+  --check                Verify benchmark contract snapshots are in sync (no writes)
   -h, --help             Show this help
 EOF
 }
@@ -112,7 +112,7 @@ for expected in "${expected_files[@]}"; do
     argocd) tool="argocd" ;;
   esac
 
-  out_path="$case_dir/golden/contract.json"
+  out_path="$case_dir/snapshots/contract.json"
   tmp_out="$(mktemp)"
   log_out="$(mktemp)"
   process_cmd=(bash "$PROCESS_SCRIPT" --artifact "$artifact_path" --tool "$tool" --operation "$OPERATION" --out "$tmp_out")
@@ -182,7 +182,7 @@ for expected in "${expected_files[@]}"; do
     continue
   fi
 
-  mkdir -p "$case_dir/golden"
+  mkdir -p "$case_dir/snapshots"
   mv "$tmp_out" "$out_path"
   ok_count=$((ok_count + 1))
   echo "refresh-contracts: OK $case_id -> $out_path"

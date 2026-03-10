@@ -4,6 +4,9 @@ This document explains the higher-level test structure in Evidra: what suites
 exist, what each suite proves, which data they use, and where duplication is
 intentionally forbidden.
 
+For the short directory-by-directory test map, start with
+[TESTS_INDEX.md](TESTS_INDEX.md).
+
 ## Test Taxonomy
 
 Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
@@ -13,7 +16,7 @@ Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
 | `tests/e2e` | Real-world product acceptance | Curated acceptance artifacts plus promoted OSS corpus fixtures referenced through `tests/artifacts/catalog.yaml` | Canonicalization, classification, findings, and noise handling on realistic artifacts |
 | `tests/contracts` | Synthetic contract and integration validation | Small handcrafted fixtures in `tests/contracts/fixtures/` | CLI workflow contracts, output shape, signing, explain/compare, session filtering, scanner ingest |
 | `tests/inspector` | MCP Inspector and transport integration | Curated JSON cases + transport fixtures | Inspector runner behavior, stdio/REST/hosted transport coverage |
-| `tests/benchmark` | Dataset and benchmark contract validation | Benchmark cases and corpus metadata | Dataset integrity, benchmark contract drift, coverage reporting |
+| `tests/benchmark` | Dataset and benchmark contract validation | Benchmark cases, contract snapshots, and corpus metadata | Dataset integrity, benchmark contract drift, coverage reporting |
 | `tests/signal-validation` | Scripted behavioral signal calibration | Local evidence sequences, no external infra | Signal differentiation and scoring sanity |
 | Package tests under `cmd/`, `internal/`, `pkg/` | Narrow local behavior | Temp files, unit fixtures | Parser behavior, detector logic, scoring math, command-specific contracts |
 
