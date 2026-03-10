@@ -17,6 +17,11 @@ func realFixture(name string) string {
 	return filepath.Join("..", "..", "tests", "artifacts", "real", name)
 }
 
+// corpusFixture returns the path to a promoted OSS corpus fixture.
+func corpusFixture(family, name string) string {
+	return filepath.Join("..", "..", "tests", "benchmark", "corpus", family, name)
+}
+
 // runAndDecode runs evidra with the given args and decodes the JSON output.
 func runAndDecode(t *testing.T, bin string, args ...string) map[string]interface{} {
 	t.Helper()
@@ -117,152 +122,179 @@ func containsAll(t *testing.T, label string, actual, expected []string) {
 	}
 }
 
-// TestE2EReal_K8sAppStack exercises the K8s adapter with a realistic
-// multi-resource deployment including noise fields that must be stripped.
-func TestE2EReal_K8sAppStack(t *testing.T) {
+// TestE2EReal_K8sCorpusPromotion exercises the K8s adapter against promoted OSS
+// corpus fixtures instead of local-only acceptance artifacts.
+func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
+	tests := []struct {
+		name              string
+		artifact          string
+		environment       string
+		wantResourceCount int
+		wantKinds         []string
+		wantIdentities    []string
+		wantRiskLevel     string
+		wantRiskDetails   []string
+	}{
+		{
+			name:              "hostpath fail",
+			artifact:          corpusFixture("k8s", "kubescape-hostpath-mount-fail.yaml"),
+			environment:       "staging",
+			wantResourceCount: 1,
+			wantKinds:         []string{"pod"},
+			wantIdentities:    []string{"pod//test-pd"},
+			wantRiskLevel:     "high",
+			wantRiskDetails:   []string{"k8s.hostpath_mount", "k8s.run_as_root", "k8s.writable_rootfs"},
+		},
+		{
+			name:              "non-root pass",
+			artifact:          corpusFixture("k8s", "kubescape-non-root-deployment-pass.yaml"),
+			environment:       "staging",
+			wantResourceCount: 1,
+			wantKinds:         []string{"deployment"},
+			wantIdentities:    []string{"deployment//nginx-deployment"},
+			wantRiskLevel:     "medium",
+			wantRiskDetails:   []string{"k8s.writable_rootfs"},
+		},
+	}
+
 	bin := testcli.EvidraBinary(t)
-	tmpDir := t.TempDir()
-	evidenceDir := filepath.Join(tmpDir, "evidence")
-	privPath, _ := testcli.GenerateKeyPair(t, tmpDir)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			evidenceDir := filepath.Join(tmpDir, "evidence")
+			privPath, _ := testcli.GenerateKeyPair(t, tmpDir)
 
-	runAndDecode(t, bin,
-		"prescribe",
-		"--tool", "kubectl",
-		"--operation", "apply",
-		"--artifact", realFixture("k8s_app_stack.yaml"),
-		"--environment", "staging",
-		"--session-id", "e2e-real-k8s",
-		"--evidence-dir", evidenceDir,
-		"--signing-key-path", privPath,
-	)
+			runAndDecode(t, bin,
+				"prescribe",
+				"--tool", "kubectl",
+				"--operation", "apply",
+				"--artifact", tc.artifact,
+				"--environment", tc.environment,
+				"--session-id", "e2e-real-k8s-corpus",
+				"--evidence-dir", evidenceDir,
+				"--signing-key-path", privPath,
+			)
 
-	action, payload := extractCanonicalAction(t, evidenceDir)
+			action, payload := extractCanonicalAction(t, evidenceDir)
+			if action.ResourceCount != tc.wantResourceCount {
+				t.Errorf("resource_count = %d, want %d", action.ResourceCount, tc.wantResourceCount)
+			}
 
-	// Verify adapter correctly identified all 8 K8s resources.
-	if action.ResourceCount != 8 {
-		t.Errorf("resource_count = %d, want 8", action.ResourceCount)
-	}
+			kinds := resourceKinds(action.ResourceIdentity)
+			containsAll(t, "resource kinds", kinds, tc.wantKinds)
 
-	// Verify extracted resource kinds match the manifest.
-	kinds := resourceKinds(action.ResourceIdentity)
-	containsAll(t, "resource kinds", kinds, []string{
-		"configmap", "deployment", "namespace", "role",
-		"rolebinding", "secret", "service", "serviceaccount",
-	})
+			found := make(map[string]bool)
+			for _, id := range action.ResourceIdentity {
+				found[id.Kind+"/"+id.Namespace+"/"+id.Name] = true
+			}
+			for _, want := range tc.wantIdentities {
+				if !found[want] {
+					t.Errorf("missing resource identity %s in %v", want, found)
+				}
+			}
 
-	// Verify specific resource identities.
-	found := make(map[string]bool)
-	for _, id := range action.ResourceIdentity {
-		key := id.Kind + "/" + id.Namespace + "/" + id.Name
-		found[key] = true
-	}
-	for _, expected := range []string{
-		"deployment/ecommerce/api-server",
-		"service/ecommerce/api-server",
-		"configmap/ecommerce/api-config",
-		"secret/ecommerce/api-secrets",
-		"namespace//ecommerce",
-	} {
-		if !found[expected] {
-			t.Errorf("missing resource identity: %s (found: %v)", expected, found)
-		}
-	}
+			if action.Tool != "kubectl" {
+				t.Errorf("tool = %q, want kubectl", action.Tool)
+			}
+			if action.OperationClass != "mutate" {
+				t.Errorf("operation_class = %q, want mutate", action.OperationClass)
+			}
+			if action.ScopeClass != tc.environment {
+				t.Errorf("scope_class = %q, want %s", action.ScopeClass, tc.environment)
+			}
+			if action.ShapeHash == "" {
+				t.Error("resource_shape_hash empty")
+			}
 
-	// Verify operation metadata.
-	if action.Tool != "kubectl" {
-		t.Errorf("tool = %q, want kubectl", action.Tool)
-	}
-	if action.OperationClass != "mutate" {
-		t.Errorf("operation_class = %q, want mutate", action.OperationClass)
-	}
-	if action.ScopeClass != "staging" {
-		t.Errorf("scope_class = %q, want staging", action.ScopeClass)
-	}
-	if action.ShapeHash == "" {
-		t.Error("resource_shape_hash empty")
-	}
+			if payload.RiskLevel != tc.wantRiskLevel {
+				t.Errorf("risk_level = %q, want %q", payload.RiskLevel, tc.wantRiskLevel)
+			}
+			riskDetails := payload.EffectiveRiskDetails()
+			containsAll(t, "risk details", riskDetails, tc.wantRiskDetails)
 
-	// Risk follows the matrix unless a detector has higher base severity.
-	if payload.RiskLevel != "medium" {
-		t.Errorf("risk_level = %q, want medium (mutate×staging matrix with no higher-severity detector)", payload.RiskLevel)
+			t.Logf("K8s corpus fixture %s: resources=%d risk=%s details=%v",
+				tc.name, action.ResourceCount, payload.RiskLevel, riskDetails)
+		})
 	}
-
-	t.Logf("K8s app stack: %d resources, risk=%s, shape_hash=%s",
-		action.ResourceCount, payload.RiskLevel, action.ShapeHash[:20]+"...")
 }
 
-// TestE2EReal_TerraformInfra exercises the Terraform adapter with a realistic
-// multi-module plan with security-relevant resources.
-func TestE2EReal_TerraformInfra(t *testing.T) {
+// TestE2EReal_TerraformCorpusPromotion exercises the Terraform adapter against
+// promoted OSS corpus fixtures instead of local-only acceptance plans.
+func TestE2EReal_TerraformCorpusPromotion(t *testing.T) {
+	tests := []struct {
+		name              string
+		artifact          string
+		wantResourceCount int
+		wantTypes         []string
+		wantRiskLevel     string
+		wantRiskDetails   []string
+	}{
+		{
+			name:              "s3 public access fail",
+			artifact:          corpusFixture("terraform", "checkov-s3-public-access-fail.tfplan.json"),
+			wantResourceCount: 3,
+			wantTypes:         []string{"aws_s3_bucket", "aws_s3_bucket_acl", "aws_s3_bucket_public_access_block"},
+			wantRiskLevel:     "high",
+			wantRiskDetails:   []string{"terraform.s3_public_access"},
+		},
+		{
+			name:              "iam wildcard fail",
+			artifact:          corpusFixture("terraform", "checkov-iam-wildcard-fail.tfplan.json"),
+			wantResourceCount: 1,
+			wantTypes:         []string{"aws_iam_policy"},
+			wantRiskLevel:     "critical",
+			wantRiskDetails:   []string{"aws_iam.wildcard_policy", "terraform.iam_wildcard_policy"},
+		},
+	}
+
 	bin := testcli.EvidraBinary(t)
-	tmpDir := t.TempDir()
-	evidenceDir := filepath.Join(tmpDir, "evidence")
-	privPath, _ := testcli.GenerateKeyPair(t, tmpDir)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			evidenceDir := filepath.Join(tmpDir, "evidence")
+			privPath, _ := testcli.GenerateKeyPair(t, tmpDir)
 
-	runAndDecode(t, bin,
-		"prescribe",
-		"--tool", "terraform",
-		"--operation", "apply",
-		"--artifact", realFixture("tf_infra_plan.json"),
-		"--environment", "production",
-		"--session-id", "e2e-real-tf",
-		"--evidence-dir", evidenceDir,
-		"--signing-key-path", privPath,
-	)
+			runAndDecode(t, bin,
+				"prescribe",
+				"--tool", "terraform",
+				"--operation", "apply",
+				"--artifact", tc.artifact,
+				"--environment", "staging",
+				"--session-id", "e2e-real-tf-corpus",
+				"--evidence-dir", evidenceDir,
+				"--signing-key-path", privPath,
+			)
 
-	action, payload := extractCanonicalAction(t, evidenceDir)
+			action, payload := extractCanonicalAction(t, evidenceDir)
+			if action.ResourceCount != tc.wantResourceCount {
+				t.Errorf("resource_count = %d, want %d", action.ResourceCount, tc.wantResourceCount)
+			}
 
-	// 7 resource changes in the plan.
-	if action.ResourceCount != 7 {
-		t.Errorf("resource_count = %d, want 7", action.ResourceCount)
-	}
+			types := resourceTypes(action.ResourceIdentity)
+			containsAll(t, "resource types", types, tc.wantTypes)
 
-	// Verify terraform resource types extracted from plan.
-	types := resourceTypes(action.ResourceIdentity)
-	containsAll(t, "resource types", types, []string{
-		"aws_db_instance",
-		"aws_iam_role",
-		"aws_s3_bucket",
-		"aws_security_group",
-		"aws_subnet",
-		"aws_vpc",
-	})
+			if action.Tool != "terraform" {
+				t.Errorf("tool = %q, want terraform", action.Tool)
+			}
+			if action.OperationClass != "mutate" {
+				t.Errorf("operation_class = %q, want mutate", action.OperationClass)
+			}
+			if action.ScopeClass != "staging" {
+				t.Errorf("scope_class = %q, want staging", action.ScopeClass)
+			}
 
-	// Verify mixed actions (create + update) are captured.
-	actionsByType := make(map[string]string)
-	for _, id := range action.ResourceIdentity {
-		actionsByType[id.Type+"/"+id.Name] = id.Actions
-	}
-	if actionsByType["aws_vpc/main"] != "create" {
-		t.Errorf("aws_vpc action = %q, want create", actionsByType["aws_vpc/main"])
-	}
-	if actionsByType["aws_db_instance/main"] != "update" {
-		t.Errorf("aws_db_instance action = %q, want update", actionsByType["aws_db_instance/main"])
-	}
-	if actionsByType["aws_security_group/web"] != "update" {
-		t.Errorf("aws_security_group action = %q, want update", actionsByType["aws_security_group/web"])
-	}
+			riskDetails := payload.EffectiveRiskDetails()
+			containsAll(t, "risk details", riskDetails, tc.wantRiskDetails)
+			if payload.RiskLevel != tc.wantRiskLevel {
+				t.Errorf("risk_level = %q, want %q", payload.RiskLevel, tc.wantRiskLevel)
+			}
 
-	// Verify risk detectors fired on 0.0.0.0/0 ingress or public S3.
-	riskDetails := payload.EffectiveRiskDetails()
-	if len(riskDetails) == 0 {
-		t.Error("risk_details empty — expected detector to fire on security-relevant resources")
+			t.Logf("Terraform corpus fixture %s: resources=%d risk=%s details=%v",
+				tc.name, action.ResourceCount, payload.RiskLevel, riskDetails)
+		})
 	}
-
-	// Production mutate is high from the matrix; high-severity tags keep it high.
-	if payload.RiskLevel != "high" {
-		t.Errorf("risk_level = %q, want high", payload.RiskLevel)
-	}
-
-	if action.OperationClass != "mutate" {
-		t.Errorf("operation_class = %q, want mutate", action.OperationClass)
-	}
-	if action.ScopeClass != "production" {
-		t.Errorf("scope_class = %q, want production", action.ScopeClass)
-	}
-
-	t.Logf("Terraform infra: %d resources, risk=%s, tags=%v",
-		action.ResourceCount, payload.RiskLevel, riskDetails)
 }
 
 // TestE2EReal_HelmRedis exercises the K8s adapter via tool=helm.

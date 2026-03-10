@@ -1,31 +1,57 @@
 version: v1
 artifacts:
-  - id: k8s_app_stack
-    path: tests/artifacts/real/k8s_app_stack.yaml
+  - id: k8s_kubescape_hostpath_fail
+    path: tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml
     format: kubernetes-manifest
-    source_type: curated_local
-    provenance_status: needs-upstream-capture
-    upstream_project: unknown
-    upstream_ref: null
+    source_type: derived_open_source
+    provenance_status: exact
+    upstream_project: kubescape/regolibrary
+    upstream_ref: e7639f6653b4a4b274bb8de5aa6a0db3a4c85926: controls/examples/c045.yaml
     license: Apache-2.0
     purpose:
       - canonicalization acceptance
+      - hostPath detector severity
       - resource identity extraction
-      - k8s mutation classification
-      - noise filtering
+      - k8s risk escalation on real OSS fixture
 
-  - id: tf_infra_plan
-    path: tests/artifacts/real/tf_infra_plan.json
+  - id: k8s_kubescape_non_root_pass
+    path: tests/benchmark/corpus/k8s/kubescape-non-root-deployment-pass.yaml
+    format: kubernetes-manifest
+    source_type: derived_open_source
+    provenance_status: exact
+    upstream_project: kubescape/regolibrary
+    upstream_ref: e7639f6653b4a4b274bb8de5aa6a0db3a4c85926: rules/non-root-containers/test/deployment-pass/input/deployment.yaml
+    license: Apache-2.0
+    purpose:
+      - canonicalization acceptance
+      - run-as-non-root acceptance
+      - k8s risk baseline on real OSS fixture
+
+  - id: tf_checkov_s3_public_access_fail
+    path: tests/benchmark/corpus/terraform/checkov-s3-public-access-fail.tfplan.json
     format: terraform-plan-json
-    source_type: curated_local
-    provenance_status: needs-upstream-capture
-    upstream_project: unknown
-    upstream_ref: null
+    source_type: derived_open_source
+    provenance_status: exact
+    upstream_project: bridgecrewio/checkov
+    upstream_ref: 8bd89be03d239ff1f118a79a821f989fb119c16c: tests/terraform/checks/resource/aws/example_S3SecureDataTransport/main.tf (derived tfplan slice)
     license: Apache-2.0
     purpose:
       - terraform adapter acceptance
-      - resource type extraction
-      - destructive and high-risk plan classification
+      - public S3 access detection
+      - resource action extraction
+
+  - id: tf_checkov_iam_wildcard_fail
+    path: tests/benchmark/corpus/terraform/checkov-iam-wildcard-fail.tfplan.json
+    format: terraform-plan-json
+    source_type: derived_open_source
+    provenance_status: exact
+    upstream_project: bridgecrewio/checkov
+    upstream_ref: 8bd89be03d239ff1f118a79a821f989fb119c16c: tests/terraform/checks/resource/aws/example_IAMAdminPolicyDocument/iam.tf (derived tfplan slice)
+    license: Apache-2.0
+    purpose:
+      - terraform adapter acceptance
+      - iam wildcard policy detection
+      - critical risk classification
 
   - id: helm_rendered_redis
     path: tests/artifacts/real/helm_rendered.yaml

@@ -13,6 +13,7 @@ fail() {
 [[ -f OWNERS ]] || fail "OWNERS should exist"
 [[ -f .github/PULL_REQUEST_TEMPLATE.md ]] || fail "PR template should exist"
 [[ -f .github/workflows/dco.yml ]] || fail "DCO workflow should exist"
+[[ -x tests/test_acceptance_corpus_promotion.sh ]] || fail "acceptance corpus promotion guard should exist"
 [[ -x tests/benchmark/scripts/validate-provenance.sh ]] || fail "benchmark provenance validator should exist"
 [[ -x tests/benchmark/scripts/validate-case-metadata.sh ]] || fail "benchmark case metadata validator should exist"
 [[ -x tests/benchmark/scripts/import-kubescape-fixtures.sh ]] || fail "Kubescape importer should exist"

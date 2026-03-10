@@ -86,6 +86,9 @@ jobs:
       - name: Check bench-add corpus scaffolding
         run: bash tests/test_bench_add_corpus_scaffold.sh
 
+      - name: Check acceptance corpus promotion
+        run: bash tests/test_acceptance_corpus_promotion.sh
+
       - name: Validate benchmark dataset
         run: make benchmark-validate
 

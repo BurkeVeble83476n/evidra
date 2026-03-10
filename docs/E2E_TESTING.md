@@ -10,7 +10,7 @@ Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
 
 | Suite | Role | Primary Data | Authoritative For |
 | --- | --- | --- | --- |
-| `tests/e2e` | Real-world product acceptance | Vendored artifacts in `tests/artifacts/real/` | Canonicalization, classification, findings, and noise handling on realistic artifacts |
+| `tests/e2e` | Real-world product acceptance | Curated acceptance artifacts plus promoted OSS corpus fixtures referenced through `tests/artifacts/catalog.yaml` | Canonicalization, classification, findings, and noise handling on realistic artifacts |
 | `tests/contracts` | Synthetic contract and integration validation | Small handcrafted fixtures in `tests/contracts/fixtures/` | CLI workflow contracts, output shape, signing, explain/compare, session filtering, scanner ingest |
 | `tests/inspector` | MCP Inspector and transport integration | Curated JSON cases + transport fixtures | Inspector runner behavior, stdio/REST/hosted transport coverage |
 | `tests/benchmark` | Dataset and benchmark contract validation | Benchmark cases and corpus metadata | Dataset integrity, benchmark contract drift, coverage reporting |
@@ -23,7 +23,7 @@ Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
 
 | File | Type | Purpose | Data Source |
 | --- | --- | --- | --- |
-| `tests/e2e/real_world_test.go` | real-world acceptance | Validates adapter behavior and classification on curated realistic Kubernetes, Helm, Kustomize, OpenShift, Argo CD, and Terraform artifacts | `tests/artifacts/real/` |
+| `tests/e2e/real_world_test.go` | real-world acceptance | Validates adapter behavior and classification on promoted OSS Kubernetes/Terraform fixtures plus curated Helm, Kustomize, OpenShift, and Argo CD artifacts | `tests/artifacts/catalog.yaml`, `tests/artifacts/real/`, `tests/benchmark/corpus/` |
 | `tests/e2e/noop_test.go` | guard | Ensures the suite only runs when the `e2e` build tag is enabled | none |
 
 ### `tests/contracts`
@@ -110,8 +110,9 @@ Recent reduction applied:
 
 Primary acceptance artifacts are vendored under git:
 
-- real-world acceptance artifacts: `tests/artifacts/real/`
-- provenance catalog: `tests/artifacts/catalog.yaml`
+- real-world acceptance catalog: `tests/artifacts/catalog.yaml`
+- curated acceptance-only artifacts: `tests/artifacts/real/`
+- promoted OSS corpus artifacts: `tests/benchmark/corpus/`
 - synthetic contract fixtures: `tests/contracts/fixtures/`
 
 Rules:
@@ -126,6 +127,8 @@ Current reality:
 
 - the limited benchmark dataset now vendors reviewed first-wave fixtures from
   Kubescape, Checkov, and Kubernetes docs under `tests/benchmark/corpus/`
+- the real-world acceptance suite now consumes promoted OSS Kubernetes and
+  Terraform fixtures directly from that corpus through the acceptance catalog
 - benchmark source manifests must carry exact upstream refs instead of local
   snapshot placeholders
 - some real fixtures are still curated local slices with partial provenance
@@ -158,8 +161,6 @@ real-world artifact coverage over time:
 - findings ingest on vendored real SARIF outputs from open-source scanners
 - risk-escalation scenarios expressed with realistic workload histories
 - run/record parity on vendored real artifacts instead of handwritten configmaps
-- promotion of corpus-backed OSS artifacts into `tests/artifacts/real/` for the
-  primary acceptance layer
 
 ## CI Mapping
 
