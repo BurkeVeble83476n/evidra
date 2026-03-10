@@ -24,7 +24,10 @@ if find tests/benchmark/cases -type d -name "$legacy_term" -print -quit | grep -
   fail "legacy benchmark snapshot directory still exists under tests/benchmark/cases"
 fi
 
-if rg -n "${legacy_word_pattern}|${legacy_path_pattern}" README.md docs tests internal scripts .github Makefile --glob '!docs/plans/**' --glob '!tests/test_fixture_snapshot_names.sh' >/dev/null; then
+if rg -n "${legacy_word_pattern}|${legacy_path_pattern}" README.md docs tests internal scripts .github Makefile \
+  --glob '!docs/plans/**' \
+  --glob '!docs/system-design/done/**' \
+  --glob '!tests/test_fixture_snapshot_names.sh' >/dev/null; then
   fail "legacy fixture naming remains in active repo files"
 fi
 
