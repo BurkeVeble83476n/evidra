@@ -14,6 +14,7 @@ import (
 
 	"samebits.com/evidra-benchmark/internal/testutil"
 	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra-benchmark/pkg/version"
 )
 
 const testCanonicalAction = `{"tool":"terraform","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":1,"resource_shape_hash":"sha256:test"}`
@@ -435,6 +436,139 @@ func TestScorecard_MinOperationsOverride(t *testing.T) {
 	}
 	if band, _ := sc["band"].(string); band == "insufficient_data" {
 		t.Fatalf("band = %q, want scored band", band)
+	}
+}
+
+func TestScorecard_UsesSeparatedContractVersions(t *testing.T) {
+	t.Parallel()
+	signingKey := testutil.TestSigningKeyBase64(t)
+
+	tmp := t.TempDir()
+	artifact := filepath.Join(tmp, "artifact.json")
+	if err := os.WriteFile(artifact, []byte(`{"noop":true}`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	evidenceDir := filepath.Join(tmp, "evidence")
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"prescribe",
+		"--tool", "terraform",
+		"--artifact", artifact,
+		"--canonical-action", testCanonicalAction,
+		"--session-id", "session-score-version",
+		"--evidence-dir", evidenceDir,
+		"--signing-key", signingKey,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe exit %d: %s", code, errBuf.String())
+	}
+	var presc map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &presc); err != nil {
+		t.Fatalf("decode prescribe: %v", err)
+	}
+	prescID := presc["prescription_id"].(string)
+
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"report",
+		"--prescription", prescID,
+		"--exit-code", "0",
+		"--session-id", "session-score-version",
+		"--evidence-dir", evidenceDir,
+		"--signing-key", signingKey,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("report exit %d: %s", code, errBuf.String())
+	}
+
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"scorecard",
+		"--session-id", "session-score-version",
+		"--evidence-dir", evidenceDir,
+		"--min-operations", "1",
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("scorecard exit %d: %s", code, errBuf.String())
+	}
+
+	var sc map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &sc); err != nil {
+		t.Fatalf("decode scorecard: %v", err)
+	}
+	if got := sc["spec_version"]; got != version.SpecVersion {
+		t.Fatalf("spec_version = %v, want %s", got, version.SpecVersion)
+	}
+	if got := sc["scoring_version"]; got != version.ScoringVersion {
+		t.Fatalf("scoring_version = %v, want %s", got, version.ScoringVersion)
+	}
+	if got := sc["evidra_version"]; got != version.Version {
+		t.Fatalf("evidra_version = %v, want %s", got, version.Version)
+	}
+}
+
+func TestRunLifecycle_PersistsScoringVersionOnEvidenceEntries(t *testing.T) {
+	t.Parallel()
+	signingKey := testutil.TestSigningKeyBase64(t)
+
+	tmp := t.TempDir()
+	artifact := filepath.Join(tmp, "artifact.json")
+	if err := os.WriteFile(artifact, []byte(`{"noop":true}`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	evidenceDir := filepath.Join(tmp, "evidence")
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"prescribe",
+		"--tool", "terraform",
+		"--artifact", artifact,
+		"--canonical-action", testCanonicalAction,
+		"--session-id", "session-entry-version",
+		"--evidence-dir", evidenceDir,
+		"--signing-key", signingKey,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe exit %d: %s", code, errBuf.String())
+	}
+	var presc map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &presc); err != nil {
+		t.Fatalf("decode prescribe: %v", err)
+	}
+	prescID := presc["prescription_id"].(string)
+
+	out.Reset()
+	errBuf.Reset()
+	code = run([]string{
+		"report",
+		"--prescription", prescID,
+		"--exit-code", "0",
+		"--session-id", "session-entry-version",
+		"--evidence-dir", evidenceDir,
+		"--signing-key", signingKey,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("report exit %d: %s", code, errBuf.String())
+	}
+
+	entries, err := evidence.ReadAllEntriesAtPath(evidenceDir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) < 2 {
+		t.Fatalf("entry count = %d, want at least 2", len(entries))
+	}
+
+	for _, entry := range entries {
+		if entry.SpecVersion != version.SpecVersion {
+			t.Fatalf("entry %s spec_version = %q, want %q", entry.EntryID, entry.SpecVersion, version.SpecVersion)
+		}
+		if entry.ScoringVersion != version.ScoringVersion {
+			t.Fatalf("entry %s scoring_version = %q, want %q", entry.EntryID, entry.ScoringVersion, version.ScoringVersion)
+		}
 	}
 }
 

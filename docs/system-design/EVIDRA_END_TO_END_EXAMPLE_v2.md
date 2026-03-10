@@ -188,13 +188,14 @@ Evidence JSONL entry (actual `EvidenceEntry` envelope):
     "canon_source": "adapter"
   },
   "scope_dimensions": {"cluster":"staging-us-east","namespace":"staging"},
-  "spec_version": "0.3.1",
+  "spec_version": "v1.1.0",
   "canonical_version": "k8s/v1",
-  "adapter_version": "0.3.1"
+  "adapter_version": "0.4.3",
+  "scoring_version": "v1.1.0"
 }
 ```
 
-Note: v0.3.1 writes signed entries. Strict mode requires configured keys;
+Note: v0.4.3 writes signed entries. Strict mode requires configured keys;
 optional mode uses an ephemeral in-process key for local/test runs.
 
 Evidra returns the prescription to the agent. No allow/deny —
@@ -256,8 +257,9 @@ Report entry:
     "verdict": "success"
   },
   "scope_dimensions": {"cluster":"staging-us-east","namespace":"staging"},
-  "spec_version": "0.3.1",
-  "adapter_version": "0.3.1"
+  "spec_version": "v1.1.0",
+  "adapter_version": "0.4.3",
+  "scoring_version": "v1.1.0"
 }
 ```
 
@@ -427,8 +429,9 @@ Output (JSON):
   },
   "actor_id": "claude-code",
   "period": "30d",
-  "scoring_version": "0.3.1",
-  "spec_version": "0.3.1",
+  "scoring_version": "v1.1.0",
+  "spec_version": "v1.1.0",
+  "evidra_version": "0.4.3",
   "generated_at": "2026-03-04T12:00:00Z"
 }
 ```

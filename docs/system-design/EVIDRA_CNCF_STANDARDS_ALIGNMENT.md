@@ -251,7 +251,7 @@ in-toto attestation
       evidence_hash: "sha256:..."
       risk_level: "high"
       signals: ["artifact_drift", "blast_radius"]
-      scoring_version: "v1"
+      scoring_version: "v1.1.0"
 ```
 
 ### Architecture

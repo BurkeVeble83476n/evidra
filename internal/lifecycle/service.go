@@ -114,6 +114,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		SpecVersion:     version.SpecVersion,
 		CanonVersion:    cr.CanonVersion,
 		AdapterVersion:  version.Version,
+		ScoringVersion:  version.ScoringVersion,
 		Signer:          s.signer,
 	})
 	if err != nil {
@@ -241,6 +242,7 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 		PreviousHash:   lastHash,
 		SpecVersion:    version.SpecVersion,
 		AdapterVersion: version.Version,
+		ScoringVersion: version.ScoringVersion,
 		Signer:         s.signer,
 	})
 	if err != nil {
@@ -289,6 +291,7 @@ func (s *Service) writeCanonicalizationFailure(actor evidence.Actor, cr canon.Ca
 		PreviousHash:   lastHash,
 		SpecVersion:    version.SpecVersion,
 		AdapterVersion: version.Version,
+		ScoringVersion: version.ScoringVersion,
 		Signer:         s.signer,
 	})
 	if err == nil {
@@ -319,6 +322,7 @@ func (s *Service) writeUnknownPrescriptionSignal(actor evidence.Actor, prescript
 		PreviousHash:   lastHash,
 		SpecVersion:    version.SpecVersion,
 		AdapterVersion: version.Version,
+		ScoringVersion: version.ScoringVersion,
 		Signer:         s.signer,
 	})
 	if err == nil {

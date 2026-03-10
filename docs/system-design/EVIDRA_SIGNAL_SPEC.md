@@ -1,4 +1,4 @@
-# Evidra Signal Specification v1.0
+# Evidra Signal Specification v1.1.0
 
 ## What This Is
 An open specification for infrastructure automation behavior
@@ -14,7 +14,7 @@ Any platform can consume them. The spec is the contract between
 producers and consumers.
 
 ## Status
-Stable. All eight signals are v1.1 stable (risk_escalation added in v1.1).
+Stable. All eight signals are v1.1.0 stable (risk_escalation added in v1.1.0).
 
 ## Document Type
 **Normative.** This is the single source of truth for signal
@@ -31,36 +31,36 @@ Other documents reference this spec but do not override it:
 ## Versioning
 
 ### Spec version
-This document is **Signal Spec v1.0**. Version is independent of
+This document is **Signal Spec v1.1.0**. Version is independent of
 Evidra product version.
 
 ### What is a breaking change
 
 | Change | Breaking? | Requires |
 |--------|-----------|----------|
-| Rename a signal | YES | Major bump (v2.0) |
-| Remove a signal | YES | Major bump (v2.0) |
-| Change detection algorithm semantics | YES | Major bump (v2.0) |
-| Change metric name or type | YES | Major bump (v2.0) |
-| Remove a metric label | YES | Major bump (v2.0) |
-| Change score formula structure | YES | Major bump (v2.0) |
-| Change default parameter value (affecting detection) | YES | Major bump (v2.0) |
-| Add new signal | NO | Minor bump (v1.1) |
-| Add new sub-signal to existing signal | NO | Minor bump (v1.1) |
-| Add new optional label to metric | NO | Minor bump (v1.1) |
-| Change default weights | NO | Minor bump (v1.1) |
-| Add new optional field to SignalEvent | NO | Minor bump (v1.1) |
-| Clarify wording without changing semantics | NO | Patch (v1.0.x) |
+| Rename a signal | YES | Major bump (v2.0.0) |
+| Remove a signal | YES | Major bump (v2.0.0) |
+| Change detection algorithm semantics | YES | Major bump (v2.0.0) |
+| Change metric name or type | YES | Major bump (v2.0.0) |
+| Remove a metric label | YES | Major bump (v2.0.0) |
+| Change score formula structure | YES | Major bump (v2.0.0) |
+| Change default parameter value (affecting detection) | YES | Major bump (v2.0.0) |
+| Add new signal | NO | Minor bump (v1.1.0) |
+| Add new sub-signal to existing signal | NO | Minor bump (v1.1.0) |
+| Add new optional label to metric | NO | Minor bump (v1.1.0) |
+| Change default weights | NO | Minor bump (v1.1.0) |
+| Add new optional field to SignalEvent | NO | Minor bump (v1.1.0) |
+| Clarify wording without changing semantics | NO | Patch (v1.1.x) |
 
 ### Mixed versions
 If a scoring window contains evidence from two spec versions
-(e.g. signals emitted under v1.0 and v1.1), the scorer MUST:
+(e.g. signals emitted under v1.0.0 and v1.1.0), the scorer MUST:
 - Use the NEWER spec version for detection
 - Log a warning: "Mixed signal spec versions in scoring window"
 - NOT reject older evidence
 
 ### Migration
-When bumping from vN to vN+1:
+When bumping from vN.0.0 to v(N+1).0.0:
 - Both versions MUST be emitted simultaneously for at least one
   minor release (transition period)
 - Old version deprecated, new version active
@@ -848,7 +848,7 @@ Weights are configurable. Sum must equal 1.0.
 
 ## Stability Guarantees
 
-### What is stable (v1.0)
+### What is stable (v1.1.0)
 
 - Signal names (the eight names above)
 - Detection algorithms (the logic described above)
@@ -863,7 +863,7 @@ Weights are configurable. Sum must equal 1.0.
 - Adding new labels to metrics (must be low-cardinality)
 - Adding new optional parameters with backward-compatible defaults
 
-### What requires version bump (v2.0)
+### What requires version bump (v2.0.0)
 
 - Changing detection algorithm for any signal
 - Removing a signal
@@ -941,7 +941,7 @@ Expected output format:
 
 ```json
 {
-  "spec_version": "1.0",
+  "spec_version": "v1.1.0",
   "signals": [
     {"signal": "protocol_violation", "sub_signal": "unreported_prescription", "entry_ref": "prs-01HX..."}
   ],

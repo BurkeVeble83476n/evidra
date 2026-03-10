@@ -242,10 +242,10 @@ All entry types share the same envelope.
 | artifact_digest | string | conditional | Present on prescription, report, finding entries |
 | payload | object | MUST | Type-specific content |
 | scope_dimensions | object | MAY | Environment metadata map (cluster, namespace, account, region) |
-| spec_version | string | MUST | Signal spec version |
+| spec_version | string | MUST | Signal spec version (e.g. `v1.1.0`) |
 | canonical_version | string | MUST | Adapter canon version (e.g. "k8s/v1") |
 | adapter_version | string | MUST | Evidra adapter version |
-| scoring_version | string | MUST | Scoring model version (empty if unknown) |
+| scoring_version | string | MUST | Scoring model version (e.g. `v1.1.0`) |
 
 ### Entry Types
 
@@ -318,8 +318,8 @@ Scorecard summarizes reliability over a dataset.
 | signals | SignalRates | MUST | Per-signal rates |
 | top_signals | []string | MUST | Top contributing signals to penalty |
 | evidence_refs | []entry_id | MUST | Supporting evidence entries |
-| scoring_version | string | MUST | Scoring model version |
-| spec_version | string | MUST | Signal spec version |
+| scoring_version | string | MUST | Scoring model version (e.g. `v1.1.0`) |
+| spec_version | string | MUST | Signal spec version (e.g. `v1.1.0`) |
 | canon_version | string | MUST | Canonicalization version |
 | evidra_version | string | MUST | Evidra binary version |
 | generated_at | datetime | MUST | When scorecard was computed |

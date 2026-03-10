@@ -143,7 +143,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 		ActorID:        *actorFlag,
 		SessionID:      *sessionIDFlag,
 		Period:         *periodFlag,
-		ScoringVersion: version.SpecVersion,
+		ScoringVersion: version.ScoringVersion,
 		SpecVersion:    version.SpecVersion,
 		EvidraVersion:  version.Version,
 		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
@@ -1017,6 +1017,7 @@ func appendFindingsAsEvidence(findings []evidence.FindingPayload, cfg findingApp
 			PreviousHash:   lastHash,
 			SpecVersion:    version.SpecVersion,
 			AdapterVersion: version.Version,
+			ScoringVersion: version.ScoringVersion,
 			Signer:         cfg.signer,
 		})
 		if err != nil {

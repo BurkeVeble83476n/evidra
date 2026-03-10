@@ -1,7 +1,11 @@
 package version
 
-// SpecVersion is the evidence specification version used by all entries.
-const SpecVersion = "0.3.1"
+const (
+	// SpecVersion is the evidence/signal specification version written into entries and score outputs.
+	SpecVersion = "v1.1.0"
+	// ScoringVersion is the scoring model version written into entries and score outputs.
+	ScoringVersion = "v1.1.0"
+)
 
 var (
 	// Version is the build/runtime version string for Evidra Benchmark binaries.
