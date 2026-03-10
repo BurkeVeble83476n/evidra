@@ -39,6 +39,10 @@ For architecture and protocol semantics, see:
 | `--tool` | Tool filter |
 | `--scope` | Scope-class filter |
 | `--session-id` | Session ID filter |
+| `--min-operations` | Override score sufficiency threshold |
+| `--pretty` | Render human-readable ASCII output instead of JSON |
+
+`scorecard` JSON output includes `days_observed`, which is the number of distinct UTC calendar days with matching prescription activity inside the selected window.
 
 ### `evidra explain` Flags
 

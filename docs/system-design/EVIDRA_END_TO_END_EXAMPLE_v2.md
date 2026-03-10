@@ -429,6 +429,7 @@ Output (JSON):
   },
   "actor_id": "claude-code",
   "period": "30d",
+  "days_observed": 12,
   "scoring_version": "v1.1.0",
   "spec_version": "v1.1.0",
   "evidra_version": "0.4.3",

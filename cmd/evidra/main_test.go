@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"samebits.com/evidra-benchmark/internal/testutil"
 	"samebits.com/evidra-benchmark/pkg/evidence"
@@ -510,6 +511,64 @@ func TestScorecard_UsesSeparatedContractVersions(t *testing.T) {
 	}
 }
 
+func TestScorecard_JSONIncludesDaysObserved(t *testing.T) {
+	t.Parallel()
+
+	evidenceDir := writeScorecardFixtureObservedDays(t)
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"scorecard",
+		"--evidence-dir", evidenceDir,
+		"--period", "30d",
+		"--min-operations", "1",
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("scorecard exit %d: %s", code, errBuf.String())
+	}
+
+	var sc map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &sc); err != nil {
+		t.Fatalf("decode scorecard: %v", err)
+	}
+	if got := sc["days_observed"]; got != float64(2) {
+		t.Fatalf("days_observed = %v, want 2", got)
+	}
+	if got := sc["period"]; got != "30d" {
+		t.Fatalf("period = %v, want 30d", got)
+	}
+}
+
+func TestScorecard_PrettyOutput(t *testing.T) {
+	t.Parallel()
+
+	evidenceDir := writeScorecardFixtureObservedDays(t)
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"scorecard",
+		"--evidence-dir", evidenceDir,
+		"--period", "30d",
+		"--min-operations", "1",
+		"--pretty",
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("scorecard --pretty exit %d: %s", code, errBuf.String())
+	}
+
+	rendered := out.String()
+	for _, want := range []string{
+		"EVIDRA SCORECARD",
+		"days_observed",
+		"SIGNALS",
+		"protocol_violation",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("pretty output missing %q:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestRunLifecycle_PersistsScoringVersionOnEvidenceEntries(t *testing.T) {
 	t.Parallel()
 	signingKey := testutil.TestSigningKeyBase64(t)
@@ -651,6 +710,102 @@ func TestRunPrescribe_BestEffortWriteModeSuppressesStoreError(t *testing.T) {
 	}
 	if result["ok"] != true {
 		t.Fatalf("result not ok: %#v", result)
+	}
+}
+
+func writeScorecardFixtureObservedDays(t *testing.T) string {
+	t.Helper()
+
+	signingKey := testutil.TestSigningKeyBase64(t)
+	tmp := t.TempDir()
+	artifact := filepath.Join(tmp, "artifact.json")
+	if err := os.WriteFile(artifact, []byte(`{"noop":true}`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	evidenceDir := filepath.Join(tmp, "evidence")
+
+	for i := 0; i < 2; i++ {
+		var out, errBuf bytes.Buffer
+		sessionID := "scorecard-days-observed"
+		code := run([]string{
+			"prescribe",
+			"--tool", "terraform",
+			"--artifact", artifact,
+			"--canonical-action", testCanonicalAction,
+			"--session-id", sessionID,
+			"--evidence-dir", evidenceDir,
+			"--signing-key", signingKey,
+		}, &out, &errBuf)
+		if code != 0 {
+			t.Fatalf("prescribe #%d exit %d: %s", i+1, code, errBuf.String())
+		}
+
+		var presc map[string]interface{}
+		if err := json.Unmarshal(out.Bytes(), &presc); err != nil {
+			t.Fatalf("decode prescribe #%d: %v", i+1, err)
+		}
+		prescID := presc["prescription_id"].(string)
+
+		out.Reset()
+		errBuf.Reset()
+		code = run([]string{
+			"report",
+			"--prescription", prescID,
+			"--exit-code", "0",
+			"--session-id", sessionID,
+			"--evidence-dir", evidenceDir,
+			"--signing-key", signingKey,
+		}, &out, &errBuf)
+		if code != 0 {
+			t.Fatalf("report #%d exit %d: %s", i+1, code, errBuf.String())
+		}
+	}
+
+	now := time.Now().UTC()
+	timestamps := []time.Time{
+		time.Date(now.Year(), now.Month(), now.Day()-2, 10, 0, 0, 0, time.UTC),
+		time.Date(now.Year(), now.Month(), now.Day()-2, 10, 5, 0, 0, time.UTC),
+		time.Date(now.Year(), now.Month(), now.Day()-1, 11, 0, 0, 0, time.UTC),
+		time.Date(now.Year(), now.Month(), now.Day()-1, 11, 5, 0, 0, time.UTC),
+	}
+	restampEvidenceEntries(t, evidenceDir, timestamps)
+
+	return evidenceDir
+}
+
+func restampEvidenceEntries(t *testing.T, evidenceDir string, timestamps []time.Time) {
+	t.Helper()
+
+	entries, err := evidence.ReadAllEntriesAtPath(evidenceDir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) != len(timestamps) {
+		t.Fatalf("entry count = %d, want %d timestamps", len(entries), len(timestamps))
+	}
+
+	for i := range entries {
+		entries[i].Timestamp = timestamps[i]
+	}
+
+	segmentPaths, err := filepath.Glob(filepath.Join(evidenceDir, "segments", "evidence-*.jsonl"))
+	if err != nil {
+		t.Fatalf("glob segment paths: %v", err)
+	}
+	if len(segmentPaths) != 1 {
+		t.Fatalf("segment count = %d, want 1 for test fixture", len(segmentPaths))
+	}
+
+	var lines []string
+	for _, entry := range entries {
+		raw, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatalf("marshal restamped entry: %v", err)
+		}
+		lines = append(lines, string(raw))
+	}
+	if err := os.WriteFile(segmentPaths[0], []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		t.Fatalf("rewrite segment: %v", err)
 	}
 }
 
