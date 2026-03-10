@@ -203,7 +203,7 @@ Architecture and contracts:
 - [Public Roadmap](docs/ROAD_MAP.md)
 - [Tests Index](docs/TESTS_INDEX.md)
 - [E2E Testing Map](docs/E2E_TESTING.md)
-- [Benchmark Corpus README](tests/benchmark/corpus/README.md)
+- [Shared Artifact Fixtures](tests/artifacts/fixtures/README.md)
 - [Architecture Overview](docs/ARCHITECTURE.md)
 - [Decision Tracking v1](docs/system-design/EVIDRA_DECISION_TRACKING_V1.md)
 - [V1 Architecture](docs/system-design/V1_ARCHITECTURE.md)

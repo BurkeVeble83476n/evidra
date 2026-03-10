@@ -5,7 +5,7 @@
   "category": "kubernetes",
   "difficulty": "easy",
   "ground_truth_pattern": "k8s.run_as_root",
-  "artifact_ref": "../../corpus/k8s/kubescape-non-root-deployment-pass.yaml",
+  "artifact_ref": "../../../artifacts/fixtures/k8s/kubescape-non-root-deployment-pass.yaml",
   "source_refs": [
     {
       "source_id": "kubescape-regolibrary",

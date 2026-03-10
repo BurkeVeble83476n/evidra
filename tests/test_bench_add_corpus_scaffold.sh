@@ -12,7 +12,7 @@ fail() {
 CASE_ID="tmp-bench-add-corpus-scaffold"
 CASE_DIR="tests/benchmark/cases/${CASE_ID}"
 SOURCE_FILE="tests/benchmark/sources/tmp-bench-add-corpus-source.md"
-ARTIFACT="tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml"
+ARTIFACT="tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml"
 
 cleanup() {
   rm -rf "$CASE_DIR" "$SOURCE_FILE"
@@ -35,8 +35,8 @@ README_FILE="$CASE_DIR/README.md"
 [[ -f "$SOURCE_FILE" ]] || fail "missing $SOURCE_FILE"
 
 artifact_ref="$(jq -r '.artifact_ref' "$EXPECTED_JSON")"
-[[ "$artifact_ref" == "../../corpus/k8s/kubescape-hostpath-mount-fail.yaml" ]] \
-  || fail "artifact_ref should point at corpus, got $artifact_ref"
+[[ "$artifact_ref" == "../../../artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml" ]] \
+  || fail "artifact_ref should point at shared fixtures, got $artifact_ref"
 
 jq -e '
   .scenario_class == "normal_mutate" and

@@ -5,7 +5,7 @@
   "category": "kubernetes",
   "difficulty": "medium",
   "ground_truth_pattern": "k8s.hostpath_mount",
-  "artifact_ref": "../../corpus/k8s/k8s-website-security-context-pod.yaml",
+  "artifact_ref": "../../../artifacts/fixtures/k8s/k8s-website-security-context-pod.yaml",
   "source_refs": [
     {
       "source_id": "kubescape-regolibrary",

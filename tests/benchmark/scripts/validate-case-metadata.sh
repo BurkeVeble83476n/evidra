@@ -32,7 +32,7 @@ for file in "${expected_files[@]}"; do
     (.operation_class | IN("inspect_read", "mutate_change", "deploy_rollout")) and
     (.risk_level | IN("low", "medium", "high", "critical")) and
     (.environment_class | IN("sandbox", "staging", "prod_like")) and
-    (.artifact_ref | startswith("../../corpus/"))
+    (.artifact_ref | startswith("../../../artifacts/fixtures/"))
   ' "$file" >/dev/null || fail "$file missing required scenario metadata"
 done
 

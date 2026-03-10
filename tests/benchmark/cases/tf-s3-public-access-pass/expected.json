@@ -5,7 +5,7 @@
   "category": "terraform",
   "difficulty": "medium",
   "ground_truth_pattern": "terraform.s3_public_access",
-  "artifact_ref": "../../corpus/terraform/checkov-s3-public-access-pass.tfplan.json",
+  "artifact_ref": "../../../artifacts/fixtures/terraform/checkov-s3-public-access-pass.tfplan.json",
   "source_refs": [
     {
       "source_id": "checkov-terraform",

@@ -5,7 +5,7 @@
   "category": "terraform",
   "difficulty": "hard",
   "ground_truth_pattern": "terraform.iam_wildcard_policy",
-  "artifact_ref": "../../corpus/terraform/checkov-iam-wildcard-pass.tfplan.json",
+  "artifact_ref": "../../../artifacts/fixtures/terraform/checkov-iam-wildcard-pass.tfplan.json",
   "source_refs": [
     {
       "source_id": "checkov-terraform",

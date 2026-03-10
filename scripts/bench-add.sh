@@ -14,7 +14,7 @@ Options:
   -h, --help             Show this help
 
 Examples:
-  scripts/bench-add.sh k8s-hostpath-mount-fail --artifact tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml --source kubescape-regolibrary
+  scripts/bench-add.sh k8s-hostpath-mount-fail --artifact tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml --source kubescape-regolibrary
   scripts/bench-add.sh tf-s3-public-access-fail --source checkov-terraform --tool terraform
 EOF
 }
@@ -87,7 +87,7 @@ cd "$ROOT_DIR"
 
 CASE_DIR="tests/benchmark/cases/$CASE_ID"
 SOURCE_FILE="tests/benchmark/sources/${SOURCE:-TODO}.md"
-CORPUS_PREFIX="tests/benchmark/corpus/"
+FIXTURE_PREFIX="tests/artifacts/fixtures/"
 
 if [[ -d "$CASE_DIR" ]]; then
   echo "bench-add: case already exists at $CASE_DIR" >&2
@@ -129,12 +129,12 @@ if [[ -n "$ARTIFACT" ]]; then
     ARTIFACT_ROOT_REL="${ARTIFACT_ROOT_REL#./}"
   fi
 
-  if [[ "$ARTIFACT_ROOT_REL" != ${CORPUS_PREFIX}* ]]; then
-    echo "bench-add: artifact must already live under $CORPUS_PREFIX (import into corpus first)" >&2
+  if [[ "$ARTIFACT_ROOT_REL" != ${FIXTURE_PREFIX}* ]]; then
+    echo "bench-add: artifact must already live under $FIXTURE_PREFIX" >&2
     exit 1
   fi
 
-  ARTIFACT_REF="../../corpus/${ARTIFACT_ROOT_REL#${CORPUS_PREFIX}}"
+  ARTIFACT_REF="../../../artifacts/fixtures/${ARTIFACT_ROOT_REL#${FIXTURE_PREFIX}}"
   if command -v shasum >/dev/null 2>&1; then
     ARTIFACT_DIGEST="sha256:$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')"
   elif command -v sha256sum >/dev/null 2>&1; then

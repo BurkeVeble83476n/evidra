@@ -130,7 +130,7 @@ for file in "${expected_files[@]}"; do
   seen_case_ids="${seen_case_ids}"$'\n'"${case_id}"
 
   artifact_ref="$(jq -r '.artifact_ref' "$file")"
-  [[ "$artifact_ref" == ../../corpus/* ]] || fail "$file artifact_ref must point into ../../corpus/, got: $artifact_ref"
+  [[ "$artifact_ref" == ../../../artifacts/fixtures/* ]] || fail "$file artifact_ref must point into ../../../artifacts/fixtures/, got: $artifact_ref"
   artifact_path="$(dirname "$file")/$artifact_ref"
   [[ -f "$artifact_path" ]] || fail "$file artifact_ref does not resolve: $artifact_ref"
 

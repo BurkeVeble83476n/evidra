@@ -15,15 +15,20 @@ E2E_TEST="tests/e2e/real_world_test.go"
 [[ -f "$CATALOG" ]] || fail "missing $CATALOG"
 [[ -f "$E2E_TEST" ]] || fail "missing $E2E_TEST"
 
-if rg -q 'tests/artifacts/real/k8s_app_stack.yaml|tests/artifacts/real/tf_infra_plan.json' "$CATALOG"; then
+if rg -q 'k8s_app_stack.yaml|tf_infra_plan.json' "$CATALOG"; then
   fail "acceptance catalog still references low-provenance k8s/terraform fixtures"
 fi
 
+legacy_catalog_root_regex='tests/(benchmark/''corpus|artifacts/''real)/'
+if rg -q "$legacy_catalog_root_regex" "$CATALOG"; then
+  fail "acceptance catalog still points at pre-unification artifact roots"
+fi
+
 required_catalog_paths=(
-  "tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml"
-  "tests/benchmark/corpus/k8s/kubescape-non-root-deployment-pass.yaml"
-  "tests/benchmark/corpus/terraform/checkov-s3-public-access-fail.tfplan.json"
-  "tests/benchmark/corpus/terraform/checkov-iam-wildcard-fail.tfplan.json"
+  "tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml"
+  "tests/artifacts/fixtures/k8s/kubescape-non-root-deployment-pass.yaml"
+  "tests/artifacts/fixtures/terraform/checkov-s3-public-access-fail.tfplan.json"
+  "tests/artifacts/fixtures/terraform/checkov-iam-wildcard-fail.tfplan.json"
 )
 
 for path in "${required_catalog_paths[@]}"; do
@@ -34,11 +39,15 @@ if rg -q 'k8s_app_stack.yaml|tf_infra_plan.json' "$E2E_TEST"; then
   fail "real_world_test.go still references curated k8s/terraform fixtures"
 fi
 
+if rg -q 'realFixture\(|corpusFixture\(' "$E2E_TEST"; then
+  fail "real_world_test.go still uses split fixture helpers"
+fi
+
 for needle in \
-  'kubescape-hostpath-mount-fail.yaml' \
-  'kubescape-non-root-deployment-pass.yaml' \
-  'checkov-s3-public-access-fail.tfplan.json' \
-  'checkov-iam-wildcard-fail.tfplan.json'
+  'fixturePath("k8s", "kubescape-hostpath-mount-fail.yaml")' \
+  'fixturePath("k8s", "kubescape-non-root-deployment-pass.yaml")' \
+  'fixturePath("terraform", "checkov-s3-public-access-fail.tfplan.json")' \
+  'fixturePath("terraform", "checkov-iam-wildcard-fail.tfplan.json")'
 do
   rg -Fq "$needle" "$E2E_TEST" || fail "real_world_test.go missing promoted corpus fixture $needle"
 done

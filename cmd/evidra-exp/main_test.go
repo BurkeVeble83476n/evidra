@@ -84,7 +84,7 @@ func TestExecutionRunDryRun(t *testing.T) {
 		t.Fatalf("mkdir scenarios: %v", err)
 	}
 	scenarioPath := filepath.Join(scenariosDir, "one.json")
-	artifactPath := filepath.Join(root, "tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml")
+	artifactPath := filepath.Join(root, "tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml")
 	scenarioJSON := fmt.Sprintf(`{
   "scenario_id": "local-one",
   "category": "kubernetes",

@@ -20,24 +20,24 @@ for script in "${required_scripts[@]}"; do
 done
 
 required_corpus_files=(
-  tests/benchmark/corpus/k8s/kubescape-privileged-container-fail.yaml
-  tests/benchmark/corpus/k8s/kubescape-hostpath-mount-fail.yaml
-  tests/benchmark/corpus/k8s/kubescape-non-root-deployment-fail.yaml
-  tests/benchmark/corpus/k8s/kubescape-non-root-deployment-pass.yaml
-  tests/benchmark/corpus/k8s/k8s-website-nginx-deployment.yaml
-  tests/benchmark/corpus/k8s/k8s-website-security-context-pod.yaml
-  tests/benchmark/corpus/terraform/checkov-s3-public-access-fail.tf
-  tests/benchmark/corpus/terraform/checkov-s3-public-access-fail.tfplan.json
-  tests/benchmark/corpus/terraform/checkov-s3-public-access-pass.tf
-  tests/benchmark/corpus/terraform/checkov-s3-public-access-pass.tfplan.json
-  tests/benchmark/corpus/terraform/checkov-iam-wildcard-fail.tf
-  tests/benchmark/corpus/terraform/checkov-iam-wildcard-fail.tfplan.json
-  tests/benchmark/corpus/terraform/checkov-iam-wildcard-pass.tf
-  tests/benchmark/corpus/terraform/checkov-iam-wildcard-pass.tfplan.json
+  tests/artifacts/fixtures/k8s/kubescape-privileged-container-fail.yaml
+  tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml
+  tests/artifacts/fixtures/k8s/kubescape-non-root-deployment-fail.yaml
+  tests/artifacts/fixtures/k8s/kubescape-non-root-deployment-pass.yaml
+  tests/artifacts/fixtures/k8s/k8s-website-nginx-deployment.yaml
+  tests/artifacts/fixtures/k8s/k8s-website-security-context-pod.yaml
+  tests/artifacts/fixtures/terraform/checkov-s3-public-access-fail.tf
+  tests/artifacts/fixtures/terraform/checkov-s3-public-access-fail.tfplan.json
+  tests/artifacts/fixtures/terraform/checkov-s3-public-access-pass.tf
+  tests/artifacts/fixtures/terraform/checkov-s3-public-access-pass.tfplan.json
+  tests/artifacts/fixtures/terraform/checkov-iam-wildcard-fail.tf
+  tests/artifacts/fixtures/terraform/checkov-iam-wildcard-fail.tfplan.json
+  tests/artifacts/fixtures/terraform/checkov-iam-wildcard-pass.tf
+  tests/artifacts/fixtures/terraform/checkov-iam-wildcard-pass.tfplan.json
 )
 
 for file in "${required_corpus_files[@]}"; do
-  [[ -f "$file" ]] || fail "missing corpus artifact $file"
+  [[ -f "$file" ]] || fail "missing shared fixture $file"
 done
 
 echo "PASS: test_oss_dataset_corpus"

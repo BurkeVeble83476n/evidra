@@ -18,4 +18,4 @@ Short map of the main test folders in Evidra. Use this first, then go to
 Related docs:
 - [E2E Testing Map](E2E_TESTING.md)
 - [Acceptance Fixture Status](guides/acceptance-fixture-status.md)
-- [Benchmark Corpus README](../tests/benchmark/corpus/README.md)
+- [Shared Artifact Fixtures](../tests/artifacts/fixtures/README.md)

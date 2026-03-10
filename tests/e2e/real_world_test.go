@@ -12,14 +12,9 @@ import (
 	testcli "samebits.com/evidra-benchmark/tests/testutil"
 )
 
-// realFixture returns the path to a fixture in tests/artifacts/real/.
-func realFixture(name string) string {
-	return filepath.Join("..", "..", "tests", "artifacts", "real", name)
-}
-
-// corpusFixture returns the path to a promoted OSS corpus fixture.
-func corpusFixture(family, name string) string {
-	return filepath.Join("..", "..", "tests", "benchmark", "corpus", family, name)
+// fixturePath returns the path to a shared vendored fixture.
+func fixturePath(family, name string) string {
+	return filepath.Join("..", "..", "tests", "artifacts", "fixtures", family, name)
 }
 
 // runAndDecode runs evidra with the given args and decodes the JSON output.
@@ -137,7 +132,7 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 	}{
 		{
 			name:              "hostpath fail",
-			artifact:          corpusFixture("k8s", "kubescape-hostpath-mount-fail.yaml"),
+			artifact:          fixturePath("k8s", "kubescape-hostpath-mount-fail.yaml"),
 			environment:       "staging",
 			wantResourceCount: 1,
 			wantKinds:         []string{"pod"},
@@ -147,7 +142,7 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 		},
 		{
 			name:              "non-root pass",
-			artifact:          corpusFixture("k8s", "kubescape-non-root-deployment-pass.yaml"),
+			artifact:          fixturePath("k8s", "kubescape-non-root-deployment-pass.yaml"),
 			environment:       "staging",
 			wantResourceCount: 1,
 			wantKinds:         []string{"deployment"},
@@ -232,7 +227,7 @@ func TestE2EReal_TerraformCorpusPromotion(t *testing.T) {
 	}{
 		{
 			name:              "s3 public access fail",
-			artifact:          corpusFixture("terraform", "checkov-s3-public-access-fail.tfplan.json"),
+			artifact:          fixturePath("terraform", "checkov-s3-public-access-fail.tfplan.json"),
 			wantResourceCount: 3,
 			wantTypes:         []string{"aws_s3_bucket", "aws_s3_bucket_acl", "aws_s3_bucket_public_access_block"},
 			wantRiskLevel:     "high",
@@ -240,7 +235,7 @@ func TestE2EReal_TerraformCorpusPromotion(t *testing.T) {
 		},
 		{
 			name:              "iam wildcard fail",
-			artifact:          corpusFixture("terraform", "checkov-iam-wildcard-fail.tfplan.json"),
+			artifact:          fixturePath("terraform", "checkov-iam-wildcard-fail.tfplan.json"),
 			wantResourceCount: 1,
 			wantTypes:         []string{"aws_iam_policy"},
 			wantRiskLevel:     "critical",
@@ -308,7 +303,7 @@ func TestE2EReal_HelmRedis(t *testing.T) {
 		"prescribe",
 		"--tool", "helm",
 		"--operation", "upgrade",
-		"--artifact", realFixture("helm_rendered.yaml"),
+		"--artifact", fixturePath("helm", "helm_rendered.yaml"),
 		"--environment", "staging",
 		"--session-id", "e2e-real-helm",
 		"--evidence-dir", evidenceDir,
@@ -362,7 +357,7 @@ func TestE2EReal_ArgoCDSync(t *testing.T) {
 		"prescribe",
 		"--tool", "kubectl",
 		"--operation", "apply",
-		"--artifact", realFixture("argocd_app_sync.yaml"),
+		"--artifact", fixturePath("argocd", "argocd_app_sync.yaml"),
 		"--environment", "production",
 		"--session-id", "e2e-real-argocd",
 		"--evidence-dir", evidenceDir,
@@ -400,7 +395,7 @@ func TestE2EReal_ArgoCDSync(t *testing.T) {
 		"prescribe",
 		"--tool", "kubectl",
 		"--operation", "apply",
-		"--artifact", realFixture("argocd_app_sync.yaml"),
+		"--artifact", fixturePath("argocd", "argocd_app_sync.yaml"),
 		"--environment", "production",
 		"--session-id", "e2e-real-argocd-2",
 		"--evidence-dir", evidenceDir2,
@@ -432,7 +427,7 @@ func TestE2EReal_KustomizeMonitoring(t *testing.T) {
 		"prescribe",
 		"--tool", "kustomize",
 		"--operation", "apply",
-		"--artifact", realFixture("kustomize_monitoring.yaml"),
+		"--artifact", fixturePath("kustomize", "kustomize_monitoring.yaml"),
 		"--environment", "staging",
 		"--session-id", "e2e-real-kustomize",
 		"--evidence-dir", evidenceDir,
@@ -487,7 +482,7 @@ func TestE2EReal_HelmIngressNginx(t *testing.T) {
 		"prescribe",
 		"--tool", "helm",
 		"--operation", "install",
-		"--artifact", realFixture("helm_ingress_nginx.yaml"),
+		"--artifact", fixturePath("helm", "helm_ingress_nginx.yaml"),
 		"--environment", "production",
 		"--session-id", "e2e-real-helm-nginx",
 		"--evidence-dir", evidenceDir,
@@ -535,7 +530,7 @@ func TestE2EReal_OpenShiftApp(t *testing.T) {
 		"prescribe",
 		"--tool", "oc",
 		"--operation", "apply",
-		"--artifact", realFixture("openshift_app.yaml"),
+		"--artifact", fixturePath("openshift", "openshift_app.yaml"),
 		"--environment", "production",
 		"--session-id", "e2e-real-openshift",
 		"--evidence-dir", evidenceDir,
@@ -607,7 +602,7 @@ func TestE2EReal_NoiseImmunity(t *testing.T) {
 		"prescribe",
 		"--tool", "kubectl",
 		"--operation", "apply",
-		"--artifact", realFixture("argocd_app_sync.yaml"),
+		"--artifact", fixturePath("argocd", "argocd_app_sync.yaml"),
 		"--environment", "production",
 		"--evidence-dir", dir1,
 		"--signing-key-path", privPath,
@@ -622,7 +617,7 @@ func TestE2EReal_NoiseImmunity(t *testing.T) {
 		"prescribe",
 		"--tool", "kubectl",
 		"--operation", "apply",
-		"--artifact", realFixture("argocd_app_sync.yaml"),
+		"--artifact", fixturePath("argocd", "argocd_app_sync.yaml"),
 		"--environment", "production",
 		"--evidence-dir", dir2,
 		"--signing-key-path", privPath,

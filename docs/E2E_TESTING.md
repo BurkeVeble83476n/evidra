@@ -26,7 +26,7 @@ Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
 
 | File | Type | Purpose | Data Source |
 | --- | --- | --- | --- |
-| `tests/e2e/real_world_test.go` | real-world acceptance | Validates adapter behavior and classification on promoted OSS Kubernetes/Terraform fixtures plus curated Helm, Kustomize, OpenShift, and Argo CD artifacts | `tests/artifacts/catalog.yaml`, `tests/artifacts/real/`, `tests/benchmark/corpus/` |
+| `tests/e2e/real_world_test.go` | real-world acceptance | Validates adapter behavior and classification on shared Kubernetes/Terraform fixtures plus Helm, Kustomize, OpenShift, and Argo CD artifacts | `tests/artifacts/catalog.yaml`, `tests/artifacts/fixtures/` |
 | `tests/e2e/noop_test.go` | guard | Ensures the suite only runs when the `e2e` build tag is enabled | none |
 
 ### `tests/contracts`
@@ -61,7 +61,7 @@ The benchmark layer is not product e2e. It validates the benchmark dataset and
 its contract surfaces:
 
 - dataset schema and metadata
-- shared OSS corpus provenance under `tests/benchmark/corpus/`
+- shared vendored artifact fixtures under `tests/artifacts/fixtures/`
 - importer availability for the first reviewed upstream sources
 - contract drift for promoted cases
 - coverage reporting for the limited benchmark dataset
@@ -114,8 +114,8 @@ Recent reduction applied:
 Primary acceptance artifacts are vendored under git:
 
 - real-world acceptance catalog: `tests/artifacts/catalog.yaml`
-- curated acceptance-only artifacts: `tests/artifacts/real/`
-- promoted OSS corpus artifacts: `tests/benchmark/corpus/`
+- shared vendored fixtures for acceptance and benchmark flows: `tests/artifacts/fixtures/`
+- benchmark case metadata: `tests/benchmark/cases/`
 - synthetic contract fixtures: `tests/contracts/fixtures/`
 
 Rules:
@@ -128,10 +128,10 @@ Rules:
 
 Current reality:
 
-- the limited benchmark dataset now vendors reviewed first-wave fixtures from
-  Kubescape, Checkov, and Kubernetes docs under `tests/benchmark/corpus/`
-- the real-world acceptance suite now consumes promoted OSS Kubernetes and
-  Terraform fixtures directly from that corpus through the acceptance catalog
+- the limited benchmark dataset now references reviewed first-wave fixtures from
+  Kubescape, Checkov, and Kubernetes docs under `tests/artifacts/fixtures/`
+- the real-world acceptance suite now consumes shared Kubernetes and Terraform
+  fixtures directly from that root through the acceptance catalog
 - the exact split between promoted OSS fixtures and remaining curated
   acceptance-only artifacts is documented in
   [Acceptance Fixture Status](guides/acceptance-fixture-status.md)

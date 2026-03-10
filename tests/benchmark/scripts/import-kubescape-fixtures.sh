@@ -7,7 +7,7 @@ Usage:
   tests/benchmark/scripts/import-kubescape-fixtures.sh <kubescape-regolibrary-root> [dest-root]
 
 Copies a curated first-wave slice of Kubescape Kubernetes fixtures into the
-benchmark corpus.
+shared artifact fixture root.
 EOF
 }
 
@@ -20,7 +20,7 @@ fail() {
 [[ "$1" == "-h" || "$1" == "--help" ]] && { usage; exit 0; }
 
 SRC_ROOT="$1"
-DEST_ROOT="${2:-tests/benchmark/corpus}"
+DEST_ROOT="${2:-tests/artifacts/fixtures}"
 
 [[ -d "$SRC_ROOT" ]] || fail "source root not found: $SRC_ROOT"
 

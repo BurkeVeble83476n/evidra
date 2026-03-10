@@ -41,7 +41,7 @@ Use this template for every benchmark case directory under:
   "operation_class": "<inspect_read|mutate_change|deploy_rollout>",
   "environment_class": "<sandbox|staging|prod_like>",
   "ground_truth_pattern": "<signal-or-risk-pattern>",
-  "artifact_ref": "../../corpus/<family>/<filename>",
+  "artifact_ref": "../../../artifacts/fixtures/<family>/<filename>",
   "artifact_digest": "sha256:<digest-or-TODO>",
   "risk_details_expected": [],
   "risk_level": "<low|medium|high|critical>",
@@ -62,5 +62,5 @@ Use this template for every benchmark case directory under:
 - These fields describe the scenario itself, not a behavioral run overlay.
 - Actor/model/verdict/decision metadata belongs to later run datasets, not static OSS imports.
 - `decline_worthy` is an allowed scenario class now even if no current benchmark case uses it yet.
-- Benchmark cases should reference shared corpus artifacts directly; do not copy
+- Benchmark cases should reference shared fixtures directly; do not copy
   per-case duplicates into `tests/benchmark/cases/<case-id>/artifacts/`.

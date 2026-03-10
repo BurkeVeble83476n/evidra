@@ -7,9 +7,9 @@ Usage:
   tests/benchmark/scripts/import-checkov-fixtures.sh <checkov-root> [dest-root]
 
 Copies a curated first-wave slice of Checkov Terraform fixtures into the
-benchmark corpus. The corpus keeps small HCL slices for provenance inspection
-and also emits minimal Terraform plan JSON files that match Evidra's current
-Terraform runtime input path.
+shared artifact fixture root. The fixture store keeps small HCL slices for
+provenance inspection and also emits minimal Terraform plan JSON files that
+match Evidra's current Terraform runtime input path.
 EOF
 }
 
@@ -22,7 +22,7 @@ fail() {
 [[ "$1" == "-h" || "$1" == "--help" ]] && { usage; exit 0; }
 
 SRC_ROOT="$1"
-DEST_ROOT="${2:-tests/benchmark/corpus}"
+DEST_ROOT="${2:-tests/artifacts/fixtures}"
 
 [[ -d "$SRC_ROOT" ]] || fail "source root not found: $SRC_ROOT"
 

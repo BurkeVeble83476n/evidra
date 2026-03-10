@@ -92,6 +92,9 @@ jobs:
       - name: Check acceptance corpus promotion
         run: bash tests/test_acceptance_corpus_promotion.sh
 
+      - name: Check unified artifact layout
+        run: bash tests/test_unified_artifact_layout.sh
+
       - name: Validate benchmark dataset
         run: make benchmark-validate
 

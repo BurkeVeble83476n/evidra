@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 CASES_DIR="tests/benchmark/cases"
 DATASET_JSON="tests/benchmark/dataset.json"
-CORPUS_DIR="tests/benchmark/corpus"
+FIXTURES_DIR="tests/artifacts/fixtures"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "coverage: jq is required" >&2
@@ -26,8 +26,8 @@ if [[ -d "$CASES_DIR" ]]; then
 fi
 
 total_cases="$(wc -l < "$tmp_expected" | tr -d ' ')"
-if [[ -d "$CORPUS_DIR" ]]; then
-  corpus_files="$(find "$CORPUS_DIR" -type f | wc -l | tr -d ' ')"
+if [[ -d "$FIXTURES_DIR" ]]; then
+  corpus_files="$(find "$FIXTURES_DIR" -type f | wc -l | tr -d ' ')"
 else
   corpus_files="0"
 fi
@@ -56,7 +56,7 @@ echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo ""
 echo "**Dataset label:** \`$dataset_label\`  "
 echo "**Dataset scope:** \`$dataset_scope\`  "
-echo "**Cases:** $total_cases | **Corpus artifacts:** $corpus_files"
+echo "**Cases:** $total_cases | **Shared fixtures:** $corpus_files"
 echo ""
 
 echo "## Signal Coverage"
