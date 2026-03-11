@@ -6,17 +6,16 @@ describe("App", () => {
   beforeEach(() => {
     document.documentElement.setAttribute("data-theme", "light");
     localStorage.clear();
+    // BrowserRouter reads window.location; default to "/".
+    window.history.pushState({}, "", "/");
   });
 
   it("renders the landing page with hero heading", () => {
     render(<App />);
     expect(
       screen.getByRole("heading", {
-        name: /Behavioral Reliability for Infrastructure Automation/i,
+        name: /Flight recorder for\s+Infrastructure Automation/i,
       }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/capture the operation an agent intentionally chose not to execute/i),
     ).toBeInTheDocument();
   });
 

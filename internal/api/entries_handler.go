@@ -16,22 +16,25 @@ func handleListEntries(es *store.EntryStore) http.HandlerFunc {
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		offset, _ := strconv.Atoi(q.Get("offset"))
 
-		entries, total, err := es.ListEntries(r.Context(), tenantID, store.ListOptions{
+		opts := store.ListOptions{
 			Limit:     limit,
 			Offset:    offset,
 			EntryType: q.Get("type"),
 			Period:    q.Get("period"),
 			SessionID: q.Get("session_id"),
-		})
+		}
+		entries, total, err := es.ListEntries(r.Context(), tenantID, opts)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "list entries failed")
 			return
 		}
 
+		// Echo resolved limit (after defaults) so clients know the effective page size.
+		resolvedLimit := opts.Resolved().Limit
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"entries": entries,
 			"total":   total,
-			"limit":   limit,
+			"limit":   resolvedLimit,
 			"offset":  offset,
 		})
 	}

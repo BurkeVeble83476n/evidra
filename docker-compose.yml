@@ -34,6 +34,7 @@ services:
     environment:
       - DATABASE_URL=postgres://evidra:evidra@postgres:5432/evidra?sslmode=disable
       - EVIDRA_API_KEY=${EVIDRA_API_KEY:-dev-api-key}
+      - EVIDRA_INVITE_SECRET=${EVIDRA_INVITE_SECRET:-}
       - EVIDRA_SIGNING_MODE=optional
     depends_on:
       postgres:

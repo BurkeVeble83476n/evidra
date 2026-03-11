@@ -70,3 +70,9 @@
   a { color: var(--color-accent); text-decoration: none; transition: color 0.15s; }
   a:hover { color: var(--color-accent-bright); }
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}

@@ -1,11 +1,13 @@
+import { Link, useLocation } from "react-router";
 import { ThemeToggle } from "./ThemeToggle";
 import { useHealthCheck } from "../hooks/useHealthCheck";
+import { useAuth } from "../context/AuthContext";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const NAV_LINKS = [
+const LANDING_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#signals", label: "Signals" },
   { href: "#architecture", label: "Architecture" },
@@ -27,26 +29,63 @@ export function Layout({ children }: LayoutProps) {
 }
 
 function Header() {
+  const { pathname } = useLocation();
+  const { apiKey } = useAuth();
+  const isLanding = pathname === "/";
+
   return (
     <header className="sticky top-0 z-50 bg-[color-mix(in_srgb,var(--color-bg)_85%,transparent)] backdrop-blur-xl border-b border-border-subtle">
       <div className="max-w-[980px] mx-auto px-8 flex justify-between items-center py-3">
         <div className="flex items-center gap-8">
-          <span className="font-extrabold text-[1.05rem] text-fg tracking-tight">
+          <Link to="/" className="font-extrabold text-[1.05rem] text-fg tracking-tight no-underline hover:text-fg">
             evidra<span className="text-accent">.</span>
-          </span>
-          <nav className="flex gap-6">
-            {NAV_LINKS.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors"
-              >
-                {l.label}
-              </a>
-            ))}
+          </Link>
+          <nav className="flex gap-5 items-center">
+            {isLanding ? (
+              <>
+                {LANDING_LINKS.map((l) => (
+                  <a
+                    key={l.href}
+                    href={l.href}
+                    className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors max-lg:hidden"
+                  >
+                    {l.label}
+                  </a>
+                ))}
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/"
+                  className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors"
+                >
+                  Home
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
+                    pathname === "/dashboard" ? "text-accent" : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  Dashboard
+                </Link>
+              </>
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          {!apiKey && (
+            <Link
+              to="/onboarding"
+              className={`inline-flex items-center gap-1.5 text-[0.8rem] font-semibold px-3.5 py-1.5 rounded-md transition-all no-underline ${
+                pathname === "/onboarding"
+                  ? "bg-accent text-white"
+                  : "bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20"
+              }`}
+            >
+              Get API Key
+            </Link>
+          )}
           <a
             className="inline-flex items-center gap-1.5 text-[0.8rem] font-medium text-fg-muted px-3 py-1.5 border border-border rounded-md transition-all hover:border-accent hover:text-fg no-underline"
             href="https://github.com/vitas/evidra"

@@ -158,12 +158,13 @@ Guides:
 
 Run the Evidra API backend with Docker Compose for centralized evidence collection.
 
-Self-hosted supports evidence ingestion, key issuance, entry browsing, and tenant-wide analytics today. `/v1/evidence/scorecard` and `/v1/evidence/explain` compute against stored evidence with tenant-wide defaults plus optional `actor`, `tool`, `scope`, `session_id`, `period`, and `min_operations` narrowing where supported. See [Self-Hosted Experimental Status](docs/guides/self-hosted-experimental-status.md).
+Self-hosted supports evidence ingestion, key issuance, paginated entry browsing, and tenant-wide analytics today. The embedded web UI provides an onboarding wizard for API key generation and a reliability dashboard. See [Self-Hosted Setup Guide](docs/guides/self-hosted-experimental-status.md) and [API Reference](docs/API_REFERENCE.md).
 
 ### Docker Compose Quickstart
 
 ```bash
 export EVIDRA_API_KEY=my-secret-key
+export EVIDRA_INVITE_SECRET=my-invite-secret   # enables key issuance + onboarding wizard
 docker compose up --build -d
 curl http://localhost:8080/healthz
 ```
@@ -180,7 +181,7 @@ curl http://localhost:8080/healthz
 | `EVIDRA_SIGNING_KEY` | Base64 Ed25519 private key for signing | *(optional)* |
 | `EVIDRA_SIGNING_KEY_PATH` | Path to PEM Ed25519 private key | *(optional)* |
 | `EVIDRA_SIGNING_MODE` | `strict` or `optional` | `strict` |
-| `EVIDRA_INVITE_SECRET` | Secret for key issuance endpoint | *(optional)* |
+| `EVIDRA_INVITE_SECRET` | Invite secret for key issuance and onboarding wizard | *(optional)* |
 
 ### Online Mode (CLI)
 
@@ -193,6 +194,7 @@ evidra record --url http://localhost:8080 --api-key my-secret-key -f deploy.yaml
 ## Docs Map
 
 Architecture and contracts:
+- [API Reference](docs/API_REFERENCE.md)
 - [Public Roadmap](docs/ROAD_MAP.md)
 - [Tests Index](docs/TESTS_INDEX.md)
 - [E2E Testing Map](docs/E2E_TESTING.md)

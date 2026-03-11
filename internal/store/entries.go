@@ -43,6 +43,11 @@ type ListOptions struct {
 	SessionID string
 }
 
+// Resolved returns a copy with default values applied (limit clamped to 1–1000, default 100).
+func (o ListOptions) Resolved() ListOptions {
+	return o.withDefaults()
+}
+
 func (o ListOptions) withDefaults() ListOptions {
 	if o.Limit <= 0 {
 		o.Limit = 100

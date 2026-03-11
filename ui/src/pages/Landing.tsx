@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { CodeBlock } from "../components/CodeBlock";
 import { MermaidDiagram } from "../components/MermaidDiagram";
 
@@ -287,8 +288,11 @@ function Hero() {
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
-            Get Started
+            Quick Start
           </a>
+          <Link to="/onboarding" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+            Get API Key
+          </Link>
           <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             API Docs
           </a>
