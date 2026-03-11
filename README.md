@@ -50,10 +50,7 @@ evidra keygen
 export EVIDRA_SIGNING_KEY=<base64>
 
 # 2) Record one live operation
-evidra record \
-  -f deploy.yaml \
-  --environment staging \
-  -- kubectl apply -f deploy.yaml
+evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
 
 # 3) View score context
 evidra scorecard --period 30d
@@ -187,11 +184,7 @@ curl http://localhost:8080/healthz
 Point the CLI at the API backend to forward evidence:
 
 ```bash
-evidra record \
-  --url http://localhost:8080 \
-  --api-key my-secret-key \
-  -f deploy.yaml \
-  -- kubectl apply -f deploy.yaml
+evidra record --url http://localhost:8080 --api-key my-secret-key -f deploy.yaml -- kubectl apply -f deploy.yaml
 ```
 
 ## Docs Map
