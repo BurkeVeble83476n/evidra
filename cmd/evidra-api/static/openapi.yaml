@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Evidra API
   description: |
-    REST API for the Evidra behavioral reliability platform.
+    REST API for the Evidra flight recorder for AI infrastructure agents.
     Receives evidence entries from CLI, MCP server, and CI pipelines.
     Stores append-only evidence for intent, decisions, and outcomes.
     Exposes tenant-wide scorecard and explain analytics over stored evidence.

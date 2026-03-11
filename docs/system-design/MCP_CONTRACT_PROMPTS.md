@@ -59,7 +59,7 @@ Tool descriptions are read most often. They must be self-contained — an agent 
 ```
 # contract: v1.0.1
 
-Evidra — behavioral reliability for infrastructure automation.
+Evidra — Flight recorder for AI infrastructure agents.
 It measures operational reliability across CI pipelines, scripts, and AI agents; it does not block operations.
 Evidra speaks MCP: any MCP-capable AI agent can report to Evidra out of the box.
 

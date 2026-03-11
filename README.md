@@ -4,15 +4,15 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra — Flight recorder for Infrastructure Automation**
+**Evidra — Flight recorder for AI infrastructure agents**
 A new observability layer for CI/CD, IaC, and AI agents.
 
 Evidra records what your automation intended and what actually happened. 
 For AI agents, it also records what they decided not to do. 
 From this evidence, Evidra computes behavioral signals that answer: is this actor operating reliably?
 
-Aviation became the safest form of transport not because planes stopped failing, but because every flight is recorded, every incident is investigated, and patterns become visible before the next disaster.
-AI agents are getting access to production infrastructure. Who is recording their flights?
+Infrastructure automation will not become trustworthy because agents stop making mistakes. 
+It will become trustworthy because operations are recorded, decisions are explainable, and risky behavior patterns become visible before the next outage.
 
 ## How To Use
 

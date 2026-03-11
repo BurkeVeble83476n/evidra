@@ -23,6 +23,9 @@ func TestDefaultServerVersion_UsesRuntimeVersion(t *testing.T) {
 func TestInitializeInstructions_IncludeContractVersion(t *testing.T) {
 	t.Parallel()
 
+	if !strings.Contains(initializeInstructions, "Evidra — Flight recorder for AI infrastructure agents.") {
+		t.Fatalf("initialize instructions missing current product positioning: %q", initializeInstructions)
+	}
 	if !strings.Contains(initializeInstructions, "Contract version: "+contractVersion) {
 		t.Fatalf("initialize instructions missing contract version marker for %q", contractVersion)
 	}

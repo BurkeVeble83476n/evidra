@@ -144,7 +144,7 @@ const (
 
 	defaultGetEventToolDescription = "Look up an evidence record by event_id."
 
-	defaultInitializeInstructions = "Evidra — behavioral reliability for infrastructure automation. " +
+	defaultInitializeInstructions = "Evidra — Flight recorder for AI infrastructure agents. " +
 		"Call `prescribe` BEFORE any infrastructure operation and `report` with an explicit verdict AFTER execution or decision."
 )
 

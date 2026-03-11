@@ -31,7 +31,7 @@ func TestPrintUsageUsesCurrentProductPositioning(t *testing.T) {
 	printUsage(&out)
 
 	got := out.String()
-	if !strings.Contains(got, "evidra -- behavioral reliability for infrastructure automation") {
+	if !strings.Contains(got, "evidra -- flight recorder for AI infrastructure agents") {
 		t.Fatalf("usage header = %q", got)
 	}
 	if strings.Contains(got, "evidra-benchmark") {
