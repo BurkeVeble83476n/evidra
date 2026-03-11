@@ -101,8 +101,10 @@ Requirements:
 - keep the wrapped command form with `--`
 - require `--` and a wrapped command; `record` without the separator is a clear
   usage error
-- infer `tool` and `operation` only for a fixed v1 allowlist of wrapped command
-  forms
+- infer `tool` from the first wrapped-command word only when it is in the v1
+  allowlist
+- infer `operation` only from a small fixed pattern table per known tool
+- do not infer `artifact` from the wrapped command at all
 - require explicit flags when inference is unsupported or ambiguous rather than
   guessing
 - keep `evidra` flags before `--` and wrapped-command flags after `--`, so
@@ -111,21 +113,52 @@ Requirements:
 
 ### Deterministic inference scope (v1)
 
-Inference is intentionally limited to exactly these five tools:
+Inference is intentionally limited to a fixed first-word tool mapping:
 
-- `kubectl <op> -f <file>` -> `tool=kubectl`, `operation=<op>`,
-  `artifact=<file>`
-- `oc <op> -f <file>` -> `tool=oc`, `operation=<op>`, `artifact=<file>`
-- `helm <op> <release> <dir>` -> `tool=helm`, `operation=<op>`
-- `terraform <op> <file|dir>` -> `tool=terraform`, `operation=<op>`,
-  `artifact=<file|dir>` when directly inferable
-- `docker <op>` -> `tool=docker`, `operation=<op>`
+- `kubectl *` -> `tool=kubectl`
+- `helm *` -> `tool=helm`
+- `terraform *` -> `tool=terraform`
+- `docker *` -> `tool=docker`
+- `argocd *` -> `tool=argocd`
+- `oc *` -> `tool=oc`
+- `kustomize *` -> `tool=kustomize`
+- `pulumi *` -> `tool=pulumi`
 
-Everything else fails with a clear error:
+`tool` is always the first wrapped-command word. There is no broader generic
+parser.
+
+`operation` comes from a small known-pattern table. Initial patterns include:
+
+- `kubectl <op>` -> `operation=<op>`
+- `oc <op>` -> `operation=<op>`
+- `helm <op>` -> `operation=<op>`
+- `terraform <op>` -> `operation=<op>`
+- `kustomize build` -> `operation=build`
+- `pulumi <op>` -> `operation=<op>`
+- `docker build` -> `operation=build`
+- `docker compose <op>` -> `operation=<op>`
+- `argocd app sync` -> `operation=sync`
+- `argocd app delete` -> `operation=delete`
+- `argocd app create` -> `operation=create`
+
+`artifact` is never inferred from wrapped-command flags or paths. It comes only
+from Evidra's own `-f` / `--artifact` flags before `--`. If `-f` is omitted,
+the command still records with no inferred artifact.
+
+Unknown first words fail with:
 
 ```text
-please specify --tool and --operation explicitly
+unknown tool '<tool>', please specify --tool and --operation explicitly
 ```
+
+Known tools with unsupported patterns fail with:
+
+```text
+please specify --operation explicitly
+```
+
+Shell wrappers and pipelines are outside this inference scope. Commands routed
+through `sh -c`, `bash -lc`, or shell pipelines/chains require explicit flags.
 
 ### Risk assessment before execution
 
@@ -152,6 +185,24 @@ evidra import-findings --sarif scanner.sarif
 ```
 
 The public flag name stays `--sarif`.
+
+### Wrapped command examples
+
+Supported direct-command examples:
+
+```bash
+evidra record -- argocd app sync myapp
+evidra record -- docker compose up -d
+evidra record -f deploy.yaml -- oc apply -f deploy.yaml
+evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
+```
+
+Unsupported without explicit flags:
+
+```bash
+evidra record -- sometool do-stuff
+evidra record -- sh -c 'kustomize build . | kubectl apply -f -'
+```
 
 ## Documentation Scope
 
@@ -238,11 +289,22 @@ done too aggressively.
 
 Mitigation:
 
-- support only the fixed five-tool deterministic matrix above
-- fail with `please specify --tool and --operation explicitly` for everything
-  else
-- add explicit tests for the dual-`-f` wrapped kubectl example and for
-  `record` without `--`
+- infer `tool` only from the first wrapped-command word in the fixed eight-tool
+  mapping table
+- infer `operation` only from the fixed pattern table above
+- never infer `artifact` from wrapped-command flags or paths
+- fail with explicit errors for unknown tools, unsupported operation patterns,
+  and `record` without `--`
+
+### Risk: shell-wrapper surprises
+
+Users may expect pipelines or `sh -c` wrappers to infer the underlying tool.
+
+Mitigation:
+
+- document that inference applies only to direct wrapped commands
+- require explicit `--tool` and `--operation` when the wrapped command starts
+  with a shell or contains shell composition
 
 ### Risk: accidental release metadata churn
 
@@ -276,8 +338,12 @@ Required verification after implementation:
 - compact `-f` artifact path works for `record` and `prescribe`
 - `record -f deploy.yaml -- kubectl apply -f deploy.yaml` works and parses both
   `-f` flags correctly
+- `record -- argocd app sync myapp` infers `tool=argocd`,
+  `operation=sync`
+- `record -- docker compose up -d` infers `tool=docker`, `operation=up`
 - `record` without `--` fails with a clear usage error
-- unsupported wrapped commands fail with `please specify --tool and --operation explicitly`
+- unknown wrapped tools fail with `unknown tool '<tool>', please specify --tool and --operation explicitly`
+- known tools with unsupported patterns fail with `please specify --operation explicitly`
 - `CHANGELOG.md` is updated and runtime version remains unchanged
 
 Suggested verification commands:
