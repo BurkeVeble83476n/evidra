@@ -132,6 +132,7 @@ evidra-mcp --evidence-dir ~/.evidra/evidence
 Details:
 - [MCP server schemas](pkg/mcpserver/schemas/)
 - [MCP contract prompts](docs/system-design/MCP_CONTRACT_PROMPTS.md)
+- [MCP Registry Publication Guide](docs/guides/mcp-registry-publication.md)
 
 ## CI Integration
 
@@ -207,6 +208,7 @@ Architecture and contracts:
 
 Operational guides:
 - [Acceptance Fixture Status](docs/guides/acceptance-fixture-status.md)
+- [MCP Registry Publication Guide](docs/guides/mcp-registry-publication.md)
 - [Observability Quickstart](docs/guides/observability-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md)
 - [Self-Hosted Experimental Status](docs/guides/self-hosted-experimental-status.md)
