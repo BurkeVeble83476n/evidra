@@ -9,7 +9,9 @@ fail() {
   exit 1
 }
 
-if git grep -n "samebits.com/evidra-benchmark" -- . ":(exclude)docs/plans/**" >/tmp/test-module-path-refs.out 2>/dev/null; then
+legacy_module="samebits.com/evidra""-benchmark"
+
+if git grep -n "$legacy_module" -- . ":(exclude)docs/plans/**" >/tmp/test-module-path-refs.out 2>/dev/null; then
   cat /tmp/test-module-path-refs.out >&2
   fail "old module path references remain"
 fi
