@@ -99,9 +99,33 @@ Requirements:
 
 - add `-f` as the short form of `--artifact`
 - keep the wrapped command form with `--`
-- infer `tool` and `operation` when they can be derived reliably from the
-  wrapped command
-- require explicit flags when inference is ambiguous rather than guessing
+- require `--` and a wrapped command; `record` without the separator is a clear
+  usage error
+- infer `tool` and `operation` only for a fixed v1 allowlist of wrapped command
+  forms
+- require explicit flags when inference is unsupported or ambiguous rather than
+  guessing
+- keep `evidra` flags before `--` and wrapped-command flags after `--`, so
+  `evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml` is valid and
+  the two `-f` flags do not collide
+
+### Deterministic inference scope (v1)
+
+Inference is intentionally limited to exactly these five tools:
+
+- `kubectl <op> -f <file>` -> `tool=kubectl`, `operation=<op>`,
+  `artifact=<file>`
+- `oc <op> -f <file>` -> `tool=oc`, `operation=<op>`, `artifact=<file>`
+- `helm <op> <release> <dir>` -> `tool=helm`, `operation=<op>`
+- `terraform <op> <file|dir>` -> `tool=terraform`, `operation=<op>`,
+  `artifact=<file|dir>` when directly inferable
+- `docker <op>` -> `tool=docker`, `operation=<op>`
+
+Everything else fails with a clear error:
+
+```text
+please specify --tool and --operation explicitly
+```
 
 ### Risk assessment before execution
 
@@ -126,6 +150,8 @@ The findings path becomes:
 ```bash
 evidra import-findings --sarif scanner.sarif
 ```
+
+The public flag name stays `--sarif`.
 
 ## Documentation Scope
 
@@ -212,8 +238,21 @@ done too aggressively.
 
 Mitigation:
 
-- support only deterministic inference for the known common forms
-- fail with a clear error when inference is ambiguous
+- support only the fixed five-tool deterministic matrix above
+- fail with `please specify --tool and --operation explicitly` for everything
+  else
+- add explicit tests for the dual-`-f` wrapped kubectl example and for
+  `record` without `--`
+
+### Risk: accidental release metadata churn
+
+This rename wave changes the public CLI but does not itself require a runtime
+version bump.
+
+Mitigation:
+
+- update `CHANGELOG.md`
+- leave `pkg/version/version.go` unchanged in this task
 
 ### Risk: test/doc grep drift
 
@@ -235,6 +274,11 @@ Required verification after implementation:
 - SARIF ingest behavior still works through `import-findings`
 - user-facing docs and landing references are updated
 - compact `-f` artifact path works for `record` and `prescribe`
+- `record -f deploy.yaml -- kubectl apply -f deploy.yaml` works and parses both
+  `-f` flags correctly
+- `record` without `--` fails with a clear usage error
+- unsupported wrapped commands fail with `please specify --tool and --operation explicitly`
+- `CHANGELOG.md` is updated and runtime version remains unchanged
 
 Suggested verification commands:
 
