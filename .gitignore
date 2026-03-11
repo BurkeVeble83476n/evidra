@@ -56,7 +56,9 @@ experiments/results/
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# MCP Registry auth tokens
+.mcpregistry_*_token
+
 # Screenshots from dev/testing
 *.png
-
 

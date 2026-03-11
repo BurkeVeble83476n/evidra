@@ -9,6 +9,16 @@ fail() {
   exit 1
 }
 
+has_pattern() {
+  local pattern="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q -e "$pattern" "$file"
+    return
+  fi
+  grep -Eq "$pattern" "$file"
+}
+
 CASE_ID="tmp-bench-add-corpus-scaffold"
 CASE_DIR="tests/benchmark/cases/${CASE_ID}"
 SOURCE_FILE="tests/benchmark/sources/tmp-bench-add-corpus-source.md"
@@ -44,11 +54,11 @@ jq -e '
   .environment_class == "sandbox"
 ' "$EXPECTED_JSON" >/dev/null || fail "expected.json missing default scenario metadata"
 
-rg -q '\*\*Scenario class:\*\* normal_mutate' "$README_FILE" \
+has_pattern '\*\*Scenario class:\*\* normal_mutate' "$README_FILE" \
   || fail "README missing scenario class"
-rg -q '\*\*Operation class:\*\* deploy_rollout' "$README_FILE" \
+has_pattern '\*\*Operation class:\*\* deploy_rollout' "$README_FILE" \
   || fail "README missing operation class"
-rg -q '\*\*Environment class:\*\* sandbox' "$README_FILE" \
+has_pattern '\*\*Environment class:\*\* sandbox' "$README_FILE" \
   || fail "README missing environment class"
 
 [[ ! -d "$CASE_DIR/artifacts" ]] || fail "bench-add should not create case-local artifacts dir"
