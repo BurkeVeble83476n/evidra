@@ -7,8 +7,8 @@ import (
 
 	"samebits.com/evidra-benchmark/internal/analytics"
 	"samebits.com/evidra-benchmark/internal/analyticsdb"
-	testutil "samebits.com/evidra-benchmark/internal/testutil"
 	"samebits.com/evidra-benchmark/internal/store"
+	testutil "samebits.com/evidra-benchmark/internal/testutil"
 	"samebits.com/evidra-benchmark/pkg/evidence"
 )
 
