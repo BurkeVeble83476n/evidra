@@ -46,5 +46,6 @@ func (d *MassDelete) Detect(_ canon.CanonicalAction, raw []byte) bool {
 		return deletes > MassDeleteThreshold
 	}
 	// Fallback: large multi-doc YAML.
-	return len(k8s.ParseK8sYAML(raw)) > MassDeleteThreshold
+	objects, _ := k8s.ParseK8sYAML(raw)
+	return len(objects) > MassDeleteThreshold
 }

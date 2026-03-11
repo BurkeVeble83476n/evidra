@@ -1,8 +1,7 @@
 package risk
 
 import (
-	"strings"
-
+	"samebits.com/evidra/internal/canon"
 	"samebits.com/evidra/internal/detectors"
 	_ "samebits.com/evidra/internal/detectors/all"
 )
@@ -27,30 +26,16 @@ var riskSeverity = map[string]int{
 // RiskLevel returns the risk level for the given operation and scope classes.
 // Unknown combinations default to "high".
 func RiskLevel(operationClass, scopeClass string) string {
-	scopeClass = normalizeScopeClassAlias(scopeClass)
+	scopeClass = canon.NormalizeScopeClass(scopeClass)
 	row, ok := riskMatrix[operationClass]
 	if !ok {
-		return "high"
+		return "medium"
 	}
 	level, ok := row[scopeClass]
 	if !ok {
-		return "high"
+		return "medium"
 	}
 	return level
-}
-
-func normalizeScopeClassAlias(scopeClass string) string {
-	v := strings.ToLower(strings.TrimSpace(scopeClass))
-	switch v {
-	case "prod":
-		return "production"
-	case "stage":
-		return "staging"
-	case "dev", "test", "sandbox":
-		return "development"
-	default:
-		return v
-	}
 }
 
 // ElevateRiskLevel returns the highest severity across the matrix-derived risk

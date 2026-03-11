@@ -24,7 +24,8 @@ func (d *RunAsRoot) Metadata() detectors.TagMetadata {
 	}
 }
 func (d *RunAsRoot) Detect(_ canon.CanonicalAction, raw []byte) bool {
-	for _, obj := range ParseK8sYAML(raw) {
+	objects, _ := ParseK8sYAML(raw)
+	for _, obj := range objects {
 		for _, c := range GetAllContainers(obj) {
 			sc, _ := c["securityContext"].(map[string]interface{})
 			if sc == nil {

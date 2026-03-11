@@ -134,6 +134,9 @@ func withinWindow(hist []severityEntry, anchor time.Time) []severityEntry {
 // baselineSeverity returns the mode severity from a slice of severity entries.
 // On tie, picks the lower severity value (conservative — more sensitive to escalation).
 func baselineSeverity(entries []severityEntry) int {
+	if len(entries) == 0 {
+		return 0
+	}
 	counts := make(map[int]int)
 	for _, e := range entries {
 		counts[e.severity]++

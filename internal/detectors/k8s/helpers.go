@@ -3,6 +3,7 @@ package k8s
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 
@@ -10,19 +11,22 @@ import (
 )
 
 // ParseK8sYAML decodes one or more YAML documents.
-func ParseK8sYAML(raw []byte) []map[string]interface{} {
+func ParseK8sYAML(raw []byte) ([]map[string]interface{}, error) {
 	var objects []map[string]interface{}
 	decoder := yaml.NewDecoder(bufio.NewReader(bytes.NewReader(raw)))
 	for {
 		var obj map[string]interface{}
 		if err := decoder.Decode(&obj); err == io.EOF {
 			break
-		} else if err != nil || obj == nil {
-			break
+		} else if err != nil {
+			return objects, fmt.Errorf("parse k8s yaml: %w", err)
+		}
+		if obj == nil {
+			continue
 		}
 		objects = append(objects, obj)
 	}
-	return objects
+	return objects, nil
 }
 
 // GetPodSpec returns pod spec from Pod/Deployment-like objects.

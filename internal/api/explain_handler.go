@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,7 +11,7 @@ import (
 
 // ExplainComputer generates signal explanations from stored evidence.
 type ExplainComputer interface {
-	ComputeExplain(tenantID string, filters AnalyticsFilters) (interface{}, error)
+	ComputeExplain(ctx context.Context, tenantID string, filters AnalyticsFilters) (interface{}, error)
 }
 
 func handleExplain(ec ExplainComputer) http.HandlerFunc {
@@ -36,7 +37,7 @@ func handleExplain(ec ExplainComputer) http.HandlerFunc {
 			filters.MinOperations = minOps
 		}
 
-		result, err := ec.ComputeExplain(tenantID, filters)
+		result, err := ec.ComputeExplain(r.Context(), tenantID, filters)
 		if err != nil {
 			if errors.Is(err, ErrExperimentalAnalytics) {
 				writeError(w, http.StatusNotImplemented, experimentalAnalyticsMessage)

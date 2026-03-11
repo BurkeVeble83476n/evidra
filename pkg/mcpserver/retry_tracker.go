@@ -11,6 +11,7 @@ type RetryTracker struct {
 	mu      sync.Mutex
 	entries map[string]*retryEntry
 	ttl     time.Duration
+	stop    chan struct{}
 }
 
 type retryEntry struct {
@@ -26,6 +27,7 @@ func NewRetryTracker(ttl time.Duration) *RetryTracker {
 	rt := &RetryTracker{
 		entries: make(map[string]*retryEntry),
 		ttl:     ttl,
+		stop:    make(chan struct{}),
 	}
 	go rt.cleanupLoop()
 	return rt
@@ -34,8 +36,22 @@ func NewRetryTracker(ttl time.Duration) *RetryTracker {
 func (rt *RetryTracker) cleanupLoop() {
 	ticker := time.NewTicker(rt.ttl)
 	defer ticker.Stop()
-	for range ticker.C {
-		rt.Cleanup()
+	for {
+		select {
+		case <-ticker.C:
+			rt.Cleanup()
+		case <-rt.stop:
+			return
+		}
+	}
+}
+
+// Stop terminates the background cleanup goroutine.
+func (rt *RetryTracker) Stop() {
+	select {
+	case <-rt.stop:
+	default:
+		close(rt.stop)
 	}
 }
 

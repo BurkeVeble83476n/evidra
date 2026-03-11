@@ -281,8 +281,8 @@ func (es *EntryStore) ReleaseWebhookEvent(ctx context.Context, tenantID, source,
 // ComputeScorecard reads stored entries and runs them through the signal+score engine.
 // Phase 0: reads entries from DB, converts to []evidence.EvidenceEntry, delegates to
 // existing internal/signal and internal/score packages (same engine used by CLI scorecard).
-func (es *EntryStore) ComputeScorecard(tenantID string, filters analytics.Filters) (interface{}, error) {
-	entries, _, err := es.ListEntries(context.Background(), tenantID, ListOptions{
+func (es *EntryStore) ComputeScorecard(ctx context.Context, tenantID string, filters analytics.Filters) (interface{}, error) {
+	entries, _, err := es.ListEntries(ctx, tenantID, ListOptions{
 		Limit:     10000,
 		Period:    filters.Period,
 		SessionID: filters.SessionID,
@@ -295,8 +295,8 @@ func (es *EntryStore) ComputeScorecard(tenantID string, filters analytics.Filter
 
 // ComputeExplain reads stored entries and runs signal detection.
 // Same conversion pattern as ComputeScorecard -- delegates to internal/signal.
-func (es *EntryStore) ComputeExplain(tenantID string, filters analytics.Filters) (interface{}, error) {
-	entries, _, err := es.ListEntries(context.Background(), tenantID, ListOptions{
+func (es *EntryStore) ComputeExplain(ctx context.Context, tenantID string, filters analytics.Filters) (interface{}, error) {
+	entries, _, err := es.ListEntries(ctx, tenantID, ListOptions{
 		Limit:     10000,
 		Period:    filters.Period,
 		SessionID: filters.SessionID,

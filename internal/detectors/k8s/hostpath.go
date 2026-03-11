@@ -26,7 +26,8 @@ func (d *HostPath) Metadata() detectors.TagMetadata {
 	}
 }
 func (d *HostPath) Detect(_ canon.CanonicalAction, raw []byte) bool {
-	for _, obj := range ParseK8sYAML(raw) {
+	objects, _ := ParseK8sYAML(raw)
+	for _, obj := range objects {
 		spec := GetPodSpec(obj)
 		if spec == nil {
 			continue

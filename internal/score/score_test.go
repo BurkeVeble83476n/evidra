@@ -113,8 +113,8 @@ func TestCompute_ScoreBands(t *testing.T) {
 	}{
 		{"excellent", 0, 200, "excellent"},
 		{"good", 10, 200, "good"}, // penalty = 0.35 * 0.05 = 0.0175, score = 98.25
-		{"fair", 30, 200, "fair"}, // penalty = 0.35 * 0.15 = 0.0525, score = 94.75
-		{"poor", 80, 200, "poor"}, // penalty = 0.35 * 0.40 = 0.14, score = 86.0
+		{"fair", 30, 200, "poor"}, // penalty = 0.35 * 0.15 = 0.0525, but confidence ceiling 85 kicks in (rate > 10%)
+		{"poor", 80, 200, "poor"}, // penalty = 0.35 * 0.40 = 0.14, capped by confidence ceiling to 85
 	}
 
 	for _, tt := range tests {
@@ -128,6 +128,27 @@ func TestCompute_ScoreBands(t *testing.T) {
 				t.Errorf("band = %q, want %q (score = %f)", sc.Band, tt.wantBand, sc.Score)
 			}
 		})
+	}
+}
+
+func TestCompute_FairBandViaRetryLoop(t *testing.T) {
+	t.Parallel()
+	// Use retry_loop (weight 0.20, no score cap or confidence ceiling) to reach fair band.
+	// 60/200 = 30% rate, penalty = 0.20 * 0.30 = 0.06, score = 94.0 → fair (90-95)
+	results := []signal.SignalResult{{Name: "retry_loop", Count: 60}}
+	sc := Compute(results, 200, 0.0)
+	if sc.Band != "fair" {
+		t.Errorf("band = %q, want fair (score = %f)", sc.Band, sc.Score)
+	}
+}
+
+func TestCompute_ConfidenceCeilingEnforced(t *testing.T) {
+	t.Parallel()
+	// 40/200 = 20% protocol_violation rate > 10% threshold → ceiling 85
+	results := []signal.SignalResult{{Name: "protocol_violation", Count: 40}}
+	sc := Compute(results, 200, 0.0)
+	if sc.Confidence.ScoreCeiling > 0 && sc.Score > sc.Confidence.ScoreCeiling {
+		t.Fatalf("score %f exceeds confidence ceiling %f", sc.Score, sc.Confidence.ScoreCeiling)
 	}
 }
 

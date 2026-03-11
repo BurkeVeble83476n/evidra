@@ -17,6 +17,13 @@ func handleListEntries(es *store.EntryStore) http.HandlerFunc {
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		offset, _ := strconv.Atoi(q.Get("offset"))
 
+		if limit < 0 {
+			limit = 0
+		}
+		if offset < 0 {
+			offset = 0
+		}
+
 		opts := store.ListOptions{
 			Limit:     limit,
 			Offset:    offset,

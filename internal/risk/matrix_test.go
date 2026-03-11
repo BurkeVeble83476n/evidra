@@ -43,7 +43,7 @@ func TestRiskLevel_KnownCombinations(t *testing.T) {
 	}
 }
 
-func TestRiskLevel_UnknownDefaultsHigh(t *testing.T) {
+func TestRiskLevel_UnknownDefaultsMedium(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -59,8 +59,8 @@ func TestRiskLevel_UnknownDefaultsHigh(t *testing.T) {
 		tt := tt
 		t.Run(tt.opClass+"_"+tt.scopeClass, func(t *testing.T) {
 			t.Parallel()
-			if got := RiskLevel(tt.opClass, tt.scopeClass); got != "high" {
-				t.Fatalf("RiskLevel(%q, %q) = %q, want high", tt.opClass, tt.scopeClass, got)
+			if got := RiskLevel(tt.opClass, tt.scopeClass); got != "medium" {
+				t.Fatalf("RiskLevel(%q, %q) = %q, want medium", tt.opClass, tt.scopeClass, got)
 			}
 		})
 	}

@@ -293,3 +293,14 @@ func TestDetectRiskEscalationEvents_EscalationEmitted(t *testing.T) {
 	events := DetectRiskEscalationEvents(entries)
 	assertSubSignal(t, events, "risk_escalation")
 }
+
+func TestBaselineSeverity_EmptyEntries(t *testing.T) {
+	t.Parallel()
+	result := baselineSeverity(nil)
+	if result < 0 {
+		t.Fatalf("baselineSeverity(nil) = %d, want >= 0", result)
+	}
+	if _, ok := severityLabel[result]; !ok {
+		t.Fatalf("baselineSeverity(nil) = %d, not in severityLabel map", result)
+	}
+}

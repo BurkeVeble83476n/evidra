@@ -15,7 +15,7 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
 
   useEffect(() => {
     const theme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "default";
-    mermaid.initialize({ startOnLoad: false, theme, securityLevel: "loose" });
+    mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
 
     // Use a unique ID per render to avoid conflicts
     const id = `${idRef.current}-${Date.now()}`;
@@ -36,7 +36,7 @@ export function MermaidDiagram({ chart, className = "" }: MermaidDiagramProps) {
   useEffect(() => {
     const observer = new MutationObserver(() => {
       const theme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "default";
-      mermaid.initialize({ startOnLoad: false, theme, securityLevel: "loose" });
+      mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
 
       const id = `${idRef.current}-theme-${Date.now()}`;
       mermaid.render(id, chart).then(({ svg: rendered }) => {

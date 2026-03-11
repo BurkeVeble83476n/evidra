@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 )
 
 // GenericAdapter is the fallback adapter for unknown tools.
@@ -12,11 +13,10 @@ type GenericAdapter struct{}
 func (a *GenericAdapter) Name() string            { return "generic/v1" }
 func (a *GenericAdapter) CanHandle(_ string) bool { return true }
 func (a *GenericAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeGeneric(tool, operation, environment, rawArtifact)
-	return r, nil
+	return canonicalizeGeneric(tool, operation, environment, rawArtifact)
 }
 
-func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte) CanonResult {
+func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	identity := []ResourceID{{
@@ -33,7 +33,10 @@ func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte
 		ResourceShapeHash: artifactDigest,
 	}
 
-	actionJSON, _ := json.Marshal(action)
+	actionJSON, err := json.Marshal(action)
+	if err != nil {
+		return CanonResult{}, fmt.Errorf("marshal canonical action: %w", err)
+	}
 	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
@@ -42,7 +45,7 @@ func canonicalizeGeneric(tool, operation, environment string, rawArtifact []byte
 		CanonicalAction: action,
 		CanonVersion:    "generic/v1",
 		RawAction:       actionJSON,
-	}
+	}, nil
 }
 
 // SHA256Hex returns the hex-encoded SHA256 digest of data.

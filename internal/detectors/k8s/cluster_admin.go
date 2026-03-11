@@ -26,7 +26,8 @@ func (d *ClusterAdminBinding) Metadata() detectors.TagMetadata {
 	}
 }
 func (d *ClusterAdminBinding) Detect(_ canon.CanonicalAction, raw []byte) bool {
-	for _, obj := range ParseK8sYAML(raw) {
+	objects, _ := ParseK8sYAML(raw)
+	for _, obj := range objects {
 		kind := strings.ToLower(strings.TrimSpace(getString(obj, "kind")))
 		if kind != "clusterrolebinding" {
 			continue

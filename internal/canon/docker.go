@@ -2,6 +2,7 @@ package canon
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -42,11 +43,10 @@ func (a *DockerAdapter) CanHandle(tool string) bool {
 	return dockerCompatibleTools[tool]
 }
 func (a *DockerAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeDocker(tool, operation, environment, rawArtifact)
-	return r, nil
+	return canonicalizeDocker(tool, operation, environment, rawArtifact)
 }
 
-func canonicalizeDocker(tool, operation, environment string, rawArtifact []byte) CanonResult {
+func canonicalizeDocker(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	var opClass string
@@ -72,7 +72,10 @@ func canonicalizeDocker(tool, operation, environment string, rawArtifact []byte)
 
 	scopeClass := ResolveScopeClass(environment, resources)
 
-	shapeData, _ := json.Marshal(resources)
+	shapeData, err := json.Marshal(resources)
+	if err != nil {
+		return CanonResult{}, fmt.Errorf("marshal resources: %w", err)
+	}
 	shapeHash := SHA256Hex(shapeData)
 
 	action := CanonicalAction{
@@ -85,7 +88,10 @@ func canonicalizeDocker(tool, operation, environment string, rawArtifact []byte)
 		ResourceShapeHash: shapeHash,
 	}
 
-	actionJSON, _ := json.Marshal(action)
+	actionJSON, err := json.Marshal(action)
+	if err != nil {
+		return CanonResult{}, fmt.Errorf("marshal canonical action: %w", err)
+	}
 	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
@@ -94,7 +100,7 @@ func canonicalizeDocker(tool, operation, environment string, rawArtifact []byte)
 		CanonicalAction: action,
 		CanonVersion:    "docker/v1",
 		RawAction:       actionJSON,
-	}
+	}, nil
 }
 
 // dockerDestroySubcmds are subcommands that remove or stop resources.

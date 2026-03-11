@@ -22,7 +22,10 @@ func (a *K8sAdapter) CanHandle(tool string) bool {
 	return tool == "kubectl" || tool == "oc" || tool == "helm" || tool == "kustomize"
 }
 func (a *K8sAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeK8s(tool, operation, environment, rawArtifact)
+	r, err := canonicalizeK8s(tool, operation, environment, rawArtifact)
+	if err != nil {
+		return r, err
+	}
 	return r, r.ParseError
 }
 
@@ -31,7 +34,7 @@ type identifiedK8sObject struct {
 	obj      map[string]interface{}
 }
 
-func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) CanonResult {
+func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	objects, err := splitYAMLDocuments(rawArtifact)
@@ -40,7 +43,7 @@ func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) Ca
 			ArtifactDigest: artifactDigest,
 			CanonVersion:   "k8s/v1",
 			ParseError:     fmt.Errorf("canon.k8s: split YAML: %w", err),
-		}
+		}, nil
 	}
 
 	if len(objects) == 0 {
@@ -48,7 +51,7 @@ func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) Ca
 			ArtifactDigest: artifactDigest,
 			CanonVersion:   "k8s/v1",
 			ParseError:     fmt.Errorf("canon.k8s: no objects found"),
-		}
+		}, nil
 	}
 
 	var identified []identifiedK8sObject
@@ -90,7 +93,10 @@ func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) Ca
 		ResourceShapeHash: shapeHash,
 	}
 
-	actionJSON, _ := json.Marshal(action)
+	actionJSON, err := json.Marshal(action)
+	if err != nil {
+		return CanonResult{}, fmt.Errorf("marshal canonical action: %w", err)
+	}
 	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
@@ -99,7 +105,7 @@ func canonicalizeK8s(tool, operation, environment string, rawArtifact []byte) Ca
 		CanonicalAction: action,
 		CanonVersion:    "k8s/v1",
 		RawAction:       actionJSON,
-	}
+	}, nil
 }
 
 // splitYAMLDocuments splits a multi-document YAML into individual object maps.

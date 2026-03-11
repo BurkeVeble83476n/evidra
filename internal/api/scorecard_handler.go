@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -14,7 +15,7 @@ type AnalyticsFilters = analytics.Filters
 
 // ScorecardComputer generates scorecards from stored evidence.
 type ScorecardComputer interface {
-	ComputeScorecard(tenantID string, filters AnalyticsFilters) (interface{}, error)
+	ComputeScorecard(ctx context.Context, tenantID string, filters AnalyticsFilters) (interface{}, error)
 }
 
 func handleScorecard(sc ScorecardComputer) http.HandlerFunc {
@@ -40,7 +41,7 @@ func handleScorecard(sc ScorecardComputer) http.HandlerFunc {
 			filters.MinOperations = minOps
 		}
 
-		result, err := sc.ComputeScorecard(tenantID, filters)
+		result, err := sc.ComputeScorecard(r.Context(), tenantID, filters)
 		if err != nil {
 			if errors.Is(err, ErrExperimentalAnalytics) {
 				writeError(w, http.StatusNotImplemented, experimentalAnalyticsMessage)

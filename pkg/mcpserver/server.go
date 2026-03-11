@@ -301,20 +301,20 @@ func defaultServerVersion(input string) string {
 }
 
 func (h *prescribeHandler) Handle(
-	_ context.Context,
+	ctx context.Context,
 	_ *mcp.CallToolRequest,
 	input PrescribeInput,
 ) (*mcp.CallToolResult, PrescribeOutput, error) {
-	output := h.service.Prescribe(input)
+	output := h.service.PrescribeCtx(ctx, input)
 	return &mcp.CallToolResult{}, output, nil
 }
 
 func (h *reportHandler) Handle(
-	_ context.Context,
+	ctx context.Context,
 	_ *mcp.CallToolRequest,
 	input ReportInput,
 ) (*mcp.CallToolResult, ReportOutput, error) {
-	output := h.service.Report(input)
+	output := h.service.ReportCtx(ctx, input)
 	return &mcp.CallToolResult{}, output, nil
 }
 
@@ -330,9 +330,9 @@ func (s *BenchmarkService) lifecycleService() *lifecycle.Service {
 	return s.lifecycle
 }
 
-// Prescribe records intent and returns risk assessment metadata.
-func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
-	out, err := s.lifecycleService().Prescribe(context.Background(), toLifecyclePrescribeInput(input))
+// PrescribeCtx records intent and returns risk assessment metadata with context propagation.
+func (s *BenchmarkService) PrescribeCtx(ctx context.Context, input PrescribeInput) PrescribeOutput {
+	out, err := s.lifecycleService().Prescribe(ctx, toLifecyclePrescribeInput(input))
 	if err != nil {
 		return PrescribeOutput{
 			OK:    false,
@@ -358,9 +358,9 @@ func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
 	}
 }
 
-// Report records the outcome of an operation, matching it to a prescription.
-func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
-	out, err := s.lifecycleService().Report(context.Background(), toLifecycleReportInput(input))
+// ReportCtx records the outcome of an operation with context propagation.
+func (s *BenchmarkService) ReportCtx(ctx context.Context, input ReportInput) ReportOutput {
+	out, err := s.lifecycleService().Report(ctx, toLifecycleReportInput(input))
 	if err != nil {
 		return ReportOutput{
 			OK:              false,
@@ -419,6 +419,16 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 		Basis:            snapshot.Basis,
 		Confidence:       snapshot.Confidence,
 	}
+}
+
+// Prescribe is a convenience wrapper that calls PrescribeCtx with context.Background().
+func (s *BenchmarkService) Prescribe(input PrescribeInput) PrescribeOutput {
+	return s.PrescribeCtx(context.Background(), input)
+}
+
+// Report is a convenience wrapper that calls ReportCtx with context.Background().
+func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
+	return s.ReportCtx(context.Background(), input)
 }
 
 // tryForwardEntry best-effort reads an entry by ID and calls the forward func.

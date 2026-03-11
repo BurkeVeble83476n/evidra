@@ -15,11 +15,14 @@ type TerraformAdapter struct{}
 func (a *TerraformAdapter) Name() string               { return "tf/v1" }
 func (a *TerraformAdapter) CanHandle(tool string) bool { return tool == "terraform" }
 func (a *TerraformAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
-	r := canonicalizeTerraform(tool, operation, environment, rawArtifact)
+	r, err := canonicalizeTerraform(tool, operation, environment, rawArtifact)
+	if err != nil {
+		return r, err
+	}
 	return r, r.ParseError
 }
 
-func canonicalizeTerraform(tool, operation, environment string, rawArtifact []byte) CanonResult {
+func canonicalizeTerraform(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
 	artifactDigest := sha256Hex(rawArtifact)
 
 	var plan tfjson.Plan
@@ -28,7 +31,7 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 			ArtifactDigest: artifactDigest,
 			CanonVersion:   "terraform/v1",
 			ParseError:     fmt.Errorf("canon.terraform: parse plan JSON: %w", err),
-		}
+		}, nil
 	}
 
 	if len(plan.ResourceChanges) == 0 {
@@ -42,14 +45,17 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 			ResourceCount:     0,
 			ResourceShapeHash: sha256Hex([]byte("empty")),
 		}
-		actionJSON, _ := json.Marshal(action)
+		actionJSON, err := json.Marshal(action)
+		if err != nil {
+			return CanonResult{}, fmt.Errorf("marshal canonical action: %w", err)
+		}
 		return CanonResult{
 			ArtifactDigest:  artifactDigest,
 			IntentDigest:    ComputeIntentDigest(action),
 			CanonicalAction: action,
 			CanonVersion:    "terraform/v1",
 			RawAction:       actionJSON,
-		}
+		}, nil
 	}
 
 	// Sort resource changes by type + name
@@ -89,7 +95,10 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 		ResourceShapeHash: shapeHash,
 	}
 
-	actionJSON, _ := json.Marshal(action)
+	actionJSON, err := json.Marshal(action)
+	if err != nil {
+		return CanonResult{}, fmt.Errorf("marshal canonical action: %w", err)
+	}
 	intentDigest := ComputeIntentDigest(action)
 
 	return CanonResult{
@@ -98,7 +107,7 @@ func canonicalizeTerraform(tool, operation, environment string, rawArtifact []by
 		CanonicalAction: action,
 		CanonVersion:    "terraform/v1",
 		RawAction:       actionJSON,
-	}
+	}, nil
 }
 
 func formatTerraformActions(change *tfjson.Change) string {

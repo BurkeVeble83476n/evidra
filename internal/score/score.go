@@ -90,8 +90,13 @@ func ComputeWithProfileAndMinOperations(profile Profile, results []signal.Signal
 		}
 	}
 
-	sc.Band = scoreBandFor(profile, sc.Score)
+	// Enforce confidence ceiling.
 	sc.Confidence = computeConfidence(profile, externalPct, sc.Rates["protocol_violation"])
+	if sc.Confidence.ScoreCeiling > 0 && sc.Score > sc.Confidence.ScoreCeiling {
+		sc.Score = sc.Confidence.ScoreCeiling
+	}
+
+	sc.Band = scoreBandFor(profile, sc.Score)
 
 	return sc
 }

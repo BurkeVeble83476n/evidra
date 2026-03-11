@@ -1,6 +1,9 @@
 package api
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 var ErrExperimentalAnalytics = errors.New("hosted analytics are experimental")
 
@@ -9,10 +12,10 @@ const experimentalAnalyticsMessage = "hosted analytics are experimental; use CLI
 // ExperimentalAnalytics keeps self-hosted analytics routes explicit until parity exists.
 type ExperimentalAnalytics struct{}
 
-func (ExperimentalAnalytics) ComputeScorecard(string, AnalyticsFilters) (interface{}, error) {
+func (ExperimentalAnalytics) ComputeScorecard(_ context.Context, _ string, _ AnalyticsFilters) (interface{}, error) {
 	return nil, ErrExperimentalAnalytics
 }
 
-func (ExperimentalAnalytics) ComputeExplain(string, AnalyticsFilters) (interface{}, error) {
+func (ExperimentalAnalytics) ComputeExplain(_ context.Context, _ string, _ AnalyticsFilters) (interface{}, error) {
 	return nil, ErrExperimentalAnalytics
 }

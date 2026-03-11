@@ -133,11 +133,12 @@ func Canonicalize(tool, operation, environment string, rawArtifact []byte) Canon
 
 func k8sOperationClass(op string) string {
 	switch op {
-	case "apply", "create", "patch", "upgrade", "install":
+	case "apply", "create", "patch", "upgrade", "install", "replace", "set", "annotate", "label",
+		"rollout", "scale", "autoscale", "taint", "cordon", "uncordon":
 		return "mutate"
-	case "delete", "uninstall":
+	case "delete", "uninstall", "drain":
 		return "destroy"
-	case "get", "describe", "logs":
+	case "get", "describe", "logs", "top", "diff":
 		return "read"
 	default:
 		return "unknown"
@@ -146,11 +147,11 @@ func k8sOperationClass(op string) string {
 
 func terraformOperationClass(op string) string {
 	switch op {
-	case "apply":
+	case "apply", "import":
 		return "mutate"
 	case "destroy":
 		return "destroy"
-	case "plan":
+	case "plan", "validate", "refresh", "show", "state":
 		return "plan"
 	default:
 		return "unknown"

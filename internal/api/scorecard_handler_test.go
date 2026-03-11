@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +14,7 @@ type captureScorecardComputer struct {
 	filters  AnalyticsFilters
 }
 
-func (c *captureScorecardComputer) ComputeScorecard(tenantID string, filters AnalyticsFilters) (interface{}, error) {
+func (c *captureScorecardComputer) ComputeScorecard(_ context.Context, tenantID string, filters AnalyticsFilters) (interface{}, error) {
 	c.tenantID = tenantID
 	c.filters = filters
 	return map[string]string{"status": "ok"}, nil

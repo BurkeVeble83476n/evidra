@@ -35,6 +35,9 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		traceID = sessionID
 	}
 	actor := normalizeActor(input.Actor)
+	if actor.ID == "" {
+		return PrescribeOutput{}, wrapError(ErrCodeInvalidInput, "actor.id is required", nil)
+	}
 
 	var cr canon.CanonResult
 	if input.CanonicalAction != nil {
