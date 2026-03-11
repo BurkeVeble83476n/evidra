@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,8 +28,6 @@ type WebhookStore interface {
 type WebhookTenantResolver func(ctx context.Context, apiKey string) (string, error)
 
 const webhookTenantAPIKeyHeader = "X-Evidra-API-Key"
-
-var errMissingWebhookTenantAPIKey = errors.New("missing tenant api key")
 
 type genericWebhookPayload struct {
 	EventType      string             `json:"event_type"`
