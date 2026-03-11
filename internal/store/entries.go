@@ -17,6 +17,9 @@ import (
 	"samebits.com/evidra/pkg/evidence"
 )
 
+// ErrNotFound is returned when a requested resource does not exist.
+var ErrNotFound = errors.New("not found")
+
 // StoredEntry represents an evidence entry in the database.
 type StoredEntry struct {
 	ID              string
@@ -104,6 +107,9 @@ func (es *EntryStore) GetEntry(ctx context.Context, tenantID, entryID string) (S
 		&e.PreviousHash, &e.Hash, &e.Signature, &e.IntentDigest, &e.ArtifactDigest,
 		&e.Payload, &e.ScopeDimensions, &e.CreatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return StoredEntry{}, fmt.Errorf("store.GetEntry: %w", ErrNotFound)
+		}
 		return StoredEntry{}, fmt.Errorf("store.GetEntry: %w", err)
 	}
 	return e, nil

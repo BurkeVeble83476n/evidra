@@ -21,10 +21,21 @@ type retryEntry struct {
 }
 
 // NewRetryTracker creates a tracker with the given TTL for entries.
+// A background goroutine periodically removes expired entries.
 func NewRetryTracker(ttl time.Duration) *RetryTracker {
-	return &RetryTracker{
+	rt := &RetryTracker{
 		entries: make(map[string]*retryEntry),
 		ttl:     ttl,
+	}
+	go rt.cleanupLoop()
+	return rt
+}
+
+func (rt *RetryTracker) cleanupLoop() {
+	ticker := time.NewTicker(rt.ttl)
+	defer ticker.Stop()
+	for range ticker.C {
+		rt.Cleanup()
 	}
 }
 

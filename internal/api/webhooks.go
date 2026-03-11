@@ -281,10 +281,13 @@ func webhookRequestBody(w http.ResponseWriter, r *http.Request, secret string, s
 }
 
 func bearerToken(raw string) string {
-	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(raw)), "bearer ") {
+	trimmed := strings.TrimSpace(raw)
+	lower := strings.ToLower(trimmed)
+	const prefix = "bearer "
+	if !strings.HasPrefix(lower, prefix) {
 		return ""
 	}
-	return strings.TrimSpace(raw[len("Bearer "):])
+	return trimmed[len(prefix):]
 }
 
 func mappedActor(actorID, source string) pkevidence.Actor {

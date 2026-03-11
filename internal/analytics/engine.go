@@ -15,11 +15,11 @@ var scorecardSignalOrder = []string{
 	"protocol_violation",
 	"artifact_drift",
 	"retry_loop",
+	"thrashing",
 	"blast_radius",
+	"risk_escalation",
 	"new_scope",
 	"repair_loop",
-	"thrashing",
-	"risk_escalation",
 }
 
 type ScorecardSignalRow struct {

@@ -132,16 +132,26 @@ List evidence entries with pagination and optional filters.
 {
   "entries": [
     {
-      "ID": "01JD1A2B3C",
-      "TenantID": "default",
-      "EntryType": "prescribe",
-      "SessionID": "sess_01",
-      "OperationID": "op_01",
-      "PreviousHash": "abc...",
-      "Hash": "def...",
-      "Signature": "...",
-      "Payload": { ... },
-      "CreatedAt": "2025-01-15T10:30:00Z"
+      "id": "01JD1A2B3C",
+      "type": "prescribe",
+      "tool": "kubectl",
+      "operation": "apply",
+      "scope": "namespace",
+      "risk_level": "medium",
+      "actor": "alice",
+      "created_at": "2025-01-15T10:30:00Z"
+    },
+    {
+      "id": "01JD1A2B3D",
+      "type": "report",
+      "tool": "kubectl",
+      "operation": "apply",
+      "scope": "namespace",
+      "risk_level": "medium",
+      "actor": "alice",
+      "verdict": "success",
+      "exit_code": 0,
+      "created_at": "2025-01-15T10:30:05Z"
     }
   ],
   "total": 47,
@@ -170,7 +180,7 @@ curl -H "Authorization: Bearer $KEY" \
 
 Retrieve a single entry by ID.
 
-**Response:** The full `StoredEntry` object.
+**Response:** Same shape as a single entry in the list response above.
 
 ---
 
@@ -211,7 +221,10 @@ Compute a reliability scorecard from stored evidence.
     "risk_escalation": { "detected": false, "weight": 0.10, "count": 0 },
     "new_scope": { "detected": true, "weight": 0.05, "count": 3 },
     "repair_loop": { "detected": false, "weight": -0.05, "count": 0 }
-  }
+  },
+  "period": "30d",
+  "scoring_version": "v1.1.0",
+  "generated_at": "2025-01-15T10:30:00Z"
 }
 ```
 

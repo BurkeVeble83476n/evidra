@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -32,7 +33,7 @@ func handleListEntries(es *store.EntryStore) http.HandlerFunc {
 		// Echo resolved limit (after defaults) so clients know the effective page size.
 		resolvedLimit := opts.Resolved().Limit
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"entries": entries,
+			"entries": toEntryAPIResponses(entries),
 			"total":   total,
 			"limit":   resolvedLimit,
 			"offset":  offset,
@@ -51,10 +52,14 @@ func handleGetEntry(es *store.EntryStore) http.HandlerFunc {
 
 		entry, err := es.GetEntry(r.Context(), tenantID, entryID)
 		if err != nil {
-			writeError(w, http.StatusNotFound, "entry not found")
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "entry not found")
+			} else {
+				writeError(w, http.StatusInternalServerError, "failed to retrieve entry")
+			}
 			return
 		}
 
-		writeJSON(w, http.StatusOK, entry)
+		writeJSON(w, http.StatusOK, toEntryAPIResponse(entry))
 	}
 }

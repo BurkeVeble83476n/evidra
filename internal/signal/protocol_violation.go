@@ -20,7 +20,7 @@ func init() {
 // (unprescribed actions). Also detects duplicate reports and cross-actor reports.
 // TTL controls the window for unreported prescription detection.
 func DetectProtocolViolations(entries []Entry, ttl time.Duration) SignalResult {
-	events := DetectProtocolViolationEvents(entries, ttl)
+	events := DetectProtocolViolationEvents(entries, ttl, time.Now())
 	eventIDs := make([]string, len(events))
 	for i, e := range events {
 		eventIDs[i] = e.EntryRef
@@ -35,7 +35,7 @@ func DetectProtocolViolations(entries []Entry, ttl time.Duration) SignalResult {
 // DetectProtocolViolationEvents returns detailed signal events for protocol violations.
 // TTL controls unreported prescription detection — only prescriptions older than
 // TTL without a matching report are flagged.
-func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration) []SignalEvent {
+func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration, now ...time.Time) []SignalEvent {
 	prescriptions := make(map[string]Entry)
 	firstReport := make(map[string]Entry) // prescription_id → first report
 	reportedIDs := make(map[string]bool)
@@ -87,6 +87,7 @@ func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration) []SignalE
 				EntryRef:  e.EventID,
 				Details:   fmt.Sprintf("report actor %s != prescription actor %s", e.ActorID, rx.ActorID),
 			})
+			continue // Don't mark as reported — only a valid same-actor report should consume the slot.
 		}
 
 		// Missing artifact digest — prescription had a digest but report omits it.
@@ -106,15 +107,20 @@ func DetectProtocolViolationEvents(entries []Entry, ttl time.Duration) []SignalE
 	}
 
 	// Unreported prescriptions — TTL-aware with sub-signal classification
-	events = append(events, DetectUnreported(entries, ttl)...)
+	resolvedNow := time.Now()
+	if len(now) > 0 {
+		resolvedNow = now[0]
+	}
+	events = append(events, DetectUnreported(entries, ttl, resolvedNow)...)
 
 	return events
 }
 
 // DetectUnreported scans evidence chain for prescriptions without matching
 // reports within TTL. Called at scorecard computation time, not at
-// prescribe/report time.
-func DetectUnreported(entries []Entry, ttl time.Duration) []SignalEvent {
+// prescribe/report time. The now parameter makes detection deterministic
+// for testing.
+func DetectUnreported(entries []Entry, ttl time.Duration, now time.Time) []SignalEvent {
 	reportedIDs := make(map[string]bool)
 	for _, e := range entries {
 		if e.IsReport && e.PrescriptionID != "" {
@@ -123,7 +129,6 @@ func DetectUnreported(entries []Entry, ttl time.Duration) []SignalEvent {
 	}
 
 	var events []SignalEvent
-	now := time.Now()
 	for _, e := range entries {
 		if !e.IsPrescription {
 			continue

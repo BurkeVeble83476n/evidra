@@ -30,7 +30,6 @@ function mockApiPlugin(): Plugin {
             key,
             prefix: key.substring(0, 8),
             tenant_id: `tnt_${Math.random().toString(36).substring(2, 10)}`,
-            label: parsed.label || "",
             created_at: new Date().toISOString(),
           }));
         });

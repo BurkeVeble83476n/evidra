@@ -164,8 +164,8 @@ function DashboardContent() {
   }, [request, period]);
 
   const fetchEntries = useCallback(async (offset: number) => {
-    return request<EntriesResponse>(`/v1/evidence/entries?limit=${PAGE_SIZE}&offset=${offset}`).catch(() => null);
-  }, [request]);
+    return request<EntriesResponse>(`/v1/evidence/entries?limit=${PAGE_SIZE}&offset=${offset}&period=${period}`).catch(() => null);
+  }, [request, period]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

@@ -84,7 +84,7 @@ func TestDetectUnreported_TTLExpired(t *testing.T) {
 	entries := []Entry{
 		{EventID: "P1", IsPrescription: true, Timestamp: time.Now().Add(-20 * time.Minute)},
 	}
-	events := DetectUnreported(entries, DefaultTTL)
+	events := DetectUnreported(entries, DefaultTTL, time.Now())
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -101,7 +101,7 @@ func TestDetectUnreported_CrashBeforeReport(t *testing.T) {
 		{EventID: "R0", IsReport: true, PrescriptionID: "P0", ActorID: "alice", ExitCode: intPtr(1), Timestamp: old.Add(-5 * time.Minute)},
 		{EventID: "P1", IsPrescription: true, ActorID: "alice", Timestamp: old},
 	}
-	events := DetectUnreported(entries, DefaultTTL)
+	events := DetectUnreported(entries, DefaultTTL, time.Now())
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -116,7 +116,7 @@ func TestDetectUnreported_WithinTTL(t *testing.T) {
 	entries := []Entry{
 		{EventID: "P1", IsPrescription: true, Timestamp: time.Now().Add(-5 * time.Minute)},
 	}
-	events := DetectUnreported(entries, DefaultTTL)
+	events := DetectUnreported(entries, DefaultTTL, time.Now())
 	if len(events) != 0 {
 		t.Errorf("expected 0 events within TTL, got %d", len(events))
 	}
@@ -130,7 +130,7 @@ func TestDetectUnreported_StalledOperation(t *testing.T) {
 		{EventID: "P1", IsPrescription: true, Timestamp: old, ActorID: "alice"},
 		{EventID: "P2", IsPrescription: true, Timestamp: old.Add(5 * time.Minute), ActorID: "alice"},
 	}
-	events := DetectUnreported(entries, DefaultTTL)
+	events := DetectUnreported(entries, DefaultTTL, time.Now())
 	// P1 should be stalled_operation (alice has later activity)
 	for _, e := range events {
 		if e.EntryRef == "P1" {
