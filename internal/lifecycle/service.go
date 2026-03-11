@@ -9,12 +9,12 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/detectors"
-	_ "samebits.com/evidra-benchmark/internal/detectors/all"
-	"samebits.com/evidra-benchmark/internal/risk"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/detectors"
+	_ "samebits.com/evidra/internal/detectors/all"
+	"samebits.com/evidra/internal/risk"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/version"
 )
 
 // Prescribe canonicalizes an operation intent and writes a prescription entry.

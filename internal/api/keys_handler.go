@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/store"
+	"samebits.com/evidra/internal/store"
 )
 
 func handleKeys(ks *store.KeyStore, inviteSecret string) http.HandlerFunc {

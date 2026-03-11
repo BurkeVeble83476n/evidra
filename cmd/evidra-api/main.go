@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	evidrabenchmark "samebits.com/evidra-benchmark"
-	"samebits.com/evidra-benchmark/internal/api"
-	"samebits.com/evidra-benchmark/internal/db"
-	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
-	"samebits.com/evidra-benchmark/internal/store"
-	"samebits.com/evidra-benchmark/pkg/version"
+	evidrabenchmark "samebits.com/evidra"
+	"samebits.com/evidra/internal/api"
+	"samebits.com/evidra/internal/db"
+	ievsigner "samebits.com/evidra/internal/evidence"
+	"samebits.com/evidra/internal/store"
+	"samebits.com/evidra/pkg/version"
 )
 
 //go:embed static

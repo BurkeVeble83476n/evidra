@@ -18,7 +18,7 @@ The MCP server (`evidra-mcp`) lets any MCP-capable AI agent report to Evidra out
 brew install samebits/tap/evidra
 
 # Option B: Go
-go install samebits.com/evidra-benchmark/cmd/evidra-mcp@latest
+go install samebits.com/evidra/cmd/evidra-mcp@latest
 
 # Option C: From source
 git clone https://github.com/vitas/evidra.git

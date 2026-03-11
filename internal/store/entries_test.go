@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/analytics"
-	testutil "samebits.com/evidra-benchmark/internal/testutil"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/analytics"
+	testutil "samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestListOptions_Defaults(t *testing.T) {

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"samebits.com/evidra-benchmark/internal/assessment"
-	"samebits.com/evidra-benchmark/internal/score"
-	"samebits.com/evidra-benchmark/internal/signal"
+	"samebits.com/evidra/internal/assessment"
+	"samebits.com/evidra/internal/score"
+	"samebits.com/evidra/internal/signal"
 )
 
 const (

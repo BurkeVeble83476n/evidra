@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/testutil"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestSessionInvariant_ReportDerivesSessionFromPrescription(t *testing.T) {

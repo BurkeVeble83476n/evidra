@@ -3,7 +3,7 @@ package detectors
 import (
 	"sync"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 var (

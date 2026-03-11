@@ -8,13 +8,13 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"samebits.com/evidra-benchmark/internal/assessment"
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/internal/score"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/version"
-	promptdata "samebits.com/evidra-benchmark/prompts"
+	"samebits.com/evidra/internal/assessment"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/internal/score"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/version"
+	promptdata "samebits.com/evidra/prompts"
 )
 
 // ForwardFunc is an optional callback to forward evidence entries to the API.

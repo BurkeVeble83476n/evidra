@@ -6,8 +6,8 @@ import (
 	"io"
 	"sort"
 
-	"samebits.com/evidra-benchmark/internal/detectors"
-	_ "samebits.com/evidra-benchmark/internal/detectors/all"
+	"samebits.com/evidra/internal/detectors"
+	_ "samebits.com/evidra/internal/detectors/all"
 )
 
 func cmdDetectors(args []string, stdout, stderr io.Writer) int {

@@ -3,7 +3,7 @@ package risk
 import (
 	"testing"
 
-	_ "samebits.com/evidra-benchmark/internal/detectors/all"
+	_ "samebits.com/evidra/internal/detectors/all"
 )
 
 func TestRiskLevel_KnownCombinations(t *testing.T) {

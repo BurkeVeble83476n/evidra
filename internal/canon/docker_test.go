@@ -3,7 +3,7 @@ package canon_test
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 func TestDockerAdapterCanHandle(t *testing.T) {

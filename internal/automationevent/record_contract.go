@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 const (

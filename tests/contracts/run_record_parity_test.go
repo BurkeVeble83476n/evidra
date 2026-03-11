@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 func TestE2E_RecordImportParity(t *testing.T) {

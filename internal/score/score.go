@@ -1,6 +1,6 @@
 package score
 
-import "samebits.com/evidra-benchmark/internal/signal"
+import "samebits.com/evidra/internal/signal"
 
 // Scorecard holds the computed reliability score and its components.
 type Scorecard struct {

@@ -3,7 +3,7 @@ package ops
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 func TestKubeSystem(t *testing.T) {

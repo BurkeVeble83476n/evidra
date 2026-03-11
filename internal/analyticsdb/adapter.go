@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"samebits.com/evidra-benchmark/internal/analytics"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/analytics"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 // StoredRow is the minimum stored-entry shape needed to replay analytics from DB-backed evidence.

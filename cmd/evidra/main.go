@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/pkg/version"
 )
 
 func main() {

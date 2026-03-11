@@ -3,8 +3,8 @@ package docker
 import (
 	"strings"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/detectors"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/detectors"
 )
 
 func init() { detectors.Register(&HostNetwork{}) }

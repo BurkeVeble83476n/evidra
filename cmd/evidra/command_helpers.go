@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/config"
-	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/internal/signal"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/mode"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/config"
+	ievsigner "samebits.com/evidra/internal/evidence"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/internal/signal"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/mode"
 )
 
 func newLifecycleServiceForCommand(evidenceDir, signingKey, signingKeyPath, signingMode string) (*lifecycle.Service, string, evidence.Signer, error) {

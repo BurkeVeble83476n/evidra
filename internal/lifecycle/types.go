@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 // RetryRecorder tracks repeated operations by intent digest and shape hash.

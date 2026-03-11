@@ -3,10 +3,10 @@ package assessment
 import (
 	"fmt"
 
-	"samebits.com/evidra-benchmark/internal/pipeline"
-	"samebits.com/evidra-benchmark/internal/score"
-	"samebits.com/evidra-benchmark/internal/signal"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/pipeline"
+	"samebits.com/evidra/internal/score"
+	"samebits.com/evidra/internal/signal"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 const (

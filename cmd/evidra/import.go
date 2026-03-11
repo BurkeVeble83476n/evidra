@@ -9,10 +9,10 @@ import (
 	"os"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/automationevent"
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/automationevent"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 type importFlags struct {

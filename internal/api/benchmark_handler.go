@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/auth"
-	"samebits.com/evidra-benchmark/internal/store"
+	"samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/store"
 )
 
 func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {

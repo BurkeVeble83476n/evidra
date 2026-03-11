@@ -3,7 +3,7 @@ package aws
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 func TestSecurityGroupOpen(t *testing.T) {

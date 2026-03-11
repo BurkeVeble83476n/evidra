@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	ievsigner "samebits.com/evidra/internal/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func cmdValidate(args []string, stdout, stderr io.Writer) int {

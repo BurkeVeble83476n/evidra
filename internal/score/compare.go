@@ -1,6 +1,6 @@
 package score
 
-import "samebits.com/evidra-benchmark/internal/signal"
+import "samebits.com/evidra/internal/signal"
 
 // WorkloadProfile describes the tools and scopes an agent operates in.
 type WorkloadProfile struct {

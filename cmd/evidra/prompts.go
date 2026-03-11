@@ -6,7 +6,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"samebits.com/evidra-benchmark/internal/promptfactory"
+	"samebits.com/evidra/internal/promptfactory"
 )
 
 const defaultPromptContractVersion = "v1.0.1"

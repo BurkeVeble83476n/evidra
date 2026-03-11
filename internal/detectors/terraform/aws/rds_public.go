@@ -1,9 +1,9 @@
 package aws
 
 import (
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/detectors"
-	tdet "samebits.com/evidra-benchmark/internal/detectors/terraform"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/detectors"
+	tdet "samebits.com/evidra/internal/detectors/terraform"
 )
 
 func init() { detectors.Register(&RDSPublic{}) }

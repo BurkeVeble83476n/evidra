@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"samebits.com/evidra-benchmark/internal/analytics"
-	"samebits.com/evidra-benchmark/internal/auth"
+	"samebits.com/evidra/internal/analytics"
+	"samebits.com/evidra/internal/auth"
 )
 
 type AnalyticsFilters = analytics.Filters

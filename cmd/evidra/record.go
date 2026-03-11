@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 type recordFlags struct {

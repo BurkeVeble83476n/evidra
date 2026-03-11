@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	"samebits.com/evidra/pkg/evidence"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 func TestE2E_SigningEndToEnd(t *testing.T) {

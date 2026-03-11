@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/internal/testutil"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestConcurrentReportCorrelation_NoCrossCallContamination(t *testing.T) {

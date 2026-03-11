@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/score"
-	"samebits.com/evidra-benchmark/internal/testutil"
+	"samebits.com/evidra/internal/score"
+	"samebits.com/evidra/internal/testutil"
 )
 
 func TestScorecard_UsesScoringProfileOverride(t *testing.T) {

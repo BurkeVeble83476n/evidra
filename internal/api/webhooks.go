@@ -11,10 +11,10 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/risk"
-	pkevidence "samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/risk"
+	pkevidence "samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/version"
 )
 
 type WebhookStore interface {

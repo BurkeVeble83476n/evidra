@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/config"
+	"samebits.com/evidra/internal/config"
 )
 
 func TestResolveSigner_OptionalWithoutKey(t *testing.T) {

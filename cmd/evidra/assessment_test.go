@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/score"
+	"samebits.com/evidra/internal/score"
 )
 
 func TestAssessmentBelowThresholdMarkedPreview(t *testing.T) {

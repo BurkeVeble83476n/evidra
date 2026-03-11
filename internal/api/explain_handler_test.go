@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/auth"
+	"samebits.com/evidra/internal/auth"
 )
 
 type captureExplainComputer struct {

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	"samebits.com/evidra/pkg/evidence"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 func TestE2E_FindingsIngestion(t *testing.T) {

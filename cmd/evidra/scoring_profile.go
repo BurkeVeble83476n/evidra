@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"samebits.com/evidra-benchmark/internal/score"
+	"samebits.com/evidra/internal/score"
 )
 
 func resolveCommandScoringProfile(explicit string) (score.Profile, error) {

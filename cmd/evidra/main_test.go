@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/testutil"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/version"
 )
 
 const testCanonicalAction = `{"tool":"terraform","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":1,"resource_shape_hash":"sha256:test"}`

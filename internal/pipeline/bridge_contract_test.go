@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestRiskContract_PrescribeUsesRiskDetailsWhenPresent(t *testing.T) {

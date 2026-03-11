@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/sarif"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/sarif"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/version"
 )
 
 type importFindingsFlags struct {

@@ -14,12 +14,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"samebits.com/evidra-benchmark/internal/config"
-	ievsigner "samebits.com/evidra-benchmark/internal/evidence"
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	"samebits.com/evidra-benchmark/pkg/mcpserver"
-	"samebits.com/evidra-benchmark/pkg/mode"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/config"
+	ievsigner "samebits.com/evidra/internal/evidence"
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/mcpserver"
+	"samebits.com/evidra/pkg/mode"
+	"samebits.com/evidra/pkg/version"
 )
 
 func main() {

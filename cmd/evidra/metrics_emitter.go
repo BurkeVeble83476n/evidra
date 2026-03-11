@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"samebits.com/evidra-benchmark/internal/config"
-	"samebits.com/evidra-benchmark/internal/telemetry"
+	"samebits.com/evidra/internal/config"
+	"samebits.com/evidra/internal/telemetry"
 )
 
 func emitOperationMetrics(ctx context.Context, payload operationMetricsPayload) error {

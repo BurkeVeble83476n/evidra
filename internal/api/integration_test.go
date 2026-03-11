@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/api"
-	"samebits.com/evidra-benchmark/internal/db"
-	"samebits.com/evidra-benchmark/internal/store"
+	"samebits.com/evidra/internal/api"
+	"samebits.com/evidra/internal/db"
+	"samebits.com/evidra/internal/store"
 )
 
 func TestIntegration_FullLifecycle(t *testing.T) {

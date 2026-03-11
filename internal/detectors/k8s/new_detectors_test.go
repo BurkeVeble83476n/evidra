@@ -3,7 +3,7 @@ package k8s
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 func TestDockerSocket(t *testing.T) {

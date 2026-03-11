@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestRecordContractValidateRequiredFields(t *testing.T) {

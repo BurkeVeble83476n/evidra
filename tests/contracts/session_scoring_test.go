@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 func TestE2E_SessionFilteredScoring(t *testing.T) {

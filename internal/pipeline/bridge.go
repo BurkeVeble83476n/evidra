@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/signal"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/signal"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 // EvidenceToSignalEntries converts evidence entries to signal detector input.

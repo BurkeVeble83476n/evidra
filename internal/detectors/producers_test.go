@@ -3,7 +3,7 @@ package detectors
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 type staticProducer struct {

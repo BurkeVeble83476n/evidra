@@ -3,7 +3,7 @@ package aws
 import (
 	"encoding/json"
 
-	tdet "samebits.com/evidra-benchmark/internal/detectors/terraform"
+	tdet "samebits.com/evidra/internal/detectors/terraform"
 )
 
 type iamStatement struct {

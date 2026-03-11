@@ -1,4 +1,4 @@
-module samebits.com/evidra-benchmark
+module samebits.com/evidra
 
 go 1.24.0
 

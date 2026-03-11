@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/oklog/ulid/v2"
-	"samebits.com/evidra-benchmark/internal/analytics"
-	"samebits.com/evidra-benchmark/internal/analyticsdb"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/analytics"
+	"samebits.com/evidra/internal/analyticsdb"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 // StoredEntry represents an evidence entry in the database.

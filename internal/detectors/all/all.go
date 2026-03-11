@@ -1,8 +1,8 @@
 package all
 
 import (
-	_ "samebits.com/evidra-benchmark/internal/detectors/docker"
-	_ "samebits.com/evidra-benchmark/internal/detectors/k8s"
-	_ "samebits.com/evidra-benchmark/internal/detectors/ops"
-	_ "samebits.com/evidra-benchmark/internal/detectors/terraform/aws"
+	_ "samebits.com/evidra/internal/detectors/docker"
+	_ "samebits.com/evidra/internal/detectors/k8s"
+	_ "samebits.com/evidra/internal/detectors/ops"
+	_ "samebits.com/evidra/internal/detectors/terraform/aws"
 )

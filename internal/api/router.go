@@ -7,9 +7,9 @@ import (
 	"io/fs"
 	"net/http"
 
-	iauth "samebits.com/evidra-benchmark/internal/auth"
-	"samebits.com/evidra-benchmark/internal/store"
-	pkevidence "samebits.com/evidra-benchmark/pkg/evidence"
+	iauth "samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/store"
+	pkevidence "samebits.com/evidra/pkg/evidence"
 )
 
 // RouterConfig holds dependencies for the API router.

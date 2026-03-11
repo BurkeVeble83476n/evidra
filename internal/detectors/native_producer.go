@@ -1,6 +1,6 @@
 package detectors
 
-import "samebits.com/evidra-benchmark/internal/canon"
+import "samebits.com/evidra/internal/canon"
 
 // NativeProducer wraps registered in-process detectors as a TagProducer.
 type NativeProducer struct{}

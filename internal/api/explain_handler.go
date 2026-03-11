@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"samebits.com/evidra-benchmark/internal/auth"
+	"samebits.com/evidra/internal/auth"
 )
 
 // ExplainComputer generates signal explanations from stored evidence.

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/experiments"
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/internal/experiments"
+	"samebits.com/evidra/pkg/version"
 )
 
 func main() {

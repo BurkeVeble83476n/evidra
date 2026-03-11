@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/config"
+	"samebits.com/evidra/internal/config"
 )
 
 type otlpHTTPTransport struct {

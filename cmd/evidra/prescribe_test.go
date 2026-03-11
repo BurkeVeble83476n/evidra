@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/testutil"
+	"samebits.com/evidra/internal/testutil"
 )
 
 func TestPrescribeSupportsArtifactShortFlag(t *testing.T) {

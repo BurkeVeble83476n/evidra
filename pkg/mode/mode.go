@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"samebits.com/evidra-benchmark/pkg/client"
+	"samebits.com/evidra/pkg/client"
 )
 
 // Resolved holds the resolved mode and runtime config.

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"samebits.com/evidra-benchmark/internal/auth"
+	"samebits.com/evidra/internal/auth"
 )
 
 func handleFindings(store RawEntryStore) http.HandlerFunc {

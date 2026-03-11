@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
+	"samebits.com/evidra/internal/canon"
 )
 
 func TestPrivileged(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"samebits.com/evidra-benchmark/pkg/version"
+	"samebits.com/evidra/pkg/version"
 )
 
 const ScoringProfileEnvVar = "EVIDRA_SCORING_PROFILE"

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/testutil"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestRecordCommandExecutesCommandAndReportsOutcome(t *testing.T) {

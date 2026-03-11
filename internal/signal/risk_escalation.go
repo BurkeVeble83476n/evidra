@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/risk"
+	"samebits.com/evidra/internal/risk"
 )
 
 func init() {

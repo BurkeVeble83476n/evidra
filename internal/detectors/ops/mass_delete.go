@@ -1,10 +1,10 @@
 package ops
 
 import (
-	"samebits.com/evidra-benchmark/internal/canon"
-	"samebits.com/evidra-benchmark/internal/detectors"
-	"samebits.com/evidra-benchmark/internal/detectors/k8s"
-	tdet "samebits.com/evidra-benchmark/internal/detectors/terraform"
+	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/detectors"
+	"samebits.com/evidra/internal/detectors/k8s"
+	tdet "samebits.com/evidra/internal/detectors/terraform"
 )
 
 func init() { detectors.Register(&MassDelete{}) }

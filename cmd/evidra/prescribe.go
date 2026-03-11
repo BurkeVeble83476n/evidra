@@ -8,8 +8,8 @@ import (
 	"io"
 	"os"
 
-	"samebits.com/evidra-benchmark/internal/lifecycle"
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 type prescribeFlags struct {

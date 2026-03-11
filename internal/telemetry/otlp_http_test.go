@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"samebits.com/evidra-benchmark/internal/config"
+	"samebits.com/evidra/internal/config"
 )
 
 func TestOTLPExporterFlushesAtEnd(t *testing.T) {

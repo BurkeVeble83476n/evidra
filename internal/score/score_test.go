@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/signal"
+	"samebits.com/evidra/internal/signal"
 )
 
 func TestCompute_PerfectScore(t *testing.T) {

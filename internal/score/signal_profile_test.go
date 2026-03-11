@@ -3,7 +3,7 @@ package score
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/signal"
+	"samebits.com/evidra/internal/signal"
 )
 
 func TestCompute_SignalProfiles(t *testing.T) {

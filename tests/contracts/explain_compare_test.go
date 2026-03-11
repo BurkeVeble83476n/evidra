@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 // setupTwoActorEvidence creates evidence for two actors (agent-a and agent-b)

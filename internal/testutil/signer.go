@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 // TestSigner returns a Signer backed by a freshly generated Ed25519 key pair.

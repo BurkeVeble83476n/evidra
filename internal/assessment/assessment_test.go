@@ -3,7 +3,7 @@ package assessment
 import (
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/score"
+	"samebits.com/evidra/internal/score"
 )
 
 func TestBuildFromResults_PreviewWhenBelowThreshold(t *testing.T) {

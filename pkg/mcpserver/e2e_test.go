@@ -10,7 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestE2E_PrescribeReportLifecycle(t *testing.T) {

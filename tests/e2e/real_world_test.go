@@ -8,8 +8,8 @@ import (
 	"sort"
 	"testing"
 
-	"samebits.com/evidra-benchmark/pkg/evidence"
-	testcli "samebits.com/evidra-benchmark/tests/testutil"
+	"samebits.com/evidra/pkg/evidence"
+	testcli "samebits.com/evidra/tests/testutil"
 )
 
 // fixturePath returns the path to a shared vendored fixture.

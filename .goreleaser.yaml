@@ -22,9 +22,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X samebits.com/evidra-benchmark/pkg/version.Version={{.Version}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Commit={{.Commit}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Date={{.Date}}
+      - -X samebits.com/evidra/pkg/version.Version={{.Version}}
+      - -X samebits.com/evidra/pkg/version.Commit={{.Commit}}
+      - -X samebits.com/evidra/pkg/version.Date={{.Date}}
 
   - id: evidra-mcp
     main: ./cmd/evidra-mcp
@@ -40,9 +40,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X samebits.com/evidra-benchmark/pkg/version.Version={{.Version}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Commit={{.Commit}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Date={{.Date}}
+      - -X samebits.com/evidra/pkg/version.Version={{.Version}}
+      - -X samebits.com/evidra/pkg/version.Commit={{.Commit}}
+      - -X samebits.com/evidra/pkg/version.Date={{.Date}}
 
   - id: evidra-api
     main: ./cmd/evidra-api
@@ -60,9 +60,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X samebits.com/evidra-benchmark/pkg/version.Version={{.Version}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Commit={{.Commit}}
-      - -X samebits.com/evidra-benchmark/pkg/version.Date={{.Date}}
+      - -X samebits.com/evidra/pkg/version.Version={{.Version}}
+      - -X samebits.com/evidra/pkg/version.Commit={{.Commit}}
+      - -X samebits.com/evidra/pkg/version.Date={{.Date}}
 
 archives:
   - id: evidra

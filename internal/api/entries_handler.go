@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"samebits.com/evidra-benchmark/internal/auth"
-	"samebits.com/evidra-benchmark/internal/store"
+	"samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/store"
 )
 
 func handleListEntries(es *store.EntryStore) http.HandlerFunc {

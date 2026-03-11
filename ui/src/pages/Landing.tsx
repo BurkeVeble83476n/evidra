@@ -413,7 +413,7 @@ function McpSetup() {
           <h3 className="text-[0.95rem] font-bold text-fg mb-3">1. Install</h3>
           <CodeBlock code="brew install samebits/tap/evidra" />
           <p className="text-[0.83rem] text-fg-muted mt-2">
-            Or: <code className="text-[0.8rem]">go install samebits.com/evidra-benchmark/cmd/evidra-mcp@latest</code>
+            Or: <code className="text-[0.8rem]">go install samebits.com/evidra/cmd/evidra-mcp@latest</code>
           </p>
         </div>
 

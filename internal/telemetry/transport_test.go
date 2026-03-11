@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"samebits.com/evidra-benchmark/internal/config"
+	"samebits.com/evidra/internal/config"
 )
 
 func TestNewTransportNoneReturnsNoop(t *testing.T) {

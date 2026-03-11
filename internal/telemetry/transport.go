@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"samebits.com/evidra-benchmark/internal/config"
+	"samebits.com/evidra/internal/config"
 )
 
 // MetricLabels is the bounded-cardinality label set for emitted metrics.
