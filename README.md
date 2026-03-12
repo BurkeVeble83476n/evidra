@@ -138,6 +138,9 @@ Evidra speaks MCP. The MCP service is the same flight recorder lifecycle exposed
 evidra-mcp --evidence-dir ~/.evidra/evidence
 ```
 
+For local development or smoke testing without a signing key, set
+`EVIDRA_SIGNING_MODE=optional` or pass `--signing-mode optional`.
+
 References:
 
 - [MCP server schemas](pkg/mcpserver/schemas/)
@@ -215,6 +218,7 @@ make build
 make test
 make e2e
 make test-contracts
+make test-mcp-inspector
 make lint
 make test-signals
 ```
