@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	testcli "samebits.com/evidra/tests/testutil"
+testcli "samebits.com/evidra/tests/testutil"
 )
+
+const sessionBDigest = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
 
 func TestE2E_SessionFilteredScoring(t *testing.T) {
 	bin := testcli.EvidraBinary(t)
@@ -81,7 +83,7 @@ func TestE2E_SessionFilteredScoring(t *testing.T) {
 		"--prescription", prescriptionIDB,
 		"--verdict", "failure",
 		"--exit-code", "1",
-		"--artifact-digest", "sha256:different_from_prescription",
+		"--artifact-digest", sessionBDigest,
 		"--session-id", "session-B",
 		"--evidence-dir", evidenceDir,
 		"--signing-key-path", privPath,

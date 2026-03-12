@@ -52,8 +52,9 @@ func TestRecordContractValidateAllowsRawArtifactPath(t *testing.T) {
 		Operation:       "apply",
 		Environment:     "staging",
 		Actor: evidence.Actor{
-			Type: "human",
-			ID:   "operator-1",
+			Type:       "human",
+			ID:         "operator-1",
+			Provenance: "manual",
 		},
 		ExitCode:    0,
 		DurationMs:  1300,
@@ -73,8 +74,9 @@ func TestRecordContractValidateAllowsCanonicalActionPath(t *testing.T) {
 		Operation:       "apply",
 		Environment:     "production",
 		Actor: evidence.Actor{
-			Type: "ci",
-			ID:   "pipeline-1",
+			Type:       "ci",
+			ID:         "pipeline-1",
+			Provenance: "cli",
 		},
 		ExitCode:        1,
 		DurationMs:      9300,
@@ -82,6 +84,32 @@ func TestRecordContractValidateAllowsCanonicalActionPath(t *testing.T) {
 	}
 	if err := ValidateRecordInput(in); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestRecordContractValidateRequiresActorProvenance(t *testing.T) {
+	in := RecordInput{
+		ContractVersion: RecordContractVersionV1,
+		SessionID:       "sess_4",
+		OperationID:     "op_4",
+		Tool:            "kubectl",
+		Operation:       "apply",
+		Environment:     "staging",
+		Actor: evidence.Actor{
+			Type: "ci",
+			ID:   "pipeline-3",
+		},
+		ExitCode:    0,
+		DurationMs:  1200,
+		RawArtifact: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
+	}
+
+	err := ValidateRecordInput(in)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "actor.provenance") {
+		t.Fatalf("error should mention actor.provenance, got: %v", err)
 	}
 }
 
@@ -94,8 +122,9 @@ func TestRecordContractValidateRejectsNegativeDuration(t *testing.T) {
 		Operation:       "upgrade",
 		Environment:     "development",
 		Actor: evidence.Actor{
-			Type: "ci",
-			ID:   "pipeline-2",
+			Type:       "ci",
+			ID:         "pipeline-2",
+			Provenance: "cli",
 		},
 		ExitCode:        0,
 		DurationMs:      -1,

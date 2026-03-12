@@ -48,6 +48,7 @@ Required fields:
 - `environment`
 - `actor.type`
 - `actor.id`
+- `actor.provenance`
 - `exit_code`
 - `duration_ms`
 
@@ -60,7 +61,6 @@ Conditional requirement:
 Optional fields:
 
 - `attempt`
-- `actor.provenance`
 - `actor.instance_id`
 - `actor.version`
 - `actor.skill_version`

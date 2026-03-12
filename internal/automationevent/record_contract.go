@@ -70,6 +70,9 @@ func ValidateRecordInput(in RecordInput) error {
 	if strings.TrimSpace(in.Actor.ID) == "" {
 		violations = append(violations, "actor.id is required")
 	}
+	if strings.TrimSpace(in.Actor.Provenance) == "" {
+		violations = append(violations, "actor.provenance is required")
+	}
 	if in.DurationMs < 0 {
 		violations = append(violations, "duration_ms must be >= 0")
 	}

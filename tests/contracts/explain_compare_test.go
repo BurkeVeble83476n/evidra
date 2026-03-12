@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	testcli "samebits.com/evidra/tests/testutil"
+testcli "samebits.com/evidra/tests/testutil"
 )
+
+const driftDigest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 
 // setupTwoActorEvidence creates evidence for two actors (agent-a and agent-b)
 // in the same evidence directory. agent-a has a clean run, agent-b has a
@@ -78,7 +80,7 @@ func setupTwoActorEvidence(t *testing.T, bin, evidenceDir, privPath string) {
 		"--prescription", pidB,
 		"--verdict", "failure",
 		"--exit-code", "1",
-		"--artifact-digest", "sha256:drifted",
+		"--artifact-digest", driftDigest,
 		"--actor", "agent-b",
 		"--session-id", "e2e-compare",
 		"--evidence-dir", evidenceDir,

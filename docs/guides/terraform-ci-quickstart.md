@@ -160,7 +160,7 @@ Use `import` when you want to keep your existing pipeline unchanged and only add
             "tool": "terraform",
             "operation": "apply",
             "environment": "${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}",
-            "actor": {"type": "ci", "id": "gha-${{ github.repository }}"},
+            "actor": {"type": "ci", "id": "gha-${{ github.repository }}", "provenance": "cli"},
             "exit_code": ${{ steps.apply.outputs.exit_code || 1 }},
             "duration_ms": ${{ steps.apply.outputs.duration_ms || 0 }},
             "raw_artifact": $PLAN

@@ -52,8 +52,9 @@ func TestE2E_RecordImportParity(t *testing.T) {
 		"operation":        "apply",
 		"environment":      "staging",
 		"actor": map[string]interface{}{
-			"type": "ci",
-			"id":   "gha",
+			"type":       "ci",
+			"id":         "gha",
+			"provenance": "cli",
 		},
 		"exit_code":    0,
 		"duration_ms":  1,
