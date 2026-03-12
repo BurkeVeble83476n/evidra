@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -83,6 +84,38 @@ func TestPrescribe_PrivilegedContainer(t *testing.T) {
 		t.Fatalf("prescribe failed: %v", output.Error)
 	}
 	assertTagPresent(t, output.RiskTags, "k8s.privileged_container")
+}
+
+func TestPrescribeCtx_ForwardsCallerContext(t *testing.T) {
+	t.Parallel()
+
+	type ctxKey string
+
+	dir := t.TempDir()
+	gotCtxValue := make(chan string, 1)
+	svc := &BenchmarkService{
+		evidencePath: dir,
+		signer:       testutil.TestSigner(t),
+		forwardFunc: func(ctx context.Context, _ json.RawMessage) {
+			value, _ := ctx.Value(ctxKey("trace_id")).(string)
+			gotCtxValue <- value
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), ctxKey("trace_id"), "trace-123")
+	output := svc.PrescribeCtx(ctx, PrescribeInput{
+		Actor:       InputActor{Type: "agent", ID: "test"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: k8sDeployment,
+	})
+	if !output.OK {
+		t.Fatalf("prescribe failed: %v", output.Error)
+	}
+
+	if got := <-gotCtxValue; got != "trace-123" {
+		t.Fatalf("forward context value = %q, want %q", got, "trace-123")
+	}
 }
 
 func TestPrescribe_ParseError(t *testing.T) {

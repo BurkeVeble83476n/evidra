@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 
 	"samebits.com/evidra/internal/promptfactory"
+	promptdata "samebits.com/evidra/prompts"
 )
-
-const defaultPromptContractVersion = "v1.0.1"
 
 func cmdPrompts(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -35,7 +34,7 @@ func cmdPrompts(args []string, stdout, stderr io.Writer) int {
 func runPromptsGenerate(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("prompts generate", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	contractVersion := fs.String("contract", defaultPromptContractVersion, "Contract version to generate")
+	contractVersion := fs.String("contract", promptdata.DefaultContractVersion, "Contract version to generate")
 	root := fs.String("root", ".", "Repository root containing prompts/")
 	writeActive := fs.Bool("write-active", true, "Write active runtime prompt paths under prompts/mcpserver and prompts/experiments")
 	writeGenerated := fs.Bool("write-generated", true, "Write generated prompt artifacts under prompts/generated/<contract>/")
@@ -69,7 +68,7 @@ func runPromptsGenerate(args []string, stdout, stderr io.Writer) int {
 func runPromptsVerify(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("prompts verify", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	contractVersion := fs.String("contract", defaultPromptContractVersion, "Contract version to verify")
+	contractVersion := fs.String("contract", promptdata.DefaultContractVersion, "Contract version to verify")
 	root := fs.String("root", ".", "Repository root containing prompts/")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -97,5 +96,5 @@ func printPromptsUsage(w io.Writer) {
 	fmt.Fprintln(w, "  generate   Generate prompt artifacts from canonical contract sources")
 	fmt.Fprintln(w, "  verify     Verify active/generated prompt files against canonical sources + manifest")
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Defaults: --contract %s --root .\n", defaultPromptContractVersion)
+	fmt.Fprintf(w, "Defaults: --contract %s --root .\n", promptdata.DefaultContractVersion)
 }

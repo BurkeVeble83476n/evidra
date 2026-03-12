@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -132,6 +133,8 @@ type BenchmarkService struct {
 	lifecycle        *lifecycle.Service
 	forwardFunc      ForwardFunc
 	scoringProfile   score.Profile
+	initOnce         sync.Once
+	initErr          error
 }
 
 const (
@@ -153,8 +156,8 @@ var (
 	reportToolDescription    = defaultReportToolDescription
 	getEventToolDescription  = defaultGetEventToolDescription
 	initializeInstructions   = defaultInitializeInstructions
-	contractVersion          = "v1.0.1"
-	contractSkillVersion     = "1.0.1"
+	contractVersion          = promptdata.DefaultContractVersion
+	contractSkillVersion     = promptdata.DefaultContractSkillVersion
 )
 
 func init() {
@@ -181,26 +184,10 @@ func NewServer(opts Options) (*mcp.Server, error) {
 	}
 	opts.Version = defaultServerVersion(opts.Version)
 
-	svc := &BenchmarkService{
-		evidencePath:     opts.EvidencePath,
-		signer:           opts.Signer,
-		bestEffortWrites: opts.BestEffortWrites,
-		forwardFunc:      opts.Forward,
-	}
-	profile, err := score.ResolveProfile(opts.ScoringProfilePath)
+	svc, err := newBenchmarkService(opts)
 	if err != nil {
 		return nil, err
 	}
-	svc.scoringProfile = profile
-	if opts.RetryTracker {
-		svc.retryTracker = NewRetryTracker(10 * time.Minute)
-	}
-	svc.lifecycle = lifecycle.NewService(lifecycle.Options{
-		EvidencePath:     svc.evidencePath,
-		Signer:           svc.signer,
-		RetryTracker:     toRetryRecorder(svc.retryTracker),
-		BestEffortWrites: svc.bestEffortWrites,
-	})
 
 	prescribe := &prescribeHandler{service: svc}
 	report := &reportHandler{service: svc}
@@ -292,6 +279,25 @@ func NewServer(opts Options) (*mcp.Server, error) {
 	return server, nil
 }
 
+func newBenchmarkService(opts Options) (*BenchmarkService, error) {
+	svc := &BenchmarkService{
+		evidencePath:     opts.EvidencePath,
+		signer:           opts.Signer,
+		bestEffortWrites: opts.BestEffortWrites,
+		forwardFunc:      opts.Forward,
+	}
+	if opts.RetryTracker {
+		svc.retryTracker = NewRetryTracker(10 * time.Minute)
+	}
+	profile, err := score.ResolveProfile(opts.ScoringProfilePath)
+	if err != nil {
+		return nil, err
+	}
+	svc.scoringProfile = profile
+	svc.lifecycle = svc.newLifecycleService()
+	return svc, nil
+}
+
 func defaultServerVersion(input string) string {
 	v := strings.TrimSpace(input)
 	if v != "" {
@@ -318,21 +324,48 @@ func (h *reportHandler) Handle(
 	return &mcp.CallToolResult{}, output, nil
 }
 
-func (s *BenchmarkService) lifecycleService() *lifecycle.Service {
-	if s.lifecycle == nil {
-		s.lifecycle = lifecycle.NewService(lifecycle.Options{
-			EvidencePath:     s.evidencePath,
-			Signer:           s.signer,
-			RetryTracker:     toRetryRecorder(s.retryTracker),
-			BestEffortWrites: s.bestEffortWrites,
-		})
+func (s *BenchmarkService) newLifecycleService() *lifecycle.Service {
+	return lifecycle.NewService(lifecycle.Options{
+		EvidencePath:     s.evidencePath,
+		Signer:           s.signer,
+		RetryTracker:     toRetryRecorder(s.retryTracker),
+		BestEffortWrites: s.bestEffortWrites,
+	})
+}
+
+func (s *BenchmarkService) ensureInitialized() error {
+	s.initOnce.Do(func() {
+		if s.scoringProfile.ID == "" {
+			s.scoringProfile, s.initErr = score.ResolveProfile("")
+			if s.initErr != nil {
+				return
+			}
+		}
+		if s.lifecycle == nil {
+			s.lifecycle = s.newLifecycleService()
+		}
+	})
+	return s.initErr
+}
+
+func (s *BenchmarkService) lifecycleService() (*lifecycle.Service, error) {
+	if err := s.ensureInitialized(); err != nil {
+		return nil, err
 	}
-	return s.lifecycle
+	return s.lifecycle, nil
 }
 
 // PrescribeCtx records intent and returns risk assessment metadata with context propagation.
 func (s *BenchmarkService) PrescribeCtx(ctx context.Context, input PrescribeInput) PrescribeOutput {
-	out, err := s.lifecycleService().Prescribe(ctx, toLifecyclePrescribeInput(input))
+	svc, err := s.lifecycleService()
+	if err != nil {
+		return PrescribeOutput{
+			OK:    false,
+			Error: &ErrInfo{Code: string(lifecycle.ErrCodeInternal), Message: err.Error()},
+		}
+	}
+
+	out, err := svc.Prescribe(ctx, toLifecyclePrescribeInput(input))
 	if err != nil {
 		return PrescribeOutput{
 			OK:    false,
@@ -340,7 +373,7 @@ func (s *BenchmarkService) PrescribeCtx(ctx context.Context, input PrescribeInpu
 		}
 	}
 
-	s.tryForwardEntry(out.PrescriptionID)
+	s.tryForwardEntry(ctx, out.PrescriptionID)
 
 	return PrescribeOutput{
 		OK:             true,
@@ -360,7 +393,20 @@ func (s *BenchmarkService) PrescribeCtx(ctx context.Context, input PrescribeInpu
 
 // ReportCtx records the outcome of an operation with context propagation.
 func (s *BenchmarkService) ReportCtx(ctx context.Context, input ReportInput) ReportOutput {
-	out, err := s.lifecycleService().Report(ctx, toLifecycleReportInput(input))
+	svc, err := s.lifecycleService()
+	if err != nil {
+		return ReportOutput{
+			OK:              false,
+			PrescriptionID:  input.PrescriptionID,
+			ExitCode:        input.ExitCode,
+			Verdict:         input.Verdict,
+			DecisionContext: input.DecisionContext,
+			SignalSummary:   map[string]int{},
+			Error:           &ErrInfo{Code: string(lifecycle.ErrCodeInternal), Message: err.Error()},
+		}
+	}
+
+	out, err := svc.Report(ctx, toLifecycleReportInput(input))
 	if err != nil {
 		return ReportOutput{
 			OK:              false,
@@ -373,26 +419,9 @@ func (s *BenchmarkService) ReportCtx(ctx context.Context, input ReportInput) Rep
 		}
 	}
 
-	s.tryForwardEntry(out.ReportID)
+	s.tryForwardEntry(ctx, out.ReportID)
 
-	profile := s.scoringProfile
-	if profile.ID == "" {
-		var resolveErr error
-		profile, resolveErr = score.ResolveProfile("")
-		if resolveErr != nil {
-			return ReportOutput{
-				OK:              false,
-				PrescriptionID:  out.PrescriptionID,
-				ExitCode:        out.ExitCode,
-				Verdict:         out.Verdict,
-				DecisionContext: out.DecisionContext,
-				SignalSummary:   map[string]int{},
-				Error:           &ErrInfo{Code: string(lifecycle.ErrCodeInternal), Message: "failed to resolve scoring profile"},
-			}
-		}
-	}
-
-	snapshot, err := assessment.BuildAtPathWithProfile(s.evidencePath, out.SessionID, profile)
+	snapshot, err := assessment.BuildAtPathWithProfile(s.evidencePath, out.SessionID, s.scoringProfile)
 	if err != nil {
 		return ReportOutput{
 			OK:              false,
@@ -432,9 +461,12 @@ func (s *BenchmarkService) Report(input ReportInput) ReportOutput {
 }
 
 // tryForwardEntry best-effort reads an entry by ID and calls the forward func.
-func (s *BenchmarkService) tryForwardEntry(eventID string) {
+func (s *BenchmarkService) tryForwardEntry(ctx context.Context, eventID string) {
 	if s.forwardFunc == nil || eventID == "" || s.evidencePath == "" {
 		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	entry, found, err := evidence.FindEntryByID(s.evidencePath, eventID)
 	if err != nil || !found {
@@ -444,7 +476,7 @@ func (s *BenchmarkService) tryForwardEntry(eventID string) {
 	if err != nil {
 		return
 	}
-	s.forwardFunc(context.Background(), raw)
+	s.forwardFunc(ctx, raw)
 }
 
 func lifecycleErrInfo(err error) *ErrInfo {

@@ -3,7 +3,6 @@ package main
 import (
 	"samebits.com/evidra/internal/assessment"
 	"samebits.com/evidra/internal/score"
-	"samebits.com/evidra/internal/signal"
 )
 
 const (
@@ -29,11 +28,6 @@ func buildOperationAssessmentWithProfile(evidencePath, sessionID, riskLevel stri
 		return operationAssessment{}, err
 	}
 	return assessmentFromSnapshot(snapshot, riskLevel), nil
-}
-
-func buildAssessment(results []signal.SignalResult, totalOps int, riskLevel string) operationAssessment {
-	snapshot := assessment.BuildFromResults(results, totalOps)
-	return assessmentFromSnapshot(snapshot, riskLevel)
 }
 
 func assessmentFromSnapshot(snapshot assessment.Snapshot, riskLevel string) operationAssessment {

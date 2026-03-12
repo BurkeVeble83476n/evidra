@@ -3,7 +3,9 @@ package main
 import (
 	"testing"
 
+	"samebits.com/evidra/internal/assessment"
 	"samebits.com/evidra/internal/score"
+	"samebits.com/evidra/internal/signal"
 )
 
 func TestAssessmentBelowThresholdMarkedPreview(t *testing.T) {
@@ -28,4 +30,9 @@ func TestAssessmentAtThresholdMarkedSufficient(t *testing.T) {
 	if !assessment.Basis.Sufficient {
 		t.Fatal("basis.sufficient=false want true")
 	}
+}
+
+func buildAssessment(results []signal.SignalResult, totalOps int, riskLevel string) operationAssessment {
+	snapshot := assessment.BuildFromResults(results, totalOps)
+	return assessmentFromSnapshot(snapshot, riskLevel)
 }

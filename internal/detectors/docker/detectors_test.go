@@ -49,6 +49,23 @@ services:
 	}
 }
 
+func TestSocketMount_DoesNotTreatVolumeTypeAsSocketPath(t *testing.T) {
+	t.Parallel()
+
+	d := &SocketMount{}
+	if d.Detect(canon.CanonicalAction{}, []byte(`
+services:
+  app:
+    image: nginx
+    volumes:
+      - type: /var/run/docker.sock
+        source: data
+        target: /data
+`)) {
+		t.Fatalf("did not expect socket mount detection from volume type")
+	}
+}
+
 func TestHostNetwork(t *testing.T) {
 	t.Parallel()
 	d := &HostNetwork{}

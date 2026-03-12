@@ -28,9 +28,9 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	actors := strings.Split(*actorsFlag, ",")
+	actors := parseActorIDs(*actorsFlag)
 	if len(actors) < 2 {
-		fmt.Fprintln(stderr, "compare requires at least 2 actors (--actors A,B)")
+		fmt.Fprintln(stderr, "compare requires at least 2 non-empty actors (--actors A,B)")
 		return 2
 	}
 
@@ -97,4 +97,17 @@ func cmdCompare(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func parseActorIDs(raw string) []string {
+	parts := strings.Split(raw, ",")
+	actors := make([]string, 0, len(parts))
+	for _, part := range parts {
+		actorID := strings.TrimSpace(part)
+		if actorID == "" {
+			continue
+		}
+		actors = append(actors, actorID)
+	}
+	return actors
 }

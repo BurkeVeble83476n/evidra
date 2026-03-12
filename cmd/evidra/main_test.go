@@ -165,6 +165,22 @@ func TestRunImportFindings_DefaultsTraceIDToSessionID(t *testing.T) {
 	}
 }
 
+func TestRunCompare_RejectsEmptyActorIDs(t *testing.T) {
+	t.Parallel()
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"compare",
+		"--actors", ",",
+	}, &out, &errBuf)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code")
+	}
+	if !strings.Contains(errBuf.String(), "compare requires at least 2 non-empty actors") {
+		t.Fatalf("stderr missing actor validation message: %s", errBuf.String())
+	}
+}
+
 func TestRunPrescribe_WithSigningKey(t *testing.T) {
 	t.Parallel()
 

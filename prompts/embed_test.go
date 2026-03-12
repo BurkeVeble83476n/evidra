@@ -24,8 +24,8 @@ func TestSkillVersionFromContractVersion(t *testing.T) {
 		{in: "v1.0", want: "1.0.0"},
 		{in: "1.1", want: "1.1.0"},
 		{in: "v1.2.3", want: "1.2.3"},
-		{in: "", want: defaultContractSkillVersion},
-		{in: "garbage", want: defaultContractSkillVersion},
+		{in: "", want: DefaultContractSkillVersion},
+		{in: "garbage", want: DefaultContractSkillVersion},
 	}
 
 	for _, tc := range tests {

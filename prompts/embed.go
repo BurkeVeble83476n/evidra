@@ -13,8 +13,8 @@ const (
 	MCPGetEventDescriptionPath    = "mcpserver/tools/get_event_description.txt"
 	MCPAgentContractPath          = "mcpserver/resources/content/agent_contract_v1.md"
 
-	defaultContractVersion      = "v1.0.1"
-	defaultContractSkillVersion = "1.0.1"
+	DefaultContractVersion      = "v1.0.1"
+	DefaultContractSkillVersion = "1.0.1"
 )
 
 var (
@@ -35,12 +35,12 @@ func Read(path string) (string, error) {
 func ReadMCPInitializeInstructions() (instructions string, contractVersion string, skillVersion string, err error) {
 	raw, err := Read(MCPInitializeInstructionsPath)
 	if err != nil {
-		return "", defaultContractVersion, defaultContractSkillVersion, err
+		return "", DefaultContractVersion, DefaultContractSkillVersion, err
 	}
 
 	contractVersion, ok := parseContractVersionHeader(raw)
 	if !ok {
-		contractVersion = defaultContractVersion
+		contractVersion = DefaultContractVersion
 	}
 	skillVersion = skillVersionFromContractVersion(contractVersion)
 
@@ -114,18 +114,18 @@ func stripContractHeader(text string) string {
 func skillVersionFromContractVersion(contractVersion string) string {
 	v := strings.TrimSpace(strings.TrimPrefix(contractVersion, "v"))
 	if v == "" {
-		return defaultContractSkillVersion
+		return DefaultContractSkillVersion
 	}
 	parts := strings.Split(v, ".")
 	if len(parts) == 2 {
 		parts = append(parts, "0")
 	}
 	if len(parts) != 3 {
-		return defaultContractSkillVersion
+		return DefaultContractSkillVersion
 	}
 	for _, p := range parts {
 		if p == "" || strings.TrimLeft(p, "0123456789") != "" {
-			return defaultContractSkillVersion
+			return DefaultContractSkillVersion
 		}
 	}
 	return strings.Join(parts, ".")

@@ -21,7 +21,7 @@ func hasDockerSockMount(vol interface{}) bool {
 	case string:
 		return strings.Contains(strings.ToLower(v), "docker.sock")
 	case map[string]interface{}:
-		for _, k := range []string{"source", "target", "type"} {
+		for _, k := range []string{"source", "target"} {
 			if s, ok := v[k].(string); ok && strings.Contains(strings.ToLower(s), "docker.sock") {
 				return true
 			}
