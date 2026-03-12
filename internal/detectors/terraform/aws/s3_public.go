@@ -26,13 +26,56 @@ func (d *S3PublicAccess) Metadata() detectors.TagMetadata {
 }
 func (d *S3PublicAccess) Detect(_ canon.CanonicalAction, raw []byte) bool {
 	plan := tdet.ParsePlan(raw)
-	if plan == nil || !tdet.HasResource(plan, "aws_s3_bucket") {
+	if plan == nil {
 		return false
 	}
+
+	buckets := tdet.ResourcesByType(plan, "aws_s3_bucket")
+	if len(buckets) == 0 {
+		return false
+	}
+
+	protected := make(map[string]struct{})
 	for _, rc := range tdet.ResourcesByType(plan, "aws_s3_bucket_public_access_block") {
-		if rc.Change != nil && isCompletePublicAccessBlock(rc.Change.After) {
-			return false
+		if rc.Change == nil || !isCompletePublicAccessBlock(rc.Change.After) {
+			continue
+		}
+		for _, key := range s3ResourceKeys(rc) {
+			protected[key] = struct{}{}
 		}
 	}
-	return true
+
+	for _, rc := range buckets {
+		if rc.Change == nil {
+			continue
+		}
+		if !hasMatchingPublicAccessBlock(protected, rc) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMatchingPublicAccessBlock(protected map[string]struct{}, rc *tdet.ResourceChange) bool {
+	for _, key := range s3ResourceKeys(rc) {
+		if _, ok := protected[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func s3ResourceKeys(rc *tdet.ResourceChange) []string {
+	if rc == nil {
+		return nil
+	}
+
+	keys := make([]string, 0, 2)
+	if rc.Name != "" {
+		keys = append(keys, rc.Name)
+	}
+	if bucket := tdet.AfterString(rc, "bucket"); bucket != "" && bucket != rc.Name {
+		keys = append(keys, bucket)
+	}
+	return keys
 }

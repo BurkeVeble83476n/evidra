@@ -47,6 +47,9 @@ func (d *SecurityGroupOpen) Detect(_ canon.CanonicalAction, raw []byte) bool {
 			from := intFromAny(rule["from_port"])
 			to := intFromAny(rule["to_port"])
 			if from == 0 && to == 0 {
+				if stringFromAny(rule["protocol"]) == "-1" {
+					return true
+				}
 				continue
 			}
 			for _, p := range []int{22, 3389, 3306, 5432} {
@@ -57,6 +60,11 @@ func (d *SecurityGroupOpen) Detect(_ canon.CanonicalAction, raw []byte) bool {
 		}
 	}
 	return false
+}
+
+func stringFromAny(v interface{}) string {
+	s, _ := v.(string)
+	return s
 }
 
 func containsCIDR(v interface{}, want string) bool {

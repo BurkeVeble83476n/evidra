@@ -12,7 +12,7 @@ import (
 // TerraformAdapter handles terraform plan JSON artifacts.
 type TerraformAdapter struct{}
 
-func (a *TerraformAdapter) Name() string               { return "tf/v1" }
+func (a *TerraformAdapter) Name() string               { return "terraform/v1" }
 func (a *TerraformAdapter) CanHandle(tool string) bool { return tool == "terraform" }
 func (a *TerraformAdapter) Canonicalize(tool, operation, environment string, rawArtifact []byte) (CanonResult, error) {
 	r, err := canonicalizeTerraform(tool, operation, environment, rawArtifact)

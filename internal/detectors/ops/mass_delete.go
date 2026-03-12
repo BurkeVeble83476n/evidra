@@ -28,7 +28,7 @@ func (d *MassDelete) Metadata() detectors.TagMetadata {
 		Summary:      "Operation deletes more than safe threshold of resources",
 	}
 }
-func (d *MassDelete) Detect(_ canon.CanonicalAction, raw []byte) bool {
+func (d *MassDelete) Detect(action canon.CanonicalAction, raw []byte) bool {
 	if plan := tdet.ParsePlan(raw); plan != nil {
 		deletes := 0
 		for i := range plan.ResourceChanges {
@@ -44,6 +44,9 @@ func (d *MassDelete) Detect(_ canon.CanonicalAction, raw []byte) bool {
 			}
 		}
 		return deletes > MassDeleteThreshold
+	}
+	if action.OperationClass != "destroy" {
+		return false
 	}
 	// Fallback: large multi-doc YAML.
 	objects, _ := k8s.ParseK8sYAML(raw)

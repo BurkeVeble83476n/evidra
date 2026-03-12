@@ -332,3 +332,45 @@ func TestDockerAdapterPrefixless(t *testing.T) {
 		t.Errorf("resource_count = %d, want 3", result.CanonicalAction.ResourceCount)
 	}
 }
+
+func TestDockerAdapterCompatibleToolPrefixes(t *testing.T) {
+	t.Parallel()
+
+	a := &canon.DockerAdapter{}
+	cases := []struct {
+		name  string
+		tool  string
+		cmd   string
+		count int
+	}{
+		{
+			name:  "podman",
+			tool:  "podman",
+			cmd:   "podman rm api cache worker",
+			count: 3,
+		},
+		{
+			name:  "lima",
+			tool:  "lima",
+			cmd:   "lima rm bench-1 bench-2 bench-3 bench-4 bench-5 bench-6",
+			count: 6,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := a.Canonicalize(tc.tool, "rm", "", []byte(tc.cmd))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.CanonicalAction.OperationClass != "destroy" {
+				t.Fatalf("operation_class = %q, want destroy", result.CanonicalAction.OperationClass)
+			}
+			if result.CanonicalAction.ResourceCount != tc.count {
+				t.Fatalf("resource_count = %d, want %d", result.CanonicalAction.ResourceCount, tc.count)
+			}
+		})
+	}
+}

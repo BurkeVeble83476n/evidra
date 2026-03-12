@@ -54,13 +54,25 @@ func TestE2E_PrescribeReportLifecycle(t *testing.T) {
 		t.Fatalf("list tools: %v", err)
 	}
 	toolNames := make(map[string]bool)
+	toolDefs := make(map[string]*mcp.Tool)
 	for _, tool := range tools.Tools {
 		toolNames[tool.Name] = true
+		toolDefs[tool.Name] = tool
 	}
 	for _, name := range []string{"prescribe", "report", "get_event"} {
 		if !toolNames[name] {
 			t.Errorf("missing tool %q in tools/list response", name)
 		}
+	}
+	prescribeTool, ok := toolDefs["prescribe"]
+	if !ok {
+		t.Fatal("missing prescribe tool definition")
+	}
+	if prescribeTool.Annotations == nil {
+		t.Fatal("prescribe tool missing annotations")
+	}
+	if prescribeTool.Annotations.ReadOnlyHint {
+		t.Fatal("prescribe tool must not advertise readOnlyHint=true")
 	}
 
 	// Prescribe

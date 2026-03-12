@@ -236,6 +236,15 @@ func TestCanonFixtures_TfCreate(t *testing.T) {
 	}
 }
 
+func TestTerraformAdapterNameMatchesCanonVersion(t *testing.T) {
+	t.Parallel()
+
+	adapter := &TerraformAdapter{}
+	if got := adapter.Name(); got != "terraform/v1" {
+		t.Fatalf("adapter.Name() = %q, want %q", got, "terraform/v1")
+	}
+}
+
 func TestCanonFixtures_TfDestroy(t *testing.T) {
 	t.Parallel()
 	data := readFixture(t, "tf_destroy.json")

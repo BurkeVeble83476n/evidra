@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"strings"
 	"testing"
 
 	"samebits.com/evidra/internal/canon"
@@ -45,5 +46,24 @@ func TestNamespaceDelete(t *testing.T) {
 		},
 	}, nil) {
 		t.Fatalf("did not expect namespace_delete detection")
+	}
+}
+
+func TestMassDelete_K8sFallbackRequiresDestroyOperation(t *testing.T) {
+	t.Parallel()
+
+	d := &MassDelete{}
+	raw := []byte(strings.Repeat(`---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+`, 11))
+
+	if d.Detect(canon.CanonicalAction{OperationClass: "mutate"}, raw) {
+		t.Fatal("did not expect mass_delete detection for mutate fallback input")
+	}
+	if !d.Detect(canon.CanonicalAction{OperationClass: "destroy"}, raw) {
+		t.Fatal("expected mass_delete detection for destroy fallback input")
 	}
 }

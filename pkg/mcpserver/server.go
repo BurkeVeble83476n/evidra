@@ -236,7 +236,7 @@ func NewServer(opts Options) (*mcp.Server, error) {
 		Description: prescribeToolDescription,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Prescribe",
-			ReadOnlyHint:    true,
+			ReadOnlyHint:    false,
 			IdempotentHint:  false,
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(false),

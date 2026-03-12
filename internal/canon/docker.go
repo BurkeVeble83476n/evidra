@@ -134,7 +134,7 @@ func parseDockerCommand(tool, operation, cmd string) (opClass string, resources 
 
 	idx := 0
 	// Skip leading tool name if present.
-	if tokens[idx] == "docker" || tokens[idx] == "nerdctl" {
+	if tokens[idx] == tool || tokens[idx] == "docker" || tokens[idx] == "nerdctl" {
 		idx++
 	}
 	if idx >= len(tokens) {
