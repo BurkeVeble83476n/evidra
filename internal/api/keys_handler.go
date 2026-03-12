@@ -31,6 +31,16 @@ func handleKeys(ks *store.KeyStore, inviteSecret string) http.HandlerFunc {
 			return
 		}
 
+		// Invite gate is required for key issuance.
+		if inviteSecret == "" {
+			writeError(w, http.StatusServiceUnavailable, "key issuance disabled: invite secret not configured")
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Invite-Secret")), []byte(inviteSecret)) != 1 {
+			writeError(w, http.StatusForbidden, "invite required")
+			return
+		}
+
 		// Rate limit: 3 keys per hour per IP.
 		ip := clientIP(r)
 		mu.Lock()
@@ -67,16 +77,6 @@ func handleKeys(ks *store.KeyStore, inviteSecret string) http.HandlerFunc {
 		}
 		history[ip] = append(recent, now)
 		mu.Unlock()
-
-		// Invite gate is required for key issuance.
-		if inviteSecret == "" {
-			writeError(w, http.StatusServiceUnavailable, "key issuance disabled: invite secret not configured")
-			return
-		}
-		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Invite-Secret")), []byte(inviteSecret)) != 1 {
-			writeError(w, http.StatusForbidden, "invite required")
-			return
-		}
 
 		var req struct {
 			Label string `json:"label"`
