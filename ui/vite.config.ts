@@ -60,14 +60,14 @@ function mockApiPlugin(): Plugin {
           confidence: "high",
           total_entries: 47,
           signal_summary: {
-            protocol_violation: { detected: false, weight: 0.35, count: 0 },
-            artifact_drift: { detected: true, weight: 0.30, count: 2 },
-            retry_loop: { detected: true, weight: 0.20, count: 1 },
-            thrashing: { detected: false, weight: 0.15, count: 0 },
-            blast_radius: { detected: false, weight: 0.10, count: 0 },
-            risk_escalation: { detected: false, weight: 0.10, count: 0 },
-            new_scope: { detected: true, weight: 0.05, count: 3 },
-            repair_loop: { detected: false, weight: -0.05, count: 0 },
+            protocol_violation: { detected: false, count: 0 },
+            artifact_drift: { detected: true, count: 2 },
+            retry_loop: { detected: true, count: 1 },
+            thrashing: { detected: false, count: 0 },
+            blast_radius: { detected: false, count: 0 },
+            risk_escalation: { detected: false, count: 0 },
+            new_scope: { detected: true, count: 3 },
+            repair_loop: { detected: false, count: 0 },
           },
         }));
       });

@@ -15,7 +15,7 @@ func ManifestPath(root string) string {
 
 func LoadManifest(path string) (StoreManifest, error) {
 	var out StoreManifest
-	err := withStoreLock(path, func() error {
+	err := storeLock(path, func() error {
 		mode, resolved, err := detectStoreMode(path)
 		if err != nil {
 			return err

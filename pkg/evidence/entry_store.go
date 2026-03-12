@@ -10,11 +10,16 @@ import (
 	"time"
 )
 
+var (
+	storeLock = withStoreLock
+	statPath  = os.Stat
+)
+
 // AppendEntryAtPath writes a pre-built EvidenceEntry to the segmented store.
 // The entry must already have Hash computed (via BuildEntry).
 // Updates manifest RecordsTotal, LastHash, and UpdatedAt.
 func AppendEntryAtPath(path string, entry EvidenceEntry) error {
-	if err := withStoreLock(path, func() error {
+	if err := storeLock(path, func() error {
 		return appendEntryUnlocked(path, entry)
 	}); err != nil {
 		return err
@@ -55,8 +60,11 @@ func appendEntryUnlocked(path string, entry EvidenceEntry) error {
 
 	// Segment rotation: if the current segment exceeds size, seal it and
 	// create the next one.
-	info, err := os.Stat(segPath)
-	if err == nil && info.Size() > manifest.SegmentMaxBytes {
+	info, err := statPath(segPath)
+	if err != nil {
+		return fmt.Errorf("stat current segment: %w", err)
+	}
+	if info.Size() > manifest.SegmentMaxBytes {
 		manifest.SealedSegments = append(manifest.SealedSegments, manifest.CurrentSegment)
 		manifest.SealedSegments = normalizeSealedSegments(manifest.SealedSegments)
 		_, names, listErr := orderedSegmentNames(path)
@@ -97,9 +105,11 @@ func validatePersistedEntry(entry EvidenceEntry) error {
 // ReadAllEntriesAtPath reads all EvidenceEntry records from the segmented store.
 func ReadAllEntriesAtPath(path string) ([]EvidenceEntry, error) {
 	entries := make([]EvidenceEntry, 0)
-	err := ForEachEntryAtPath(path, func(e EvidenceEntry) error {
-		entries = append(entries, e)
-		return nil
+	err := storeLock(path, func() error {
+		return forEachEntryAtPathUnlocked(path, func(e EvidenceEntry) error {
+			entries = append(entries, e)
+			return nil
+		})
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +120,7 @@ func ReadAllEntriesAtPath(path string) ([]EvidenceEntry, error) {
 // ForEachEntryAtPath iterates over all entries in the segmented store,
 // calling fn for each EvidenceEntry in order.
 func ForEachEntryAtPath(path string, fn func(EvidenceEntry) error) error {
-	return withStoreLock(path, func() error {
+	return storeLock(path, func() error {
 		return forEachEntryAtPathUnlocked(path, fn)
 	})
 }
@@ -128,6 +138,75 @@ func forEachEntryAtPathUnlocked(path string, fn func(EvidenceEntry) error) error
 			return err
 		}
 	}
+	return nil
+}
+
+func validateChainEntries(entries []EvidenceEntry) error {
+	for i, entry := range entries {
+		if i == 0 {
+			if entry.PreviousHash != "" {
+				return &ChainValidationError{
+					Index:   i,
+					EventID: entry.EntryID,
+					Message: "first entry should have empty previous_hash",
+				}
+			}
+		} else if entry.PreviousHash != entries[i-1].Hash {
+			return &ChainValidationError{
+				Index:   i,
+				EventID: entry.EntryID,
+				Message: fmt.Sprintf("previous_hash mismatch: got %s, want %s", entry.PreviousHash, entries[i-1].Hash),
+			}
+		}
+
+		recomputed, hashErr := computeEntryHash(entry)
+		if hashErr != nil {
+			return &ChainValidationError{
+				Index:   i,
+				EventID: entry.EntryID,
+				Message: fmt.Sprintf("hash computation failed: %v", hashErr),
+			}
+		}
+		if entry.Hash != recomputed {
+			return &ChainValidationError{
+				Index:   i,
+				EventID: entry.EntryID,
+				Message: fmt.Sprintf("hash mismatch: stored %s, computed %s", entry.Hash, recomputed),
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateEntrySignatures(entries []EvidenceEntry, pubKey ed25519.PublicKey) error {
+	signed := 0
+	for i, entry := range entries {
+		if entry.Signature == "" {
+			continue
+		}
+		sig, decErr := base64.StdEncoding.DecodeString(entry.Signature)
+		if decErr != nil {
+			return &ChainValidationError{
+				Index:   i,
+				EventID: entry.EntryID,
+				Message: fmt.Sprintf("invalid base64 signature: %v", decErr),
+			}
+		}
+		if !ed25519.Verify(pubKey, []byte(entry.Hash), sig) {
+			return &ChainValidationError{
+				Index:   i,
+				EventID: entry.EntryID,
+				Message: "signature verification failed",
+			}
+		}
+		signed++
+	}
+
+	if signed == 0 && len(entries) > 0 {
+		return fmt.Errorf("validate signatures: no signed entries found (chain has %d entries)", len(entries))
+	}
+
 	return nil
 }
 
@@ -161,7 +240,7 @@ func FindEntryByID(path string, entryID string) (EvidenceEntry, bool, error) {
 // Returns empty string if the store is empty or does not exist yet.
 func LastHashAtPath(path string) (string, error) {
 	var lastHash string
-	err := withStoreLock(path, func() error {
+	err := storeLock(path, func() error {
 		manifest, err := loadOrInitManifest(path, segmentMaxBytesFromEnv(), false)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -182,90 +261,32 @@ func LastHashAtPath(path string) (string, error) {
 // For each entry it checks that previous_hash links correctly and that the
 // stored hash matches a recomputed hash over the entry fields.
 func ValidateChainAtPath(root string) error {
-	entries, err := ReadAllEntriesAtPath(root)
-	if err != nil {
-		return fmt.Errorf("validate chain: %w", err)
-	}
-
-	for i, entry := range entries {
-		// Verify previous_hash link.
-		if i == 0 {
-			if entry.PreviousHash != "" {
-				return &ChainValidationError{
-					Index:   i,
-					EventID: entry.EntryID,
-					Message: "first entry should have empty previous_hash",
-				}
-			}
-		} else {
-			if entry.PreviousHash != entries[i-1].Hash {
-				return &ChainValidationError{
-					Index:   i,
-					EventID: entry.EntryID,
-					Message: fmt.Sprintf("previous_hash mismatch: got %s, want %s", entry.PreviousHash, entries[i-1].Hash),
-				}
-			}
+	return storeLock(root, func() error {
+		entries := make([]EvidenceEntry, 0)
+		if err := forEachEntryAtPathUnlocked(root, func(e EvidenceEntry) error {
+			entries = append(entries, e)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("validate chain: %w", err)
 		}
-
-		// Recompute hash and verify.
-		recomputed, hashErr := computeEntryHash(entry)
-		if hashErr != nil {
-			return &ChainValidationError{
-				Index:   i,
-				EventID: entry.EntryID,
-				Message: fmt.Sprintf("hash computation failed: %v", hashErr),
-			}
-		}
-		if entry.Hash != recomputed {
-			return &ChainValidationError{
-				Index:   i,
-				EventID: entry.EntryID,
-				Message: fmt.Sprintf("hash mismatch: stored %s, computed %s", entry.Hash, recomputed),
-			}
-		}
-	}
-
-	return nil
+		return validateChainEntries(entries)
+	})
 }
 
 // ValidateChainWithSignatures validates hash chain integrity AND verifies
 // Ed25519 signatures on all entries that have a non-empty Signature field.
 func ValidateChainWithSignatures(root string, pubKey ed25519.PublicKey) error {
-	if err := ValidateChainAtPath(root); err != nil {
-		return err
-	}
-
-	entries, err := ReadAllEntriesAtPath(root)
-	if err != nil {
-		return fmt.Errorf("validate signatures: %w", err)
-	}
-
-	signed := 0
-	for i, entry := range entries {
-		if entry.Signature == "" {
-			continue
+	return storeLock(root, func() error {
+		entries := make([]EvidenceEntry, 0)
+		if err := forEachEntryAtPathUnlocked(root, func(e EvidenceEntry) error {
+			entries = append(entries, e)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("validate signatures: %w", err)
 		}
-		sig, decErr := base64.StdEncoding.DecodeString(entry.Signature)
-		if decErr != nil {
-			return &ChainValidationError{
-				Index:   i,
-				EventID: entry.EntryID,
-				Message: fmt.Sprintf("invalid base64 signature: %v", decErr),
-			}
+		if err := validateChainEntries(entries); err != nil {
+			return err
 		}
-		if !ed25519.Verify(pubKey, []byte(entry.Hash), sig) {
-			return &ChainValidationError{
-				Index:   i,
-				EventID: entry.EntryID,
-				Message: "signature verification failed",
-			}
-		}
-		signed++
-	}
-
-	if signed == 0 && len(entries) > 0 {
-		return fmt.Errorf("validate signatures: no signed entries found (chain has %d entries)", len(entries))
-	}
-
-	return nil
+		return validateEntrySignatures(entries, pubKey)
+	})
 }

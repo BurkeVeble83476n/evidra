@@ -23,7 +23,8 @@ definitions, metric contracts, and scoring formula. The key words
 interpreted as described in RFC 2119.
 
 Other documents reference this spec but do not override it:
-- EVIDRA_AGENT_RELIABILITY_BENCHMARK.md is a consumer (scoring, comparison)
+- scoring/default.v1.1.0.md is the active default scoring profile rationale
+- EVIDRA_END_TO_END_EXAMPLE_v2.md is a practical walkthrough of protocol and analytics flow
 - docs/ARCHITECTURE.md is non-normative (overview)
 
 ---
@@ -251,16 +252,20 @@ chain. Deterministic: same input → same output.
 
 ## Signal Registry
 
-| Name | Version | Status | Weight |
-|------|---------|--------|--------|
-| protocol_violation | 1.0 | stable | 0.35 |
-| artifact_drift | 1.0 | stable | 0.30 |
-| retry_loop | 1.0 | stable | 0.20 |
-| blast_radius | 1.0 | stable | 0.10 |
-| new_scope | 1.0 | stable | 0.05 |
-| repair_loop | 1.0 | stable | -0.05 |
-| thrashing | 1.0 | stable | 0.15 |
-| risk_escalation | 1.1 | stable | 0.10 |
+| Name | Version | Status |
+|------|---------|--------|
+| protocol_violation | 1.0 | stable |
+| artifact_drift | 1.0 | stable |
+| retry_loop | 1.0 | stable |
+| blast_radius | 1.0 | stable |
+| new_scope | 1.0 | stable |
+| repair_loop | 1.0 | stable |
+| thrashing | 1.0 | stable |
+| risk_escalation | 1.1 | stable |
+
+Active default weights are defined in
+`docs/system-design/scoring/default.v1.1.0.md` and the embedded scoring profile
+JSON, not repeated here.
 
 ---
 
@@ -312,6 +317,10 @@ For each report in the scoring window:
 artifact drift detection is unavailable for this prescribe/report pair. An agent that
 consistently omits artifact_digest at report time has a protocol compliance gap.
 
+`cross_actor_report` is a report-presence violation, not an `unreported`
+violation. A wrong-actor report MUST NOT also emit `stalled_operation` or
+`crash_before_report` for the same prescription.
+
 Sub-signals are informational breakdowns. All count as
 protocol_violation in the score.
 
@@ -339,7 +348,7 @@ Rate: `rate(evidra_signal_total{signal="protocol_violation"}[5m])`
 
 ```
 violation_rate = protocol_violation_count / total_operations
-penalty_contribution = 0.35 × violation_rate
+penalty_contribution = weight(protocol_violation) × violation_rate
 ```
 
 total_operations = prescriptions + unprescribed reports (deduplicated).
@@ -391,7 +400,7 @@ evidra_signal_total{signal="artifact_drift", agent, tool, scope}
 
 ```
 drift_rate = artifact_drift_count / total_reports
-penalty_contribution = 0.30 × drift_rate
+penalty_contribution = weight(artifact_drift) × drift_rate
 ```
 
 total_reports = reports with matching prescriptions (excludes
@@ -431,6 +440,9 @@ For each new prescription:
     previous operation was denied OR failed (exit_code != 0)
   
   If count >= retry_threshold → FIRE
+
+If a matching report succeeds (exit_code == 0), the retry chain resets.
+Successful attempts end the loop and are not counted as retry_loop events.
 ```
 
 **Parameters:**
@@ -475,7 +487,7 @@ evidra_signal_total{signal="retry_loop", agent, tool, scope}
 
 ```
 retry_rate = retry_loop_count / total_prescriptions
-penalty_contribution = 0.20 × retry_rate
+penalty_contribution = weight(retry_loop) × retry_rate
 ```
 
 ---
@@ -537,7 +549,7 @@ evidra_signal_total{signal="blast_radius", agent, tool, scope}
 
 ```
 blast_rate = blast_radius_count / total_prescriptions
-penalty_contribution = 0.10 × blast_rate
+penalty_contribution = weight(blast_radius) × blast_rate
 ```
 
 ---
@@ -602,11 +614,11 @@ evidra_signal_total{signal="new_scope", agent, tool, scope}
 
 ```
 scope_rate = new_scope_count / total_prescriptions
-penalty_contribution = 0.05 × scope_rate
+penalty_contribution = weight(new_scope) × scope_rate
 ```
 
-new_scope has the lowest weight. It's informational — entering
-a new scope is often legitimate (first deploy to production).
+new_scope is intentionally a small default penalty. It's informational —
+entering a new scope is often legitimate (first deploy to production).
 
 ---
 
@@ -661,7 +673,7 @@ evidra_signal_total{signal="repair_loop", agent, tool, scope}
 
 ```
 repair_rate = repair_loop_count / total_prescriptions
-penalty_contribution = -0.05 × repair_rate
+penalty_contribution = weight(repair_loop) × repair_rate
 ```
 
 Negative weight: repair_loop is a positive indicator. An agent
@@ -722,10 +734,10 @@ evidra_signal_total{signal="thrashing", agent, tool, scope}
 
 ```
 thrashing_rate = thrashing_count / total_prescriptions
-penalty_contribution = 0.15 × thrashing_rate
+penalty_contribution = weight(thrashing) × thrashing_rate
 ```
 
-Thrashing has a high weight because it indicates an agent that
+Thrashing carries a material default penalty because it indicates an agent that
 is not converging — trying many different things without any success.
 
 ---
@@ -832,20 +844,9 @@ Score range: 0–100. Clamped (never negative).
 Minimum sample: 100 operations. Below that, score is not computed
 ("insufficient data").
 
-Default weights:
-
-```
-protocol_violation:  0.35
-artifact_drift:      0.30
-retry_loop:          0.20
-thrashing:           0.15
-blast_radius:        0.10
-risk_escalation:     0.10
-new_scope:           0.05
-repair_loop:        -0.05
-```
-
-Weights are configurable. Sum must equal 1.0.
+The active default weight matrix is defined in
+`docs/system-design/scoring/default.v1.1.0.md` and the embedded scoring profile
+JSON. Weights are configurable. Their net sum must equal 1.0.
 
 ---
 
@@ -861,7 +862,7 @@ Weights are configurable. Sum must equal 1.0.
 
 ### What can change without version bump
 
-- Default weights (tuning based on real-world data)
+- Scoring-profile calibration values (tuning based on real-world data)
 - Adding new sub-signals to existing signals
 - Adding new labels to metrics (must be low-cardinality)
 - Adding new optional parameters with backward-compatible defaults

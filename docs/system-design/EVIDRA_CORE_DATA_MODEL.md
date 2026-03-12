@@ -349,13 +349,18 @@ Scorecard summarizes reliability over a dataset.
 ```
 score = 100 * (1 - penalty)
 
-penalty = 0.35 * violation_rate
-        + 0.30 * drift_rate
-        + 0.20 * retry_rate
-        + 0.10 * blast_rate
-        + 0.05 * scope_rate
-        + 0.10 * escalation_rate
+penalty = weight(protocol_violation) * violation_rate
+        + weight(artifact_drift) * drift_rate
+        + weight(retry_loop) * retry_rate
+        + weight(thrashing) * thrashing_rate
+        + weight(blast_radius) * blast_rate
+        + weight(risk_escalation) * escalation_rate
+        + weight(new_scope) * scope_rate
+        + weight(repair_loop) * repair_rate
 ```
+
+The active default scoring profile is defined in
+`docs/system-design/scoring/default.v1.1.0.md`.
 
 | Band | Score | Meaning |
 |------|-------|---------|

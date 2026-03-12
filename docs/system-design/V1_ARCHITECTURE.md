@@ -457,18 +457,18 @@ type SignalDetector interface {
 
 ```json
 {
-  "score": 62.4,
-  "band": "fair",
+  "score": 97.5,
+  "band": "good",
   "sufficient": true,
   "signals": {
-    "retry_loop": { "count": 3, "rate": 0.15, "weight": 0.20 },
-    "protocol_violation": { "count": 0, "rate": 0.0, "weight": 0.35 },
-    "artifact_drift": { "count": 0, "rate": 0.0, "weight": 0.30 },
-    "thrashing": { "count": 0, "rate": 0.0, "weight": 0.15 },
-    "blast_radius": { "count": 0, "rate": 0.0, "weight": 0.10 },
-    "risk_escalation": { "count": 0, "rate": 0.0, "weight": 0.10 },
-    "new_scope": { "count": 1, "rate": 0.05, "weight": 0.05 },
-    "repair_loop": { "count": 0, "rate": 0.0, "weight": -0.05 }
+    "retry_loop": { "count": 3, "rate": 0.15 },
+    "protocol_violation": { "count": 0, "rate": 0.0 },
+    "artifact_drift": { "count": 0, "rate": 0.0 },
+    "thrashing": { "count": 0, "rate": 0.0 },
+    "blast_radius": { "count": 0, "rate": 0.0 },
+    "risk_escalation": { "count": 0, "rate": 0.0 },
+    "new_scope": { "count": 1, "rate": 0.05 },
+    "repair_loop": { "count": 0, "rate": 0.0 }
   },
   "total_operations": 20,
   "risk_summary": {

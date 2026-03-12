@@ -71,6 +71,7 @@ func writeCustomScoringProfile(t *testing.T, id string) string {
 		t.Fatalf("LoadDefaultProfile: %v", err)
 	}
 	profile.ID = id
+	profile.Weights["artifact_drift"] = 0.13
 	profile.Weights["protocol_violation"] = 0.42
 
 	data, err := json.Marshal(profile)

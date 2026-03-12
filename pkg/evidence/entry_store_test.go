@@ -2,8 +2,23 @@ package evidence
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
+
+type failingCloseAppendFile struct {
+	*os.File
+	err error
+}
+
+func (f failingCloseAppendFile) Close() error {
+	if err := f.File.Close(); err != nil {
+		return err
+	}
+	return f.err
+}
 
 func buildTestEntry(t *testing.T, typ EntryType, previousHash string) EvidenceEntry {
 	t.Helper()
@@ -211,5 +226,71 @@ func TestAppendEntryAtPath_RejectsMissingTraceID(t *testing.T) {
 	entry.TraceID = ""
 	if err := AppendEntryAtPath(dir, entry); err == nil {
 		t.Fatal("expected error for missing trace_id")
+	}
+}
+
+func TestAppendEntryAtPath_CloseErrorDoesNotAdvanceManifest(t *testing.T) {
+	dir := t.TempDir()
+	entry := buildTestEntry(t, EntryTypePrescribe, "")
+
+	origOpenAppendEntryFile := openAppendEntryFile
+	openAppendEntryFile = func(path string) (appendEntryFile, error) {
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			return nil, err
+		}
+		return failingCloseAppendFile{File: f, err: errors.New("close failure")}, nil
+	}
+	t.Cleanup(func() {
+		openAppendEntryFile = origOpenAppendEntryFile
+	})
+
+	err := AppendEntryAtPath(dir, entry)
+	if err == nil {
+		t.Fatal("expected append close error")
+	}
+
+	manifest, loadErr := LoadManifest(dir)
+	if loadErr != nil {
+		t.Fatalf("LoadManifest: %v", loadErr)
+	}
+	if manifest.RecordsTotal != 0 {
+		t.Fatalf("records_total = %d, want 0 after failed append", manifest.RecordsTotal)
+	}
+	if manifest.LastHash != "" {
+		t.Fatalf("last_hash = %q, want empty after failed append", manifest.LastHash)
+	}
+}
+
+func TestAppendEntryAtPath_StatErrorDoesNotAdvanceManifest(t *testing.T) {
+	dir := t.TempDir()
+	entry := buildTestEntry(t, EntryTypePrescribe, "")
+	segPath := filepath.Join(dir, segmentsDirName, segmentName(1))
+
+	origStatPath := statPath
+	statPath = func(path string) (os.FileInfo, error) {
+		if path == segPath {
+			return nil, errors.New("stat failure")
+		}
+		return os.Stat(path)
+	}
+	t.Cleanup(func() {
+		statPath = origStatPath
+	})
+
+	err := AppendEntryAtPath(dir, entry)
+	if err == nil {
+		t.Fatal("expected stat error")
+	}
+
+	manifest, loadErr := LoadManifest(dir)
+	if loadErr != nil {
+		t.Fatalf("LoadManifest: %v", loadErr)
+	}
+	if manifest.RecordsTotal != 0 {
+		t.Fatalf("records_total = %d, want 0 after failed append", manifest.RecordsTotal)
+	}
+	if manifest.LastHash != "" {
+		t.Fatalf("last_hash = %q, want empty after failed append", manifest.LastHash)
 	}
 }

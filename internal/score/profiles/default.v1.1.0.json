@@ -2,21 +2,16 @@
   "id": "default.v1.1.0",
   "min_operations": 100,
   "weights": {
-    "protocol_violation": 0.35,
-    "artifact_drift": 0.30,
-    "retry_loop": 0.20,
+    "protocol_violation": 0.30,
+    "artifact_drift": 0.25,
+    "retry_loop": 0.15,
     "blast_radius": 0.10,
     "new_scope": 0.05,
     "repair_loop": -0.05,
-    "thrashing": 0.15,
+    "thrashing": 0.10,
     "risk_escalation": 0.10
   },
   "score_caps": [
-    {
-      "signal": "protocol_violation",
-      "rate_gt": 0.10,
-      "max_score": 90
-    },
     {
       "signal": "artifact_drift",
       "rate_gt": 0.05,

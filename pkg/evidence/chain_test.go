@@ -219,3 +219,49 @@ func TestChainIntegrity_TamperDetection(t *testing.T) {
 		t.Fatal("expected chain validation error after tampering")
 	}
 }
+
+func TestValidateChainWithSignatures_UsesSingleLockedSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	signer := newTestSigner(t)
+
+	var lastHash string
+	for i := 0; i < 2; i++ {
+		payload, _ := json.Marshal(map[string]string{"i": fmt.Sprintf("%d", i)})
+		entry, err := BuildEntry(EntryBuildParams{
+			Type:           EntryTypePrescribe,
+			SessionID:      "session-sig-once",
+			TraceID:        "01TRACE",
+			Actor:          Actor{Type: "ci", ID: "test", Provenance: "cli"},
+			Payload:        payload,
+			PreviousHash:   lastHash,
+			SpecVersion:    "0.3.0",
+			CanonVersion:   "test/v1",
+			AdapterVersion: "0.3.0",
+			Signer:         signer,
+		})
+		if err != nil {
+			t.Fatalf("BuildEntry %d: %v", i, err)
+		}
+		if err := AppendEntryAtPath(dir, entry); err != nil {
+			t.Fatalf("AppendEntryAtPath %d: %v", i, err)
+		}
+		lastHash = entry.Hash
+	}
+
+	origStoreLock := storeLock
+	lockCalls := 0
+	storeLock = func(path string, fn func() error) error {
+		lockCalls++
+		return withStoreLock(path, fn)
+	}
+	t.Cleanup(func() {
+		storeLock = origStoreLock
+	})
+
+	if err := ValidateChainWithSignatures(dir, signer.pub); err != nil {
+		t.Fatalf("ValidateChainWithSignatures: %v", err)
+	}
+	if lockCalls != 1 {
+		t.Fatalf("lock calls = %d, want 1", lockCalls)
+	}
+}

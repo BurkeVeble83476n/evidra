@@ -7,7 +7,7 @@ import (
 )
 
 // riskMatrix maps operationClass x scopeClass (environment-based) to riskLevel.
-// See EVIDRA_AGENT_RELIABILITY_BENCHMARK.md section 7.
+// See docs/system-design/V1_ARCHITECTURE.md Risk Matrix layer notes.
 var riskMatrix = map[string]map[string]string{
 	"read":    {"production": "low", "staging": "low", "development": "low", "unknown": "low"},
 	"mutate":  {"production": "high", "staging": "medium", "development": "low", "unknown": "medium"},

@@ -68,6 +68,24 @@ func TestDetectProtocolViolationEvents_CrossActorReport(t *testing.T) {
 	assertSubSignal(t, events, "cross_actor_report")
 }
 
+func TestDetectProtocolViolationEvents_CrossActorReportDoesNotAlsoFlagUnreported(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", Timestamp: now.Add(-20 * time.Minute)},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ActorID: "bob", Timestamp: now.Add(-19 * time.Minute)},
+	}
+
+	events := DetectProtocolViolationEvents(entries, DefaultTTL, now)
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1", len(events))
+	}
+	if events[0].SubSignal != "cross_actor_report" {
+		t.Fatalf("sub_signal = %q, want cross_actor_report", events[0].SubSignal)
+	}
+}
+
 func TestDetectProtocolViolationEvents_UnprescribedAction(t *testing.T) {
 	t.Parallel()
 
@@ -253,6 +271,24 @@ func TestRetryLoop_DetectsAfterFailure(t *testing.T) {
 	assertEventID(t, result.EventIDs, "P1")
 	assertEventID(t, result.EventIDs, "P2")
 	assertEventID(t, result.EventIDs, "P3")
+}
+
+func TestRetryLoop_SuccessResetsChain(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	entries := []Entry{
+		{EventID: "P1", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now},
+		{EventID: "R1", IsReport: true, PrescriptionID: "P1", ExitCode: intPtr(1), Timestamp: now.Add(30 * time.Second)},
+		{EventID: "P2", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(1 * time.Minute)},
+		{EventID: "R2", IsReport: true, PrescriptionID: "P2", ExitCode: intPtr(0), Timestamp: now.Add(90 * time.Second)},
+		{EventID: "P3", IsPrescription: true, ActorID: "alice", IntentDigest: "abc", ShapeHash: "def", Timestamp: now.Add(2 * time.Minute)},
+	}
+
+	result := DetectRetryLoops(entries)
+	if result.Count != 0 {
+		t.Fatalf("count = %d, want 0 after successful reset", result.Count)
+	}
 }
 
 func TestRetryLoop_ScopesByActor(t *testing.T) {

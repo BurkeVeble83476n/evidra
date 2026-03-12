@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -119,6 +120,13 @@ func validateProfile(profile Profile) error {
 	}
 	if profile.Weights == nil {
 		return fmt.Errorf("validate scoring profile: weights must not be nil")
+	}
+	var total float64
+	for _, weight := range profile.Weights {
+		total += weight
+	}
+	if math.Abs(total-1.0) > 1e-9 {
+		return fmt.Errorf("validate scoring profile: weights must sum to 1.0, got %.4f", total)
 	}
 	return nil
 }

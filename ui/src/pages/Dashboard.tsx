@@ -16,7 +16,6 @@ interface ScorecardData {
 
 interface SignalDetail {
   detected: boolean;
-  weight: number;
   count?: number;
   penalty?: number;
 }
@@ -340,20 +339,8 @@ function DashboardContent() {
                     <div className="font-mono text-[0.8rem] font-semibold text-fg w-[160px] shrink-0">
                       {name}
                     </div>
-                    <div className="flex-1">
-                      <div className="h-1.5 bg-bg-alt rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            signal.detected ? "bg-accent" : "bg-transparent"
-                          }`}
-                          style={{
-                            width: `${Math.abs(signal.weight) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="font-mono text-[0.76rem] text-fg-muted w-[48px] text-right shrink-0">
-                      {signal.weight > 0 ? signal.weight.toFixed(2) : `\u2212${Math.abs(signal.weight).toFixed(2)}`}
+                    <div className="flex-1 text-[0.76rem] text-fg-muted">
+                      {typeof signal.count === "number" ? `${signal.count} event${signal.count === 1 ? "" : "s"}` : "No events"}
                     </div>
                     <div
                       className={`font-mono text-[0.74rem] w-[64px] text-right shrink-0 ${

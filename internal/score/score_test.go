@@ -42,12 +42,12 @@ func TestCompute_WithViolations(t *testing.T) {
 	}
 	sc := Compute(results, 200, 0.0)
 
-	// penalty = 0.35 * (10/200) + 0.30 * (5/200)
-	//         = 0.35 * 0.05 + 0.30 * 0.025
-	//         = 0.0175 + 0.0075 = 0.025
-	// score = 100 * (1 - 0.025) = 97.5
-	if math.Abs(sc.Score-97.5) > 0.001 {
-		t.Errorf("score = %f, want 97.5", sc.Score)
+	// penalty = 0.30 * (10/200) + 0.25 * (5/200)
+	//         = 0.30 * 0.05 + 0.25 * 0.025
+	//         = 0.015 + 0.00625 = 0.02125
+	// score = 100 * (1 - 0.02125) = 97.875
+	if math.Abs(sc.Score-97.875) > 0.001 {
+		t.Errorf("score = %f, want 97.875", sc.Score)
 	}
 	if sc.Band != "good" {
 		t.Errorf("band = %q, want %q", sc.Band, "good")
@@ -112,9 +112,9 @@ func TestCompute_ScoreBands(t *testing.T) {
 		wantBand   string
 	}{
 		{"excellent", 0, 200, "excellent"},
-		{"good", 10, 200, "good"}, // penalty = 0.35 * 0.05 = 0.0175, score = 98.25
-		{"fair", 30, 200, "poor"}, // penalty = 0.35 * 0.15 = 0.0525, but confidence ceiling 85 kicks in (rate > 10%)
-		{"poor", 80, 200, "poor"}, // penalty = 0.35 * 0.40 = 0.14, capped by confidence ceiling to 85
+		{"good", 10, 200, "good"}, // penalty = 0.30 * 0.05 = 0.015, score = 98.5
+		{"fair", 30, 200, "poor"}, // penalty = 0.30 * 0.15 = 0.045, but confidence ceiling 85 kicks in (rate > 10%)
+		{"poor", 80, 200, "poor"}, // penalty = 0.30 * 0.40 = 0.12, capped by confidence ceiling to 85
 	}
 
 	for _, tt := range tests {
@@ -133,9 +133,9 @@ func TestCompute_ScoreBands(t *testing.T) {
 
 func TestCompute_FairBandViaRetryLoop(t *testing.T) {
 	t.Parallel()
-	// Use retry_loop (weight 0.20, no score cap or confidence ceiling) to reach fair band.
-	// 60/200 = 30% rate, penalty = 0.20 * 0.30 = 0.06, score = 94.0 → fair (90-95)
-	results := []signal.SignalResult{{Name: "retry_loop", Count: 60}}
+	// Use retry_loop (weight 0.15, no score cap or confidence ceiling) to reach fair band.
+	// 80/200 = 40% rate, penalty = 0.15 * 0.40 = 0.06, score = 94.0 → fair (90-95)
+	results := []signal.SignalResult{{Name: "retry_loop", Count: 80}}
 	sc := Compute(results, 200, 0.0)
 	if sc.Band != "fair" {
 		t.Errorf("band = %q, want fair (score = %f)", sc.Band, sc.Score)
@@ -197,8 +197,8 @@ func TestCompute_SafetyFloor_ProtocolViolation(t *testing.T) {
 		{Name: "new_scope", Count: 0},
 	}
 	sc := Compute(results, 100, 0.0)
-	if sc.Score > 90 {
-		t.Errorf("protocol_violation > 10%% should cap score at 90, got %.1f", sc.Score)
+	if sc.Score > 85 {
+		t.Errorf("protocol_violation > 10%% should be limited by the 85 confidence ceiling, got %.1f", sc.Score)
 	}
 }
 
@@ -271,9 +271,9 @@ func TestCompute_RiskEscalationZero_ScoreUnchanged(t *testing.T) {
 	}
 	sc := Compute(results, 200, 0.0)
 
-	// Same math as TestCompute_WithViolations: penalty = 0.025, score = 97.5
-	if math.Abs(sc.Score-97.5) > 0.001 {
-		t.Errorf("score = %f, want 97.5 (risk_escalation=0 must not affect score)", sc.Score)
+	// Same math as TestCompute_WithViolations: penalty = 0.02125, score = 97.875
+	if math.Abs(sc.Score-97.875) > 0.001 {
+		t.Errorf("score = %f, want 97.875 (risk_escalation=0 must not affect score)", sc.Score)
 	}
 }
 

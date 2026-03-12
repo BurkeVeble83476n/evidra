@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+type appendEntryFile interface {
+	Write([]byte) (int, error)
+	Close() error
+}
+
+var openAppendEntryFile = func(path string) (appendEntryFile, error) {
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}
+
 // streamFileEntries reads a JSONL file line by line, unmarshalling each
 // non-empty line as an EvidenceEntry and passing it to fn with a 1-based
 // line number.
@@ -42,12 +51,16 @@ func streamFileEntries(path string, fn func(EvidenceEntry, int) error) error {
 
 // appendEntryLine marshals an EvidenceEntry to JSON and appends it as a
 // single line to the file at path, creating the file if it does not exist.
-func appendEntryLine(path string, entry EvidenceEntry) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+func appendEntryLine(path string, entry EvidenceEntry) (err error) {
+	f, err := openAppendEntryFile(path)
 	if err != nil {
 		return fmt.Errorf("open evidence log: %w", err)
 	}
-	defer func() { _ = f.Close() }()
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("close evidence log: %w", closeErr)
+		}
+	}()
 
 	line, err := json.Marshal(entry)
 	if err != nil {

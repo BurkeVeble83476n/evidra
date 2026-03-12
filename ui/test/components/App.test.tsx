@@ -33,4 +33,13 @@ describe("App", () => {
       "Get Started",
     );
   });
+
+  it("does not expose raw signal weights on the landing page", () => {
+    render(<App />);
+
+    expect(screen.queryByText("0.30")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.25")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.15")).not.toBeInTheDocument();
+    expect(screen.queryByText("−0.05")).not.toBeInTheDocument();
+  });
 });

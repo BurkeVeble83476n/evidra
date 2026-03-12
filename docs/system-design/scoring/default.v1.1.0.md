@@ -39,18 +39,18 @@ In particular:
 
 ## Weight Rationale
 
-- `protocol_violation = 0.35`
+- `protocol_violation = 0.30`
   Highest weight because broken prescribe/report semantics directly reduce trust
   in the evidence chain and can invalidate downstream interpretation.
-- `artifact_drift = 0.30`
+- `artifact_drift = 0.25`
   Near-highest weight because intent and outcome diverging at the artifact level
   usually means the operator or agent did not execute what was originally
   described.
-- `retry_loop = 0.20`
+- `retry_loop = 0.15`
   High enough to matter because repeated failed retries are a strong signal of
   unstable automation behavior, but lower than protocol or artifact integrity
   failures.
-- `thrashing = 0.15`
+- `thrashing = 0.10`
   Penalized materially because many distinct failed intents without success
   indicate poor adaptation, but still below direct integrity failures.
 - `blast_radius = 0.10`
@@ -67,14 +67,17 @@ In particular:
   recovery. The bonus is intentionally limited so repair does not erase serious
   preceding failures.
 
+The default profile is normalized: the net sum of all weights, including the
+`repair_loop` bonus, is exactly `1.0`.
+
 ## Score Cap Rationale
 
-- `protocol_violation > 10% => score <= 90`
-  Protocol breaks should prevent a superficially excellent score even when other
-  rates are low.
 - `artifact_drift > 5% => score <= 85`
   Repeated drift between prescribed and reported artifacts is severe enough that
   the score should not remain in a high-trust band.
+
+There is no separate default score cap for `protocol_violation`. The stricter
+`85` confidence ceiling below is the canonical guardrail for that condition.
 
 ## Confidence Rationale
 

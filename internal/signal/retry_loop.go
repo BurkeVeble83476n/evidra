@@ -108,28 +108,40 @@ func detectRetryLoopChains(entries []Entry, threshold int, window time.Duration,
 		failSeen := false
 		for _, entry := range group {
 			exitCode, hasReport := reportExitCode[entry.EventID]
+			failed := hasReport && exitCode != nil && *exitCode != 0
+			succeeded := hasReport && exitCode != nil && *exitCode == 0
 			if !failSeen {
-				if hasReport && exitCode != nil && *exitCode != 0 {
+				if failed {
 					failSeen = true
 					chain = append(chain, entry)
 				}
 				continue
 			}
-			if entry.Timestamp.Sub(chain[0].Timestamp) <= window {
-				chain = append(chain, entry)
+			if entry.Timestamp.Sub(chain[0].Timestamp) > window {
+				if len(chain) >= threshold {
+					for _, chained := range chain {
+						eventIDs = append(eventIDs, chained.EventID)
+					}
+				}
+				chain = nil
+				failSeen = false
+				if failed {
+					failSeen = true
+					chain = append(chain, entry)
+				}
 				continue
 			}
-			if len(chain) >= threshold {
-				for _, chained := range chain {
-					eventIDs = append(eventIDs, chained.EventID)
+			if succeeded {
+				if len(chain) >= threshold {
+					for _, chained := range chain {
+						eventIDs = append(eventIDs, chained.EventID)
+					}
 				}
+				chain = nil
+				failSeen = false
+				continue
 			}
-			chain = nil
-			failSeen = false
-			if hasReport && exitCode != nil && *exitCode != 0 {
-				failSeen = true
-				chain = append(chain, entry)
-			}
+			chain = append(chain, entry)
 		}
 
 		if len(chain) >= threshold {
