@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"samebits.com/evidra/internal/analytics"
 	"samebits.com/evidra/internal/analyticsdb"
@@ -114,6 +115,43 @@ func TestComputeExplainFromStoredRows_MatchesCanonicalEvidence(t *testing.T) {
 	}
 }
 
+func TestComputeScorecardFromStoredRows_ReplaysChronologically(t *testing.T) {
+	t.Parallel()
+
+	storedEntries := buildChronologySensitiveStoredEntries(t)
+	rows := toStoredRows([]store.StoredEntry{
+		storedEntries[3],
+		storedEntries[2],
+		storedEntries[1],
+		storedEntries[0],
+	})
+	canonical := decodeStoredEntriesForParity(t, storedEntries)
+	filters := analytics.Filters{
+		Period:        "30d",
+		Actor:         "agent-a",
+		Tool:          "kubectl",
+		Scope:         "production",
+		SessionID:     "session-a",
+		MinOperations: 1,
+	}
+
+	want, err := analytics.ComputeScorecard(canonical, filters)
+	if err != nil {
+		t.Fatalf("analytics.ComputeScorecard: %v", err)
+	}
+	got, err := analyticsdb.ComputeScorecardFromStoredRows(rows, filters)
+	if err != nil {
+		t.Fatalf("ComputeScorecardFromStoredRows: %v", err)
+	}
+
+	if got.Score != want.Score {
+		t.Fatalf("score = %.2f, want %.2f", got.Score, want.Score)
+	}
+	if got.Signals["risk_escalation"] != want.Signals["risk_escalation"] {
+		t.Fatalf("risk_escalation = %d, want %d", got.Signals["risk_escalation"], want.Signals["risk_escalation"])
+	}
+}
+
 func TestEvidenceEntriesFromStoredRows_InvalidPayloadIncludesRowID(t *testing.T) {
 	t.Parallel()
 
@@ -133,6 +171,8 @@ type storedEntryFixture struct {
 	actorID        string
 	sessionID      string
 	tool           string
+	operation      string
+	operationClass string
 	scopeClass     string
 	artifactDigest string
 }
@@ -184,6 +224,50 @@ func buildStoredFixtureEntries(t *testing.T) []store.StoredEntry {
 	return []store.StoredEntry{prescribeA, reportA, prescribeB, reportB}
 }
 
+func buildChronologySensitiveStoredEntries(t *testing.T) []store.StoredEntry {
+	t.Helper()
+
+	base := time.Date(2026, time.March, 12, 8, 0, 0, 0, time.UTC)
+	return []store.StoredEntry{
+		buildStoredTimedPrescription(t, storedEntryFixture{
+			actorID:        "agent-a",
+			sessionID:      "session-a",
+			tool:           "kubectl",
+			operation:      "get",
+			operationClass: "read",
+			scopeClass:     "production",
+			artifactDigest: "artifact-1",
+		}, base),
+		buildStoredTimedPrescription(t, storedEntryFixture{
+			actorID:        "agent-a",
+			sessionID:      "session-a",
+			tool:           "kubectl",
+			operation:      "get",
+			operationClass: "read",
+			scopeClass:     "production",
+			artifactDigest: "artifact-2",
+		}, base.Add(1*time.Minute)),
+		buildStoredTimedPrescription(t, storedEntryFixture{
+			actorID:        "agent-a",
+			sessionID:      "session-a",
+			tool:           "kubectl",
+			operation:      "get",
+			operationClass: "read",
+			scopeClass:     "production",
+			artifactDigest: "artifact-3",
+		}, base.Add(2*time.Minute)),
+		buildStoredTimedPrescription(t, storedEntryFixture{
+			actorID:        "agent-a",
+			sessionID:      "session-a",
+			tool:           "kubectl",
+			operation:      "apply",
+			operationClass: "mutate",
+			scopeClass:     "production",
+			artifactDigest: "artifact-4",
+		}, base.Add(3*time.Minute)),
+	}
+}
+
 func decodeStoredEntriesForParity(t *testing.T, entries []store.StoredEntry) []evidence.EvidenceEntry {
 	t.Helper()
 
@@ -201,10 +285,19 @@ func decodeStoredEntriesForParity(t *testing.T, entries []store.StoredEntry) []e
 func buildStoredTestPrescription(t *testing.T, fixture storedEntryFixture) store.StoredEntry {
 	t.Helper()
 
+	operation := fixture.operation
+	if operation == "" {
+		operation = "apply"
+	}
+	operationClass := fixture.operationClass
+	if operationClass == "" {
+		operationClass = "mutate"
+	}
+
 	canonicalAction, err := json.Marshal(map[string]any{
 		"tool":                fixture.tool,
-		"operation":           "apply",
-		"operation_class":     "mutate",
+		"operation":           operation,
+		"operation_class":     operationClass,
 		"scope_class":         fixture.scopeClass,
 		"resource_count":      1,
 		"resource_shape_hash": "shape-" + fixture.scopeClass,
@@ -256,6 +349,25 @@ func buildStoredTestPrescription(t *testing.T, fixture storedEntryFixture) store
 		Signature:   entry.Signature,
 		Payload:     raw,
 	}
+}
+
+func buildStoredTimedPrescription(t *testing.T, fixture storedEntryFixture, ts time.Time) store.StoredEntry {
+	t.Helper()
+
+	entry := buildStoredTestPrescription(t, fixture)
+
+	var raw evidence.EvidenceEntry
+	if err := json.Unmarshal(entry.Payload, &raw); err != nil {
+		t.Fatalf("decode timed prescription payload: %v", err)
+	}
+	raw.Timestamp = ts
+
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatalf("marshal timed prescription payload: %v", err)
+	}
+	entry.Payload = payload
+	return entry
 }
 
 func buildStoredTestReport(t *testing.T, prescribe store.StoredEntry, fixture storedEntryFixture) store.StoredEntry {

@@ -3,6 +3,7 @@ package analyticsdb
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"samebits.com/evidra/internal/analytics"
 	"samebits.com/evidra/pkg/evidence"
@@ -24,6 +25,14 @@ func EvidenceEntriesFromStoredRows(rows []StoredRow) ([]evidence.EvidenceEntry, 
 		}
 		result = append(result, entry)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		left := result[i].Timestamp
+		right := result[j].Timestamp
+		if left.Equal(right) {
+			return result[i].EntryID < result[j].EntryID
+		}
+		return left.Before(right)
+	})
 	return result, nil
 }
 
