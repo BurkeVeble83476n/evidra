@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -77,6 +78,62 @@ func TestCreateKey_CreatesTenantBeforeKeyInsert(t *testing.T) {
 	}
 	if got := tx.execs[1].args[1]; got != "tnt_test" {
 		t.Fatalf("api key tenant arg = %v, want tnt_test", got)
+	}
+}
+
+func TestLookupKey_TouchesLastUsedWithBoundedContext(t *testing.T) {
+	t.Parallel()
+
+	touched := false
+	ks := &KeyStore{
+		lookupFn: func(_ context.Context, hash []byte) (KeyRecord, error) {
+			if len(hash) == 0 {
+				t.Fatal("expected hashed lookup key")
+			}
+			return KeyRecord{ID: "key-1", TenantID: "tenant-1"}, nil
+		},
+		touchFn: func(ctx context.Context, keyID string) error {
+			touched = true
+			if keyID != "key-1" {
+				t.Fatalf("touch key id = %q, want key-1", keyID)
+			}
+			if _, ok := ctx.Deadline(); !ok {
+				t.Fatal("expected bounded touch context deadline")
+			}
+			return nil
+		},
+	}
+
+	rec, err := ks.LookupKey(context.Background(), "ev1_lookup")
+	if err != nil {
+		t.Fatalf("LookupKey: %v", err)
+	}
+	if rec.ID != "key-1" {
+		t.Fatalf("record id = %q, want key-1", rec.ID)
+	}
+	if !touched {
+		t.Fatal("expected last_used_at touch")
+	}
+}
+
+func TestLookupKey_IgnoresTouchErrors(t *testing.T) {
+	t.Parallel()
+
+	ks := &KeyStore{
+		lookupFn: func(context.Context, []byte) (KeyRecord, error) {
+			return KeyRecord{ID: "key-1", TenantID: "tenant-1"}, nil
+		},
+		touchFn: func(context.Context, string) error {
+			return errors.New("touch failed")
+		},
+	}
+
+	rec, err := ks.LookupKey(context.Background(), "ev1_lookup")
+	if err != nil {
+		t.Fatalf("LookupKey: %v", err)
+	}
+	if rec.ID != "key-1" {
+		t.Fatalf("record id = %q, want key-1", rec.ID)
 	}
 }
 

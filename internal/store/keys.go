@@ -26,9 +26,13 @@ type KeyRecord struct {
 
 // KeyStore manages API key lifecycle backed by PostgreSQL.
 type KeyStore struct {
-	pool  *pgxpool.Pool
-	begin func(context.Context) (keyTx, error)
+	pool     *pgxpool.Pool
+	begin    func(context.Context) (keyTx, error)
+	lookupFn func(context.Context, []byte) (KeyRecord, error)
+	touchFn  func(context.Context, string) error
 }
+
+const keyTouchTimeout = 250 * time.Millisecond
 
 // NewKeyStore creates a KeyStore with the given connection pool.
 func NewKeyStore(pool *pgxpool.Pool) *KeyStore {
@@ -130,6 +134,23 @@ func (ks *KeyStore) beginTx(ctx context.Context) (keyTx, error) {
 // Returns the key record or a wrapped query error.
 func (ks *KeyStore) LookupKey(ctx context.Context, plaintext string) (KeyRecord, error) {
 	hash := hashKey(plaintext)
+	rec, err := ks.lookup(ctx, hash)
+	if err != nil {
+		return KeyRecord{}, fmt.Errorf("store.LookupKey: %w", err)
+	}
+
+	touchCtx, cancel := context.WithTimeout(context.Background(), keyTouchTimeout)
+	defer cancel()
+	_ = ks.touchLastUsed(touchCtx, rec.ID)
+
+	return rec, nil
+}
+
+func (ks *KeyStore) lookup(ctx context.Context, hash []byte) (KeyRecord, error) {
+	if ks.lookupFn != nil {
+		return ks.lookupFn(ctx, hash)
+	}
+
 	var rec KeyRecord
 	err := ks.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, prefix, label, created_at, last_used_at
@@ -138,20 +159,19 @@ func (ks *KeyStore) LookupKey(ctx context.Context, plaintext string) (KeyRecord,
 		hash,
 	).Scan(&rec.ID, &rec.TenantID, &rec.Prefix, &rec.Label, &rec.CreatedAt, &rec.LastUsedAt)
 	if err != nil {
-		return KeyRecord{}, fmt.Errorf("store.LookupKey: %w", err)
+		return KeyRecord{}, err
 	}
-
-	// Async touch — fire and forget.
-	go ks.touchKey(rec.ID)
-
 	return rec, nil
 }
 
-func (ks *KeyStore) touchKey(keyID string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	_, _ = ks.pool.Exec(ctx,
+func (ks *KeyStore) touchLastUsed(ctx context.Context, keyID string) error {
+	if ks.touchFn != nil {
+		return ks.touchFn(ctx, keyID)
+	}
+
+	_, err := ks.pool.Exec(ctx,
 		`UPDATE api_keys SET last_used_at = now() WHERE id = $1`, keyID)
+	return err
 }
 
 // RevokeKey marks a key as revoked.
