@@ -31,6 +31,7 @@ For architecture and protocol semantics, see:
 | `import-findings` | Ingest SARIF findings as evidence entries |
 | `prompts` | Prompt artifact generation/verification |
 | `keygen` | Generate Ed25519 keypair |
+| `skill` | Install Evidra skill for AI agent protocol compliance |
 | `version` | Print version |
 
 ### `evidra scorecard` Flags
@@ -222,6 +223,16 @@ The legacy score-band alias is not part of the v1 output contract.
 |---|---|
 | `prompts generate` | `--contract` (default `v1.0.1`), `--root` (default `.`), `--write-active` (default `true`), `--write-generated` (default `true`), `--write-manifest` (default `true`) |
 | `prompts verify` | `--contract` (default `v1.0.1`), `--root` (default `.`) |
+
+### `evidra skill install` Flags
+
+| Flag | Description |
+|---|---|
+| `--target` | Target platform: `claude` (default: `claude`) |
+| `--scope` | Installation scope: `global` (default) or `project` |
+| `--project-dir` | Project directory for `--scope project` (default: `.`) |
+
+Global installs to `~/.claude/skills/evidra/SKILL.md`. Project installs to `.claude/skills/evidra/SKILL.md` in the specified directory.
 
 ### Developer Commands
 

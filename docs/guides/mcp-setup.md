@@ -88,6 +88,18 @@ agents:
         args: ["--signing-mode", "optional"]
 ```
 
+### 2.5 Install the Evidra skill (Claude Code)
+
+The MCP server gives agents the tools. The skill teaches them when and how to use them — agents with the skill installed achieve 100% protocol compliance.
+
+```bash
+evidra skill install
+```
+
+This writes the skill to `~/.claude/skills/evidra/SKILL.md`. For project-scoped installation: `evidra skill install --scope project`.
+
+Full guide: [Skill Setup](skill-setup.md)
+
 ### 3. Test
 
 Ask your agent: *"What tools do you have from Evidra?"*

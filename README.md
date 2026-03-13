@@ -85,6 +85,14 @@ curl -fsSL https://github.com/samebits/evidra/releases/latest/download/evidra_$(
 make build
 ```
 
+### Install the Skill (Claude Code)
+
+The MCP server gives agents the tools. The skill teaches them when and how to use them — agents with the skill achieve 100% protocol compliance for infrastructure mutations.
+
+```bash
+evidra skill install
+```
+
 ### Record One Operation
 
 ```bash
@@ -152,6 +160,14 @@ References:
 - [MCP setup guide](docs/guides/mcp-setup.md)
 - [MCP Registry Publication Guide](docs/guides/mcp-registry-publication.md)
 
+For Claude Code users, install the Evidra skill for 100% protocol compliance:
+
+```bash
+evidra skill install
+```
+
+See the [Skill Setup Guide](docs/guides/skill-setup.md) for details.
+
 ### Self-Hosted API And Webhooks
 
 Run the Evidra backend when you want centralized evidence collection, webhook ingestion, team-wide analytics, and the embedded UI.
@@ -204,6 +220,7 @@ Integration and operations:
 
 - [API Reference](docs/api-reference.md)
 - [CLI Reference](docs/integrations/cli-reference.md)
+- [Skill Setup Guide](docs/guides/skill-setup.md)
 - [Supported Tools](docs/supported-tools.md)
 - [Observability Quickstart](docs/guides/observability-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/scanner-sarif-quickstart.md)
