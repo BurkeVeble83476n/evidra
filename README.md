@@ -5,14 +5,19 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **Evidra — Flight recorder for Infrastructure Automation**<br>
-**Behavioral Reliability layer for CI/CD, IaC, and AI agents.**
 
-Infrastructure automation will not become trustworthy because agents stop making mistakes.
-It will become trustworthy because operations are recorded, decisions are explainable, and risky behavior patterns become visible before the next outage.
+Records what your automation intended, decided, and did. Computes behavioral signals from signed evidence. Answers: is this actor operating reliably?
+
+```bash
+evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
+```
+
+## Why
+Infrastructure automation won't become trustworthy because agents stop making mistakes. It will become trustworthy because operations are recorded, decisions are explainable, and risky behavior patterns become visible before the next outage.
 
 ## What Evidra Is
 
-Evidra is the evidence, signal, and scoring layer for infrastructure automation. It captures intent before execution, records outcomes or explicit declines after execution, stores that lifecycle in a tamper-evident append-only evidence chain, and turns the resulting history into behavioral signals and reliability scorecards.
+Evidra is the evidence, signal, and scoring layer for infrastructure automation. It captures intent before execution, records outcomes or explicit declines, stores the lifecycle in a tamper-evident append-only chain, and computes behavioral signals and reliability scorecards.
 
 Evidra is not an execution tracer. It does not replace OTel, Datadog, or Logfire. It records what they don't: intent before execution, decisions, and behavioral patterns over time.
 
