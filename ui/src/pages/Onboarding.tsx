@@ -53,12 +53,14 @@ Authorization = "${authHeader}"`;
   }
 
   if (configMode === "self-hosted") {
+    const selfHostedUrl = "https://your-server.example.com";
+
     if (editor === "claude-code") {
       return `claude mcp add evidra -- evidra-mcp \\
   --evidence-dir ~/.evidra/evidence \\
   --environment production \\
   --signing-mode optional \\
-  --url ${serverUrl} \\
+  --url ${selfHostedUrl} \\
   --api-key ${apiKey} \\
   --fallback-offline`;
     }
@@ -66,7 +68,7 @@ Authorization = "${authHeader}"`;
     const envBlock = {
       EVIDRA_EVIDENCE_DIR: "~/.evidra/evidence",
       EVIDRA_ENVIRONMENT: "production",
-      EVIDRA_URL: serverUrl,
+      EVIDRA_URL: selfHostedUrl,
       EVIDRA_API_KEY: apiKey,
       EVIDRA_FALLBACK: "offline",
     };
@@ -80,7 +82,7 @@ args = ["--signing-mode", "optional"]
 [mcp_servers.evidra.env]
 EVIDRA_EVIDENCE_DIR = "~/.evidra/evidence"
 EVIDRA_ENVIRONMENT = "production"
-EVIDRA_URL = "${serverUrl}"
+EVIDRA_URL = "${selfHostedUrl}"
 EVIDRA_API_KEY = "${apiKey}"
 EVIDRA_FALLBACK = "offline"`;
     }
@@ -449,7 +451,7 @@ export function Onboarding() {
               )}
               {configMode === "self-hosted" && (
                 <div className="mb-4 px-4 py-3 bg-accent-subtle border border-accent/20 rounded-lg text-[0.82rem] text-fg-muted leading-relaxed">
-                  Evidence is stored locally <em>and</em> forwarded to <code className="text-[0.78rem] text-fg">{serverUrl}</code>. Requires <code className="text-[0.78rem] text-fg">evidra-mcp</code> binary installed locally. Falls back to local-only if the API is unreachable.
+                  Evidence is stored locally <em>and</em> forwarded to your own API server. Requires <code className="text-[0.78rem] text-fg">evidra-mcp</code> binary installed locally. Replace the placeholder URL with your server address. Falls back to local-only if the API is unreachable.
                 </div>
               )}
               {configMode === "local" && (

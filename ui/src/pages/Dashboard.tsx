@@ -281,14 +281,14 @@ function DashboardContent() {
         <div className="grid grid-cols-4 gap-4 mb-8 max-md:grid-cols-2 max-sm:grid-cols-1">
           <StatCard
             label="Score"
-            value={scorecard ? String(Math.round(scorecard.score)) : "\u2014"}
+            value={scorecard ? (scorecard.score < 0 ? "\u2014" : String(Math.round(scorecard.score))) : "\u2014"}
             sub={scorecard?.confidence || ""}
             color={bandColor(scorecard?.band)}
             loading={loading}
           />
           <StatCard
             label="Band"
-            value={scorecard?.band || "\u2014"}
+            value={scorecard ? formatBand(scorecard.band) : "\u2014"}
             sub={scorecard?.basis || ""}
             color={bandColor(scorecard?.band)}
             loading={loading}
@@ -449,7 +449,7 @@ function StatCard({
       <div className="font-mono text-[0.68rem] font-medium text-fg-muted/60 uppercase tracking-wider mb-2">
         {label}
       </div>
-      <div className="font-mono text-[1.6rem] font-bold text-fg tracking-tight leading-none mb-1">
+      <div className="font-mono text-[1.6rem] font-bold text-fg tracking-tight leading-none mb-1 truncate" title={value}>
         {value}
       </div>
       {sub && (
@@ -556,6 +556,11 @@ function SectionHeader({ title }: { title: string }) {
       {title}
     </div>
   );
+}
+
+function formatBand(band: string): string {
+  if (band === "insufficient_data") return "N/A";
+  return band;
 }
 
 function bandColor(band?: string): string {
