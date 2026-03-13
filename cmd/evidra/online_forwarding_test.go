@@ -32,7 +32,7 @@ func TestRunPrescribe_ForwardsEvidenceOnline(t *testing.T) {
 		rawBodies    [][]byte
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -108,7 +108,7 @@ func TestRunReport_ForwardsEvidenceOnline(t *testing.T) {
 		rawBodies    [][]byte
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
