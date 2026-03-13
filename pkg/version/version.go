@@ -9,7 +9,7 @@ const (
 
 var (
 	// Version is the build/runtime version string for Evidra Benchmark binaries.
-	Version = "0.4.8"
+	Version = "0.4.9"
 	// Commit describes the revision or commit hash used to build the binary.
 	Commit = "dev"
 	// Date stores the build timestamp.

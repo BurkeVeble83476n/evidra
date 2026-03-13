@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+## v0.4.9 — 2026-03-13
+
 ## v0.4.8 — 2026-03-12
 
 ### Hosted Analytics And API Contracts
