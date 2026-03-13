@@ -135,6 +135,7 @@ const FEATURES = [
 
 const GUIDES = [
   { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude, Cursor, Codex, Gemini, or any MCP-capable agent to Evidra for automatic reliability tracking.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
+  { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill to achieve 100% protocol compliance. The MCP server gives agents the tools \u2014 the skill teaches them when and how to use them.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
   { tag: "CI / CD", title: "CI Integration", desc: "Add reliability scoring to your CI pipeline \u2014 Terraform, Kubernetes, Docker, and more.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
   { tag: "Observability", title: "Metrics Export", desc: "Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" },
   { tag: "Scanners", title: "SARIF Integration", desc: "Ingest findings from Trivy, Kubescape, or any SARIF-compatible security scanner.", href: "https://github.com/vitas/evidra/blob/main/docs/integrations/scanner-sarif-quickstart.md" },
@@ -444,8 +445,19 @@ function McpSetup() {
           <CodeBlock code={code} />
         </div>
 
+        {editor === "claude-code" && (
+          <div className="mb-8">
+            <h3 className="text-[0.95rem] font-bold text-fg mb-3">3. Install the Evidra skill</h3>
+            <CodeBlock code="evidra skill install" />
+            <p className="text-[0.83rem] text-fg-muted mt-2">
+              The MCP server gives agents the tools. The skill teaches them <em>when</em> and <em>how</em> to use them &mdash; achieving 100% protocol compliance.{" "}
+              <a href="https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" target="_blank" rel="noopener" className="font-semibold">Skill Setup Guide &rarr;</a>
+            </p>
+          </div>
+        )}
+
         <div className="mb-8">
-          <h3 className="text-[0.95rem] font-bold text-fg mb-3">3. Verify</h3>
+          <h3 className="text-[0.95rem] font-bold text-fg mb-3">{editor === "claude-code" ? "4" : "3"}. Verify</h3>
           <p className="text-[0.85rem] text-fg-muted">
             Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>prescribe</code>, <code>report</code>, and <code>get_event</code>.
           </p>
