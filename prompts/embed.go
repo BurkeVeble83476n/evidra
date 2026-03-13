@@ -21,7 +21,7 @@ const (
 var (
 	contractVersionPattern = regexp.MustCompile(`^v?[0-9]+(\.[0-9]+){1,2}$`)
 
-	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md
+	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md skill/SKILL.md
 	files embed.FS
 )
 
@@ -31,6 +31,10 @@ func Read(path string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(b)), nil
+}
+
+func ReadSkill() (string, error) {
+	return Read(SkillPath)
 }
 
 func ReadMCPInitializeInstructions() (instructions string, contractVersion string, skillVersion string, err error) {

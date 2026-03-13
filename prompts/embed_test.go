@@ -1,6 +1,27 @@
 package prompts
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestReadSkill_ReturnsNonEmptyContent(t *testing.T) {
+	t.Parallel()
+
+	content, err := ReadSkill()
+	if err != nil {
+		t.Fatalf("ReadSkill: %v", err)
+	}
+	if content == "" {
+		t.Fatal("ReadSkill returned empty content")
+	}
+	if !strings.HasPrefix(content, "---\nname: evidra\n") {
+		t.Fatal("skill missing YAML frontmatter")
+	}
+	if !strings.Contains(content, "prescribe") {
+		t.Fatal("skill missing prescribe content")
+	}
+}
 
 func TestParseContractVersionHeader(t *testing.T) {
 	t.Parallel()

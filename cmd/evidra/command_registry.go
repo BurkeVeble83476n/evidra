@@ -39,6 +39,7 @@ var orderedCommands = []commandSpec{
 	{name: "prompts", description: "Prompt contract generation and verification", run: cmdPrompts},
 	{name: "detectors", description: "Detector registry command group", run: cmdDetectors},
 	{name: "keygen", description: "Generate Ed25519 signing keypair", run: cmdKeygen},
+	{name: "skill", description: "Install Evidra skill for AI agent protocol compliance", run: cmdSkill},
 	{name: "version", description: "Print version information", run: cmdVersion},
 }
 
