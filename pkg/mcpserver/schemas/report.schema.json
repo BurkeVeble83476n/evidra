@@ -74,28 +74,5 @@
         }
       }
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "verdict": { "const": "declined" } },
-        "required": ["verdict"]
-      },
-      "then": {
-        "required": ["decision_context"],
-        "not": { "required": ["exit_code"] }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "verdict": { "enum": ["success", "failure", "error"] }
-        },
-        "required": ["verdict"]
-      },
-      "then": {
-        "required": ["exit_code"]
-      }
-    }
-  ]
+  }
 }

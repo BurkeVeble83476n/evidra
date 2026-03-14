@@ -6,7 +6,8 @@
       "type": "boolean"
     },
     "entry": {
-      "type": ["null", "object"],
+      "type": "object",
+      "description": "Evidence entry record, or omitted if not found",
       "properties": {
         "entry_id": { "type": "string" },
         "previous_hash": { "type": "string" },
@@ -24,13 +25,7 @@
         "timestamp": { "type": "string" },
         "intent_digest": { "type": "string" },
         "artifact_digest": { "type": "string" },
-        "payload": {
-          "oneOf": [
-            { "type": "null" },
-            { "type": "object" },
-            { "type": "array" }
-          ]
-        },
+        "payload": { "type": "object" },
         "scope_dimensions": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -43,7 +38,7 @@
       "additionalProperties": true
     },
     "error": {
-      "type": ["null", "object"],
+      "type": "object",
       "properties": {
         "code": { "type": "string" },
         "message": { "type": "string" }
