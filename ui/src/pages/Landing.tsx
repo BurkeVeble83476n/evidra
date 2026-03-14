@@ -144,11 +144,11 @@ const FEATURES = [
 ];
 
 const GUIDES = [
-  { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude, Cursor, Codex, Gemini, or any MCP-capable agent to Evidra for automatic reliability tracking.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
-  { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill to achieve 100% protocol compliance. The MCP server gives agents the tools \u2014 the skill teaches them when and how to use them.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
-  { tag: "CI / CD", title: "CI Integration", desc: "Add reliability scoring to your CI pipeline \u2014 Terraform, Kubernetes, Docker, and more.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
+  { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude Code, Cursor, Codex, Gemini, or any MCP agent to the prescribe/report protocol.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
+  { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill \u2014 agents with the skill achieve 100% protocol compliance for infrastructure mutations.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
+  { tag: "Platform", title: "Self-Hosted Setup", desc: "Centralize evidence across agents and pipelines. Compare agent reliability fleet-wide.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" },
+  { tag: "CI / CD", title: "Pipeline Setup", desc: "Add prescribe/report to your CI pipeline. Record intent before deploy, outcome after. Works without MCP \u2014 the CLI wraps any command.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
   { tag: "Observability", title: "Metrics Export", desc: "Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" },
-  { tag: "Scanners", title: "SARIF Integration", desc: "Ingest findings from Trivy, Kubescape, or any SARIF-compatible security scanner.", href: "https://github.com/vitas/evidra/blob/main/docs/integrations/scanner-sarif-quickstart.md" },
 ];
 
 type EditorTab = "claude-code" | "json-config" | "codex" | "gemini";
