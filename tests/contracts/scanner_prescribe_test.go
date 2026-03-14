@@ -11,7 +11,7 @@ import (
 	testcli "samebits.com/evidra/tests/testutil"
 )
 
-func TestE2E_PrescribeWithScannerReport(t *testing.T) {
+func TestE2E_PrescribeWithFindings(t *testing.T) {
 	bin := testcli.EvidraBinary(t)
 	tmpDir := t.TempDir()
 	evidenceDir := filepath.Join(tmpDir, "evidence")
@@ -19,7 +19,7 @@ func TestE2E_PrescribeWithScannerReport(t *testing.T) {
 	artifactPath := filepath.Join("..", "..", "tests", "contracts", "fixtures", "k8s_deployment.yaml")
 	trivySarif := filepath.Join("..", "..", "tests", "contracts", "fixtures", "trivy.sarif")
 
-	// Prescribe with --scanner-report bundles findings in one call
+	// Prescribe with --findings bundles findings in one call.
 	stdout, stderr, exitCode := testcli.RunEvidra(t, bin,
 		"prescribe",
 		"--tool", "kubectl",
@@ -29,7 +29,7 @@ func TestE2E_PrescribeWithScannerReport(t *testing.T) {
 		"--session-id", "e2e-scanner-prescribe",
 		"--evidence-dir", evidenceDir,
 		"--signing-key-path", privPath,
-		"--scanner-report", trivySarif,
+		"--findings", trivySarif,
 	)
 	if exitCode != 0 {
 		t.Fatalf("prescribe exit=%d stderr=%s", exitCode, stderr)
@@ -44,13 +44,19 @@ func TestE2E_PrescribeWithScannerReport(t *testing.T) {
 		t.Fatalf("prescribe not ok: %v", result)
 	}
 
-	// findings_count should reflect the 2 trivy findings
-	findingsCount, ok := result["findings_count"].(float64)
+	riskInputs, ok := result["risk_inputs"].([]interface{})
 	if !ok {
-		t.Fatalf("findings_count missing: %v", result)
+		t.Fatalf("risk_inputs missing: %v", result)
 	}
-	if int(findingsCount) != 2 {
-		t.Errorf("findings_count = %v, want 2", findingsCount)
+	if len(riskInputs) != 2 {
+		t.Fatalf("risk_inputs len = %d, want 2 (native + trivy)", len(riskInputs))
+	}
+	effectiveRisk, ok := result["effective_risk"].(string)
+	if !ok || effectiveRisk == "" {
+		t.Fatalf("effective_risk missing: %v", result)
+	}
+	if effectiveRisk != "high" {
+		t.Errorf("effective_risk = %q, want high", effectiveRisk)
 	}
 
 	prescriptionID, ok := result["prescription_id"].(string)
