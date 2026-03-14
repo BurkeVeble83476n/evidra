@@ -115,15 +115,25 @@ curl http://localhost:8080/healthz
 curl -H "Authorization: Bearer $EVIDRA_API_KEY" \\
   "http://localhost:8080/v1/evidence/scorecard?period=30d"`;
 
-const SIGNALS = [
-  { name: "protocol_violation", desc: "Missing prescribe or report, duplicate reports", icon: "\u26A0" },
-  { name: "artifact_drift", desc: "Artifact content changed between prescribe and execution", icon: "\u21C5" },
-  { name: "retry_loop", desc: "Same operation retried multiple times after failure", icon: "\u21BA" },
-  { name: "thrashing", desc: "Rapid apply/delete cycles on the same resources", icon: "\u21AF" },
-  { name: "blast_radius", desc: "Operations affecting many resources or critical scopes", icon: "\u25C9" },
-  { name: "risk_escalation", desc: "Actor's operations exceed their baseline risk level", icon: "\u2191" },
-  { name: "new_scope", desc: "Actor operating in an environment they haven't used before", icon: "\u2737" },
-  { name: "repair_loop", desc: "Delete-then-recreate patterns that show visible recovery after failure", icon: "\u2795" },
+const PRIMARY_SIGNALS = [
+  {
+    name: "protocol_violation",
+    icon: "\u26A0",
+    desc: "Prescribe without report \u2014 agent crashed, timed out, or skipped the protocol. Report without prescribe \u2014 unauthorized action. The most operationally immediate signal.",
+    tag: "fires immediately",
+  },
+  {
+    name: "retry_loop",
+    icon: "\u21BA",
+    desc: "Same intent retried 3+ times after failure within 30 minutes. Your agent is stuck in a loop.",
+    tag: "fires immediately",
+  },
+  {
+    name: "blast_radius",
+    icon: "\u25C9",
+    desc: "Destroy operation affecting more than 5 resources. High-impact deletion that warrants review.",
+    tag: "fires immediately",
+  },
 ];
 
 const FEATURES = [
@@ -393,20 +403,31 @@ function Signals() {
   return (
     <section id="signals" className="py-14 bg-bg-alt">
       <Container>
-        <SectionLabel>Behavioral Signals</SectionLabel>
-        <SectionTitle>8 Signals, Shared Scoring</SectionTitle>
-        <p className="text-fg-muted mb-8 text-[1.14rem]">Each signal detects a distinct operational anti-pattern. The active scoring profile combines them into a 0&ndash;100 reliability score.</p>
-        <div className="grid grid-cols-1 gap-[1px] bg-border rounded-[10px] overflow-hidden shadow-[var(--shadow-card)]">
-          {SIGNALS.map((s) => (
-            <div key={s.name} className="bg-bg-elevated flex items-center gap-5 px-6 py-4 max-sm:flex-wrap">
-              <div className="w-8 h-8 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-base shrink-0">{s.icon}</div>
-              <div className="font-mono text-[0.82rem] font-semibold text-fg w-[170px] shrink-0">{s.name}</div>
-              <div className="text-[0.83rem] text-fg-muted leading-relaxed flex-1">{s.desc}</div>
+        <SectionLabel>Behavioral Detection</SectionLabel>
+        <SectionTitle>Patterns That Fire on Day One</SectionTitle>
+        <p className="text-fg-muted mb-8 text-[1.14rem]">
+          The prescribe/report structure makes agent behavior patterns visible without external instrumentation. Three signals fire immediately in real operations.
+        </p>
+        <div className="grid grid-cols-3 gap-5 mb-6 max-md:grid-cols-1">
+          {PRIMARY_SIGNALS.map((s) => (
+            <div key={s.name} className="bg-bg-elevated border border-border border-l-[3px] border-l-accent rounded-lg p-6 shadow-[var(--shadow-card)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg">{s.icon}</div>
+                <span className="font-mono text-[0.7rem] font-medium text-accent tracking-wide uppercase">{s.tag}</span>
+              </div>
+              <div className="font-mono text-[0.82rem] font-semibold text-fg mb-2">{s.name}</div>
+              <p className="text-[0.83rem] text-fg-muted leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
+        <div className="bg-bg-elevated border border-border rounded-[10px] p-5 px-6 shadow-[var(--shadow-card)]">
+          <p className="text-[0.83rem] text-fg-muted leading-relaxed">
+            Additional signals &mdash; <code>artifact_drift</code>, <code>new_scope</code>, <code>repair_loop</code>, <code>thrashing</code>, <code>risk_escalation</code> &mdash; contribute to scoring and mature as evidence accumulates. All eight are documented in the{" "}
+            <a href="https://github.com/vitas/evidra/blob/main/docs/signal-spec.md" target="_blank" rel="noopener" className="font-semibold">Signal Specification &rarr;</a>
+          </p>
+        </div>
         <p className="text-[0.82rem] text-fg-muted mt-4 text-center">
-          Score = 100 &times; (1 &minus; profile-defined penalty). Range 0&ndash;100. Bands: excellent &ge; 99, good &ge; 95, fair &ge; 90, poor &lt; 90.
+          Score = 100 &times; (1 &minus; weighted penalty). Bands: excellent &ge; 99, good &ge; 95, fair &ge; 90, poor &lt; 90.
         </p>
       </Container>
     </section>
