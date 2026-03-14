@@ -4,9 +4,9 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra — Flight recorder for infrastructure automation**
+**Evidra — Flight recorder for AI infrastructure agents**
 
-Every infrastructure change has two halves: what was intended and what actually happened. Observability tools record the second half. Evidra records both.
+Every infrastructure change has two halves: what the agent intended and what actually happened. Observability tools record the second half. Evidra records both.
 
 ```bash
 evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
@@ -14,14 +14,16 @@ evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
 
 ## The Gap
 
-Your CI pipeline runs `kubectl apply`. Datadog sees the API call. CloudTrail logs the request. OTel traces the latency. But none of them can answer:
+Your AI agent decides at runtime which YAML to generate, which namespace to target, which command to run. That intent exists for one moment — then the command executes and the intent is gone.
+
+OTel sees the API call. CloudTrail logs the request. Datadog traces the latency. But none of them can answer:
 
 - What was the agent **trying** to do before it ran the command?
 - Did the applied artifact match what was prescribed, or did something change?
 - Did the agent **decide not to act** — and why?
 - Is this the third retry of the same failed intent in the last hour?
 
-These questions require evidence that starts **before** execution. Evidra captures that evidence through a structured prescribe/report protocol and stores it in a tamper-evident signed chain.
+These questions require evidence that starts **before** execution. Evidra captures that evidence through the prescribe/report protocol and stores it in a tamper-evident signed chain.
 
 ## The Prescribe/Report Protocol
 
@@ -37,11 +39,7 @@ report     →  record verdict, exit code, or refusal reason
 
 The evidence chain links prescriptions to reports through signed entries with hash chaining. Every entry is timestamped, actor-attributed, and cryptographically verifiable. Evidence cannot be modified after the fact.
 
-What this unlocks:
-
-- **Intent vs outcome comparison** — prescribed artifact digest vs reported artifact digest reveals drift.
-- **Decision accountability** — every decline is a first-class evidence entry with trigger and reason, not a silent gap in the log.
-- **Behavioral patterns** — the protocol's structure makes it possible to detect retry loops, protocol violations, and blast radius from the evidence chain alone.
+When an agent decides not to execute — because risk is too high, because the operation looks wrong — that decision is a first-class evidence entry with trigger and reason. Not a silent gap in the log.
 
 ## What You Get
 
@@ -57,9 +55,9 @@ From the evidence chain, Evidra computes:
 
 - **Risk classification** at operation time — risk level, risk tags, canonical action digest
 - **Behavioral signals** — protocol violations, retry loops, blast radius detection
-- **Reliability scorecards** — score, band, and confidence for comparing actors, sessions, and time windows
+- **Reliability scorecards** — score, band, and confidence for comparing agents, sessions, and time windows
 
-Evidra does not replace OTel, Datadog, or Logfire. They record execution telemetry. Evidra records what they cannot: intent before execution, structured decisions, and behavioral patterns across the lifecycle.
+Evidra does not replace OTel, Datadog, or Logfire. They record execution telemetry. Evidra records what they cannot: intent before execution, structured decisions, and behavioral patterns across the agent lifecycle.
 
 ## Fastest Path
 
@@ -99,7 +97,7 @@ Security boundary: `evidra record` executes the wrapped local command directly. 
 
 ## For AI Agents (MCP)
 
-Evidra speaks MCP. The MCP server exposes the prescribe/report lifecycle to any MCP-connected agent or runtime.
+Evidra speaks MCP. The MCP server exposes the prescribe/report protocol to any MCP-connected agent or runtime.
 
 ```bash
 evidra-mcp --evidence-dir ~/.evidra/evidence
@@ -140,7 +138,7 @@ References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](d
 
 ## For CI/CD Pipelines
 
-Two CLI modes feed the same protocol and scoring engine:
+The prescribe/report protocol also works without MCP. Two CLI modes feed the same lifecycle and scoring engine:
 
 `evidra record` wraps a live command and records the full prescribe/execute/report lifecycle in one step. `evidra import` ingests a completed operation from structured input for pipelines that manage execution separately.
 
@@ -173,7 +171,7 @@ evidra record --url http://localhost:8080 --api-key my-secret-key \
   -f deploy.yaml -- kubectl apply -f deploy.yaml
 ```
 
-With centralized evidence, platform teams can compare reliability across agents, detect fleet-wide patterns, and answer questions like: which agents have incomplete prescribe/report pairs this week? Which actor has the highest retry loop rate?
+With centralized evidence, platform teams can compare reliability across agents, detect fleet-wide patterns, and answer questions like: which agents have incomplete prescribe/report pairs this week? Which agent has the highest retry loop rate?
 
 References: [Self-hosted setup](docs/guides/self-hosted-setup.md) · [API reference](docs/api-reference.md) · [Setup Evidra Action](docs/guides/setup-evidra-action.md) · [Terraform CI quickstart](docs/guides/terraform-ci-quickstart.md)
 
@@ -190,15 +188,15 @@ Full support details: [Supported tools](docs/supported-tools.md)
 
 ## Behavioral Signals
 
-The evidence chain's prescribe/report structure makes behavioral patterns visible without external instrumentation. Evidra detects three primary signals:
+The evidence chain's prescribe/report structure makes agent behavior patterns visible without external instrumentation. Three signals fire immediately in real operations:
 
-**protocol_violation** — a prescribe without a matching report (agent crashed, timed out, or skipped the protocol), a report without a prior prescribe (unauthorized action), duplicate reports, or cross-actor reports. This is the most operationally immediate signal — it fires on day one whenever the protocol is broken.
+**protocol_violation** — a prescribe without a matching report (agent crashed, timed out, or skipped the protocol), a report without a prior prescribe (unauthorized action), duplicate reports, or cross-actor reports. This is the most operationally immediate signal — it fires whenever the protocol is broken.
 
-**retry_loop** — the same intent retried multiple times within a window, typically after failures. Indicates an agent or pipeline stuck in a retry cycle. Fires when the same intent digest appears 3+ times in 30 minutes with prior failures.
+**retry_loop** — the same intent retried multiple times within a window, typically after failures. Indicates an agent stuck in a retry cycle. Fires when the same intent digest appears 3+ times in 30 minutes with prior failures.
 
 **blast_radius** — a destroy operation affecting more than 5 resources. Indicates a potentially high-impact deletion that warrants review.
 
-Additional signals (`artifact_drift`, `new_scope`, `repair_loop`, `thrashing`, `risk_escalation`) are available and contribute to scoring, with varying maturity levels documented in the [Signal specification](docs/system-design/EVIDRA_SIGNAL_SPEC_V1.md).
+Additional signals (`artifact_drift`, `new_scope`, `repair_loop`, `thrashing`, `risk_escalation`) contribute to scoring and mature as evidence accumulates. All eight are documented in the [Signal specification](docs/system-design/EVIDRA_SIGNAL_SPEC_V1.md).
 
 Scoring details: [Scoring model](docs/system-design/EVIDRA_SCORING_MODEL_V1.md) · [Default profile rationale](docs/system-design/scoring/default.v1.1.0.md)
 
