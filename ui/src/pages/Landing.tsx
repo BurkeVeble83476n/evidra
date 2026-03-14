@@ -115,30 +115,40 @@ curl http://localhost:8080/healthz
 curl -H "Authorization: Bearer $EVIDRA_API_KEY" \\
   "http://localhost:8080/v1/evidence/scorecard?period=30d"`;
 
-const SIGNALS = [
-  { name: "protocol_violation", desc: "Missing prescribe or report, duplicate reports", icon: "\u26A0" },
-  { name: "artifact_drift", desc: "Artifact content changed between prescribe and execution", icon: "\u21C5" },
-  { name: "retry_loop", desc: "Same operation retried multiple times after failure", icon: "\u21BA" },
-  { name: "thrashing", desc: "Rapid apply/delete cycles on the same resources", icon: "\u21AF" },
-  { name: "blast_radius", desc: "Operations affecting many resources or critical scopes", icon: "\u25C9" },
-  { name: "risk_escalation", desc: "Actor's operations exceed their baseline risk level", icon: "\u2191" },
-  { name: "new_scope", desc: "Actor operating in an environment they haven't used before", icon: "\u2737" },
-  { name: "repair_loop", desc: "Delete-then-recreate patterns that show visible recovery after failure", icon: "\u2795" },
+const PRIMARY_SIGNALS = [
+  {
+    name: "protocol_violation",
+    icon: "\u26A0",
+    desc: "Prescribe without report \u2014 agent crashed, timed out, or skipped the protocol. Report without prescribe \u2014 unauthorized action. The most operationally immediate signal.",
+    tag: "fires immediately",
+  },
+  {
+    name: "retry_loop",
+    icon: "\u21BA",
+    desc: "Same intent retried 3+ times after failure within 30 minutes. Your agent is stuck in a loop.",
+    tag: "fires immediately",
+  },
+  {
+    name: "blast_radius",
+    icon: "\u25C9",
+    desc: "Destroy operation affecting more than 5 resources. High-impact deletion that warrants review.",
+    tag: "fires immediately",
+  },
 ];
 
 const FEATURES = [
-  { icon: "\u25CE", title: "Observe", desc: "Record every infrastructure operation and deliberate refusal as signed evidence in an append-only, hash-linked chain." },
-  { icon: "\u25A4", title: "Measure", desc: "Detect 8 behavioral signals: retry loops, artifact drift, protocol violations, blast radius, and more." },
-  { icon: "\u2605", title: "Score", desc: "Compute reliability scorecards with signal penalties, safety floors, and confidence levels." },
-  { icon: "\u21C4", title: "Compare", desc: "Compare actors, tools, and scopes side-by-side with workload overlap analysis." },
+  { icon: "\u25CE", title: "Prescribe", desc: "Before kubectl runs, the evidence already exists. Record the artifact, its canonical form, risk level, and digests \u2014 at the moment of intent." },
+  { icon: "\u25A4", title: "Report", desc: "Record the terminal outcome \u2014 success, failure, or an explicit refusal with structured context. Every prescribe gets exactly one report. No silent gaps." },
+  { icon: "\u2605", title: "Evidence", desc: "Signed, timestamped, hash-chained. The evidence chain is append-only and tamper-evident. Cryptographically verifiable by anyone, editable by no one." },
+  { icon: "\u21C4", title: "Detect", desc: "The protocol structure makes behavioral patterns visible: agents stuck in retry loops, broken prescribe/report pairs, high-impact deletions. Reliability scorecards across actors, sessions, and time." },
 ];
 
 const GUIDES = [
-  { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude, Cursor, Codex, Gemini, or any MCP-capable agent to Evidra for automatic reliability tracking.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
-  { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill to achieve 100% protocol compliance. The MCP server gives agents the tools \u2014 the skill teaches them when and how to use them.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
-  { tag: "CI / CD", title: "CI Integration", desc: "Add reliability scoring to your CI pipeline \u2014 Terraform, Kubernetes, Docker, and more.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
+  { tag: "AI Agents", title: "MCP Setup", desc: "Connect Claude Code, Cursor, Codex, Gemini, or any MCP agent to the prescribe/report protocol.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/mcp-setup.md" },
+  { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill \u2014 agents with the skill achieve 100% protocol compliance for infrastructure mutations.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
+  { tag: "Platform", title: "Self-Hosted Setup", desc: "Centralize evidence across agents and pipelines. Compare agent reliability fleet-wide.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" },
+  { tag: "CI / CD", title: "Pipeline Setup", desc: "Add prescribe/report to your CI pipeline. Record intent before deploy, outcome after. Works without MCP \u2014 the CLI wraps any command.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
   { tag: "Observability", title: "Metrics Export", desc: "Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" },
-  { tag: "Scanners", title: "SARIF Integration", desc: "Ingest findings from Trivy, Kubescape, or any SARIF-compatible security scanner.", href: "https://github.com/vitas/evidra/blob/main/docs/integrations/scanner-sarif-quickstart.md" },
 ];
 
 type EditorTab = "claude-code" | "json-config" | "codex" | "gemini";
@@ -261,6 +271,8 @@ export function Landing() {
     <>
       <Hero />
       <Divider />
+      <TheGap />
+      <Divider />
       <Features />
       <Divider />
       <Signals />
@@ -301,16 +313,16 @@ function Hero() {
       <Container className="relative">
         <div className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium text-accent bg-accent-subtle border border-border rounded-full px-4 py-1 mb-6 tracking-wide">
           <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block animate-pulse" />
-          Open Source &middot; Apache 2.0
+          Open Source &middot; Apache 2.0 &middot; Flight Recorder for AI Infrastructure Agents
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          Flight recorder for  <br />Infrastructure Automation
+          Know what your agent intended.<br />Know what actually happened.
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          A new observability layer for CI/CD, IaC, and AI agents.
+          The prescribe/report protocol for AI infrastructure agents.
         </p>
         <p className="text-[0.92rem] text-fg-muted max-w-[580px] mx-auto mb-10 leading-relaxed opacity-80">
-          Records what your automation intended, decided, and did. Computes behavioral signals from signed evidence.
+          Evidra records intent before execution and outcome after &mdash; in a signed evidence chain that no one can edit after the fact. When your agent decides not to act, that decision is recorded too.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
@@ -328,13 +340,51 @@ function Hero() {
   );
 }
 
+function TheGap() {
+  const columns = [
+    {
+      icon: "\u25B6",
+      title: "What was the agent trying to do?",
+      body: "Your agent decides at runtime which YAML to generate, which namespace to target, which command to run. That intent exists for one moment \u2014 then it\u2019s gone. OTel, Datadog, and CloudTrail only see what happened after.",
+    },
+    {
+      icon: "\u2718",
+      title: "Did the agent decide not to act \u2014 and why?",
+      body: "When an agent skips a risky operation, nothing is recorded. No log entry. No audit trail. The safest decision your agent makes is the one that\u2019s completely invisible.",
+    },
+    {
+      icon: "\u2194",
+      title: "Did the outcome match the intent?",
+      body: "The agent prescribed one artifact. Did it apply the same one? Without recording intent before execution, drift between plan and action is undetectable.",
+    },
+  ];
+
+  return (
+    <section className="py-14 bg-bg-alt">
+      <Container>
+        <SectionLabel>The Problem</SectionLabel>
+        <SectionTitle>AI Agents Make Decisions. Nothing Records Them.</SectionTitle>
+        <div className="grid grid-cols-3 gap-5 mt-10 max-md:grid-cols-1">
+          {columns.map((c) => (
+            <div key={c.title} className="bg-bg-elevated border border-border rounded-lg p-6 shadow-[var(--shadow-card)]">
+              <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg mb-4">{c.icon}</div>
+              <h3 className="text-[0.92rem] font-bold text-fg mb-2">{c.title}</h3>
+              <p className="text-[0.83rem] text-fg-muted leading-relaxed">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      </Container>
+    </section>
+  );
+}
+
 function Features() {
   return (
     <section id="features" className="py-14">
       <Container>
-        <SectionLabel>Capabilities</SectionLabel>
-        <SectionTitle>What It Does</SectionTitle>
-        <p className="text-fg-muted mb-10 text-[1.14rem]">A flight recorder for infrastructure automation and agent judgment &mdash; observe intent, decisions, execution, and reliability.</p>
+        <SectionLabel>The Protocol</SectionLabel>
+        <SectionTitle>Prescribe Before. Report After. Evidence Always.</SectionTitle>
+        <p className="text-fg-muted mb-10 text-[1.14rem]">Every infrastructure mutation follows the same lifecycle. The agent records what it intends to do, does it (or refuses), and records what happened. Evidra stores the evidence.</p>
         <div className="grid grid-cols-4 gap-5 max-md:grid-cols-2 max-sm:grid-cols-1">
           {FEATURES.map((f) => (
             <div key={f.title} className="bg-bg-elevated border border-border border-l-[3px] border-l-accent rounded-lg p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:-translate-y-0.5">
@@ -353,20 +403,31 @@ function Signals() {
   return (
     <section id="signals" className="py-14 bg-bg-alt">
       <Container>
-        <SectionLabel>Behavioral Signals</SectionLabel>
-        <SectionTitle>8 Signals, Shared Scoring</SectionTitle>
-        <p className="text-fg-muted mb-8 text-[1.14rem]">Each signal detects a distinct operational anti-pattern. The active scoring profile combines them into a 0&ndash;100 reliability score.</p>
-        <div className="grid grid-cols-1 gap-[1px] bg-border rounded-[10px] overflow-hidden shadow-[var(--shadow-card)]">
-          {SIGNALS.map((s) => (
-            <div key={s.name} className="bg-bg-elevated flex items-center gap-5 px-6 py-4 max-sm:flex-wrap">
-              <div className="w-8 h-8 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-base shrink-0">{s.icon}</div>
-              <div className="font-mono text-[0.82rem] font-semibold text-fg w-[170px] shrink-0">{s.name}</div>
-              <div className="text-[0.83rem] text-fg-muted leading-relaxed flex-1">{s.desc}</div>
+        <SectionLabel>Behavioral Detection</SectionLabel>
+        <SectionTitle>Patterns That Fire on Day One</SectionTitle>
+        <p className="text-fg-muted mb-8 text-[1.14rem]">
+          The prescribe/report structure makes agent behavior patterns visible without external instrumentation. Three signals fire immediately in real operations.
+        </p>
+        <div className="grid grid-cols-3 gap-5 mb-6 max-md:grid-cols-1">
+          {PRIMARY_SIGNALS.map((s) => (
+            <div key={s.name} className="bg-bg-elevated border border-border border-l-[3px] border-l-accent rounded-lg p-6 shadow-[var(--shadow-card)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg">{s.icon}</div>
+                <span className="font-mono text-[0.7rem] font-medium text-accent tracking-wide uppercase">{s.tag}</span>
+              </div>
+              <div className="font-mono text-[0.82rem] font-semibold text-fg mb-2">{s.name}</div>
+              <p className="text-[0.83rem] text-fg-muted leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
+        <div className="bg-bg-elevated border border-border rounded-[10px] p-5 px-6 shadow-[var(--shadow-card)]">
+          <p className="text-[0.83rem] text-fg-muted leading-relaxed">
+            Additional signals &mdash; <code>artifact_drift</code>, <code>new_scope</code>, <code>repair_loop</code>, <code>thrashing</code>, <code>risk_escalation</code> &mdash; contribute to scoring and mature as evidence accumulates. All eight are documented in the{" "}
+            <a href="https://github.com/vitas/evidra/blob/main/docs/signal-spec.md" target="_blank" rel="noopener" className="font-semibold">Signal Specification &rarr;</a>
+          </p>
+        </div>
         <p className="text-[0.82rem] text-fg-muted mt-4 text-center">
-          Score = 100 &times; (1 &minus; profile-defined penalty). Range 0&ndash;100. Bands: excellent &ge; 99, good &ge; 95, fair &ge; 90, poor &lt; 90.
+          Score = 100 &times; (1 &minus; weighted penalty). Bands: excellent &ge; 99, good &ge; 95, fair &ge; 90, poor &lt; 90.
         </p>
       </Container>
     </section>
@@ -374,17 +435,17 @@ function Signals() {
 }
 
 function Architecture() {
-  const [tab, setTab] = useState<"pipeline" | "system" | "sequence">("pipeline");
+  const [tab, setTab] = useState<"pipeline" | "system" | "sequence">("sequence");
   return (
     <section id="architecture" className="py-14 bg-bg-alt">
       <Container>
         <SectionLabel>Architecture</SectionLabel>
-        <SectionTitle>How It All Fits Together</SectionTitle>
-        <p className="text-fg-muted mb-10 text-[1.14rem]">Three views: scoring pipeline, protocol sequence, and hosted system architecture.</p>
+        <SectionTitle>From Agent Intent to Signed Evidence</SectionTitle>
+        <p className="text-fg-muted mb-10 text-[1.14rem]">Follow one operation through the protocol &mdash; from the moment an agent decides to act, through execution, to fleet-wide analytics.</p>
         <div className="inline-flex bg-accent-subtle border border-border rounded-lg p-[3px] mb-6">
-          <TabBtn active={tab === "pipeline"} onClick={() => setTab("pipeline")}>How It Works</TabBtn>
-          <TabBtn active={tab === "sequence"} onClick={() => setTab("sequence")}>Protocol Sequence</TabBtn>
+          <TabBtn active={tab === "sequence"} onClick={() => setTab("sequence")}>Protocol Flow</TabBtn>
           <TabBtn active={tab === "system"} onClick={() => setTab("system")}>System Architecture</TabBtn>
+          <TabBtn active={tab === "pipeline"} onClick={() => setTab("pipeline")}>Scoring Pipeline</TabBtn>
         </div>
         {tab === "pipeline" && <MermaidDiagram chart={PIPELINE_CHART} />}
         {tab === "system" && <MermaidDiagram chart={SYSTEM_CHART} />}
@@ -402,7 +463,7 @@ function GettingStarted() {
       <Container>
         <SectionLabel>Quick Start</SectionLabel>
         <SectionTitle>Getting Started</SectionTitle>
-        <p className="text-fg-muted mb-10 text-[1.14rem]">Up and running in under 5 minutes.</p>
+        <p className="text-fg-muted mb-10 text-[1.14rem]">Record your first prescribe/report lifecycle in under 5 minutes. Works with kubectl, helm, terraform, and docker.</p>
         <div className="inline-flex bg-accent-subtle border border-border rounded-lg p-[3px] mb-6">
           <TabBtn active={tab === "binary"} onClick={() => setTab("binary")}>Binary</TabBtn>
           <TabBtn active={tab === "brew"} onClick={() => setTab("brew")}>Homebrew</TabBtn>
@@ -411,7 +472,7 @@ function GettingStarted() {
         <CodeBlock code={code} />
         {tab === "selfhost" && (
           <p className="text-[0.85rem] text-fg-muted mt-4">
-            Self-hosted centralizes forwarded evidence and webhook-ingested events, then serves tenant-wide <code>/v1/evidence/scorecard</code> and <code>/v1/evidence/explain</code> over stored evidence.{" "}
+            Self-hosted centralizes evidence across agents and pipelines. Compare agent reliability fleet-wide, ingest ArgoCD webhooks, and run team-wide analytics over stored evidence.{" "}
             <a href="https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" target="_blank" rel="noopener" className="font-semibold">Status guide &rarr;</a>
           </p>
         )}
@@ -435,8 +496,8 @@ function McpSetup() {
     <section id="mcp-setup" className="py-14 bg-bg-alt">
       <Container>
         <SectionLabel>AI Agents</SectionLabel>
-        <SectionTitle>MCP Server Setup</SectionTitle>
-        <p className="text-fg-muted mb-6 text-[1.14rem]">Connect any MCP-capable AI agent to Evidra for automatic reliability tracking.</p>
+        <SectionTitle>Give Your Agent the Protocol</SectionTitle>
+        <p className="text-fg-muted mb-6 text-[1.14rem]">Connect any MCP-capable agent to Evidra. The agent prescribes before every infrastructure mutation and reports the outcome. When it decides not to act, it reports why.</p>
 
         {mode !== "hosted" && (
           <div className="mb-8">
@@ -491,20 +552,20 @@ function McpSetup() {
         <div className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)]">
           <h3 className="text-[0.92rem] font-bold text-fg mb-2">How it works</h3>
           <p className="text-[0.83rem] text-fg-muted leading-relaxed mb-3">
-            The MCP server exposes three tools. Your agent calls <code>prescribe</code> before every infrastructure mutation and <code>report</code> with an explicit terminal verdict after execution or deliberate refusal. Evidra records the evidence, detects behavioral signals, and produces reliability scores.
+            Every infrastructure mutation follows the same lifecycle. The agent calls <code>prescribe</code> with the artifact before execution &mdash; Evidra returns risk level, risk tags, and a prescription ID. After execution (or refusal), the agent calls <code>report</code> with the outcome. The evidence chain grows. Behavioral patterns become visible.
           </p>
           <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
             <div className="text-center">
               <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe</div>
-              <div className="text-[0.78rem] text-fg-muted">Record intent before execution</div>
+              <div className="text-[0.78rem] text-fg-muted">What does the agent intend to do? Record before execution.</div>
             </div>
             <div className="text-center">
               <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">report</div>
-              <div className="text-[0.78rem] text-fg-muted">Record outcome or declined decision</div>
+              <div className="text-[0.78rem] text-fg-muted">What actually happened? Or why did the agent refuse?</div>
             </div>
             <div className="text-center">
               <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">get_event</div>
-              <div className="text-[0.78rem] text-fg-muted">Look up evidence for audit</div>
+              <div className="text-[0.78rem] text-fg-muted">Look up any evidence entry by ID.</div>
             </div>
           </div>
         </div>
