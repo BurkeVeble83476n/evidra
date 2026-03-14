@@ -261,6 +261,8 @@ export function Landing() {
     <>
       <Hero />
       <Divider />
+      <TheGap />
+      <Divider />
       <Features />
       <Divider />
       <Signals />
@@ -322,6 +324,44 @@ function Hero() {
           <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             API Docs
           </a>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function TheGap() {
+  const columns = [
+    {
+      icon: "\u25B6",
+      title: "What was the agent trying to do?",
+      body: "Your agent decides at runtime which YAML to generate, which namespace to target, which command to run. That intent exists for one moment \u2014 then it\u2019s gone. OTel, Datadog, and CloudTrail only see what happened after.",
+    },
+    {
+      icon: "\u2718",
+      title: "Did the agent decide not to act \u2014 and why?",
+      body: "When an agent skips a risky operation, nothing is recorded. No log entry. No audit trail. The safest decision your agent makes is the one that\u2019s completely invisible.",
+    },
+    {
+      icon: "\u2194",
+      title: "Did the outcome match the intent?",
+      body: "The agent prescribed one artifact. Did it apply the same one? Without recording intent before execution, drift between plan and action is undetectable.",
+    },
+  ];
+
+  return (
+    <section className="py-14 bg-bg-alt">
+      <Container>
+        <SectionLabel>The Problem</SectionLabel>
+        <SectionTitle>AI Agents Make Decisions. Nothing Records Them.</SectionTitle>
+        <div className="grid grid-cols-3 gap-5 mt-10 max-md:grid-cols-1">
+          {columns.map((c) => (
+            <div key={c.title} className="bg-bg-elevated border border-border rounded-lg p-6 shadow-[var(--shadow-card)]">
+              <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg mb-4">{c.icon}</div>
+              <h3 className="text-[0.92rem] font-bold text-fg mb-2">{c.title}</h3>
+              <p className="text-[0.83rem] text-fg-muted leading-relaxed">{c.body}</p>
+            </div>
+          ))}
         </div>
       </Container>
     </section>
