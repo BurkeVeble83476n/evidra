@@ -17,7 +17,7 @@ Infrastructure automation won't become trustworthy because agents stop making mi
 
 ## What Evidra Is
 
-Evidra is the evidence, signal, and scoring layer for infrastructure automation. It captures intent before execution, records outcomes or explicit declines, stores the lifecycle in a tamper-evident append-only chain, and computes behavioral signals and reliability scorecards.
+It captures intent before execution, records outcomes or explicit declines, stores the lifecycle in a tamper-evident append-only chain, and computes behavioral signals and reliability scorecards.
 
 Evidra is not an execution tracer. It does not replace OTel, Datadog, or Logfire. It records what they don't: intent before execution, decisions, and behavioral patterns over time.
 
@@ -160,7 +160,10 @@ References:
 - [MCP setup guide](docs/guides/mcp-setup.md)
 - [MCP Registry Publication Guide](docs/guides/mcp-registry-publication.md)
 
-For Claude Code users, install the Evidra skill for 100% protocol compliance:
+
+### Install the Skill (Claude Code)
+
+The MCP server gives agents the tools. The skill teaches them when and how to use them — agents with the skill achieve 100% protocol compliance for infrastructure mutations.
 
 ```bash
 evidra skill install
