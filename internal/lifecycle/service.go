@@ -17,86 +17,43 @@ import (
 	"samebits.com/evidra/pkg/version"
 )
 
+type prescribeContext struct {
+	tool        string
+	operation   string
+	environment string
+	sessionID   string
+	traceID     string
+	actor       evidence.Actor
+}
+
+type reportContext struct {
+	sessionID   string
+	operationID string
+	traceID     string
+	actor       evidence.Actor
+}
+
 // Prescribe canonicalizes an operation intent and writes a prescription entry.
 func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeOutput, error) {
 	if err := requiredSigner(s.signer); err != nil {
 		return PrescribeOutput{}, err
 	}
 
-	tool := normalizeToken(input.Tool)
-	operation := normalizeToken(input.Operation)
-	environment := strings.TrimSpace(input.Environment)
-	sessionID := strings.TrimSpace(input.SessionID)
-	if sessionID == "" {
-		sessionID = evidence.GenerateSessionID()
-	}
-	traceID := strings.TrimSpace(input.TraceID)
-	if traceID == "" {
-		traceID = sessionID
-	}
-	actor := normalizeActor(input.Actor)
-	if err := validatePrescribeActor(actor); err != nil {
+	ctx, err := buildPrescribeContext(input)
+	if err != nil {
 		return PrescribeOutput{}, err
 	}
 
-	var cr canon.CanonResult
-	if input.CanonicalAction != nil {
-		preCanon, err := normalizeCanonicalAction(*input.CanonicalAction, tool, operation)
-		if err != nil {
-			return PrescribeOutput{}, err
-		}
-		actionJSON, err := json.Marshal(preCanon)
-		if err != nil {
-			return PrescribeOutput{}, wrapError(ErrCodeInternal, "failed to marshal canonical action", err)
-		}
-		cr = canon.CanonResult{
-			ArtifactDigest:  canon.SHA256Hex(input.RawArtifact),
-			IntentDigest:    canon.ComputeIntentDigest(preCanon),
-			CanonicalAction: preCanon,
-			CanonVersion:    "external/v1",
-			RawAction:       actionJSON,
-		}
-	} else {
-		cr = canon.Canonicalize(tool, operation, environment, input.RawArtifact)
-		if cr.ParseError != nil {
-			s.writeCanonicalizationFailure(actor, cr, sessionID, traceID, strings.TrimSpace(input.OperationID), input.Attempt)
-			return PrescribeOutput{}, wrapError(ErrCodeParseError, cr.ParseError.Error(), cr.ParseError)
-		}
+	cr, canonSource, err := s.canonicalizePrescribeInput(input, ctx)
+	if err != nil {
+		return PrescribeOutput{}, err
 	}
 
-	matrixLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
-	var riskInputs []evidence.RiskInput
-	if len(input.RawArtifact) > 0 {
-		nativeTags := detectors.ProduceAll(cr.CanonicalAction, input.RawArtifact)
-		nativeLevel := risk.ElevateRiskLevel(matrixLevel, nativeTags)
-		riskInputs = append(riskInputs, evidence.RiskInput{
-			Source:    "evidra/native",
-			RiskLevel: nativeLevel,
-			RiskTags:  nativeTags,
-		})
-	} else {
-		riskInputs = append(riskInputs, evidence.RiskInput{
-			Source:    "evidra/matrix",
-			RiskLevel: matrixLevel,
-		})
-	}
-	for _, src := range input.ExternalFindings {
-		riskInputs = append(riskInputs, buildSARIFRiskInput(src))
-	}
-	effectiveRisk := computeEffectiveRisk(riskInputs)
-	nativeTags := []string(nil)
-	if len(riskInputs) > 0 && riskInputs[0].Source == "evidra/native" {
-		nativeTags = riskInputs[0].RiskTags
-	}
+	riskInputs, effectiveRisk, nativeTags := buildPrescribeRiskState(cr, input.RawArtifact, input.ExternalFindings)
 
 	retryCount := 0
 	if s.retryTracker != nil {
 		retryCount = s.retryTracker.Record(cr.IntentDigest, cr.CanonicalAction.ResourceShapeHash)
-	}
-
-	canonSource := "adapter"
-	if input.CanonicalAction != nil {
-		canonSource = "external"
 	}
 
 	prescPayload := evidence.PrescriptionPayload{
@@ -120,13 +77,13 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		EntryID:         prescPayload.PrescriptionID,
 		Type:            evidence.EntryTypePrescribe,
-		SessionID:       sessionID,
+		SessionID:       ctx.sessionID,
 		OperationID:     strings.TrimSpace(input.OperationID),
 		Attempt:         input.Attempt,
-		TraceID:         traceID,
+		TraceID:         ctx.traceID,
 		SpanID:          strings.TrimSpace(input.SpanID),
 		ParentSpanID:    strings.TrimSpace(input.ParentSpanID),
-		Actor:           actor,
+		Actor:           ctx.actor,
 		IntentDigest:    cr.IntentDigest,
 		ArtifactDigest:  cr.ArtifactDigest,
 		Payload:         payloadJSON,
@@ -147,7 +104,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		return PrescribeOutput{}, err
 	}
 	if persisted {
-		s.writeFindingsEvidence(input.ExternalFindings, sessionID, traceID, strings.TrimSpace(input.OperationID), input.Attempt, actor, cr.ArtifactDigest)
+		s.writeFindingsEvidence(input.ExternalFindings, ctx.sessionID, ctx.traceID, strings.TrimSpace(input.OperationID), input.Attempt, ctx.actor, cr.ArtifactDigest)
 	}
 
 	rawEntry, err := json.Marshal(entry)
@@ -157,9 +114,9 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 
 	return PrescribeOutput{
 		PrescriptionID: entry.EntryID,
-		SessionID:      sessionID,
-		TraceID:        traceID,
-		Actor:          actor,
+		SessionID:      ctx.sessionID,
+		TraceID:        ctx.traceID,
+		Actor:          ctx.actor,
 		RiskInputs:     riskInputs,
 		EffectiveRisk:  effectiveRisk,
 		RiskLevel:      effectiveRisk,
@@ -192,39 +149,9 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 	if err != nil {
 		return ReportOutput{}, err
 	}
-	inputSessionID := strings.TrimSpace(input.SessionID)
-	inputOperationID := strings.TrimSpace(input.OperationID)
-
-	var prescriptionEntry evidence.EvidenceEntry
-	prescriptionFound := false
-	if s.evidencePath != "" {
-		entry, found, err := evidence.FindEntryByID(s.evidencePath, prescriptionID)
-		if err != nil {
-			return ReportOutput{}, wrapError(ErrCodeEvidenceRead, fmt.Sprintf("failed to read evidence: %v", err), err)
-		}
-		if !found {
-			signalSessionID := inputSessionID
-			if signalSessionID == "" {
-				signalSessionID = evidence.GenerateSessionID()
-			}
-			s.writeUnknownPrescriptionSignal(
-				normalizeActor(input.Actor),
-				prescriptionID,
-				signalSessionID,
-				inputOperationID,
-			)
-			return ReportOutput{}, wrapError(ErrCodeNotFound, "prescription_id not found", nil)
-		}
-		prescriptionEntry = entry
-		prescriptionFound = true
-	}
-
-	if prescriptionFound && inputSessionID != "" && prescriptionEntry.SessionID != "" && inputSessionID != prescriptionEntry.SessionID {
-		return ReportOutput{}, wrapError(
-			ErrCodeInvalidInput,
-			fmt.Sprintf("report session_id %q does not match prescription session_id %q", inputSessionID, prescriptionEntry.SessionID),
-			nil,
-		)
+	prescriptionEntry, prescriptionFound, err := s.loadReportPrescription(input, prescriptionID)
+	if err != nil {
+		return ReportOutput{}, err
 	}
 
 	reportID := ulid.Make().String()
@@ -241,27 +168,9 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 		return ReportOutput{}, wrapError(ErrCodeInternal, "failed to marshal report payload", err)
 	}
 
-	actor := normalizeActor(input.Actor)
-	if actor.ID == "" && prescriptionFound {
-		actor = prescriptionEntry.Actor
-	}
-
-	traceID := ""
-	if prescriptionFound {
-		traceID = prescriptionEntry.TraceID
-	}
-	if traceID == "" {
-		traceID = evidence.GenerateTraceID()
-	}
-
-	sessionID := inputSessionID
-	if sessionID == "" && prescriptionFound {
-		sessionID = prescriptionEntry.SessionID
-	}
-
-	operationID := inputOperationID
-	if operationID == "" && prescriptionFound {
-		operationID = prescriptionEntry.OperationID
+	ctx := resolveReportContext(input, prescriptionEntry, prescriptionFound)
+	if err := ctx.validate(prescriptionFound, prescriptionEntry.SessionID); err != nil {
+		return ReportOutput{}, err
 	}
 
 	lastHash, err := s.lastHash()
@@ -271,12 +180,12 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		Type:           evidence.EntryTypeReport,
-		SessionID:      sessionID,
-		OperationID:    operationID,
-		TraceID:        traceID,
+		SessionID:      ctx.sessionID,
+		OperationID:    ctx.operationID,
+		TraceID:        ctx.traceID,
 		SpanID:         strings.TrimSpace(input.SpanID),
 		ParentSpanID:   strings.TrimSpace(input.ParentSpanID),
-		Actor:          actor,
+		Actor:          ctx.actor,
 		ArtifactDigest: input.ArtifactDigest,
 		Payload:        payloadJSON,
 		PreviousHash:   lastHash,
@@ -301,9 +210,9 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 
 	return ReportOutput{
 		ReportID:        entry.EntryID,
-		SessionID:       sessionID,
-		TraceID:         traceID,
-		Actor:           actor,
+		SessionID:       ctx.sessionID,
+		TraceID:         ctx.traceID,
+		Actor:           ctx.actor,
 		PrescriptionID:  prescriptionID,
 		Verdict:         input.Verdict,
 		ExitCode:        input.ExitCode,
@@ -312,6 +221,138 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 		RawEntry:        rawEntry,
 		Persisted:       persisted,
 	}, nil
+}
+
+func buildPrescribeContext(input PrescribeInput) (prescribeContext, error) {
+	ctx := prescribeContext{
+		tool:        normalizeToken(input.Tool),
+		operation:   normalizeToken(input.Operation),
+		environment: strings.TrimSpace(input.Environment),
+		sessionID:   strings.TrimSpace(input.SessionID),
+		traceID:     strings.TrimSpace(input.TraceID),
+		actor:       normalizeActor(input.Actor),
+	}
+	if ctx.sessionID == "" {
+		ctx.sessionID = evidence.GenerateSessionID()
+	}
+	if ctx.traceID == "" {
+		ctx.traceID = ctx.sessionID
+	}
+	if err := validatePrescribeActor(ctx.actor); err != nil {
+		return prescribeContext{}, err
+	}
+	return ctx, nil
+}
+
+func (s *Service) canonicalizePrescribeInput(input PrescribeInput, ctx prescribeContext) (canon.CanonResult, string, error) {
+	if input.CanonicalAction != nil {
+		preCanon, err := normalizeCanonicalAction(*input.CanonicalAction, ctx.tool, ctx.operation)
+		if err != nil {
+			return canon.CanonResult{}, "", err
+		}
+		actionJSON, err := json.Marshal(preCanon)
+		if err != nil {
+			return canon.CanonResult{}, "", wrapError(ErrCodeInternal, "failed to marshal canonical action", err)
+		}
+		return canon.CanonResult{
+			ArtifactDigest:  canon.SHA256Hex(input.RawArtifact),
+			IntentDigest:    canon.ComputeIntentDigest(preCanon),
+			CanonicalAction: preCanon,
+			CanonVersion:    "external/v1",
+			RawAction:       actionJSON,
+		}, "external", nil
+	}
+
+	cr := canon.Canonicalize(ctx.tool, ctx.operation, ctx.environment, input.RawArtifact)
+	if cr.ParseError != nil {
+		s.writeCanonicalizationFailure(ctx.actor, cr, ctx.sessionID, ctx.traceID, strings.TrimSpace(input.OperationID), input.Attempt)
+		return canon.CanonResult{}, "", wrapError(ErrCodeParseError, cr.ParseError.Error(), cr.ParseError)
+	}
+	return cr, "adapter", nil
+}
+
+func buildPrescribeRiskState(cr canon.CanonResult, rawArtifact []byte, externalFindings []ExternalFindingsSource) ([]evidence.RiskInput, string, []string) {
+	matrixLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
+	riskInputs := make([]evidence.RiskInput, 0, 1+len(externalFindings))
+	nativeTags := []string(nil)
+	if len(rawArtifact) > 0 {
+		nativeTags = detectors.ProduceAll(cr.CanonicalAction, rawArtifact)
+		riskInputs = append(riskInputs, evidence.RiskInput{
+			Source:    "evidra/native",
+			RiskLevel: risk.ElevateRiskLevel(matrixLevel, nativeTags),
+			RiskTags:  nativeTags,
+		})
+	} else {
+		riskInputs = append(riskInputs, evidence.RiskInput{
+			Source:    "evidra/matrix",
+			RiskLevel: matrixLevel,
+		})
+	}
+	for _, src := range externalFindings {
+		riskInputs = append(riskInputs, buildSARIFRiskInput(src))
+	}
+	return riskInputs, computeEffectiveRisk(riskInputs), nativeTags
+}
+
+func (s *Service) loadReportPrescription(input ReportInput, prescriptionID string) (evidence.EvidenceEntry, bool, error) {
+	if s.evidencePath == "" {
+		return evidence.EvidenceEntry{}, false, nil
+	}
+
+	entry, found, err := evidence.FindEntryByID(s.evidencePath, prescriptionID)
+	if err != nil {
+		return evidence.EvidenceEntry{}, false, wrapError(ErrCodeEvidenceRead, fmt.Sprintf("failed to read evidence: %v", err), err)
+	}
+	if found {
+		return entry, true, nil
+	}
+
+	signalSessionID := strings.TrimSpace(input.SessionID)
+	if signalSessionID == "" {
+		signalSessionID = evidence.GenerateSessionID()
+	}
+	s.writeUnknownPrescriptionSignal(
+		normalizeActor(input.Actor),
+		prescriptionID,
+		signalSessionID,
+		strings.TrimSpace(input.OperationID),
+	)
+	return evidence.EvidenceEntry{}, false, wrapError(ErrCodeNotFound, "prescription_id not found", nil)
+}
+
+func resolveReportContext(input ReportInput, prescriptionEntry evidence.EvidenceEntry, prescriptionFound bool) reportContext {
+	ctx := reportContext{
+		sessionID:   strings.TrimSpace(input.SessionID),
+		operationID: strings.TrimSpace(input.OperationID),
+		traceID:     evidence.GenerateTraceID(),
+		actor:       normalizeActor(input.Actor),
+	}
+	if prescriptionFound {
+		if ctx.actor.ID == "" {
+			ctx.actor = prescriptionEntry.Actor
+		}
+		if prescriptionEntry.TraceID != "" {
+			ctx.traceID = prescriptionEntry.TraceID
+		}
+		if ctx.sessionID == "" {
+			ctx.sessionID = prescriptionEntry.SessionID
+		}
+		if ctx.operationID == "" {
+			ctx.operationID = prescriptionEntry.OperationID
+		}
+	}
+	return ctx
+}
+
+func (ctx reportContext) validate(prescriptionFound bool, prescriptionSessionID string) error {
+	if !prescriptionFound || ctx.sessionID == "" || prescriptionSessionID == "" || ctx.sessionID == prescriptionSessionID {
+		return nil
+	}
+	return wrapError(
+		ErrCodeInvalidInput,
+		fmt.Sprintf("report session_id %q does not match prescription session_id %q", ctx.sessionID, prescriptionSessionID),
+		nil,
+	)
 }
 
 func validateDecisionReportInput(input ReportInput) (*evidence.DecisionContext, error) {

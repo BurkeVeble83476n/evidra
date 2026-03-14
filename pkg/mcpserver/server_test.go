@@ -331,16 +331,6 @@ func TestSchemaStructParity(t *testing.T) {
 	}
 }
 
-func assertTagPresent(t *testing.T, tags []string, want string) {
-	t.Helper()
-	for _, tag := range tags {
-		if tag == want {
-			return
-		}
-	}
-	t.Errorf("tags %v does not contain %q", tags, want)
-}
-
 func assertRiskInputTagPresent(t *testing.T, inputs []evidence.RiskInput, source, want string) {
 	t.Helper()
 	for _, input := range inputs {

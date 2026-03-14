@@ -165,14 +165,15 @@ func TestServicePrescribe_PopulatesRiskInputsAndEffectiveRisk(t *testing.T) {
 	if payload.RiskInputs[0].Source != "evidra/native" {
 		t.Fatalf("payload risk_inputs[0].source = %q, want evidra/native", payload.RiskInputs[0].Source)
 	}
-	if payload.RiskLevel != "" {
-		t.Fatalf("legacy payload risk_level = %q, want empty", payload.RiskLevel)
+
+	var rawPayload map[string]any
+	if err := json.Unmarshal(out.Entry.Payload, &rawPayload); err != nil {
+		t.Fatalf("unmarshal raw prescription payload: %v", err)
 	}
-	if len(payload.RiskDetails) != 0 {
-		t.Fatalf("legacy payload risk_details = %v, want empty", payload.RiskDetails)
-	}
-	if len(payload.RiskTags) != 0 {
-		t.Fatalf("legacy payload risk_tags = %v, want empty", payload.RiskTags)
+	for _, legacyField := range []string{"risk_level", "risk_details", "risk_tags"} {
+		if value, ok := rawPayload[legacyField]; ok {
+			t.Fatalf("legacy payload field %q = %#v, want absent", legacyField, value)
+		}
 	}
 }
 
