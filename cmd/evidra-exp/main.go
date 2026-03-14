@@ -33,6 +33,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "artifact":
 		return runArtifactSubcommand(args[1:], stdout, stderr)
+	case "execution":
+		printExecutionMigrationNotice(stdout)
+		return 0
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[0])
 		printUsage(stderr)
@@ -228,6 +231,17 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Execution-mode experiments have moved to evidra-infra-bench:")
 	fmt.Fprintln(w, "  infra-bench run --provider claude --model sonnet --scenario ...")
+}
+
+func printExecutionMigrationNotice(w io.Writer) {
+	fmt.Fprintln(w, "Execution-mode experiments have moved to evidra-infra-bench.")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Use infra-bench for real agent + cluster testing:")
+	fmt.Fprintln(w, "  infra-bench run --provider claude --model sonnet --scenario ...")
+	fmt.Fprintln(w, "  infra-bench run --provider bifrost --model openai/gpt-4o --scenario ...")
+	fmt.Fprintln(w, "  infra-bench lab  # interactive TUI")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "See: https://github.com/vitas/evidra-infra-bench")
 }
 
 func printArtifactUsage(w io.Writer) {
