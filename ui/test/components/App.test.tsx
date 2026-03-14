@@ -14,7 +14,7 @@ describe("App", () => {
     render(<App />);
     expect(
       screen.getByRole("heading", {
-        name: /Flight recorder for\s+Infrastructure Automation/i,
+        name: /Know what your agent intended\.\s*Know what actually happened\./i,
       }),
     ).toBeInTheDocument();
   });
