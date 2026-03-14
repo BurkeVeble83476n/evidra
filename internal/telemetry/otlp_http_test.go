@@ -97,8 +97,8 @@ func TestOTLPHTTP_EmitAndFlush_SendsProtobuf(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if len(received) == 0 {
-		t.Fatal("no OTLP requests received")
+	if len(received) != 1 {
+		t.Fatalf("requests=%d want 1", len(received))
 	}
 
 	req := received[0]
@@ -132,5 +132,71 @@ func TestOTLPHTTP_InvalidTimeout_Error(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for zero timeout")
+	}
+}
+
+func TestOTLPHTTP_CloseFlushesPendingMetricsOnce(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	var received []*colmetricpb.ExportMetricsServiceRequest
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() { _ = r.Body.Close() }()
+
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		var req colmetricpb.ExportMetricsServiceRequest
+		if err := proto.Unmarshal(data, &req); err != nil {
+			t.Errorf("unmarshal protobuf: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		mu.Lock()
+		received = append(received, &req)
+		mu.Unlock()
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	transport, err := NewOTLPHTTP(config.MetricsConfig{
+		OTLPEndpoint: server.URL,
+		Timeout:      5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewOTLPHTTP: %v", err)
+	}
+
+	if err := transport.Emit(context.Background(), OperationMetric{
+		Name: "evidra.operation.duration_ms",
+		Labels: MetricLabels{
+			Tool:           "helm",
+			Environment:    "production",
+			ResultClass:    "success",
+			SignalName:     "none",
+			ScoreBand:      "good",
+			AssessmentMode: "preview",
+		},
+		Value: 42,
+	}); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+
+	if err := transport.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(received) != 1 {
+		t.Fatalf("requests=%d want 1", len(received))
 	}
 }

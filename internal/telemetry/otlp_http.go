@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	"samebits.com/evidra/internal/config"
@@ -18,10 +20,14 @@ import (
 
 type otlpHTTPTransport struct {
 	provider *sdkmetric.MeterProvider
+	reader   *sdkmetric.ManualReader
+	exporter sdkmetric.Exporter
 	meter    otelmetric.Meter
 
 	mu     sync.Mutex
 	gauges map[string]otelmetric.Float64Gauge
+	dirty  bool
+	closed bool
 }
 
 // NewOTLPHTTP creates a transport that pushes metrics via OTLP/HTTP protobuf.
@@ -44,6 +50,10 @@ func NewOTLPHTTP(cfg config.MetricsConfig) (Transport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create otlp exporter: %w", err)
 	}
+	reader := sdkmetric.NewManualReader(
+		sdkmetric.WithTemporalitySelector(exporter.Temporality),
+		sdkmetric.WithAggregationSelector(exporter.Aggregation),
+	)
 
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -56,17 +66,15 @@ func NewOTLPHTTP(cfg config.MetricsConfig) (Transport, error) {
 
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(
-			sdkmetric.NewPeriodicReader(exporter,
-				sdkmetric.WithInterval(1*time.Hour), // manual flush only
-			),
-		),
+		sdkmetric.WithReader(reader),
 	)
 
 	meter := provider.Meter("samebits.com/evidra")
 
 	return &otlpHTTPTransport{
 		provider: provider,
+		reader:   reader,
+		exporter: exporter,
 		meter:    meter,
 		gauges:   make(map[string]otelmetric.Float64Gauge),
 	}, nil
@@ -78,7 +86,13 @@ func (t *otlpHTTPTransport) Emit(ctx context.Context, metric OperationMetric) er
 		metric.Name = "evidra.operation.metric"
 	}
 
-	gauge, err := t.getOrCreateGauge(metric.Name)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return fmt.Errorf("metrics transport is closed")
+	}
+
+	gauge, err := t.getOrCreateGaugeLocked(metric.Name)
 	if err != nil {
 		return fmt.Errorf("create gauge %q: %w", metric.Name, err)
 	}
@@ -93,13 +107,11 @@ func (t *otlpHTTPTransport) Emit(ctx context.Context, metric OperationMetric) er
 	)
 
 	gauge.Record(ctx, metric.Value, attrs)
+	t.dirty = true
 	return nil
 }
 
-func (t *otlpHTTPTransport) getOrCreateGauge(name string) (otelmetric.Float64Gauge, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
+func (t *otlpHTTPTransport) getOrCreateGaugeLocked(name string) (otelmetric.Float64Gauge, error) {
 	if g, ok := t.gauges[name]; ok {
 		return g, nil
 	}
@@ -113,17 +125,56 @@ func (t *otlpHTTPTransport) getOrCreateGauge(name string) (otelmetric.Float64Gau
 }
 
 func (t *otlpHTTPTransport) Flush(ctx context.Context) error {
-	if err := t.provider.ForceFlush(ctx); err != nil {
-		return fmt.Errorf("flush metrics: %w", err)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return fmt.Errorf("metrics transport is closed")
 	}
-	return nil
+	return t.flushLocked(ctx)
 }
 
 func (t *otlpHTTPTransport) Close() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := t.provider.Shutdown(ctx); err != nil {
-		return fmt.Errorf("shutdown meter provider: %w", err)
+	var errs []error
+	if err := t.flushLocked(ctx); err != nil {
+		errs = append(errs, err)
 	}
+	if err := t.provider.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("shutdown meter provider: %w", err))
+	}
+	if err := t.exporter.Shutdown(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("shutdown otlp exporter: %w", err))
+	}
+	t.closed = true
+	return errors.Join(errs...)
+}
+
+func (t *otlpHTTPTransport) flushLocked(ctx context.Context) error {
+	if !t.dirty {
+		return nil
+	}
+
+	var rm metricdata.ResourceMetrics
+	if err := t.reader.Collect(ctx, &rm); err != nil {
+		return fmt.Errorf("collect metrics: %w", err)
+	}
+	if len(rm.ScopeMetrics) == 0 {
+		t.dirty = false
+		return nil
+	}
+	if err := t.exporter.Export(ctx, &rm); err != nil {
+		return fmt.Errorf("export metrics: %w", err)
+	}
+	if err := t.exporter.ForceFlush(ctx); err != nil {
+		return fmt.Errorf("flush exporter: %w", err)
+	}
+	t.dirty = false
 	return nil
 }
