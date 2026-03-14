@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,59 +75,6 @@ func TestArtifactRunDryRunCleansOutDir(t *testing.T) {
 	}
 }
 
-func TestExecutionRunDryRun(t *testing.T) {
-	root := repoRoot(t)
-	outDir := filepath.Join(t.TempDir(), "exec-out")
-	scenariosDir := filepath.Join(t.TempDir(), "scenarios")
-	if err := os.MkdirAll(scenariosDir, 0o755); err != nil {
-		t.Fatalf("mkdir scenarios: %v", err)
-	}
-	scenarioPath := filepath.Join(scenariosDir, "one.json")
-	artifactPath := filepath.Join(root, "tests/artifacts/fixtures/k8s/kubescape-hostpath-mount-fail.yaml")
-	scenarioJSON := fmt.Sprintf(`{
-  "scenario_id": "local-one",
-  "category": "kubernetes",
-  "difficulty": "low",
-  "tool": "kubectl",
-  "operation": "apply",
-  "artifact_path": %q,
-  "execute_cmd": "true",
-  "expected_exit_code": 0,
-  "expected_risk_level": "high",
-  "expected_risk_tags": ["k8s.hostpath_mount", "k8s.run_as_root", "k8s.writable_rootfs"]
-}`, artifactPath)
-	if err := os.WriteFile(scenarioPath, []byte(scenarioJSON), 0o644); err != nil {
-		t.Fatalf("write scenario: %v", err)
-	}
-
-	var out, errBuf bytes.Buffer
-	code := run([]string{
-		"execution", "run",
-		"--model-id", "test/model",
-		"--provider", "test",
-		"--agent", "dry-run",
-		"--prompt-file", filepath.Join(root, "prompts/experiments/runtime/system_instructions.txt"),
-		"--scenarios-dir", scenariosDir,
-		"--max-scenarios", "1",
-		"--repeats", "1",
-		"--out-dir", outDir,
-	}, &out, &errBuf)
-	if code != 0 {
-		t.Fatalf("exit code = %d, stderr=%s", code, errBuf.String())
-	}
-	summary := filepath.Join(outDir, "summary.jsonl")
-	b, err := os.ReadFile(summary)
-	if err != nil {
-		t.Fatalf("read summary: %v", err)
-	}
-	if !strings.Contains(string(b), "\"status\":\"dry_run\"") {
-		t.Fatalf("summary missing dry_run status: %s", string(b))
-	}
-	if !strings.Contains(string(b), "\"pass\":") {
-		t.Fatalf("summary missing pass field: %s", string(b))
-	}
-}
-
 func TestParseArtifactFlagsDelayBetweenRuns(t *testing.T) {
 	var errBuf bytes.Buffer
 	opts, code := parseArtifactFlags([]string{
@@ -140,21 +86,6 @@ func TestParseArtifactFlagsDelayBetweenRuns(t *testing.T) {
 		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
 	}
 	if opts.DelayBetweenRuns != 250*time.Millisecond {
-		t.Fatalf("DelayBetweenRuns=%s", opts.DelayBetweenRuns)
-	}
-}
-
-func TestParseExecutionFlagsDelayBetweenRuns(t *testing.T) {
-	var errBuf bytes.Buffer
-	opts, code := parseExecutionFlags([]string{
-		"--model-id", "test/model",
-		"--agent", "dry-run",
-		"--delay-between-runs", "1s",
-	}, &errBuf)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
-	}
-	if opts.DelayBetweenRuns != time.Second {
 		t.Fatalf("DelayBetweenRuns=%s", opts.DelayBetweenRuns)
 	}
 }
@@ -194,25 +125,11 @@ func TestArtifactHelpIncludesExtendedFlags(t *testing.T) {
 	}
 }
 
-func TestExecutionHelpIncludesExtendedFlags(t *testing.T) {
+func TestExecutionCommandShowsMigrationNotice(t *testing.T) {
 	var out, errBuf bytes.Buffer
-	code := run([]string{"execution", "--help"}, &out, &errBuf)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%s", code, errBuf.String())
-	}
-	helpText := out.String()
-	for _, needle := range []string{
-		"--provider <name>",
-		"--prompt-version <label>",
-		"--prompt-file <path>",
-		"--mode <name>",
-		"--timeout-seconds <n>",
-		"--scenario-filter <regex>",
-		"--max-scenarios <n>",
-	} {
-		if !strings.Contains(helpText, needle) {
-			t.Fatalf("help missing %q: %s", needle, helpText)
-		}
+	code := run([]string{"execution"}, &out, &errBuf)
+	if code != 2 {
+		t.Fatalf("exit code=%d stderr=%s", code, errBuf.String())
 	}
 }
 

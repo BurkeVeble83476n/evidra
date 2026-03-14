@@ -15,16 +15,3 @@ func (a *dryRunAgent) RunArtifact(_ context.Context, _ ArtifactAgentRequest) (Ar
 		StdoutLog: "dry-run\n",
 	}, nil
 }
-
-func (a *dryRunAgent) RunExecution(_ context.Context, _ ExecutionAgentRequest) (ExecutionAgentResult, error) {
-	return ExecutionAgentResult{
-		Output: map[string]any{
-			"prescribe_ok": true,
-			"report_ok":    true,
-			"exit_code":    0,
-			"risk_level":   "",
-			"risk_tags":    []string{},
-		},
-		StdoutLog: "dry-run\n",
-	}, nil
-}

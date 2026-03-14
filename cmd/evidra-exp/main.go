@@ -33,8 +33,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "artifact":
 		return runArtifactSubcommand(args[1:], stdout, stderr)
-	case "execution":
-		return runExecutionSubcommand(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown command: %s\n", args[0])
 		printUsage(stderr)
@@ -73,27 +71,6 @@ func runArtifactSubcommand(args []string, stdout, stderr io.Writer) int {
 		printArtifactUsage(stderr)
 		return 2
 	}
-}
-
-func runExecutionSubcommand(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 || isHelpArg(args[0]) {
-		printExecutionUsage(stdout)
-		return 0
-	}
-	if args[0] != "run" {
-		fmt.Fprintf(stderr, "unknown execution subcommand: %s\n", args[0])
-		printExecutionUsage(stderr)
-		return 2
-	}
-	opts, code := parseExecutionFlags(args[1:], stderr)
-	if code != 0 {
-		return code
-	}
-	if err := experiments.RunExecution(context.Background(), opts, stdout, stderr); err != nil {
-		fmt.Fprintf(stderr, "run-agent-execution-experiments: FAIL %v\n", err)
-		return 1
-	}
-	return 0
 }
 
 func parseArtifactFlags(args []string, stderr io.Writer) (experiments.ArtifactRunOptions, int) {
@@ -218,52 +195,6 @@ func parseArtifactBaselineFlags(args []string, stderr io.Writer) (experiments.Ar
 	}, 0
 }
 
-func parseExecutionFlags(args []string, stderr io.Writer) (experiments.ExecutionRunOptions, int) {
-	fs := flag.NewFlagSet("execution run", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	modelID := fs.String("model-id", "", "Model id (required)")
-	provider := fs.String("provider", "unknown", "Provider label")
-	promptVersion := fs.String("prompt-version", "", "Prompt version label")
-	promptFile := fs.String("prompt-file", experiments.DefaultPromptFile, "Prompt file path")
-	scenariosDir := fs.String("scenarios-dir", experiments.DefaultExecutionScenarios, "Scenario directory")
-	mode := fs.String("mode", "local-mcp", "Execution mode label")
-	repeats := fs.Int("repeats", 1, "Repeats per scenario")
-	timeoutSeconds := fs.Int("timeout-seconds", 600, "Per-run timeout in seconds")
-	scenarioFilter := fs.String("scenario-filter", "", "Regex filter for scenario_id")
-	maxScenarios := fs.Int("max-scenarios", 0, "Max selected scenarios")
-	outDir := fs.String("out-dir", "", "Output directory")
-	cleanOutDir := fs.Bool("clean-out-dir", false, "Remove existing files in out-dir before run")
-	delayBetweenRuns := fs.String("delay-between-runs", "0s", "Sleep duration between runs (e.g. 2s, 500ms)")
-	agent := fs.String("agent", "", "Agent adapter: mcp-kubectl|dry-run")
-	dryRun := fs.Bool("dry-run", false, "Skip real adapter execution")
-	if err := fs.Parse(args); err != nil {
-		return experiments.ExecutionRunOptions{}, 2
-	}
-	delayValue, err := time.ParseDuration(strings.TrimSpace(*delayBetweenRuns))
-	if err != nil {
-		fmt.Fprintln(stderr, "--delay-between-runs must be a duration like 2s or 500ms")
-		return experiments.ExecutionRunOptions{}, 2
-	}
-
-	return experiments.ExecutionRunOptions{
-		ModelID:          strings.TrimSpace(*modelID),
-		Provider:         strings.TrimSpace(*provider),
-		PromptVersion:    strings.TrimSpace(*promptVersion),
-		PromptFile:       strings.TrimSpace(*promptFile),
-		ScenariosDir:     strings.TrimSpace(*scenariosDir),
-		Mode:             strings.TrimSpace(*mode),
-		Repeats:          *repeats,
-		TimeoutSeconds:   *timeoutSeconds,
-		ScenarioFilter:   *scenarioFilter,
-		MaxScenarios:     *maxScenarios,
-		OutDir:           strings.TrimSpace(*outDir),
-		CleanOutDir:      *cleanOutDir,
-		DelayBetweenRuns: delayValue,
-		Agent:            strings.TrimSpace(*agent),
-		DryRun:           *dryRun,
-	}, 0
-}
-
 func isHelpArg(arg string) bool {
 	return arg == "help" || arg == "--help" || arg == "-h"
 }
@@ -292,9 +223,11 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  artifact run       Run artifact-only experiments")
 	fmt.Fprintln(w, "  artifact baseline  Run multi-model artifact baseline and aggregate metrics")
-	fmt.Fprintln(w, "  execution run   Run execution experiments")
-	fmt.Fprintln(w, "  version         Print version")
-	fmt.Fprintln(w, "  help            Show help")
+	fmt.Fprintln(w, "  version            Print version")
+	fmt.Fprintln(w, "  help               Show help")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Execution-mode experiments have moved to evidra-infra-bench:")
+	fmt.Fprintln(w, "  infra-bench run --provider claude --model sonnet --scenario ...")
 }
 
 func printArtifactUsage(w io.Writer) {
@@ -321,25 +254,4 @@ func printArtifactUsage(w io.Writer) {
 	fmt.Fprintln(w, "Baseline-only options:")
 	fmt.Fprintln(w, "  --model-ids <csv>          Comma-separated model ids (required for baseline)")
 	fmt.Fprintln(w, "  --out-dir <path>           Output directory (default baseline root: experiments/results/llm/<timestamp>)")
-}
-
-func printExecutionUsage(w io.Writer) {
-	fmt.Fprintln(w, "evidra-exp execution run [options]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Options:")
-	fmt.Fprintln(w, "  --model-id <id>            Required model id")
-	fmt.Fprintln(w, "  --provider <name>          Provider label (default: unknown)")
-	fmt.Fprintln(w, "  --prompt-version <label>   Prompt version label")
-	fmt.Fprintln(w, "  --prompt-file <path>       Prompt file (default: prompts/experiments/runtime/system_instructions.txt)")
-	fmt.Fprintln(w, "  --scenarios-dir <path>     Scenario directory (default: tests/experiments/execution-scenarios)")
-	fmt.Fprintln(w, "  --mode <name>              Execution mode label (default: local-mcp)")
-	fmt.Fprintln(w, "  --repeats <n>              Repeats per scenario (default: 1)")
-	fmt.Fprintln(w, "  --timeout-seconds <n>      Per-run timeout in seconds (default: 600)")
-	fmt.Fprintln(w, "  --scenario-filter <regex>  Regex filter for scenario_id")
-	fmt.Fprintln(w, "  --max-scenarios <n>        Max selected scenarios")
-	fmt.Fprintln(w, "  --out-dir <path>           Output directory (default: experiments/results/<timestamp>-execution)")
-	fmt.Fprintln(w, "  --clean-out-dir            Remove files in out-dir before run")
-	fmt.Fprintln(w, "  --delay-between-runs <d>   Sleep duration between runs (e.g. 2s, 500ms)")
-	fmt.Fprintln(w, "  --agent <name>             mcp-kubectl|dry-run")
-	fmt.Fprintln(w, "  --dry-run                  Skip real adapter execution")
 }

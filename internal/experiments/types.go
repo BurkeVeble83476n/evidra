@@ -40,24 +40,6 @@ type ArtifactBaselineRunOptions struct {
 	DryRun           bool
 }
 
-type ExecutionRunOptions struct {
-	ModelID          string
-	Provider         string
-	PromptVersion    string
-	PromptFile       string
-	ScenariosDir     string
-	Mode             string
-	Repeats          int
-	TimeoutSeconds   int
-	ScenarioFilter   string
-	MaxScenarios     int
-	OutDir           string
-	CleanOutDir      bool
-	DelayBetweenRuns time.Duration
-	Agent            string
-	DryRun           bool
-}
-
 type ArtifactCase struct {
 	CaseID              string
 	Category            string
@@ -67,20 +49,6 @@ type ArtifactCase struct {
 	ExpectedRiskDetails []string
 	ArtifactPath        string
 	ExpectedJSONPath    string
-}
-
-type ExecutionScenario struct {
-	ScenarioID        string
-	Category          string
-	Difficulty        string
-	Tool              string
-	Operation         string
-	ArtifactPath      string
-	ExecuteCommand    string
-	ExpectedExitCode  *int
-	ExpectedRiskLevel string
-	ExpectedRiskTags  []string
-	SourceJSONPath    string
 }
 
 type ArtifactAgentRequest struct {
@@ -97,25 +65,6 @@ type ArtifactAgentRequest struct {
 }
 
 type ArtifactAgentResult struct {
-	Output    map[string]any
-	StdoutLog string
-	StderrLog string
-	RawStream string
-}
-
-type ExecutionAgentRequest struct {
-	Scenario        ExecutionScenario
-	ModelID         string
-	Provider        string
-	Prompt          PromptInfo
-	TimeoutSeconds  int
-	RunID           string
-	RepeatIndex     int
-	RawStreamOut    string
-	AgentOutputPath string
-}
-
-type ExecutionAgentResult struct {
 	Output    map[string]any
 	StdoutLog string
 	StderrLog string

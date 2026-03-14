@@ -1,15 +1,14 @@
 # Experiments
 
-This folder is for running and storing real-agent benchmark experiment outputs.
+This folder is for running and storing artifact-classification benchmark outputs.
 
 ## What to use
 
 - Go CLI: `evidra-exp` (`go run ./cmd/evidra-exp ...` or `bin/evidra-exp` after build)
 - CLI flags reference: `docs/integrations/CLI_REFERENCE.md`
-- Artifact runner guide (purpose/how it works/run/interpretation): `docs/experimental/ARTIFACT_RUNNER_GUIDE.md`
+- Artifact runner guide: `docs/experimental/ARTIFACT_RUNNER_GUIDE.md`
 - Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
 - Result schema: `docs/experimental/RESULT_SCHEMA.json`
-- Execution result schema: `docs/experimental/EXECUTION_RESULT_SCHEMA.json`
 - Experiment prompt contract: `prompts/experiments/runtime/system_instructions.txt`
 - Prompt source contract: `prompts/source/contracts/v1.0.1/`
 - Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
@@ -19,16 +18,19 @@ Prompt editing policy:
 - Regenerate active prompts with `make prompts-generate`
 - Verify no drift with `make prompts-verify`
 
-## Schema Differences
+## Execution-Mode Testing
 
-| Schema | Used by | Focus | Core object | Schema version |
-|---|---|---|---|---|
-| `docs/experimental/RESULT_SCHEMA.json` | `evidra-exp artifact run` | Artifact-only risk classification quality | `case` | `evidra.result.v1` |
-| `docs/experimental/EXECUTION_RESULT_SCHEMA.json` | `evidra-exp execution run` | Real execution behavior (MCP + command execution) | `scenario` + `agent_result` | `evidra.exec-result.v1` |
+Execution-mode experiments (real agent + real cluster + prescribe/report protocol)
+have moved to **evidra-infra-bench**:
 
-Status semantics:
-- `execution.status` is runtime outcome (`success|failure|timeout|dry_run`), not quality.
-- Quality is `evaluation.pass` in `result.json` and `pass` in `summary.jsonl`.
+```bash
+# In the evidra-infra-bench repo:
+infra-bench run --provider claude --model sonnet --scenario kubernetes/broken-deployment
+infra-bench run --provider bifrost --model openai/gpt-4o --scenario ...
+infra-bench lab  # interactive TUI
+```
+
+See: https://github.com/vitas/evidra-infra-bench
 
 ## Quick Start
 
@@ -68,25 +70,6 @@ go run ./cmd/evidra-exp artifact baseline \
   --timeout-seconds 300
 ```
 
-Bifrost run (prompted, contract-versioned):
-
-```bash
-export EVIDRA_BIFROST_BASE_URL="http://localhost:8080/openai"
-# optional Bifrost headers:
-# export EVIDRA_BIFROST_VK="vk_..."
-# export EVIDRA_BIFROST_AUTH_BEARER="..."
-
-go run ./cmd/evidra-exp artifact run \
-  --model-id anthropic/claude-3-5-haiku \
-  --provider bifrost \
-  --agent bifrost \
-  --mode local-mcp \
-  --prompt-file prompts/experiments/runtime/system_instructions.txt \
-  --delay-between-runs 2s \
-  --repeats 3 \
-  --timeout-seconds 300
-```
-
 Claude headless run (chat subscription path, no Anthropic API credits required):
 
 ```bash
@@ -109,28 +92,6 @@ The Claude adapter maps `claude/<alias>` to CLI `--model <alias>` (for example `
 Notes:
 - If `--prompt-version` is omitted, the runner uses prompt file `# contract: ...` header.
 
-## Execution-Mode Runs (MCP + Real kubectl)
-
-This mode is for real behavior validation (prescribe -> execute -> report), not artifact-only classification.
-
-```bash
-# prerequisites:
-# - kube context points to a test cluster
-# - npx + MCP inspector available
-# - evidra-mcp built (or buildable via go)
-
-go run ./cmd/evidra-exp execution run \
-  --model-id execution/mcp-kubectl \
-  --provider local \
-  --agent mcp-kubectl \
-  --mode local-mcp \
-  --delay-between-runs 2s \
-  --repeats 1 \
-  --timeout-seconds 600
-```
-
-To reuse the same output directory safely, add `--clean-out-dir` (it removes existing files inside `--out-dir` before the run).
-
 ## Output Layout
 
 By default, results are written to `experiments/results/<timestamp>/`.
@@ -143,7 +104,6 @@ Each run contains:
 - `result.json`
 
 A run index is written to `summary.jsonl` in the timestamp folder with fields:
-- Artifact mode: `run_id`, `case_id`, `status`, `pass`, `result_json`
-- Execution mode: `run_id`, `scenario_id`, `status`, `pass`, `result_json`
+- `run_id`, `case_id`, `status`, `pass`, `result_json`
 
 For `artifact baseline`, each model gets its own `summary.jsonl`, and the baseline root adds `summary.json` with per-model aggregate metrics (`pass_rate`, average precision/recall/F1, risk-level match rate, and comparison winners).
