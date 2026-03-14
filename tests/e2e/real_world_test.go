@@ -117,6 +117,20 @@ func containsAll(t *testing.T, label string, actual, expected []string) {
 	}
 }
 
+func effectiveRisk(payload evidence.PrescriptionPayload) string {
+	if payload.EffectiveRisk != "" {
+		return payload.EffectiveRisk
+	}
+	return payload.RiskLevel
+}
+
+func nativeRiskTags(payload evidence.PrescriptionPayload) []string {
+	if tags := payload.NativeRiskTags(); len(tags) > 0 {
+		return tags
+	}
+	return payload.EffectiveRiskDetails()
+}
+
 // TestE2EReal_K8sCorpusPromotion exercises the K8s adapter against promoted OSS
 // corpus fixtures instead of local-only acceptance artifacts.
 func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
@@ -127,8 +141,8 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 		wantResourceCount int
 		wantKinds         []string
 		wantIdentities    []string
-		wantRiskLevel     string
-		wantRiskDetails   []string
+		wantEffectiveRisk string
+		wantNativeTags    []string
 	}{
 		{
 			name:              "hostpath fail",
@@ -137,8 +151,8 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 			wantResourceCount: 1,
 			wantKinds:         []string{"pod"},
 			wantIdentities:    []string{"pod//test-pd"},
-			wantRiskLevel:     "high",
-			wantRiskDetails:   []string{"k8s.hostpath_mount", "k8s.run_as_root", "k8s.writable_rootfs"},
+			wantEffectiveRisk: "high",
+			wantNativeTags:    []string{"k8s.hostpath_mount", "k8s.run_as_root", "k8s.writable_rootfs"},
 		},
 		{
 			name:              "non-root pass",
@@ -147,8 +161,8 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 			wantResourceCount: 1,
 			wantKinds:         []string{"deployment"},
 			wantIdentities:    []string{"deployment//nginx-deployment"},
-			wantRiskLevel:     "medium",
-			wantRiskDetails:   []string{"k8s.writable_rootfs"},
+			wantEffectiveRisk: "medium",
+			wantNativeTags:    []string{"k8s.writable_rootfs"},
 		},
 	}
 
@@ -202,14 +216,14 @@ func TestE2EReal_K8sCorpusPromotion(t *testing.T) {
 				t.Error("resource_shape_hash empty")
 			}
 
-			if payload.RiskLevel != tc.wantRiskLevel {
-				t.Errorf("risk_level = %q, want %q", payload.RiskLevel, tc.wantRiskLevel)
+			if got := effectiveRisk(payload); got != tc.wantEffectiveRisk {
+				t.Errorf("effective_risk = %q, want %q", got, tc.wantEffectiveRisk)
 			}
-			riskDetails := payload.EffectiveRiskDetails()
-			containsAll(t, "risk details", riskDetails, tc.wantRiskDetails)
+			riskTags := nativeRiskTags(payload)
+			containsAll(t, "native risk tags", riskTags, tc.wantNativeTags)
 
-			t.Logf("K8s corpus fixture %s: resources=%d risk=%s details=%v",
-				tc.name, action.ResourceCount, payload.RiskLevel, riskDetails)
+			t.Logf("K8s corpus fixture %s: resources=%d effective_risk=%s native_tags=%v",
+				tc.name, action.ResourceCount, effectiveRisk(payload), riskTags)
 		})
 	}
 }
@@ -222,24 +236,24 @@ func TestE2EReal_TerraformCorpusPromotion(t *testing.T) {
 		artifact          string
 		wantResourceCount int
 		wantTypes         []string
-		wantRiskLevel     string
-		wantRiskDetails   []string
+		wantEffectiveRisk string
+		wantNativeTags    []string
 	}{
 		{
 			name:              "s3 public access fail",
 			artifact:          fixturePath("terraform", "checkov-s3-public-access-fail.tfplan.json"),
 			wantResourceCount: 3,
 			wantTypes:         []string{"aws_s3_bucket", "aws_s3_bucket_acl", "aws_s3_bucket_public_access_block"},
-			wantRiskLevel:     "high",
-			wantRiskDetails:   []string{"terraform.s3_public_access"},
+			wantEffectiveRisk: "high",
+			wantNativeTags:    []string{"terraform.s3_public_access"},
 		},
 		{
 			name:              "iam wildcard fail",
 			artifact:          fixturePath("terraform", "checkov-iam-wildcard-fail.tfplan.json"),
 			wantResourceCount: 1,
 			wantTypes:         []string{"aws_iam_policy"},
-			wantRiskLevel:     "critical",
-			wantRiskDetails:   []string{"aws_iam.wildcard_policy", "terraform.iam_wildcard_policy"},
+			wantEffectiveRisk: "critical",
+			wantNativeTags:    []string{"aws_iam.wildcard_policy", "terraform.iam_wildcard_policy"},
 		},
 	}
 
@@ -280,14 +294,14 @@ func TestE2EReal_TerraformCorpusPromotion(t *testing.T) {
 				t.Errorf("scope_class = %q, want staging", action.ScopeClass)
 			}
 
-			riskDetails := payload.EffectiveRiskDetails()
-			containsAll(t, "risk details", riskDetails, tc.wantRiskDetails)
-			if payload.RiskLevel != tc.wantRiskLevel {
-				t.Errorf("risk_level = %q, want %q", payload.RiskLevel, tc.wantRiskLevel)
+			riskTags := nativeRiskTags(payload)
+			containsAll(t, "native risk tags", riskTags, tc.wantNativeTags)
+			if got := effectiveRisk(payload); got != tc.wantEffectiveRisk {
+				t.Errorf("effective_risk = %q, want %q", got, tc.wantEffectiveRisk)
 			}
 
-			t.Logf("Terraform corpus fixture %s: resources=%d risk=%s details=%v",
-				tc.name, action.ResourceCount, payload.RiskLevel, riskDetails)
+			t.Logf("Terraform corpus fixture %s: resources=%d effective_risk=%s native_tags=%v",
+				tc.name, action.ResourceCount, effectiveRisk(payload), riskTags)
 		})
 	}
 }
@@ -407,12 +421,12 @@ func TestE2EReal_ArgoCDSync(t *testing.T) {
 		t.Errorf("shape_hash not stable across runs: %s vs %s", action.ShapeHash, action2.ShapeHash)
 	}
 
-	if payload.RiskLevel != "high" {
-		t.Errorf("risk_level = %q, want high (mutate×production matrix)", payload.RiskLevel)
+	if got := effectiveRisk(payload); got != "high" {
+		t.Errorf("effective_risk = %q, want high", got)
 	}
 
-	t.Logf("ArgoCD sync: %d resources, risk=%s, kinds=%v",
-		action.ResourceCount, payload.RiskLevel, kinds)
+	t.Logf("ArgoCD sync: %d resources, effective_risk=%s, kinds=%v",
+		action.ResourceCount, effectiveRisk(payload), kinds)
 }
 
 // TestE2EReal_KustomizeMonitoring exercises the K8s adapter with kustomize
@@ -504,18 +518,18 @@ func TestE2EReal_HelmIngressNginx(t *testing.T) {
 
 	// Risk detectors should fire: runAsUser 101 != 0 but no runAsNonRoot,
 	// plus writable rootfs (no readOnlyRootFilesystem).
-	riskDetails := payload.EffectiveRiskDetails()
-	if len(riskDetails) == 0 {
-		t.Error("risk_details empty — expected detectors to fire on ingress-nginx spec")
+	riskTags := nativeRiskTags(payload)
+	if len(riskTags) == 0 {
+		t.Error("native risk tags empty; expected detectors to fire on ingress-nginx spec")
 	}
 
 	// Production install is high from the matrix; medium/low tags do not elevate it.
-	if payload.RiskLevel != "high" {
-		t.Errorf("risk_level = %q, want high", payload.RiskLevel)
+	if got := effectiveRisk(payload); got != "high" {
+		t.Errorf("effective_risk = %q, want high", got)
 	}
 
-	t.Logf("Helm ingress-nginx: %d resources, risk=%s, tags=%v",
-		action.ResourceCount, payload.RiskLevel, riskDetails)
+	t.Logf("Helm ingress-nginx: %d resources, effective_risk=%s, native_tags=%v",
+		action.ResourceCount, effectiveRisk(payload), riskTags)
 }
 
 // TestE2EReal_OpenShiftApp exercises the K8s adapter via tool=oc with
@@ -581,12 +595,12 @@ func TestE2EReal_OpenShiftApp(t *testing.T) {
 		t.Error("missing Route webapp identity")
 	}
 
-	if payload.RiskLevel != "high" {
-		t.Errorf("risk_level = %q, want high (mutate×production matrix)", payload.RiskLevel)
+	if got := effectiveRisk(payload); got != "high" {
+		t.Errorf("effective_risk = %q, want high", got)
 	}
 
-	t.Logf("OpenShift app: %d resources, risk=%s, kinds=%v",
-		action.ResourceCount, payload.RiskLevel, kinds)
+	t.Logf("OpenShift app: %d resources, effective_risk=%s, kinds=%v",
+		action.ResourceCount, effectiveRisk(payload), kinds)
 }
 
 // TestE2EReal_NoiseImmunity verifies that two manifests differing only in
