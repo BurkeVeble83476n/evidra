@@ -1,13 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.4.9 — 2026-03-14 
 
 ### Phase 1 Risk Inputs
 - CLI `prescribe`, `record`, and `import` now expose `risk_inputs` and `effective_risk` instead of flat top-level prescribe risk fields
 - `--findings` replaces `--scanner-report` on prescribe/record for bundled SARIF inputs
 - MCP prescribe output, prompt contracts, mapped webhook prescriptions, and key system/user docs now align on the Phase 1 `risk_inputs` model
-
-## v0.4.9 — 2026-03-13
 
 ## v0.4.8 — 2026-03-12
 
@@ -18,27 +16,16 @@
 - Replaced fire-and-forget `last_used_at` writes on API key lookup with bounded inline updates
 - Restored a fixed eight-signal public scorecard contract instead of auto-expanding API output to every registered signal
 
-
 ### MCP
 - Fixed the `get_event` MCP tool output contract so stored report events can be returned without structured-output schema validation failure
 - Added explicit MCP output schema coverage for `get_event` payload shapes
 
-## v0.4.6 — 2026-03-11
+## v0.4.6 — 2026-03-06
 
 ### CLI
 - Rebranded the public CLI surface from `run`/`record`/`ingest-findings` to `record`/`import`/`import-findings`
 - Added compact `-f` artifact support for `record` and `prescribe`
 - Added deterministic `record` inference for wrapped `kubectl`, `oc`, `helm`, `terraform`, `docker`, `argocd`, `kustomize`, and `pulumi` commands
-
-### Documentation And Product Surfaces
-- Updated README, CLI reference, quickstarts, landing page copy, and fallback landing HTML to the new `record`/`import` command language
-- Refreshed examples to prefer the compact live-recording form `evidra record -f <artifact> -- <command>`
-
-### Testing
-- Added CLI coverage for compact wrapped-command inference, explicit error paths, and `import-findings`
-- Updated contract and parity tests to invoke `record`, `import`, and `import-findings`
-
-## v0.4.5 — 2026-03-10
 
 ### Decision Tracking
 - Added explicit terminal `report verdict` handling across CLI, MCP, and forwarded evidence
@@ -49,40 +36,8 @@
 - Updated MCP report schema, tool descriptions, prompt contracts, and generated prompt artifacts for explicit verdicts and declined decisions
 - MCP now records not only actions but also deliberate refusals with rationale
 
-### Documentation And Product Surfaces
-- Added [Decision Tracking v1](docs/system-design/EVIDRA_DECISION_TRACKING_V1.md)
-- Updated README, CLI reference, architecture docs, end-to-end examples, landing page, and fallback landing copy to reflect `intent -> decision -> outcome`
 
-### Testing
-- Added CLI, lifecycle, and MCP regression coverage for declined decisions
-- Updated contracts, signal-validation helpers, inspector fixtures, and docs smoke checks to the explicit verdict contract
-
-## v0.4.4 — 2026-03-10
-
-### Core
-- Merged the codebase hardening wave: decomposed the CLI command surface, added governance baseline files, and tightened security and product claims
-- Integrated the hardened signal-validation/scoring-profile path on `main`
-
-### Testing
-- Rationalized the top-level e2e structure and tightened signal-validation coverage and CI checks
-
-### Release Metadata
-- Runtime version and MCP server metadata aligned to `v0.4.4`
-
-## v0.4.3 — 2026-03-10
-
-### Positioning
-- Homepage, fallback landing page, and README now lead with `Behavioral reliability for infrastructure automation`
-- Category framing updated to `A new observability layer for CI/CD, IaC, and AI agents`
-- Landing copy now emphasizes deployment instability outcomes instead of generic scoring language
-
-### Documentation
-- Added [Prometheus Positioning Backlog](docs/PROMETHEUS_POSITIONING_BACKLOG.md) to track the next observability-first homepage improvements
-
-### Release Metadata
-- Runtime version, MCP server metadata, and release artifacts aligned to `v0.4.3`
-
-## v0.4.2 — 2026-03-09
+## v0.4.2
 
 ### Signals
 - New signal: `risk_escalation` — detects when an actor's operations exceed their baseline risk level (8th signal, weight 0.10)
@@ -104,7 +59,7 @@
 - E2e test: staging→production escalation through full CLI pipeline
 - Score stability regression test (zero-count risk_escalation does not affect score)
 
-## v0.3.1 — 2026-03-07
+## v0.3.1 
 
 ### CLI
 - `evidra run` — execute commands live and record lifecycle outcome (prescribe + execute + report in one call)
@@ -160,7 +115,7 @@
 - Lifecycle flows unified with session invariant enforcement
 - Removed dead code (MaxBaseSeverity, RehashEntry, SegmentFiles)
 
-## v0.3.0 — 2026-03-05
+## v0.3.0
 
 First public release of Evidra Benchmark.
 

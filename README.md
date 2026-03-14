@@ -84,6 +84,12 @@ export EVIDRA_SIGNING_KEY=<base64>
 evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
 ```
 
+For local smoke runs without a signing key:
+
+```bash
+export EVIDRA_SIGNING_MODE=optional
+```
+
 The output includes: `risk_inputs`, `effective_risk`, `score`, `score_band`, `signal_summary`, `basis`, and `confidence`.
 
 ### See The Scorecard
