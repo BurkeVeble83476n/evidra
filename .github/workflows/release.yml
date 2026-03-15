@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-          code_version="$(sed -nE 's/^[[:space:]]*Version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' pkg/version/version.go | head -n1)"
+          code_version="$(sed -nE 's/^[[:space:]]*BaseVersion[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' pkg/version/version.go | head -n1)"
           if [ -z "${code_version}" ]; then
             echo "::error::Could not parse Version from pkg/version/version.go."
             exit 1
