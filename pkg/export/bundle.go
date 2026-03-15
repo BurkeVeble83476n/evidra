@@ -135,7 +135,7 @@ func parseJSONLFile(path string) ([]evidence.EvidenceEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var entries []evidence.EvidenceEntry
 	scanner := bufio.NewScanner(f)
@@ -237,7 +237,7 @@ func copyScorecard(evidenceDir, outputDir string) {
 		if err != nil {
 			continue
 		}
-		os.WriteFile(filepath.Join(outputDir, "scorecard.json"), data, 0644)
+		_ = os.WriteFile(filepath.Join(outputDir, "scorecard.json"), data, 0644)
 		return
 	}
 }
@@ -247,15 +247,19 @@ func writeEntriesJSONL(path string, entries []evidence.EvidenceEntry) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for _, e := range entries {
 		line, err := json.Marshal(e)
 		if err != nil {
 			continue
 		}
-		f.Write(line)
-		f.Write([]byte("\n"))
+		if _, err := f.Write(line); err != nil {
+			return fmt.Errorf("write entry: %w", err)
+		}
+		if _, err := f.Write([]byte("\n")); err != nil {
+			return fmt.Errorf("write newline: %w", err)
+		}
 	}
 	return nil
 }

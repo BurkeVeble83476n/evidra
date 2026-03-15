@@ -22,7 +22,9 @@ type Anonymizer struct {
 // NewAnonymizer creates an Anonymizer with a random salt.
 func NewAnonymizer() *Anonymizer {
 	salt := make([]byte, 16)
-	rand.Read(salt)
+	if _, err := rand.Read(salt); err != nil {
+		panic("export: failed to generate random salt: " + err.Error())
+	}
 	return &Anonymizer{salt: salt, cache: make(map[string]string)}
 }
 
