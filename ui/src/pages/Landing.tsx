@@ -283,6 +283,8 @@ export function Landing() {
       <Divider />
       <McpSetup />
       <Divider />
+      <Benchmark />
+      <Divider />
       <ApiReference />
       <Divider />
       <GuidesSection />
@@ -308,7 +310,7 @@ function Container({ children, className = "" }: { children: React.ReactNode; cl
 
 function Hero() {
   return (
-    <section className="relative py-24 pb-20 text-center bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,var(--color-accent-subtle),var(--color-bg)_70%)] overflow-hidden">
+    <section className="relative pt-16 pb-12 text-center bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,var(--color-accent-subtle),var(--color-bg)_70%)] overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle,var(--color-accent)_1px,transparent_1px)] bg-[length:24px_24px] opacity-[0.06] [mask-image:radial-gradient(ellipse_60%_70%_at_50%_30%,black,transparent)]" />
       <Container className="relative">
         <div className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium text-accent bg-accent-subtle border border-border rounded-full px-4 py-1 mb-6 tracking-wide">
@@ -321,8 +323,8 @@ function Hero() {
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
           The prescribe/report protocol for AI infrastructure agents.
         </p>
-        <p className="text-[0.92rem] text-fg-muted max-w-[580px] mx-auto mb-10 leading-relaxed opacity-80">
-          Evidra records intent before execution and outcome after &mdash; in a signed evidence chain that no one can edit after the fact. When your agent decides not to act, that decision is recorded too.
+        <p className="text-[0.95rem] text-fg-body max-w-[620px] mx-auto mb-10 leading-relaxed">
+          Evidra records what your automation intended, decided, and did &mdash; and by showing agents the risk before they act, makes the next operation safer than the last.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
@@ -360,7 +362,7 @@ function TheGap() {
   ];
 
   return (
-    <section className="py-14 bg-bg-alt">
+    <section className="py-8 bg-bg-alt">
       <Container>
         <SectionLabel>The Problem</SectionLabel>
         <SectionTitle>AI Agents Make Decisions. Nothing Records Them.</SectionTitle>
@@ -380,7 +382,7 @@ function TheGap() {
 
 function Features() {
   return (
-    <section id="features" className="py-14">
+    <section id="features" className="py-8">
       <Container>
         <SectionLabel>The Protocol</SectionLabel>
         <SectionTitle>Prescribe Before. Report After. Evidence Always.</SectionTitle>
@@ -401,7 +403,7 @@ function Features() {
 
 function Signals() {
   return (
-    <section id="signals" className="py-14 bg-bg-alt">
+    <section id="signals" className="py-8 bg-bg-alt">
       <Container>
         <SectionLabel>Behavioral Detection</SectionLabel>
         <SectionTitle>Patterns That Fire on Day One</SectionTitle>
@@ -437,7 +439,7 @@ function Signals() {
 function Architecture() {
   const [tab, setTab] = useState<"pipeline" | "system" | "sequence">("sequence");
   return (
-    <section id="architecture" className="py-14 bg-bg-alt">
+    <section id="architecture" className="py-8 bg-bg-alt">
       <Container>
         <SectionLabel>Architecture</SectionLabel>
         <SectionTitle>From Agent Intent to Signed Evidence</SectionTitle>
@@ -459,7 +461,7 @@ function GettingStarted() {
   const [tab, setTab] = useState<"binary" | "brew" | "selfhost">("binary");
   const code = tab === "binary" ? INSTALL_BINARY : tab === "brew" ? INSTALL_BREW : INSTALL_SELFHOST;
   return (
-    <section id="get-started" className="py-14">
+    <section id="get-started" className="py-8">
       <Container>
         <SectionLabel>Quick Start</SectionLabel>
         <SectionTitle>Getting Started</SectionTitle>
@@ -493,7 +495,7 @@ function McpSetup() {
     : "Run in your terminal.";
 
   return (
-    <section id="mcp-setup" className="py-14 bg-bg-alt">
+    <section id="mcp-setup" className="py-8 bg-bg-alt">
       <Container>
         <SectionLabel>AI Agents</SectionLabel>
         <SectionTitle>Give Your Agent the Protocol</SectionTitle>
@@ -579,9 +581,55 @@ function McpSetup() {
   );
 }
 
+function Benchmark() {
+  const rows = [
+    { metric: "Protocol compliance", haiku: "None", sonnet: "Self-discovered, self-correcting", skill: "Clean, first-try" },
+    { metric: "Evidence chain", haiku: "Empty", sonnet: "Complete", skill: "Complete" },
+    { metric: "Turns", haiku: "2", sonnet: "30", skill: "26" },
+    { metric: "Tokens", haiku: "4,381", sonnet: "2,633", skill: "2,051" },
+  ];
+
+  return (
+    <section id="benchmark" className="py-8">
+      <Container>
+        <SectionLabel>Benchmark</SectionLabel>
+        <SectionTitle>MCP Tool Descriptions Are Enough</SectionTitle>
+        <p className="text-fg-muted mb-8 text-[1.14rem]">
+          The prescribe/report protocol works out of the box with capable models through MCP tool descriptions alone. The Evidra skill doesn&rsquo;t enable the protocol &mdash; it sharpens it: fewer turns, fewer tokens, correct behavior on first attempt.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[0.85rem] border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-3 pr-4 font-semibold text-fg-muted"></th>
+                <th className="text-left py-3 px-4 font-semibold text-fg-muted">Haiku / no skill</th>
+                <th className="text-left py-3 px-4 font-semibold text-fg-muted">Sonnet / no skill</th>
+                <th className="text-left py-3 px-4 font-semibold text-accent">Sonnet / skill</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.metric} className="border-b border-border/50">
+                  <td className="py-3 pr-4 font-medium text-fg">{r.metric}</td>
+                  <td className="py-3 px-4 text-fg-muted">{r.haiku}</td>
+                  <td className="py-3 px-4 text-fg-muted">{r.sonnet}</td>
+                  <td className="py-3 px-4 text-fg font-medium">{r.skill}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[0.85rem] text-fg-muted mt-6">
+          Sonnet discovers and follows the protocol without any skill &mdash; it self-corrects along the way. The skill removes the exploration overhead: correct behavior on first attempt, 23% fewer tokens.
+        </p>
+      </Container>
+    </section>
+  );
+}
+
 function ApiReference() {
   return (
-    <section id="api" className="py-14 bg-bg-alt">
+    <section id="api" className="py-8 bg-bg-alt">
       <Container>
         <SectionLabel>API</SectionLabel>
         <SectionTitle>API Reference</SectionTitle>
@@ -600,7 +648,7 @@ function ApiReference() {
 
 function GuidesSection() {
   return (
-    <section id="guides" className="py-14">
+    <section id="guides" className="py-8">
       <Container>
         <SectionLabel>Guides</SectionLabel>
         <SectionTitle>Integrate Into Your Workflow</SectionTitle>
@@ -627,8 +675,8 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   return (
     <button
       onClick={onClick}
-      className={`border-none rounded-md px-4 py-2 cursor-pointer text-[0.82rem] font-semibold font-sans transition-all ${
-        active ? "bg-bg-elevated text-fg shadow-[var(--shadow-card)]" : "bg-transparent text-fg-muted hover:text-fg"
+      className={`rounded-md px-4 py-2 cursor-pointer text-[0.82rem] font-semibold font-sans transition-all ${
+        active ? "bg-accent/10 border border-accent/30 text-accent" : "bg-transparent border border-transparent text-fg-muted hover:text-fg"
       }`}
     >
       {children}

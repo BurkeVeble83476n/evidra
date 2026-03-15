@@ -6,7 +6,7 @@
 
 **Evidra — Flight recorder for AI infrastructure agents**
 
-Every infrastructure change has two halves: what the agent intended and what actually happened. Observability tools record the second half. Evidra records both.
+Evidra records what your automation intended, decided, and did — and by showing agents the risk before they act, makes the next operation safer than the last.
 
 ```bash
 evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
@@ -114,6 +114,19 @@ The MCP server gives agents the tools. The skill teaches them when and how to us
 ```bash
 evidra skill install
 ```
+
+### Benchmark: MCP Tool Descriptions Are Enough
+
+The prescribe/report protocol works out of the box with capable models through MCP tool descriptions alone. The Evidra skill doesn't enable the protocol — it sharpens it: fewer turns, fewer tokens, correct behavior on first attempt.
+
+| | Haiku / no skill | Sonnet / no skill | Sonnet / skill |
+|---|---|---|---|
+| Protocol compliance | None | Self-discovered, self-correcting | Clean, first-try |
+| Evidence chain | Empty | Complete | Complete |
+| Turns | 2 | 30 | 26 |
+| Tokens | 4,381 | 2,633 | 2,051 |
+
+Sonnet discovers and follows the protocol without any skill — it self-corrects along the way. The skill removes the exploration overhead: correct behavior on first attempt, 23% fewer tokens.
 
 How the protocol looks from the agent's perspective:
 
