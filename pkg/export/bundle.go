@@ -42,9 +42,23 @@ type TimeRange struct {
 	Last  string `json:"last"`
 }
 
+// RunMetadata holds operational data from run.json that lives outside evidence.
+type RunMetadata struct {
+	ScenarioID string `json:"scenario_id,omitempty"`
+	Model      string `json:"model,omitempty"`
+	Provider   string `json:"provider,omitempty"`
+	Passed     bool   `json:"passed"`
+	Turns      string `json:"turns,omitempty"`
+	Tokens     string `json:"tokens,omitempty"`
+	Cost       string `json:"estimated_cost,omitempty"`
+	Memory     string `json:"memory_window,omitempty"`
+	Duration   string `json:"duration,omitempty"`
+}
+
 // Options configures the export.
 type Options struct {
 	EvidenceDir      string
+	RunDir           string // optional: include run.json metadata
 	OutputDir        string
 	Anonymize        bool
 	IncludeScorecard bool
@@ -104,6 +118,13 @@ func Export(opts Options) error {
 	meta := buildMetadata(processed)
 	if err := writeJSON(filepath.Join(opts.OutputDir, "metadata.json"), meta); err != nil {
 		return err
+	}
+
+	// Write run-metadata.json if run dir provided
+	if opts.RunDir != "" {
+		if rm, err := loadRunMetadata(opts.RunDir); err == nil {
+			_ = writeJSON(filepath.Join(opts.OutputDir, "run-metadata.json"), rm)
+		}
 	}
 
 	// Copy scorecard if requested
@@ -256,6 +277,36 @@ func copyScorecard(evidenceDir, outputDir string) {
 		_ = os.WriteFile(filepath.Join(outputDir, "scorecard.json"), data, 0644)
 		return
 	}
+}
+
+func loadRunMetadata(runDir string) (*RunMetadata, error) {
+	data, err := os.ReadFile(filepath.Join(runDir, "run.json"))
+	if err != nil {
+		return nil, err
+	}
+	var raw struct {
+		ScenarioID string            `json:"scenario_id"`
+		Passed     bool              `json:"passed"`
+		StartTime  time.Time         `json:"start_time"`
+		EndTime    time.Time         `json:"end_time"`
+		Metadata   map[string]string `json:"metadata"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	m := raw.Metadata
+	dur := raw.EndTime.Sub(raw.StartTime)
+	return &RunMetadata{
+		ScenarioID: raw.ScenarioID,
+		Model:      m["model"],
+		Provider:   m["provider"],
+		Passed:     raw.Passed,
+		Turns:      m["turns"],
+		Tokens:     m["prompt_tokens"] + "/" + m["completion_tokens"],
+		Cost:       m["estimated_cost"],
+		Memory:     m["memory_window"],
+		Duration:   dur.Round(time.Millisecond).String(),
+	}, nil
 }
 
 func writeEntriesJSONL(path string, entries []evidence.EvidenceEntry) error {

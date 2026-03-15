@@ -17,6 +17,7 @@ func runExport(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 
 	evidenceDir := fs.String("evidence-dir", "", "evidence directory to export")
+	runDir := fs.String("run-dir", "", "run artifact directory (includes model/cost/turns in export)")
 	outputDir := fs.String("output", "", "output directory (default: evidence-export-<timestamp>)")
 	anonymize := fs.Bool("anonymize", true, "anonymize identifiers")
 	includeScorecard := fs.Bool("include-scorecard", false, "include scorecard.json if available")
@@ -41,6 +42,7 @@ func runExport(args []string, stdout, stderr io.Writer) int {
 
 	err := export.Export(export.Options{
 		EvidenceDir:      *evidenceDir,
+		RunDir:           *runDir,
 		OutputDir:        *outputDir,
 		Anonymize:        *anonymize,
 		IncludeScorecard: *includeScorecard,

@@ -49,6 +49,9 @@ func (a *Anonymizer) Hash(prefix, original string) string {
 func (a *Anonymizer) AnonymizeEntry(entry evidence.EvidenceEntry) evidence.EvidenceEntry {
 	out := entry
 
+	// Anonymize entry_id (ULID — not PII but anonymize for consistency)
+	out.EntryID = a.Hash("eid", entry.EntryID)
+
 	// Anonymize actor
 	out.Actor = evidence.Actor{
 		Type:         entry.Actor.Type, // keep: generic (agent, cli, automation)
@@ -102,10 +105,16 @@ func (a *Anonymizer) anonymizePayload(entryType evidence.EntryType, payload json
 	case evidence.EntryTypeReport:
 		a.anonymizeReportPayload(raw)
 	case evidence.EntryTypeSignal:
-		// Keep signal payloads — they contain signal_name, count, details
-		// but strip entry_ref (points to real entry IDs)
-		if _, ok := raw["entry_ref"]; ok {
-			raw["entry_ref"], _ = json.Marshal(a.Hash("ref", string(raw["entry_ref"])))
+		// Keep signal_name and count — anonymize entry_ref and details
+		if v, ok := raw["entry_ref"]; ok {
+			var ref string
+			if json.Unmarshal(v, &ref) == nil {
+				raw["entry_ref"], _ = json.Marshal(a.Hash("ref", ref))
+			}
+		}
+		// Strip details — may contain resource names in human-readable text
+		if _, ok := raw["details"]; ok {
+			raw["details"], _ = json.Marshal("[anonymized]")
 		}
 	default:
 		// Strip unknown payload types entirely
