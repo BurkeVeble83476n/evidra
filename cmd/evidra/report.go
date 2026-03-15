@@ -23,11 +23,13 @@ type reportFlags struct {
 	declineReason   string
 	evidenceDir     string
 	scoringProfile  string
-	actorID         string
+	actor           actorFlags
 	artifactDigest  string
 	externalRefs    string
 	sessionID       string
 	operationID     string
+	spanID          string
+	parentSpanID    string
 	signingKey      string
 	signingKeyPath  string
 	signingMode     string
@@ -136,11 +138,14 @@ func parseReportFlags(args []string, stderr io.Writer) (reportFlags, int) {
 	declineReasonFlag := fs.String("decline-reason", "", "Short operational reason for verdict=declined")
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
 	scoringProfileFlag := fs.String("scoring-profile", "", "Path to scoring profile JSON")
-	actorFlag := fs.String("actor", "", "Actor ID")
+	var actor actorFlags
+	bindActorFlags(fs, &actor, "Actor ID")
 	artifactDigestFlag := fs.String("artifact-digest", "", "Artifact digest for drift detection")
 	externalRefsFlag := fs.String("external-refs", "", "External references JSON array (e.g. '[{\"type\":\"github_run\",\"id\":\"123\"}]')")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID")
 	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
+	spanIDFlag := fs.String("span-id", "", "Trace span identifier")
+	parentSpanIDFlag := fs.String("parent-span-id", "", "Parent span identifier")
 	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
@@ -182,11 +187,13 @@ func parseReportFlags(args []string, stderr io.Writer) (reportFlags, int) {
 		declineReason:   strings.TrimSpace(*declineReasonFlag),
 		evidenceDir:     *evidenceFlag,
 		scoringProfile:  *scoringProfileFlag,
-		actorID:         *actorFlag,
+		actor:           actor,
 		artifactDigest:  *artifactDigestFlag,
 		externalRefs:    *externalRefsFlag,
 		sessionID:       *sessionIDFlag,
 		operationID:     *operationIDFlag,
+		spanID:          *spanIDFlag,
+		parentSpanID:    *parentSpanIDFlag,
 		signingKey:      *signingKeyFlag,
 		signingKeyPath:  *signingKeyPathFlag,
 		signingMode:     *signingModeFlag,
@@ -244,11 +251,7 @@ func prepareReportCommand(opts reportFlags) (reportCommand, error) {
 		return reportCommand{}, err
 	}
 
-	actorID := opts.actorID
-	if actorID == "" {
-		actorID = "cli"
-	}
-	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
+	actor := buildActor(opts.actor, "cli", "cli", "cli")
 	var exitCode *int
 	if opts.exitCode.set {
 		exitCode = intPtr(opts.exitCode.value)
@@ -274,6 +277,8 @@ func prepareReportCommand(opts reportFlags) (reportCommand, error) {
 			ExternalRefs:    externalRefs,
 			SessionID:       opts.sessionID,
 			OperationID:     opts.operationID,
+			SpanID:          opts.spanID,
+			ParentSpanID:    opts.parentSpanID,
 		},
 	}, nil
 }

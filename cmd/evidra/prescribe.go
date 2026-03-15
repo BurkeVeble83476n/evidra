@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"samebits.com/evidra/internal/lifecycle"
-	"samebits.com/evidra/pkg/evidence"
 )
 
 type prescribeFlags struct {
@@ -20,11 +19,15 @@ type prescribeFlags struct {
 	environment         string
 	findingsPaths       multiStringFlag
 	evidenceDir         string
-	actorID             string
+	actor               actorFlags
 	canonicalActionJSON string
+	scopeDimensionsJSON string
 	sessionID           string
 	operationID         string
 	attempt             int
+	traceID             string
+	spanID              string
+	parentSpanID        string
 	signingKey          string
 	signingKeyPath      string
 	signingMode         string
@@ -103,11 +106,16 @@ func parsePrescribeFlags(args []string, stderr io.Writer) (prescribeFlags, int) 
 	var findingsPaths multiStringFlag
 	fs.Var(&findingsPaths, "findings", "SARIF findings file (repeatable)")
 	evidenceFlag := fs.String("evidence-dir", "", "Evidence directory")
-	actorFlag := fs.String("actor", "", "Actor ID (e.g. ci-pipeline-123)")
+	var actor actorFlags
+	bindActorFlags(fs, &actor, "Actor ID (e.g. ci-pipeline-123)")
 	canonicalActionFlag := fs.String("canonical-action", "", "Pre-canonicalized action JSON (bypasses adapter)")
+	scopeDimensionsFlag := fs.String("scope-dimensions", "", "Scope dimensions JSON object (e.g. '{\"cluster\":\"prod\",\"namespace\":\"default\"}')")
 	sessionIDFlag := fs.String("session-id", "", "Session/run boundary ID (generated if omitted)")
 	operationIDFlag := fs.String("operation-id", "", "Operation identifier")
 	attemptFlag := fs.Int("attempt", 0, "Retry attempt counter")
+	traceIDFlag := fs.String("trace-id", "", "Distributed tracing correlation ID")
+	spanIDFlag := fs.String("span-id", "", "Trace span identifier")
+	parentSpanIDFlag := fs.String("parent-span-id", "", "Parent span identifier")
 	signingKeyFlag := fs.String("signing-key", "", "Base64-encoded Ed25519 signing key")
 	signingKeyPathFlag := fs.String("signing-key-path", "", "Path to PEM-encoded Ed25519 signing key")
 	signingModeFlag := fs.String("signing-mode", "", "Signing mode: strict (default) or optional")
@@ -132,11 +140,15 @@ func parsePrescribeFlags(args []string, stderr io.Writer) (prescribeFlags, int) 
 		environment:         *envFlag,
 		findingsPaths:       findingsPaths,
 		evidenceDir:         *evidenceFlag,
-		actorID:             *actorFlag,
+		actor:               actor,
 		canonicalActionJSON: *canonicalActionFlag,
+		scopeDimensionsJSON: *scopeDimensionsFlag,
 		sessionID:           *sessionIDFlag,
 		operationID:         *operationIDFlag,
 		attempt:             *attemptFlag,
+		traceID:             *traceIDFlag,
+		spanID:              *spanIDFlag,
+		parentSpanID:        *parentSpanIDFlag,
 		signingKey:          *signingKeyFlag,
 		signingKeyPath:      *signingKeyPathFlag,
 		signingMode:         *signingModeFlag,
@@ -163,12 +175,12 @@ func preparePrescribeCommand(opts prescribeFlags) (prescribeCommand, error) {
 	if err != nil {
 		return prescribeCommand{}, err
 	}
-
-	actorID := opts.actorID
-	if actorID == "" {
-		actorID = "cli"
+	scopeDimensions, err := parseStringMapFlag(opts.scopeDimensionsJSON, "--scope-dimensions")
+	if err != nil {
+		return prescribeCommand{}, err
 	}
-	actor := evidence.Actor{Type: "cli", ID: actorID, Provenance: "cli"}
+
+	actor := buildActor(opts.actor, "cli", "cli", "cli")
 
 	var externalFindings []lifecycle.ExternalFindingsSource
 	for _, path := range opts.findingsPaths {
@@ -194,6 +206,10 @@ func preparePrescribeCommand(opts prescribeFlags) (prescribeCommand, error) {
 			SessionID:        opts.sessionID,
 			OperationID:      opts.operationID,
 			Attempt:          opts.attempt,
+			TraceID:          opts.traceID,
+			SpanID:           opts.spanID,
+			ParentSpanID:     opts.parentSpanID,
+			ScopeDimensions:  scopeDimensions,
 		},
 		evidencePath: evidencePath,
 	}, nil

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -80,5 +81,84 @@ func TestIsReachabilityError(t *testing.T) {
 	}
 	if IsReachabilityError(ErrUnauthorized) {
 		t.Error("ErrUnauthorized should NOT be reachability error")
+	}
+}
+
+func TestSubmitBenchmarkRun_Success(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Path; got != "/v1/benchmark/run" {
+			t.Fatalf("path = %q, want /v1/benchmark/run", got)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Fatalf("authorization = %q", got)
+		}
+
+		var req BenchmarkRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.Suite != "infra-bench" {
+			t.Fatalf("suite = %q", req.Suite)
+		}
+		if string(req.Metadata) != `{"contract_version":"v1.0.1"}` {
+			t.Fatalf("metadata = %s", req.Metadata)
+		}
+		if len(req.Results) != 1 || req.Results[0].CaseID != "kubernetes/fix-deployment" {
+			t.Fatalf("results = %#v", req.Results)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(BenchmarkRunResponse{
+			RunID:  "run-123",
+			Status: "accepted",
+		})
+	}))
+	defer ts.Close()
+
+	score := 0.91
+	c := New(Config{URL: ts.URL, APIKey: "test-key"})
+	resp, err := c.SubmitBenchmarkRun(context.Background(), BenchmarkRunRequest{
+		Suite:    "infra-bench",
+		Score:    &score,
+		Band:     "excellent",
+		Metadata: json.RawMessage(`{"contract_version":"v1.0.1"}`),
+		Results: []BenchmarkResult{
+			{
+				CaseID:         "kubernetes/fix-deployment",
+				ExpectedSignal: "safe_success",
+				ActualSignal:   "safe_success",
+				Passed:         true,
+				Details:        json.RawMessage(`{"duration_ms":1234}`),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitBenchmarkRun: %v", err)
+	}
+	if resp.RunID != "run-123" {
+		t.Fatalf("run_id = %q", resp.RunID)
+	}
+}
+
+func TestSubmitBenchmarkRun_ServerError(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	c := New(Config{URL: ts.URL, APIKey: "test-key"})
+	_, err := c.SubmitBenchmarkRun(context.Background(), BenchmarkRunRequest{
+		Suite: "infra-bench",
+		Band:  "unknown",
+	})
+	if err == nil {
+		t.Fatal("expected server error")
+	}
+	if !strings.Contains(err.Error(), "HTTP 500") {
+		t.Fatalf("error = %v", err)
 	}
 }

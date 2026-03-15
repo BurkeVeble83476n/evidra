@@ -63,6 +63,18 @@ func parseExternalRefsFlag(raw string) ([]evidence.ExternalRef, error) {
 	return externalRefs, nil
 }
 
+func parseStringMapFlag(raw, flagName string) (map[string]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+
+	var values map[string]string
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", flagName, err)
+	}
+	return values, nil
+}
+
 // resolveSigner creates a Signer from explicit flags or environment variables.
 // Returns an error when mode is strict and no key is configured.
 func resolveSigner(keyBase64, keyPath, modeRaw string) (evidence.Signer, error) {

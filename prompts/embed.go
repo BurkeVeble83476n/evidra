@@ -2,6 +2,9 @@ package prompts
 
 import (
 	"embed"
+	"encoding/json"
+	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -13,6 +16,7 @@ const (
 	MCPGetEventDescriptionPath    = "mcpserver/tools/get_event_description.txt"
 	MCPAgentContractPath          = "mcpserver/resources/content/agent_contract_v1.md"
 	SkillPath                     = "skill/SKILL.md"
+	RuntimeExperimentContractPath = "prompts/experiments/runtime/agent_contract_v1.md"
 
 	DefaultContractVersion      = "v1.0.1"
 	DefaultContractSkillVersion = "1.0.1"
@@ -21,9 +25,21 @@ const (
 var (
 	contractVersionPattern = regexp.MustCompile(`^v?[0-9]+(\.[0-9]+){1,2}$`)
 
-	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md skill/SKILL.md
+	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md manifests/*.json
 	files embed.FS
 )
+
+// Metadata captures contract and prompt provenance for a prompt file.
+type Metadata struct {
+	Path            string
+	ContractVersion string
+	SkillVersion    string
+	PromptVersion   string
+}
+
+type manifestFile struct {
+	Files map[string]string `json:"files"`
+}
 
 func Read(path string) (string, error) {
 	b, err := files.ReadFile(path)
@@ -67,6 +83,35 @@ func StripContractHeader(text string) string {
 
 func ParseContractVersionHeader(text string) (string, bool) {
 	return parseContractVersionHeader(text)
+}
+
+func ResolvePromptMetadata(path string) (Metadata, error) {
+	normalized := normalizePromptPath(path)
+	if normalized == "" {
+		return Metadata{}, fmt.Errorf("prompt path is required")
+	}
+
+	content, err := readPromptContent(path, normalized)
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	contractVersion, ok := parseContractVersionHeader(content)
+	if !ok {
+		contractVersion = DefaultContractVersion
+	}
+
+	promptVersion, err := manifestPromptVersion(contractVersion, normalized)
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	return Metadata{
+		Path:            normalized,
+		ContractVersion: contractVersion,
+		SkillVersion:    skillVersionFromContractVersion(contractVersion),
+		PromptVersion:   promptVersion,
+	}, nil
 }
 
 func parseContractVersionHeader(text string) (string, bool) {
@@ -134,4 +179,58 @@ func skillVersionFromContractVersion(contractVersion string) string {
 		}
 	}
 	return strings.Join(parts, ".")
+}
+
+func normalizePromptPath(path string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(path), "\\", "/")
+	if normalized == "" {
+		return ""
+	}
+	if idx := strings.Index(normalized, "/prompts/"); idx >= 0 {
+		return normalized[idx+1:]
+	}
+	if strings.HasPrefix(normalized, "prompts/") {
+		return normalized
+	}
+	switch {
+	case strings.HasPrefix(normalized, "experiments/"),
+		strings.HasPrefix(normalized, "generated/"),
+		strings.HasPrefix(normalized, "mcpserver/"),
+		strings.HasPrefix(normalized, "skill/"):
+		return "prompts/" + normalized
+	default:
+		return normalized
+	}
+}
+
+func readPromptContent(path, normalized string) (string, error) {
+	if trimmed := strings.TrimSpace(path); trimmed != "" {
+		if data, err := os.ReadFile(trimmed); err == nil {
+			return string(data), nil
+		}
+	}
+	embedPath := strings.TrimPrefix(normalized, "prompts/")
+	data, err := files.ReadFile(embedPath)
+	if err != nil {
+		return "", fmt.Errorf("read prompt %q: %w", normalized, err)
+	}
+	return string(data), nil
+}
+
+func manifestPromptVersion(contractVersion, normalizedPath string) (string, error) {
+	raw, err := files.ReadFile("manifests/" + contractVersion + ".json")
+	if err != nil {
+		return "", fmt.Errorf("read manifest for %s: %w", contractVersion, err)
+	}
+
+	var manifest manifestFile
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return "", fmt.Errorf("parse manifest for %s: %w", contractVersion, err)
+	}
+
+	promptVersion := manifest.Files[normalizedPath]
+	if promptVersion == "" {
+		return "", fmt.Errorf("prompt %q not found in manifest %s", normalizedPath, contractVersion)
+	}
+	return promptVersion, nil
 }

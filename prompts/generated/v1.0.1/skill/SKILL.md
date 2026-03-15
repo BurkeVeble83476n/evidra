@@ -75,7 +75,7 @@ Record intent BEFORE an infrastructure operation that creates, modifies, or dele
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "v1.0.1"
+    "skill_version": "1.0.1"
   }
 }
 ```
@@ -166,7 +166,7 @@ Record the terminal verdict AFTER an infrastructure operation completes or is in
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "v1.0.1"
+    "skill_version": "1.0.1"
   }
 }
 ```
@@ -178,7 +178,7 @@ Record the terminal verdict AFTER an infrastructure operation completes or is in
   "prescription_id": "01ABC...",
   "verdict": "failure",
   "exit_code": 1,
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "v1.0.1" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "1.0.1" }
 }
 ```
 
@@ -196,7 +196,7 @@ When you decide **not** to execute after prescribing (e.g., risk is too high):
     "trigger": "risk_threshold_exceeded",
     "reason": "Critical risk: privileged container in production"
   },
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "v1.0.1" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "1.0.1" }
 }
 ```
 

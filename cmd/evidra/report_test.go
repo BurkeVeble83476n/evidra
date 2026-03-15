@@ -155,6 +155,60 @@ func TestRunReport_SuccessRequiresExitCode(t *testing.T) {
 	}
 }
 
+func TestRunReport_PersistsExtendedActorMetadata(t *testing.T) {
+	t.Parallel()
+
+	signingKey := testutil.TestSigningKeyBase64(t)
+	tmp := t.TempDir()
+	evidenceDir := filepath.Join(tmp, "evidence")
+	prescriptionID := prescribeForReportTest(t, signingKey, evidenceDir)
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"report",
+		"--prescription", prescriptionID,
+		"--verdict", "success",
+		"--exit-code", "0",
+		"--actor", "bench-agent",
+		"--actor-type", "agent",
+		"--actor-origin", "mcp-stdio",
+		"--actor-instance-id", "session-123",
+		"--actor-version", "claude-sonnet-4.5",
+		"--actor-skill-version", "1.0.1",
+		"--evidence-dir", evidenceDir,
+		"--signing-key", signingKey,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("report exit %d: %s", code, errBuf.String())
+	}
+
+	entries, err := evidence.ReadAllEntriesAtPath(evidenceDir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entry count = %d, want 2", len(entries))
+	}
+	if entries[1].Actor.Type != "agent" {
+		t.Fatalf("actor.type = %q", entries[1].Actor.Type)
+	}
+	if entries[1].Actor.ID != "bench-agent" {
+		t.Fatalf("actor.id = %q", entries[1].Actor.ID)
+	}
+	if entries[1].Actor.Provenance != "mcp-stdio" {
+		t.Fatalf("actor.provenance = %q", entries[1].Actor.Provenance)
+	}
+	if entries[1].Actor.InstanceID != "session-123" {
+		t.Fatalf("actor.instance_id = %q", entries[1].Actor.InstanceID)
+	}
+	if entries[1].Actor.Version != "claude-sonnet-4.5" {
+		t.Fatalf("actor.version = %q", entries[1].Actor.Version)
+	}
+	if entries[1].Actor.SkillVersion != "1.0.1" {
+		t.Fatalf("actor.skill_version = %q", entries[1].Actor.SkillVersion)
+	}
+}
+
 func prescribeForReportTest(t *testing.T, signingKey, evidenceDir string) string {
 	t.Helper()
 

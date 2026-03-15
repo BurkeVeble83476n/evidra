@@ -63,6 +63,30 @@ type BatchResponse struct {
 	Errors   []string `json:"errors,omitempty"`
 }
 
+// BenchmarkRunRequest is the payload for POST /v1/benchmark/run.
+type BenchmarkRunRequest struct {
+	Suite    string            `json:"suite"`
+	Score    *float64          `json:"score,omitempty"`
+	Band     string            `json:"band"`
+	Metadata json.RawMessage   `json:"metadata,omitempty"`
+	Results  []BenchmarkResult `json:"results"`
+}
+
+// BenchmarkResult is one benchmark case result.
+type BenchmarkResult struct {
+	CaseID         string          `json:"case_id"`
+	ExpectedSignal string          `json:"expected_signal"`
+	ActualSignal   string          `json:"actual_signal"`
+	Passed         bool            `json:"passed"`
+	Details        json.RawMessage `json:"details,omitempty"`
+}
+
+// BenchmarkRunResponse is the response from POST /v1/benchmark/run.
+type BenchmarkRunResponse struct {
+	RunID  string `json:"run_id"`
+	Status string `json:"status"`
+}
+
 // Batch sends multiple entries to POST /v1/evidence/batch.
 func (c *Client) Batch(ctx context.Context, entries []json.RawMessage) (BatchResponse, error) {
 	var resp BatchResponse
@@ -70,6 +94,19 @@ func (c *Client) Batch(ctx context.Context, entries []json.RawMessage) (BatchRes
 	raw, _ := json.Marshal(body)
 	if err := c.post(ctx, "/v1/evidence/batch", raw, &resp); err != nil {
 		return BatchResponse{}, err
+	}
+	return resp, nil
+}
+
+// SubmitBenchmarkRun sends a benchmark summary to POST /v1/benchmark/run.
+func (c *Client) SubmitBenchmarkRun(ctx context.Context, req BenchmarkRunRequest) (BenchmarkRunResponse, error) {
+	var resp BenchmarkRunResponse
+	raw, err := json.Marshal(req)
+	if err != nil {
+		return BenchmarkRunResponse{}, fmt.Errorf("%w: marshal benchmark run: %v", ErrInvalidInput, err)
+	}
+	if err := c.post(ctx, "/v1/benchmark/run", raw, &resp); err != nil {
+		return BenchmarkRunResponse{}, err
 	}
 	return resp, nil
 }

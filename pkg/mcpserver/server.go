@@ -14,6 +14,7 @@ import (
 	"samebits.com/evidra/internal/lifecycle"
 	"samebits.com/evidra/internal/score"
 	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/execcontract"
 	"samebits.com/evidra/pkg/version"
 	promptdata "samebits.com/evidra/prompts"
 )
@@ -141,13 +142,6 @@ type MCPService struct {
 }
 
 const (
-	defaultPrescribeToolDescription = "Analyze an infrastructure artifact BEFORE execution. " +
-		"Returns risk inputs, effective risk, canonical digests, and a prescription ID. " +
-		"Call this BEFORE running kubectl apply, terraform apply, or similar commands."
-
-	defaultReportToolDescription = "Report the terminal outcome of an infrastructure operation or decision. " +
-		"Provide the prescription_id from a previous prescribe call, an explicit verdict, and for declined decisions a short operational reason."
-
 	defaultGetEventToolDescription = "Look up an evidence record by event_id."
 
 	defaultInitializeInstructions = "Evidra — Flight recorder for AI infrastructure agents. " +
@@ -155,21 +149,13 @@ const (
 )
 
 var (
-	prescribeToolDescription = defaultPrescribeToolDescription
-	reportToolDescription    = defaultReportToolDescription
-	getEventToolDescription  = defaultGetEventToolDescription
-	initializeInstructions   = defaultInitializeInstructions
-	contractVersion          = promptdata.DefaultContractVersion
-	contractSkillVersion     = promptdata.DefaultContractSkillVersion
+	getEventToolDescription = defaultGetEventToolDescription
+	initializeInstructions  = defaultInitializeInstructions
+	contractVersion         = promptdata.DefaultContractVersion
+	contractSkillVersion    = promptdata.DefaultContractSkillVersion
 )
 
 func init() {
-	if s, err := promptdata.Read(promptdata.MCPPrescribeDescriptionPath); err == nil {
-		prescribeToolDescription = promptdata.StripContractHeader(s)
-	}
-	if s, err := promptdata.Read(promptdata.MCPReportDescriptionPath); err == nil {
-		reportToolDescription = promptdata.StripContractHeader(s)
-	}
 	if s, err := promptdata.Read(promptdata.MCPGetEventDescriptionPath); err == nil {
 		getEventToolDescription = promptdata.StripContractHeader(s)
 	}
@@ -202,11 +188,11 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	report := &reportHandler{service: svc}
 	getEvent := &getEventHandler{service: svc}
 
-	prescribeSchema, err := loadSchema(prescribeSchemaBytes, "schemas/prescribe.schema.json")
+	prescribeDef, err := execcontract.PrescribeToolDefinition()
 	if err != nil {
 		return nil, nil, err
 	}
-	reportSchema, err := loadSchema(reportSchemaBytes, "schemas/report.schema.json")
+	reportDef, err := execcontract.ReportToolDefinition()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,7 +215,7 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "prescribe",
 		Title:       "Record Infrastructure Intent",
-		Description: prescribeToolDescription,
+		Description: prescribeDef.Description,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Prescribe",
 			ReadOnlyHint:    false,
@@ -237,13 +223,13 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(false),
 		},
-		InputSchema: prescribeSchema,
+		InputSchema: prescribeDef.Parameters,
 	}, prescribe.Handle)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "report",
 		Title:       "Report Operation Result",
-		Description: reportToolDescription,
+		Description: reportDef.Description,
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Report",
 			ReadOnlyHint:    false,
@@ -251,7 +237,7 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(false),
 		},
-		InputSchema: reportSchema,
+		InputSchema: reportDef.Parameters,
 	}, report.Handle)
 
 	mcp.AddTool(server, &mcp.Tool{

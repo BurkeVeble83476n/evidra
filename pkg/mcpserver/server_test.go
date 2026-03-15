@@ -11,6 +11,7 @@ import (
 	"samebits.com/evidra/internal/lifecycle"
 	"samebits.com/evidra/internal/testutil"
 	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/execcontract"
 	"samebits.com/evidra/pkg/version"
 )
 
@@ -282,24 +283,16 @@ func TestSchemaStructParity(t *testing.T) {
 
 	cases := []struct {
 		name       string
-		schemaJSON []byte
+		schema     map[string]any
 		structType reflect.Type
 	}{
-		{"prescribe", prescribeSchemaBytes, reflect.TypeOf(PrescribeInput{})},
-		{"report", reportSchemaBytes, reflect.TypeOf(ReportInput{})},
+		{name: "prescribe", schema: mustToolSchema(t, execcontract.PrescribeToolDefinition), structType: reflect.TypeOf(PrescribeInput{})},
+		{name: "report", schema: mustToolSchema(t, execcontract.ReportToolDefinition), structType: reflect.TypeOf(ReportInput{})},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			// Parse schema to get top-level properties.
-			var schema struct {
-				Properties map[string]interface{} `json:"properties"`
-			}
-			if err := json.Unmarshal(tc.schemaJSON, &schema); err != nil {
-				t.Fatalf("parse schema: %v", err)
-			}
 
 			// Extract json tags from struct.
 			structFields := make(map[string]bool)
@@ -315,7 +308,8 @@ func TestSchemaStructParity(t *testing.T) {
 			}
 
 			// Every schema property must have a struct field.
-			for prop := range schema.Properties {
+			properties, _ := tc.schema["properties"].(map[string]any)
+			for prop := range properties {
 				if !structFields[prop] {
 					t.Errorf("schema property %q has no matching struct field (would be silently dropped)", prop)
 				}
@@ -323,12 +317,22 @@ func TestSchemaStructParity(t *testing.T) {
 
 			// Every struct field must have a schema property.
 			for field := range structFields {
-				if _, ok := schema.Properties[field]; !ok {
+				if _, ok := properties[field]; !ok {
 					t.Errorf("struct field %q has no matching schema property (undocumented in schema)", field)
 				}
 			}
 		})
 	}
+}
+
+func mustToolSchema(t *testing.T, load func() (execcontract.ToolDefinition, error)) map[string]any {
+	t.Helper()
+
+	def, err := load()
+	if err != nil {
+		t.Fatalf("load tool definition: %v", err)
+	}
+	return def.Parameters
 }
 
 func assertRiskInputTagPresent(t *testing.T, inputs []evidence.RiskInput, source, want string) {

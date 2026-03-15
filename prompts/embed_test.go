@@ -1,6 +1,7 @@
 package prompts
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -67,5 +68,31 @@ func TestStripContractHeader(t *testing.T) {
 	want := "line1\nline2"
 	if got := stripContractHeader(in); got != want {
 		t.Fatalf("stripContractHeader()=%q, want %q", got, want)
+	}
+}
+
+func TestResolvePromptMetadata_RuntimeContract(t *testing.T) {
+	t.Parallel()
+
+	absPath, err := filepath.Abs("experiments/runtime/agent_contract_v1.md")
+	if err != nil {
+		t.Fatalf("filepath.Abs: %v", err)
+	}
+
+	meta, err := ResolvePromptMetadata(absPath)
+	if err != nil {
+		t.Fatalf("ResolvePromptMetadata: %v", err)
+	}
+	if meta.ContractVersion != DefaultContractVersion {
+		t.Fatalf("contract_version = %q, want %q", meta.ContractVersion, DefaultContractVersion)
+	}
+	if meta.SkillVersion != DefaultContractSkillVersion {
+		t.Fatalf("skill_version = %q, want %q", meta.SkillVersion, DefaultContractSkillVersion)
+	}
+	if meta.Path != "prompts/experiments/runtime/agent_contract_v1.md" {
+		t.Fatalf("path = %q, want %q", meta.Path, "prompts/experiments/runtime/agent_contract_v1.md")
+	}
+	if meta.PromptVersion != "sha256:a79fc218d2d69f402fd200de808617de9b770adc95c064d69c6ab22511ad5aef" {
+		t.Fatalf("prompt_version = %q", meta.PromptVersion)
 	}
 }

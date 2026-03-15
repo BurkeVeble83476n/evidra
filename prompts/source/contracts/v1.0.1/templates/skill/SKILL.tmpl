@@ -72,7 +72,7 @@ Read-only examples (skip protocol):
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "{{ .Contract.Version }}"
+    "skill_version": "{{ .SkillVersion }}"
   }
 }
 {{ "```" }}
@@ -157,7 +157,7 @@ After prescribe returns `ok=true`, execute the infrastructure command normally. 
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "{{ .Contract.Version }}"
+    "skill_version": "{{ .SkillVersion }}"
   }
 }
 {{ "```" }}
@@ -169,7 +169,7 @@ After prescribe returns `ok=true`, execute the infrastructure command normally. 
   "prescription_id": "01ABC...",
   "verdict": "failure",
   "exit_code": 1,
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .Contract.Version }}" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .SkillVersion }}" }
 }
 {{ "```" }}
 
@@ -187,7 +187,7 @@ When you decide **not** to execute after prescribing (e.g., risk is too high):
     "trigger": "risk_threshold_exceeded",
     "reason": "Critical risk: privileged container in production"
   },
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .Contract.Version }}" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .SkillVersion }}" }
 }
 {{ "```" }}
 

@@ -2,13 +2,44 @@ package version
 
 import "testing"
 
-func TestContractVersions_UseSemverStyleValues(t *testing.T) {
+func TestBuildString_UsesInjectedBuildMetadata(t *testing.T) {
 	t.Parallel()
 
-	if SpecVersion != "v1.1.0" {
-		t.Fatalf("SpecVersion = %q, want %q", SpecVersion, "v1.1.0")
+	originalVersion, originalCommit, originalDate := Version, Commit, Date
+	t.Cleanup(func() {
+		Version = originalVersion
+		Commit = originalCommit
+		Date = originalDate
+	})
+
+	Version = "v0.4.9-2-g3c5b1fe"
+	Commit = "3c5b1fe"
+	Date = "2026-03-15T12:00:00Z"
+
+	got := BuildString("evidra")
+	want := "evidra v0.4.9-2-g3c5b1fe (commit: 3c5b1fe, built: 2026-03-15T12:00:00Z)"
+	if got != want {
+		t.Fatalf("BuildString() = %q, want %q", got, want)
 	}
-	if ScoringVersion != "v1.1.0" {
-		t.Fatalf("ScoringVersion = %q, want %q", ScoringVersion, "v1.1.0")
+}
+
+func TestBuildString_UsesDefaultsWhenBuildMetadataMissing(t *testing.T) {
+	t.Parallel()
+
+	originalVersion, originalCommit, originalDate := Version, Commit, Date
+	t.Cleanup(func() {
+		Version = originalVersion
+		Commit = originalCommit
+		Date = originalDate
+	})
+
+	Version = BaseVersion
+	Commit = ""
+	Date = ""
+
+	got := BuildString("evidra")
+	want := "evidra " + BaseVersion + " (commit: unknown, built: unknown)"
+	if got != want {
+		t.Fatalf("BuildString() = %q, want %q", got, want)
 	}
 }

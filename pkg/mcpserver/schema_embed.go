@@ -6,12 +6,6 @@ import (
 	"fmt"
 )
 
-//go:embed schemas/prescribe.schema.json
-var prescribeSchemaBytes []byte
-
-//go:embed schemas/report.schema.json
-var reportSchemaBytes []byte
-
 //go:embed schemas/get_event.schema.json
 var getEventSchemaBytes []byte
 

@@ -153,7 +153,7 @@ Agent: "Risk too high, declining"
 
 Declined verdicts are first-class evidence — not silent gaps in the log.
 
-References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](docs/guides/skill-setup.md) · [MCP schemas](pkg/mcpserver/schemas/)
+References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](docs/guides/skill-setup.md) · [Execution schemas](pkg/execcontract/schemas/)
 
 ## For CI/CD Pipelines
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -10,7 +11,13 @@ import (
 	"samebits.com/evidra/internal/store"
 )
 
-func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {
+type benchmarkStore interface {
+	SaveRun(ctx context.Context, run store.BenchmarkRun, results []store.BenchmarkResult) (string, error)
+	ListRuns(ctx context.Context, tenantID string, limit, offset int) ([]store.BenchmarkRun, error)
+	GetRunWithResults(ctx context.Context, tenantID, runID string) (store.BenchmarkRun, []store.BenchmarkResult, error)
+}
+
+func handleBenchmarkRun(bs benchmarkStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if bs == nil {
 			writeError(w, http.StatusNotImplemented, "benchmark storage not available")
@@ -20,10 +27,11 @@ func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {
 		tenantID := auth.TenantID(r.Context())
 
 		var req struct {
-			Suite   string                  `json:"suite"`
-			Score   *float64                `json:"score,omitempty"`
-			Band    string                  `json:"band"`
-			Results []store.BenchmarkResult `json:"results"`
+			Suite    string                  `json:"suite"`
+			Score    *float64                `json:"score,omitempty"`
+			Band     string                  `json:"band"`
+			Metadata json.RawMessage         `json:"metadata,omitempty"`
+			Results  []store.BenchmarkResult `json:"results"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON")
@@ -35,6 +43,7 @@ func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {
 			Suite:     req.Suite,
 			Score:     req.Score,
 			Band:      req.Band,
+			Metadata:  req.Metadata,
 			StartedAt: time.Now().UTC(),
 		}
 
@@ -51,7 +60,7 @@ func handleBenchmarkRun(bs *store.BenchmarkStore) http.HandlerFunc {
 	}
 }
 
-func handleBenchmarkRuns(bs *store.BenchmarkStore) http.HandlerFunc {
+func handleBenchmarkRuns(bs benchmarkStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if bs == nil {
 			writeError(w, http.StatusNotImplemented, "benchmark storage not available")
@@ -75,7 +84,7 @@ func handleBenchmarkRuns(bs *store.BenchmarkStore) http.HandlerFunc {
 	}
 }
 
-func handleBenchmarkCompare(bs *store.BenchmarkStore) http.HandlerFunc {
+func handleBenchmarkCompare(bs benchmarkStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if bs == nil {
 			writeError(w, http.StatusNotImplemented, "benchmark storage not available")

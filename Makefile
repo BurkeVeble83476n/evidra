@@ -5,10 +5,15 @@
 	prompts-generate prompts-verify test-experiments test-signals \
 	ui-build build-api
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -X samebits.com/evidra/pkg/version.Version=$(VERSION) -X samebits.com/evidra/pkg/version.Commit=$(COMMIT) -X samebits.com/evidra/pkg/version.Date=$(BUILD_DATE)
+
 build:
-	go build -o bin/evidra ./cmd/evidra
-	go build -o bin/evidra-mcp ./cmd/evidra-mcp
-	go build -o bin/evidra-api ./cmd/evidra-api
+	go build -ldflags "$(LDFLAGS)" -o bin/evidra ./cmd/evidra
+	go build -ldflags "$(LDFLAGS)" -o bin/evidra-mcp ./cmd/evidra-mcp
+	go build -ldflags "$(LDFLAGS)" -o bin/evidra-api ./cmd/evidra-api
 
 test:
 	go test ./... -v -count=1
@@ -108,4 +113,4 @@ ui-build:
 	cd ui && npm install && npm run build
 
 build-api: ui-build
-	go build -tags embed_ui -o bin/evidra-api ./cmd/evidra-api
+	go build -tags embed_ui -ldflags "$(LDFLAGS)" -o bin/evidra-api ./cmd/evidra-api

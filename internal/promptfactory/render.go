@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	promptdata "samebits.com/evidra/prompts"
 )
 
 type renderData struct {
 	ContractVersion string
+	SkillVersion    string
 	Contract        Contract
 	Classification  Classification
 	Output          OutputContracts
@@ -75,6 +78,7 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 
 	data := renderData{
 		ContractVersion: bundle.Contract.Version,
+		SkillVersion:    promptdata.ParseSkillVersionFromContractVersion(bundle.Contract.Version),
 		Contract:        bundle.Contract,
 		Classification:  bundle.Classification,
 		Output:          bundle.Output,

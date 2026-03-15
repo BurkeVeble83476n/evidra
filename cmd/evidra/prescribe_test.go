@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"samebits.com/evidra/internal/testutil"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 func TestPrescribeSupportsArtifactShortFlag(t *testing.T) {
@@ -51,5 +52,62 @@ func TestPrescribeSupportsArtifactShortFlag(t *testing.T) {
 	}
 	if _, ok := result["risk_tags"]; ok {
 		t.Fatalf("risk_tags must not be present: %#v", result)
+	}
+}
+
+func TestPrescribePersistsExtendedActorMetadata(t *testing.T) {
+	t.Parallel()
+
+	signingKey := testutil.TestSigningKeyBase64(t)
+	tmp := t.TempDir()
+	artifactPath := filepath.Join(tmp, "artifact.yaml")
+	evidenceDir := filepath.Join(tmp, "evidence")
+	if err := os.WriteFile(artifactPath, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: prescribe-actor-metadata\n"), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{
+		"prescribe",
+		"--artifact", artifactPath,
+		"--tool", "kubectl",
+		"--operation", "apply",
+		"--actor", "bench-agent",
+		"--actor-type", "agent",
+		"--actor-origin", "mcp-stdio",
+		"--actor-instance-id", "session-123",
+		"--actor-version", "claude-sonnet-4.5",
+		"--actor-skill-version", "1.0.1",
+		"--signing-key", signingKey,
+		"--evidence-dir", evidenceDir,
+	}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("prescribe exit=%d stderr=%s", code, errBuf.String())
+	}
+
+	entries, err := evidence.ReadAllEntriesAtPath(evidenceDir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entry count = %d, want 1", len(entries))
+	}
+	if entries[0].Actor.Type != "agent" {
+		t.Fatalf("actor.type = %q", entries[0].Actor.Type)
+	}
+	if entries[0].Actor.ID != "bench-agent" {
+		t.Fatalf("actor.id = %q", entries[0].Actor.ID)
+	}
+	if entries[0].Actor.Provenance != "mcp-stdio" {
+		t.Fatalf("actor.provenance = %q", entries[0].Actor.Provenance)
+	}
+	if entries[0].Actor.InstanceID != "session-123" {
+		t.Fatalf("actor.instance_id = %q", entries[0].Actor.InstanceID)
+	}
+	if entries[0].Actor.Version != "claude-sonnet-4.5" {
+		t.Fatalf("actor.version = %q", entries[0].Actor.Version)
+	}
+	if entries[0].Actor.SkillVersion != "1.0.1" {
+		t.Fatalf("actor.skill_version = %q", entries[0].Actor.SkillVersion)
 	}
 }
