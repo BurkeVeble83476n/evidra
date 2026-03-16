@@ -15,6 +15,7 @@ const LANDING_LINKS = [
   { href: "#mcp-setup", label: "MCP Setup" },
   { href: "#api", label: "API" },
   { href: "#guides", label: "Guides" },
+  { href: "https://bench.evidra.cc", label: "Bench", external: true },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -47,6 +48,7 @@ function Header() {
                   <a
                     key={l.href}
                     href={l.href}
+                    {...("external" in l && l.external ? { target: "_blank", rel: "noopener" } : {})}
                     className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors max-lg:hidden"
                   >
                     {l.label}
@@ -69,6 +71,14 @@ function Header() {
                 >
                   Dashboard
                 </Link>
+                <a
+                  href="https://bench.evidra.cc"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors"
+                >
+                  Bench
+                </a>
               </>
             )}
           </nav>
@@ -138,6 +148,10 @@ function Footer() {
       <div className="max-w-[980px] mx-auto px-8">
         <a href="https://github.com/vitas/evidra" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
           github.com/vitas/evidra
+        </a>
+        {" \u00B7 "}
+        <a href="https://bench.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
+          bench.evidra.cc
         </a>
         {" \u00B7 Apache 2.0"}
       </div>

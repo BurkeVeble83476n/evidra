@@ -332,6 +332,7 @@
         <a href="#get-started">Get Started</a>
         <a href="#api">API</a>
         <a href="#guides">Guides</a>
+        <a href="https://bench.evidra.cc" target="_blank" rel="noopener">Bench</a>
       </nav>
     </div>
     <div class="header-right">
@@ -551,6 +552,14 @@ flowchart TB
       </tbody>
     </table>
     <p style="font-size:0.85rem; color:var(--fg-muted); margin-top:1.5rem;">Sonnet discovers and follows the protocol without any skill &mdash; it self-corrects along the way. The skill removes the exploration overhead: correct behavior on first attempt, 23% fewer tokens.</p>
+    <div style="margin-top:2rem; padding:1.25rem 1.5rem; background:var(--accent-subtle); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:var(--accent); margin-bottom:0.4rem;">Live Demo</div>
+        <div style="font-size:0.92rem; font-weight:600; color:var(--fg); margin-bottom:0.25rem;">Infra Bench &mdash; Agent Benchmark Harness</div>
+        <div style="font-size:0.83rem; color:var(--fg-muted); line-height:1.5;">34 real Kubernetes failure scenarios. Run agents against crashloops, drift, RBAC issues, and safety tradeoffs. Browse results, compare models, and explore protocol compliance.</div>
+      </div>
+      <a class="btn btn-primary" href="https://bench.evidra.cc" target="_blank" rel="noopener" style="white-space:nowrap;">Open Bench &rarr;</a>
+    </div>
   </div>
 </section>
 
@@ -686,6 +695,7 @@ curl -H "Authorization: Bearer $EVIDRA_API_KEY" \
 <footer>
   <div class="container">
     <a href="https://github.com/vitas/evidra" target="_blank" rel="noopener">github.com/vitas/evidra</a>
+    &middot; <a href="https://bench.evidra.cc" target="_blank" rel="noopener">bench.evidra.cc</a>
     &middot; Apache 2.0
   </div>
 </footer>

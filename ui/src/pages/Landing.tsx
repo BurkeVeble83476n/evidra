@@ -622,6 +622,21 @@ function Benchmark() {
         <p className="text-[0.85rem] text-fg-muted mt-6">
           Sonnet discovers and follows the protocol without any skill &mdash; it self-corrects along the way. The skill removes the exploration overhead: correct behavior on first attempt, 23% fewer tokens.
         </p>
+        <div className="mt-8 flex items-center justify-between flex-wrap gap-4 bg-accent-subtle border border-border rounded-[10px] p-5 px-6">
+          <div>
+            <div className="font-mono text-[0.72rem] font-medium tracking-widest uppercase text-accent mb-1">Live Demo</div>
+            <h3 className="text-[0.92rem] font-semibold text-fg mb-1">Infra Bench &mdash; Agent Benchmark Harness</h3>
+            <p className="text-[0.83rem] text-fg-muted leading-relaxed">34 real Kubernetes failure scenarios. Run agents against crashloops, drift, RBAC issues, and safety tradeoffs. Browse results, compare models, and explore protocol compliance.</p>
+          </div>
+          <a
+            href="https://bench.evidra.cc"
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline whitespace-nowrap"
+          >
+            Open Bench &rarr;
+          </a>
+        </div>
       </Container>
     </section>
   );
