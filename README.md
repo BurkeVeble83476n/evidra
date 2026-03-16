@@ -6,24 +6,13 @@
 
 **Evidra — Flight recorder for AI infrastructure agents**
 
-Evidra records what your automation intended, decided, and did — and by showing agents the risk before they act, makes the next operation safer than the last.
+Your AI agent fixes Kubernetes. Can you prove it?
 
-```bash
-evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
-```
+We benchmarked few AI models across 34 infrastructure scenarios. The best one fixed 100% of problems — and left no evidence trail 27% of the time. An unrecorded fix is invisible to audits, compliance, and behavioral analysis.
 
-## The Gap
+Evidra records what your automation intended, decided, and did. Every operation gets a risk assessment before execution. Every decision — including explicit refusals — is captured in a signed, append-only evidence chain. Over time, behavioral patterns become visible: retry loops, drift, risk escalation.
 
-Your AI agent decides at runtime which YAML to generate, which namespace to target, which command to run. That intent exists for one moment — then the command executes and the intent is gone.
-
-OTel sees the API call. CloudTrail logs the request. Datadog traces the latency. But none of them can answer:
-
-- What was the agent **trying** to do before it ran the command?
-- Did the applied artifact match what was prescribed, or did something change?
-- Did the agent **decide not to act** — and why?
-- Is this the third retry of the same failed intent in the last hour?
-
-These questions require evidence that starts **before** execution. Evidra captures that evidence through the prescribe/report protocol and stores it in a tamper-evident signed chain.
+Evidra is not a proxy. It does not block or intercept. It does not replace OTel, Datadog, or Logfire. Agents call Evidra voluntarily through MCP — and when they do, they make better decisions because they see the risk before they act.
 
 ## The Prescribe/Report Protocol
 
