@@ -14,6 +14,16 @@ Evidra records what your automation intended, executed, and produced. Every oper
 
 Evidra is not a proxy. It does not block or intercept. It does not replace OTel, Datadog, or Logfire. One protocol spans agents, pipelines, and controllers: imperative commands, CI stages, and reconciliation loops all land in the same evidence model.
 
+## Why Not a Proxy?
+
+Proxy-based enforcement decides for your agent: block or allow. One misconfigured rule at 2am blocks a critical production fix. The system thinks it knows better.
+
+Evidra takes the opposite approach: inform, don't enforce. Your agent sees the risk assessment and decides. If it proceeds — recorded. If it declines — recorded with a reason. The agent is accountable, not constrained.
+
+Aviation learned this lesson. When automated systems override pilots without recourse, the results can be catastrophic. When systems inform and record, pilots make better decisions — and investigators can understand why.
+
+Evidra is the flight recorder, not the autopilot.
+
 ## The Prescribe/Report Protocol
 
 Every infrastructure mutation follows the same lifecycle:
