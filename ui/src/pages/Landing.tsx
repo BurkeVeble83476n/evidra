@@ -48,8 +48,8 @@ const SYSTEM_CHART = `flowchart TB
   LS --> Engine
   DB --> Engine`;
 
-const SEQUENCE_CHART = `sequenceDiagram
-  participant Actor as Agent / CI / Controller
+export const SEQUENCE_CHART = `sequenceDiagram
+  participant Initiator as Agent / CI / Controller
   participant CLI as evidra CLI / MCP
   participant Canon as Canonicalize
   participant Risk as Risk Engine
@@ -57,35 +57,35 @@ const SEQUENCE_CHART = `sequenceDiagram
   participant Signal as Signal Detectors
   participant Score as Scoring Engine
 
-  Note over Actor,CLI: payload.flavor = imperative | reconcile | pipeline_stage
+  Note over Initiator,CLI: payload.flavor = imperative | reconcile | pipeline_stage
 
-  Actor->>CLI: prescribe(tool, operation, artifact)
+  Initiator->>CLI: prescribe(tool, operation, artifact)
   CLI->>Canon: SelectAdapter → Normalize
   Canon-->>CLI: CanonicalAction + digests
   CLI->>Risk: build risk inputs
   Risk-->>CLI: risk inputs + effective risk
   CLI->>Chain: append(prescription entry)
-  CLI-->>Actor: prescription id + effective risk
+  CLI-->>Initiator: prescription id + effective risk
 
   alt Imperative execution
-    Note over Actor: Execute infrastructure mutation
-    Actor->>CLI: report(prescription id, verdict, exit code)
+    Note over Initiator: Execute infrastructure mutation
+    Initiator->>CLI: report(prescription id, verdict, exit code)
   else Declarative reconciliation
-    Note over Actor: Controller records reconcile outcome
-    Actor->>CLI: report(prescription id, verdict, reconcile metadata)
+    Note over Initiator: Controller records reconcile outcome
+    Initiator->>CLI: report(prescription id, verdict, reconcile metadata)
   else Deliberate refusal
-    Note over Actor: Record the deny decision explicitly
-    Actor->>CLI: report(prescription id, declined, decision context)
+    Note over Initiator: Record the deny decision explicitly
+    Initiator->>CLI: report(prescription id, declined, decision context)
   end
   CLI->>Chain: append(report entry, linked)
   CLI->>Signal: detect patterns
   Signal-->>CLI: signal_summary + confidence
-  CLI-->>Actor: report id + score band
+  CLI-->>Initiator: report id + score band
 
-  Actor->>CLI: scorecard(filters)
+  Initiator->>CLI: scorecard(filters)
   CLI->>Score: compute(entries, scoring profile)
   Score-->>CLI: score, band, confidence
-  CLI-->>Actor: scorecard + band`;
+  CLI-->>Initiator: scorecard + band`;
 
 const INSTALL_BINARY = `# Download latest release (Linux/macOS)
 curl -fsSL https://github.com/samebits/evidra/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \\
@@ -341,6 +341,9 @@ function Hero() {
           </Link>
           <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             API Docs
+          </a>
+          <a href="https://bench.evidra.cc" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+            Bench
           </a>
         </div>
       </Container>

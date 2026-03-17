@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
+import mermaid from "mermaid";
 import { App } from "../../src/App";
+import { SEQUENCE_CHART } from "../../src/pages/Landing";
 
 describe("App", () => {
   beforeEach(() => {
@@ -34,6 +36,21 @@ describe("App", () => {
     );
   });
 
+  it("renders a Bench CTA in the hero actions", () => {
+    render(<App />);
+
+    const hero = screen
+      .getByRole("heading", {
+        name: /Know what your agent intended\.\s*Know what actually happened\./i,
+      })
+      .closest("section");
+
+    expect(hero).not.toBeNull();
+    expect(
+      within(hero as HTMLElement).getByRole("link", { name: "Bench" }),
+    ).toHaveAttribute("href", "https://bench.evidra.cc");
+  });
+
   it("does not expose raw signal weights on the landing page", () => {
     render(<App />);
 
@@ -48,5 +65,9 @@ describe("App", () => {
 
     expect(screen.getByText(/risk_inputs/i)).toBeInTheDocument();
     expect(screen.getByText(/effective_risk/i)).toBeInTheDocument();
+  });
+
+  it("uses a valid mermaid sequence chart for the default protocol flow", async () => {
+    await expect(mermaid.parse(SEQUENCE_CHART)).resolves.toBeTruthy();
   });
 });
