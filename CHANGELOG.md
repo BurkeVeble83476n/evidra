@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.11 — 2026-03-17
+
+### GitOps And Argo CD
+- Added controller-first Argo CD integration for self-hosted `evidra-api`, with zero-touch reconciliation capture and explicit `evidra.cc/*` correlation
+- Kept GitOps evidence on the standard `prescribe` / `report` lifecycle using `payload.flavor = reconcile`
+- Added shared automation event emission for mapped Argo CD webhook and controller-reported lifecycle entries
+
+### Documentation And Product Surface
+- Added the Argo CD GitOps integration guide and aligned architecture/system-design docs around the controller-first model
+- Updated landing page and static fallback copy to describe one evidence protocol across agents, pipelines, and controllers
+
+### Build And Runtime
+- Refactored `evidra-api` startup initialization to reduce complexity without changing startup behavior
+
 ## v0.4.10 — 2026-03-15
 
 ### Shared Execution Contracts
