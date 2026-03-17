@@ -8,21 +8,15 @@
 
 Your AI agent fixes Kubernetes. Can you prove it?
 
-We benchmarked few AI models across 34 infrastructure scenarios. The best one fixed 100% of problems — and left no evidence trail 27% of the time. An unrecorded fix is invisible to audits, compliance, and behavioral analysis.
+In 34 infrastructure scenarios, the best AI model fixed every problem but left no evidence 27%
+of the time. Unrecorded automation is invisible to audits and compliance.
 
-Evidra records what your automation intended, executed, and produced. Every operation gets a risk assessment before execution. Every decision — including explicit refusals — is captured in a signed, append-only evidence chain. Over time, behavioral patterns become visible: retry loops, drift, risk escalation.
+Evidra records intent, outcome, and refusal in a signed, append-only evidence chain. It shows
+risk before execution and reveals patterns like retry loops, drift, and escalation across
+agents, pipelines, and controllers.
 
-Evidra is not a proxy. It does not block or intercept. It does not replace OTel, Datadog, or Logfire. One protocol spans agents, pipelines, and controllers: imperative commands, CI stages, and reconciliation loops all land in the same evidence model.
+Evidra informs, not enforces. It is the flight recorder, not the proxy.
 
-## Why Not a Proxy?
-
-Proxy-based enforcement decides for your agent: block or allow. One misconfigured rule at 2am blocks a critical production fix. The system thinks it knows better.
-
-Evidra takes the opposite approach: inform, don't enforce. Your agent sees the risk assessment and decides. If it proceeds — recorded. If it declines — recorded with a reason. The agent is accountable, not constrained.
-
-Aviation learned this lesson. When automated systems override pilots without recourse, the results can be catastrophic. When systems inform and record, pilots make better decisions — and investigators can understand why.
-
-Evidra is the flight recorder, not the autopilot.
 
 ## The Prescribe/Report Protocol
 
