@@ -6,9 +6,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
+	"samebits.com/evidra/internal/store"
 	testutil "samebits.com/evidra/internal/testutil"
 	"samebits.com/evidra/pkg/evidence"
 )
@@ -253,6 +255,45 @@ func TestHandleArgoCDWebhook_UsesOperationIDForLifecycleCorrelation(t *testing.T
 	if payload.PrescriptionID != prescribe.EntryID {
 		t.Fatalf("report prescription_id = %q, want %q", payload.PrescriptionID, prescribe.EntryID)
 	}
+
+	var prescribePayload map[string]any
+	if err := json.Unmarshal(prescribe.Payload, &prescribePayload); err != nil {
+		t.Fatalf("decode prescribe payload map: %v", err)
+	}
+	if got, _ := prescribePayload["flavor"].(string); got != "reconcile" {
+		t.Fatalf("prescribe payload flavor = %q, want reconcile", got)
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(report.Payload, &reportPayload); err != nil {
+		t.Fatalf("decode report payload map: %v", err)
+	}
+	if got, _ := reportPayload["flavor"].(string); got != "reconcile" {
+		t.Fatalf("report payload flavor = %q, want reconcile", got)
+	}
+
+	wantScope := map[string]string{
+		"source_kind":   "mapped",
+		"source_system": "argocd",
+		"environment":   "production",
+		"application":   "demo-app",
+		"revision":      "abc123",
+	}
+	if !reflect.DeepEqual(prescribe.ScopeDimensions, wantScope) {
+		t.Fatalf("prescribe scope_dimensions = %#v, want %#v", prescribe.ScopeDimensions, wantScope)
+	}
+	if !reflect.DeepEqual(report.ScopeDimensions, wantScope) {
+		t.Fatalf("report scope_dimensions = %#v, want %#v", report.ScopeDimensions, wantScope)
+	}
+
+	wantRefs := []evidence.ExternalRef{
+		{Type: "argocd_application", ID: "production/demo-app"},
+		{Type: "argocd_revision", ID: "abc123"},
+		{Type: "argocd_operation", ID: "argo-op-123"},
+	}
+	if !reflect.DeepEqual(payload.ExternalRefs, wantRefs) {
+		t.Fatalf("report external_refs = %#v, want %#v", payload.ExternalRefs, wantRefs)
+	}
 }
 
 type fakeWebhookStore struct {
@@ -271,6 +312,10 @@ func (f *fakeWebhookStore) SaveRaw(_ context.Context, tenantID string, raw json.
 		return "", errors.New("empty payload")
 	}
 	return "receipt-1", nil
+}
+
+func (f *fakeWebhookStore) GetEntry(context.Context, string, string) (store.StoredEntry, error) {
+	return store.StoredEntry{}, store.ErrNotFound
 }
 
 func (f *fakeWebhookStore) ClaimWebhookEvent(context.Context, string, string, string, json.RawMessage) (bool, error) {

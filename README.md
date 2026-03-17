@@ -10,9 +10,9 @@ Your AI agent fixes Kubernetes. Can you prove it?
 
 We benchmarked few AI models across 34 infrastructure scenarios. The best one fixed 100% of problems — and left no evidence trail 27% of the time. An unrecorded fix is invisible to audits, compliance, and behavioral analysis.
 
-Evidra records what your automation intended, decided, and did. Every operation gets a risk assessment before execution. Every decision — including explicit refusals — is captured in a signed, append-only evidence chain. Over time, behavioral patterns become visible: retry loops, drift, risk escalation.
+Evidra records what your automation intended, executed, and produced. Every operation gets a risk assessment before execution. Every decision — including explicit refusals — is captured in a signed, append-only evidence chain. Over time, behavioral patterns become visible: retry loops, drift, risk escalation.
 
-Evidra is not a proxy. It does not block or intercept. It does not replace OTel, Datadog, or Logfire. Agents call Evidra voluntarily through MCP — and when they do, they make better decisions because they see the risk before they act.
+Evidra is not a proxy. It does not block or intercept. It does not replace OTel, Datadog, or Logfire. One protocol spans agents, pipelines, and controllers: imperative commands, CI stages, and reconciliation loops all land in the same evidence model.
 
 ## The Prescribe/Report Protocol
 
@@ -38,7 +38,7 @@ Evidra is one platform with three operating surfaces:
 |---|---|
 | `evidra` CLI | Wraps live commands, imports completed operations, computes scorecards |
 | `evidra-mcp` | Exposes the prescribe/report protocol to MCP-connected agents and runtimes |
-| Self-hosted API | Centralizes evidence across agents, ingests webhooks, provides team-wide analytics |
+| Self-hosted API | Centralizes evidence across agents, pipelines, and controllers, and provides team-wide analytics |
 
 From the evidence chain, Evidra computes:
 
@@ -164,7 +164,7 @@ References: [CLI reference](docs/integrations/cli-reference.md) · [Record/Impor
 
 ## For Platform Teams (Self-Hosted)
 
-Run the Evidra backend to centralize evidence collection across agents, ingest webhooks from ArgoCD and generic emitters, and get team-wide analytics.
+Run the Evidra backend to centralize evidence collection across agents, pipelines, and GitOps controllers, and get team-wide analytics. Argo CD is controller-first in v1; webhook ingestion remains supported, but it is not the only GitOps path.
 
 ```bash
 export EVIDRA_API_KEY=my-secret-key
@@ -179,9 +179,9 @@ evidra record --url http://localhost:8080 --api-key my-secret-key \
   -f deploy.yaml -- kubectl apply -f deploy.yaml
 ```
 
-With centralized evidence, platform teams can compare reliability across agents, detect fleet-wide patterns, and answer questions like: which agents have incomplete prescribe/report pairs this week? Which agent has the highest retry loop rate?
+With centralized evidence, platform teams can compare reliability across agents, pipelines, and controllers, detect fleet-wide patterns, and answer questions like: which agents have incomplete prescribe/report pairs this week? Which controller workflows are retrying the same reconciliation? Which actor has the highest retry loop rate?
 
-References: [Self-hosted setup](docs/guides/self-hosted-setup.md) · [API reference](docs/api-reference.md) · [Setup Evidra Action](docs/guides/setup-evidra-action.md) · [Terraform CI quickstart](docs/guides/terraform-ci-quickstart.md)
+References: [Self-hosted setup](docs/guides/self-hosted-setup.md) · [Argo CD GitOps integration](docs/guides/argocd-gitops-integration.md) · [API reference](docs/api-reference.md) · [Setup Evidra Action](docs/guides/setup-evidra-action.md) · [Terraform CI quickstart](docs/guides/terraform-ci-quickstart.md)
 
 ## Supported Tools
 

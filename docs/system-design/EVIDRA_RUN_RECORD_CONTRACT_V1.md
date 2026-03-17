@@ -32,6 +32,12 @@ Both modes must produce equivalent prescribe/report semantics for equivalent ope
 When the lifecycle input is the same, they should also expose the same prescribe-time
 `risk_inputs` panel and `effective_risk` roll-up.
 
+GitOps note:
+
+- explicit GitOps mode reuses the same `record` / `import` boundary for upstream intent registration
+- a downstream controller MAY later emit the terminal reconcile-flavor `report` for the same prescription
+- the completeness invariant does not change: the protocol is still judged on matched prescribe/report pairs
+
 ---
 
 ## 3. Record Input Schema (v1)

@@ -348,10 +348,10 @@
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <div class="hero-eyebrow"><span class="pulse"></span> Open Source &middot; Apache 2.0</div>
+    <div class="hero-eyebrow"><span class="pulse"></span> Open Source &middot; Apache 2.0 &middot; Evidence Protocol for Infrastructure Automation</div>
     <h1>Behavioral Reliability for <br>Infrastructure Automation</h1>
-    <p class="tagline">A new observability layer for CI/CD, IaC, and AI agents.</p>
-    <p class="sub">Detect retry loops, artifact drift, protocol violations, and capture the operation an agent intentionally chose not to execute.</p>
+    <p class="tagline">The prescribe/report protocol for agents, pipelines, and controllers.</p>
+    <p class="sub">Detect retry loops, artifact drift, protocol violations, and reconcile failures across AI agents, CI jobs, and GitOps controllers.</p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#get-started">Get Started</a>
       <a class="btn btn-outline" href="/docs/api">API Docs</a>
@@ -367,7 +367,7 @@
   <div class="container">
     <div class="section-label">Capabilities</div>
     <h2 class="section-title">What It Does</h2>
-    <p class="section-subtitle">A flight recorder for infrastructure automation and agent judgment &mdash; observe intent, decisions, execution, and reliability.</p>
+    <p class="section-subtitle">A flight recorder for infrastructure automation and controller judgment &mdash; observe intent, reconciliation, execution, and reliability.</p>
     <div class="features">
       <div class="feature-card">
         <div class="feature-icon">&#9678;</div>
@@ -435,7 +435,7 @@ flowchart LR
       <div class="diagram-panel">
         <pre class="mermaid">
 sequenceDiagram
-  participant Agent as AI Agent / CI
+  participant Actor as Agent / CI / Controller
   participant CLI as evidra CLI / MCP
   participant Canon as Canonicalize
   participant Risk as Risk Engine
@@ -443,30 +443,35 @@ sequenceDiagram
   participant Signal as Signal Detectors
   participant Score as Scoring Engine
 
-  Agent->>CLI: prescribe(tool, operation, artifact)
+  Note over Actor,CLI: payload.flavor = imperative | reconcile | pipeline_stage
+
+  Actor->>CLI: prescribe(tool, operation, artifact)
   CLI->>Canon: SelectAdapter → Normalize
   Canon-->>CLI: CanonicalAction + digests
   CLI->>Risk: build risk inputs
   Risk-->>CLI: risk inputs + effective risk
   CLI->>Chain: append(prescription entry)
-  CLI-->>Agent: prescription id + effective risk
+  CLI-->>Actor: prescription id + effective risk
 
-  alt Agent executes infrastructure operation
-    Note over Agent: Execute infrastructure mutation
-    Agent->>CLI: report(prescription id, verdict, exit code)
-  else Agent denies or deliberately refuses
-    Note over Agent: Record the deny decision explicitly
-    Agent->>CLI: report(prescription id, declined, decision context)
+  alt Imperative execution
+    Note over Actor: Execute infrastructure mutation
+    Actor->>CLI: report(prescription id, verdict, exit code)
+  else Declarative reconciliation
+    Note over Actor: Controller records reconcile outcome
+    Actor->>CLI: report(prescription id, verdict, reconcile metadata)
+  else Deliberate refusal
+    Note over Actor: Record the deny decision explicitly
+    Actor->>CLI: report(prescription id, declined, decision context)
   end
   CLI->>Chain: append(report entry, linked)
   CLI->>Signal: detect patterns
   Signal-->>CLI: signal_summary + confidence
-  CLI-->>Agent: report id + score band
+  CLI-->>Actor: report id + score band
 
-  Agent->>CLI: scorecard(filters)
+  Actor->>CLI: scorecard(filters)
   CLI->>Score: compute(entries, scoring profile)
   Score-->>CLI: score, band, confidence
-  CLI-->>Agent: scorecard + band
+  CLI-->>Actor: scorecard + band
         </pre>
       </div>
     </div>
@@ -479,7 +484,7 @@ flowchart TB
     CI["CI / AI Agents<br/>GitHub Actions · Codex · Claude"]
     CLI["evidra CLI<br/>record · import · scorecard"]
     MCP["evidra-mcp<br/>MCP Server for AI Agents"]
-    Hooks["ArgoCD / generic webhooks"]
+    Controllers["GitOps Controllers<br/>Argo CD controller · notifications"]
   end
   subgraph Local ["Local Path"]
     LS[("Local Evidence<br/>append-only JSONL")]
@@ -498,7 +503,7 @@ flowchart TB
   MCP -->|"append evidence"| LS
   CLI -->|"forward"| API
   MCP -->|"forward"| API
-  Hooks -->|"webhook ingestion"| API
+  Controllers -->|"controller / webhook evidence"| API
   LS --> Engine
   DB --> Engine
         </pre>
@@ -570,7 +575,7 @@ flowchart TB
   <div class="container">
     <div class="section-label">Quick Start</div>
     <h2 class="section-title">Getting Started</h2>
-    <p class="section-subtitle">Up and running in under 5 minutes.</p>
+    <p class="section-subtitle">Up and running in under 5 minutes across CLI, CI, and controller-driven evidence.</p>
 
     <div class="tabs" data-tabs="install">
       <button class="tab-btn active" data-tab="tab-binary">Binary</button>
@@ -627,7 +632,7 @@ curl http://localhost:8080/healthz
 curl -H "Authorization: Bearer $EVIDRA_API_KEY" \
   "http://localhost:8080/v1/evidence/scorecard?period=30d"</div>
       </div>
-      <p class="section-subtitle" style="margin-top: 1rem; margin-bottom: 0;">Self-hosted centralizes forwarded evidence and webhook-ingested events, then serves tenant-wide <code>/v1/evidence/scorecard</code> and <code>/v1/evidence/explain</code> over stored evidence; see <a href="https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" target="_blank" rel="noopener">Self-Hosted Experimental Status</a>.</p>
+      <p class="section-subtitle" style="margin-top: 1rem; margin-bottom: 0;">Self-hosted centralizes forwarded evidence across agents, pipelines, and controllers, including Argo CD controller and webhook evidence, then serves tenant-wide <code>/v1/evidence/scorecard</code> and <code>/v1/evidence/explain</code>; see <a href="https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" target="_blank" rel="noopener">Self-Hosted Setup</a>.</p>
     </div>
   </div>
 </section>
@@ -639,11 +644,11 @@ curl -H "Authorization: Bearer $EVIDRA_API_KEY" \
   <div class="container">
     <div class="section-label">API</div>
     <h2 class="section-title">API Reference</h2>
-    <p class="section-subtitle">Full OpenAPI 3.0 documentation for all endpoints, including tenant-wide hosted analytics routes.</p>
+    <p class="section-subtitle">Full OpenAPI 3.0 documentation for all endpoints, including webhook ingress, controller-facing evidence routes, and hosted analytics.</p>
     <a class="api-card" href="/docs/api">
       <div class="api-card-left">
         <h3>Interactive API Documentation</h3>
-        <p>Explore all 17 endpoints with request/response schemas, authentication details, examples, webhook payloads, and hosted scorecard/explain analytics contracts.</p>
+        <p>Explore all endpoints with request/response schemas, authentication details, examples, Argo CD webhook payloads, and hosted scorecard/explain analytics contracts.</p>
       </div>
       <div class="api-card-right">/docs/api &rarr;</div>
     </a>
@@ -657,22 +662,27 @@ curl -H "Authorization: Bearer $EVIDRA_API_KEY" \
   <div class="container">
     <div class="section-label">Guides</div>
     <h2 class="section-title">Integrate Into Your Workflow</h2>
-    <p class="section-subtitle">Step-by-step guides for common integration patterns.</p>
+    <p class="section-subtitle">Step-by-step guides for agents, pipelines, controllers, and observability.</p>
     <div class="guides">
+      <a class="guide-card" href="https://github.com/vitas/evidra/blob/main/docs/guides/argocd-gitops-integration.md" target="_blank" rel="noopener">
+        <div class="guide-tag">GitOps</div>
+        <h3>Argo CD Integration</h3>
+        <p>Controller-first GitOps evidence with zero-touch reconciliation and explicit traceability via <code>evidra.cc/*</code> annotations.</p>
+      </a>
+      <a class="guide-card" href="https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" target="_blank" rel="noopener">
+        <div class="guide-tag">Platform</div>
+        <h3>Self-Hosted Setup</h3>
+        <p>Centralize evidence across agents, pipelines, and controllers. Compare reliability fleet-wide.</p>
+      </a>
       <a class="guide-card" href="https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" target="_blank" rel="noopener">
         <div class="guide-tag">CI / CD</div>
-        <h3>CI Integration</h3>
-        <p>Add reliability scoring to your CI pipeline &mdash; Terraform, Kubernetes, Docker, and more.</p>
+        <h3>Pipeline Setup</h3>
+        <p>Add prescribe/report to your CI pipeline. The same protocol works for pipeline stages and deploy jobs.</p>
       </a>
       <a class="guide-card" href="https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" target="_blank" rel="noopener">
         <div class="guide-tag">Observability</div>
         <h3>Metrics Export</h3>
         <p>Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.</p>
-      </a>
-      <a class="guide-card" href="https://github.com/vitas/evidra/blob/main/docs/integrations/scanner-sarif-quickstart.md" target="_blank" rel="noopener">
-        <div class="guide-tag">Scanners</div>
-        <h3>SARIF Integration</h3>
-        <p>Ingest findings from Trivy, Kubescape, or any SARIF-compatible security scanner.</p>
       </a>
     </div>
     <div class="gh-callout">

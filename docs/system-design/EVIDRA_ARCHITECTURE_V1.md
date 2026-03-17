@@ -10,6 +10,22 @@
 
 ---
 
+## Protocol Vocabulary
+
+Evidra keeps one lifecycle vocabulary across imperative commands, pipeline
+stages, and reconciliation systems:
+
+- `prescribe` = intent registered before execution
+- `report` = outcome recorded after execution
+
+Context is carried by `payload.flavor`, not by inventing new primary lifecycle
+entry types. Current flavors are `imperative`, `reconcile`, and
+`pipeline_stage`.
+
+The signal engine and scorecard remain flavor-agnostic in v1. They operate on
+the same prescribe/report pairs regardless of whether the execution came from an
+AI agent, a CI pipeline, or a controller such as Argo CD.
+
 ## Pipeline
 
 Phase 1 terminology note:
@@ -268,7 +284,7 @@ CLI and MCP are the primary analytics entry points in v1. Self-hosted also expos
 Self-hosted mode keeps the same evidence semantics as local CLI and MCP workflows. What changes is ingress and storage, not the scoring model.
 
 - **Forwarded evidence:** CLI and MCP can append evidence locally or forward the same signed entries to `evidra-api` for centralized storage.
-- **Webhook ingress:** ArgoCD and generic webhook sources can submit events to the API, which maps them into the same prescribe/report-oriented evidence model used by local workflows.
+- **Controller-first GitOps ingress:** Argo CD can contribute controller-observed reconciliation evidence in self-hosted mode. Webhooks remain supported, but they are not the only GitOps path.
 - **Centralized store:** Hosted evidence is persisted in Postgres so teams can browse and replay tenant-wide evidence instead of reading per-machine JSONL chains.
 - **Shared analytics path:** Hosted `scorecard` and `explain` load stored evidence and run the same signal detectors and scoring engine as local analysis.
 - **deliberate refusal:** A deny decision is still explicit evidence, not a side channel. The terminal record remains `report(verdict=declined, decision_context)`, so local and hosted analytics interpret it the same way.
@@ -280,7 +296,7 @@ CLI / MCP ---> signed evidence entries ---> evidra-api ---> Postgres
     v                                                 v
 local scorecard/explain                     hosted scorecard/explain
 
-ArgoCD / generic webhooks ---> mapped evidence entries ---^
+GitOps controllers / webhooks ---> mapped or controller-observed evidence ---^
 ```
 
 ### v1.x (designed, not started)

@@ -6,23 +6,24 @@ The canonical design and business logic live in the versioned docs under
 
 One-sentence model:
 
-**Evidra records automation intent, decision, and outcome, then computes reliability signals and scorecards from an append-only evidence chain.**
+**Evidra records automation intent, execution, and outcome across agents, pipelines, and controllers, then computes reliability signals and scorecards from an append-only evidence chain.**
 
 ## Hosted Mode
 
 Hosted mode changes where evidence is collected and replayed, not what evidence means.
 
 - CLI and MCP can keep evidence local in append-only JSONL or forward the same signed entries to `evidra-api`.
-- Self-hosted also accepts webhook ingestion from systems such as ArgoCD or generic emitters and maps those events into the same evidence model.
+- Self-hosted also accepts webhook ingress and controller-observed GitOps reconciliation evidence from systems such as ArgoCD, and maps those events into the same evidence model.
 - `evidra-api` stores tenant evidence in Postgres and runs tenant-wide `scorecard` / `explain` over that centralized evidence.
 - Deliberate refusals remain first-class evidence: `report(verdict=declined, decision_context)` is analyzed through the same signal and scoring path as any other terminal report.
+- The lifecycle pair stays `prescribe` / `report`; `payload.flavor` distinguishes imperative execution from reconciliation-style execution without creating a second scoring lane.
 
 ```text
 CLI / MCP --------> local JSONL evidence --------> local scorecard / explain
     \                         \
      \ forward evidence        \ same evidence model
       v                         v
-      evidra-api <----- webhook ingestion (ArgoCD / generic)
+      evidra-api <----- webhook ingress + GitOps controller evidence
           |
           v
     Postgres evidence store --------> hosted scorecard / explain

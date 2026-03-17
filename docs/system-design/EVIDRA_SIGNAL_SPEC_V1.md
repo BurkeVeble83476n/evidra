@@ -265,6 +265,15 @@ Active default weights are defined in
 `docs/system-design/scoring/default.v1.1.0.md` and the embedded scoring profile
 JSON, not repeated here.
 
+### Flavor-Agnostic Detection
+
+All current detectors consume the same prescribe/report evidence pair regardless
+of `payload.flavor`.
+
+- `imperative` entries and `reconcile` entries are scored by the same engine
+- no separate GitOps scoring lane exists in v1
+- flavor is explanatory context, not a detector selector
+
 ---
 
 ## Signal 1: protocol_violation

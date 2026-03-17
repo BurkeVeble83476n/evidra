@@ -5,7 +5,11 @@
 - Canonical for: supported tool matrix and adapter coverage
 - Audience: public
 
-Evidra canonicalizes artifacts from the following tools via built-in adapters.
+Evidra supports two related integration surfaces:
+
+- artifact adapters, which canonicalize raw artifacts into `CanonicalAction`
+- controller evidence sources, which emit reconcile lifecycle evidence without
+  pretending to be artifact adapters
 
 ## Kubernetes (k8s/v1)
 
@@ -15,7 +19,7 @@ Evidra canonicalizes artifacts from the following tools via built-in adapters.
 | Helm | `--tool helm` | Rendered templates (`helm template` output) | K8s adapter parses the YAML |
 | Kustomize | `--tool kustomize` | Build output (`kustomize build` output) | K8s adapter parses the YAML |
 | OpenShift (oc) | `--tool oc` | YAML manifest(s) | Handles DeploymentConfig, Route, BuildConfig, ImageStream |
-| ArgoCD | `--tool kubectl` | Rendered sync manifests | Use kubectl; ArgoCD-specific adapter planned for v0.5.0 |
+| ArgoCD rendered manifests | `--tool kubectl` | Rendered sync manifests | Explicit rendered output still flows through the Kubernetes adapter |
 
 **Noise filtering:** managedFields, uid, resourceVersion, creationTimestamp, last-applied-configuration, and other server-set fields are stripped before canonicalization.
 
@@ -70,3 +74,14 @@ type Adapter interface {
 ```
 
 See `internal/canon/` for existing adapter implementations.
+
+## GitOps / Controller Evidence Sources
+
+| Source | Primary path | What Evidra captures | Notes |
+|---|---|---|---|
+| Argo CD | Controller-first self-hosted integration | Reconcile start/completion evidence, observed outcome, optional explicit prescription linkage | Primary v1 GitOps story |
+| Argo CD webhook | `/v1/hooks/argocd` | Mapped lifecycle events | Supported push path; adjacent to controller mode |
+
+Argo CD does not currently ship as a dedicated `argocd/v1` artifact adapter.
+When customers have rendered manifests, Evidra still recommends sending them
+through the Kubernetes path.

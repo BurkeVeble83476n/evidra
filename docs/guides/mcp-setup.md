@@ -183,7 +183,12 @@ This section explains how your AI agent should use Evidra. Claude Code with MCP 
 
 ### When to prescribe/report
 
-**Always prescribe + report for mutations:** `kubectl apply/delete/create/patch`, `terraform apply/destroy/import`, `helm install/upgrade/uninstall/rollback`, `docker run/build/push`, `argocd app sync`.
+**Always prescribe + report for mutations:** `kubectl apply/delete/create/patch`, `terraform apply/destroy/import`, `helm install/upgrade/uninstall/rollback`, `docker run/build/push`.
+
+For GitOps systems such as Argo CD, direct MCP interaction is usually the
+upstream intent-registration step, not the execution boundary. In explicit
+GitOps mode the agent or CI should register intent first and annotate the Argo
+`Application`; the controller integration records the reconcile outcome later.
 
 **Skip for read-only:** `get`, `describe`, `list`, `plan`, `show`, `diff`, `status`, `logs`, `top`.
 

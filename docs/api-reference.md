@@ -255,6 +255,10 @@ ArgoCD webhook receiver. Requires:
 
 Maps `sync_started` / `sync_completed` events to prescribe/report entries.
 
+This route remains supported, but it is not the full Argo CD product story.
+In self-hosted mode, controller-observed reconciliation is the primary GitOps
+path; webhook mode is the adjacent push path.
+
 ### `POST /v1/hooks/generic`
 
 Generic webhook receiver. Requires:

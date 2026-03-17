@@ -105,6 +105,25 @@ internal to the Evidra pipeline and have no conceptual event counterpart.
 External event-bus and standards mappings are intentionally outside the live
 public protocol contract.
 
+## 2.3 Reframe, Not Rename
+
+The lifecycle pair is intentionally stable:
+
+- `prescribe` means intent registered before execution
+- `report` means outcome recorded after execution
+
+This vocabulary applies to imperative commands, reconciliation loops, and
+pipeline stages. Integrations SHOULD prefer `payload.flavor` on prescribe/report
+payloads over introducing new primary lifecycle entry types.
+
+v1 flavors:
+
+- `imperative`
+- `reconcile`
+- `pipeline_stage`
+
+The same correlation rules and the same signal pipeline apply to all flavors.
+
 ---
 
 # 3. Correlation Model

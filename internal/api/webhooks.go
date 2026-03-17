@@ -4,26 +4,19 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/oklog/ulid/v2"
-
 	iauth "samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/automationevent"
 	"samebits.com/evidra/internal/canon"
-	"samebits.com/evidra/internal/risk"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
-	"samebits.com/evidra/pkg/version"
 )
 
 type WebhookStore interface {
-	LastHash(ctx context.Context, tenantID string) (string, error)
-	SaveRaw(ctx context.Context, tenantID string, raw json.RawMessage) (string, error)
-	ClaimWebhookEvent(ctx context.Context, tenantID, source, key string, payload json.RawMessage) (bool, error)
-	ReleaseWebhookEvent(ctx context.Context, tenantID, source, key string) error
+	automationevent.EventStore
 }
 
 type WebhookTenantResolver func(ctx context.Context, apiKey string) (string, error)
@@ -54,9 +47,9 @@ type argoCDWebhookPayload struct {
 	Message      string `json:"message"`
 }
 
-type mappedWebhookBuilder func(lastHash string) (pkevidence.EvidenceEntry, int, error)
-
 func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
+	emitter := automationevent.NewEmitter(store, signer)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
 		if !ok {
@@ -105,23 +98,50 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 		scope := mappedScopeDimensions("generic", payload.Environment, map[string]string{})
 		artifactDigest := canon.SHA256Hex(body)
 
-		processMappedWebhook(w, r, store, tenantID, "generic", idempotencyKey, body, func(lastHash string) (pkevidence.EvidenceEntry, int, error) {
-			if payload.EventType == "operation_started" {
-				entry, err := buildMappedPrescribeEntry(lastHash, signer, actor, sessionID, operationID, prescriptionID, action, artifactDigest, scope)
-				return entry, http.StatusInternalServerError, err
-			}
-			exitCode := payload.ExitCode
-			if exitCode == nil {
-				defaultCode := exitCodeForVerdict(payload.Verdict)
-				exitCode = &defaultCode
-			}
-			entry, err := buildMappedReportEntry(lastHash, signer, actor, sessionID, operationID, prescriptionID, artifactDigest, scope, payload.Verdict, exitCode)
-			return entry, http.StatusInternalServerError, err
+		if payload.EventType == "operation_started" {
+			result, err := emitter.EmitMappedPrescribe(r.Context(), automationevent.MappedPrescribeInput{
+				TenantID:        tenantID,
+				ClaimSource:     "generic",
+				ClaimKey:        idempotencyKey,
+				ClaimPayload:    body,
+				Actor:           actor,
+				SessionID:       sessionID,
+				OperationID:     operationID,
+				PrescriptionID:  prescriptionID,
+				Action:          action,
+				ArtifactDigest:  artifactDigest,
+				ScopeDimensions: scope,
+			})
+			writeWebhookEmitResult(w, result, err)
+			return
+		}
+
+		exitCode := payload.ExitCode
+		if exitCode == nil {
+			defaultCode := exitCodeForVerdict(payload.Verdict)
+			exitCode = &defaultCode
+		}
+		result, err := emitter.EmitMappedReport(r.Context(), automationevent.MappedReportInput{
+			TenantID:        tenantID,
+			ClaimSource:     "generic",
+			ClaimKey:        idempotencyKey,
+			ClaimPayload:    body,
+			Actor:           actor,
+			SessionID:       sessionID,
+			OperationID:     operationID,
+			PrescriptionID:  prescriptionID,
+			ArtifactDigest:  artifactDigest,
+			ScopeDimensions: scope,
+			Verdict:         payload.Verdict,
+			ExitCode:        exitCode,
 		})
+		writeWebhookEmitResult(w, result, err)
 	}
 }
 
 func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
+	emitter := automationevent.NewEmitter(store, signer)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
 		if !ok {
@@ -157,23 +177,55 @@ func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence
 			"revision":    payload.Revision,
 		})
 		artifactDigest := canon.SHA256Hex(body)
+		externalRefs := []pkevidence.ExternalRef{
+			{Type: "argocd_application", ID: payload.AppNamespace + "/" + payload.AppName},
+			{Type: "argocd_revision", ID: payload.Revision},
+			{Type: "argocd_operation", ID: payload.OperationID},
+		}
 
-		processMappedWebhook(w, r, store, tenantID, source, idempotencyKey, body, func(lastHash string) (pkevidence.EvidenceEntry, int, error) {
-			switch payload.Event {
-			case "sync_started":
-				entry, err := buildMappedPrescribeEntry(lastHash, signer, actor, payload.OperationID, payload.OperationID, sourceKey, action, artifactDigest, scope)
-				return entry, http.StatusInternalServerError, err
-			case "sync_completed":
-				verdict, exitCode, ok := argoCDVerdict(payload.Phase)
-				if !ok {
-					return pkevidence.EvidenceEntry{}, http.StatusBadRequest, fmt.Errorf("unsupported argocd phase")
-				}
-				entry, err := buildMappedReportEntry(lastHash, signer, actor, payload.OperationID, payload.OperationID, sourceKey, artifactDigest, scope, verdict, &exitCode)
-				return entry, http.StatusInternalServerError, err
-			default:
-				return pkevidence.EvidenceEntry{}, http.StatusBadRequest, fmt.Errorf("unsupported argocd event")
+		switch payload.Event {
+		case "sync_started":
+			result, err := emitter.EmitMappedPrescribe(r.Context(), automationevent.MappedPrescribeInput{
+				TenantID:        tenantID,
+				ClaimSource:     source,
+				ClaimKey:        idempotencyKey,
+				ClaimPayload:    body,
+				Actor:           actor,
+				SessionID:       payload.OperationID,
+				OperationID:     payload.OperationID,
+				PrescriptionID:  sourceKey,
+				Action:          action,
+				ArtifactDigest:  artifactDigest,
+				ScopeDimensions: scope,
+				Flavor:          automationevent.FlavorReconcile,
+			})
+			writeWebhookEmitResult(w, result, err)
+		case "sync_completed":
+			verdict, exitCode, ok := argoCDVerdict(payload.Phase)
+			if !ok {
+				writeError(w, http.StatusBadRequest, "unsupported argocd phase")
+				return
 			}
-		})
+			result, err := emitter.EmitMappedReport(r.Context(), automationevent.MappedReportInput{
+				TenantID:        tenantID,
+				ClaimSource:     source,
+				ClaimKey:        idempotencyKey,
+				ClaimPayload:    body,
+				Actor:           actor,
+				SessionID:       payload.OperationID,
+				OperationID:     payload.OperationID,
+				PrescriptionID:  sourceKey,
+				ArtifactDigest:  artifactDigest,
+				ScopeDimensions: scope,
+				Verdict:         verdict,
+				ExitCode:        &exitCode,
+				ExternalRefs:    externalRefs,
+				Flavor:          automationevent.FlavorReconcile,
+			})
+			writeWebhookEmitResult(w, result, err)
+		default:
+			writeError(w, http.StatusBadRequest, "unsupported argocd event")
+		}
 	}
 }
 
@@ -203,26 +255,6 @@ func tenantResolverFromKeyStore(ks interface {
 	}
 }
 
-func claimWebhook(ctx context.Context, store WebhookStore, tenantID, source, key string, body json.RawMessage) (bool, func(), error) {
-	duplicate, err := store.ClaimWebhookEvent(ctx, tenantID, source, key, body)
-	if err != nil {
-		return false, nil, err
-	}
-	released := false
-	release := func() {
-		if released {
-			return
-		}
-		released = true
-		_ = store.ReleaseWebhookEvent(ctx, tenantID, source, key)
-	}
-	if duplicate {
-		released = true
-		return true, release, nil
-	}
-	return false, release, nil
-}
-
 func webhookRequestBody(w http.ResponseWriter, r *http.Request, secret string, signer pkevidence.Signer) (json.RawMessage, bool) {
 	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(iauth.ParseBearerToken(r.Header.Get("Authorization")))), []byte(secret)) != 1 {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -245,60 +277,15 @@ func webhookRequestBody(w http.ResponseWriter, r *http.Request, secret string, s
 	return body, true
 }
 
-func processMappedWebhook(
-	w http.ResponseWriter,
-	r *http.Request,
-	store WebhookStore,
-	tenantID, source, idempotencyKey string,
-	body json.RawMessage,
-	build mappedWebhookBuilder,
-) {
-	duplicate, release, err := claimWebhook(r.Context(), store, tenantID, source, idempotencyKey, body)
+func writeWebhookEmitResult(w http.ResponseWriter, result automationevent.EmitResult, err error) {
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "webhook idempotency failed")
+		writeError(w, http.StatusInternalServerError, "build mapped evidence failed")
 		return
 	}
-	if duplicate {
+	if result.Duplicate {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "duplicate"})
 		return
 	}
-	success := false
-	defer func() {
-		if !success {
-			release()
-		}
-	}()
-
-	lastHash, err := store.LastHash(r.Context(), tenantID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "load evidence chain failed")
-		return
-	}
-
-	entry, status, err := build(lastHash)
-	if err != nil {
-		if status == 0 {
-			status = http.StatusInternalServerError
-		}
-		if status == http.StatusInternalServerError {
-			writeError(w, status, "build mapped evidence failed")
-			return
-		}
-		writeError(w, status, err.Error())
-		return
-	}
-
-	raw, err := json.Marshal(entry)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "encode mapped evidence failed")
-		return
-	}
-	if _, err := store.SaveRaw(r.Context(), tenantID, raw); err != nil {
-		writeError(w, http.StatusInternalServerError, "store mapped evidence failed")
-		return
-	}
-
-	success = true
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
@@ -359,88 +346,6 @@ func mappedScopeDimensions(source, environment string, extra map[string]string) 
 func mappedPrescriptionID(source, tool, operation, actor, sessionID, environment, suffix string) string {
 	parts := []string{source, tool, operation, actor, sessionID, environment, suffix}
 	return "map-" + canon.SHA256Hex([]byte(strings.Join(parts, "|")))
-}
-
-func buildMappedPrescribeEntry(lastHash string, signer pkevidence.Signer, actor pkevidence.Actor, sessionID, operationID, prescriptionID string, action canon.CanonicalAction, artifactDigest string, scope map[string]string) (pkevidence.EvidenceEntry, error) {
-	rawAction, err := json.Marshal(action)
-	if err != nil {
-		return pkevidence.EvidenceEntry{}, err
-	}
-	riskLevel := risk.ElevateRiskLevel(risk.RiskLevel(action.OperationClass, action.ScopeClass), nil)
-	payload, err := json.Marshal(pkevidence.PrescriptionPayload{
-		PrescriptionID:  prescriptionID,
-		CanonicalAction: rawAction,
-		RiskInputs: []pkevidence.RiskInput{
-			{
-				Source:    "evidra/matrix",
-				RiskLevel: riskLevel,
-			},
-		},
-		EffectiveRisk: riskLevel,
-		RiskLevel:     riskLevel,
-		TTLMs:         pkevidence.DefaultTTLMs,
-		CanonSource:   "mapped",
-	})
-	if err != nil {
-		return pkevidence.EvidenceEntry{}, err
-	}
-	traceID := sessionID
-	if traceID == "" {
-		traceID = prescriptionID
-	}
-	return pkevidence.BuildEntry(pkevidence.EntryBuildParams{
-		EntryID:         prescriptionID,
-		Type:            pkevidence.EntryTypePrescribe,
-		SessionID:       sessionID,
-		OperationID:     operationID,
-		TraceID:         traceID,
-		Actor:           actor,
-		IntentDigest:    canon.ComputeIntentDigest(action),
-		ArtifactDigest:  artifactDigest,
-		Payload:         payload,
-		PreviousHash:    lastHash,
-		ScopeDimensions: scope,
-		SpecVersion:     version.SpecVersion,
-		CanonVersion:    "mapped/v1",
-		AdapterVersion:  version.Version,
-		ScoringVersion:  version.ScoringVersion,
-		Signer:          signer,
-	})
-}
-
-func buildMappedReportEntry(lastHash string, signer pkevidence.Signer, actor pkevidence.Actor, sessionID, operationID, prescriptionID, artifactDigest string, scope map[string]string, verdict pkevidence.Verdict, exitCode *int) (pkevidence.EvidenceEntry, error) {
-	if !verdict.Valid() {
-		return pkevidence.EvidenceEntry{}, fmt.Errorf("invalid verdict %q", verdict)
-	}
-	payload, err := json.Marshal(pkevidence.ReportPayload{
-		ReportID:       ulid.Make().String(),
-		PrescriptionID: prescriptionID,
-		ExitCode:       exitCode,
-		Verdict:        verdict,
-	})
-	if err != nil {
-		return pkevidence.EvidenceEntry{}, err
-	}
-	traceID := sessionID
-	if traceID == "" {
-		traceID = prescriptionID
-	}
-	return pkevidence.BuildEntry(pkevidence.EntryBuildParams{
-		Type:            pkevidence.EntryTypeReport,
-		SessionID:       sessionID,
-		OperationID:     operationID,
-		TraceID:         traceID,
-		Actor:           actor,
-		ArtifactDigest:  artifactDigest,
-		Payload:         payload,
-		PreviousHash:    lastHash,
-		ScopeDimensions: scope,
-		SpecVersion:     version.SpecVersion,
-		CanonVersion:    "mapped/v1",
-		AdapterVersion:  version.Version,
-		ScoringVersion:  version.ScoringVersion,
-		Signer:          signer,
-	})
 }
 
 func argoCDVerdict(phase string) (pkevidence.Verdict, int, bool) {

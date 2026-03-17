@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,18 +18,65 @@ import (
 	"samebits.com/evidra/internal/api"
 	"samebits.com/evidra/internal/db"
 	ievsigner "samebits.com/evidra/internal/evidence"
+	argocdgitops "samebits.com/evidra/internal/gitops/argocd"
 	"samebits.com/evidra/internal/store"
+	pkevidence "samebits.com/evidra/pkg/evidence"
 	"samebits.com/evidra/pkg/version"
+
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 //go:embed static
 var staticFS embed.FS
+
+type signerConfig = ievsigner.SignerConfig
+
+type controllerRunner interface {
+	Run(context.Context) error
+}
+
+type argocdControllerConfig struct {
+	Enabled              bool
+	ApplicationNamespace string
+	TenantID             string
+	KubeconfigPath       string
+}
+
+type persistenceResources struct {
+	Pinger         api.Pinger
+	EntryStore     *store.EntryStore
+	KeyStore       *store.KeyStore
+	BenchmarkStore *store.BenchmarkStore
+}
+
+type runDeps struct {
+	newSigner         func(signerConfig) (pkevidence.Signer, error)
+	setupPersistence  func(string) (persistenceResources, func(), error)
+	controllerFactory func(argocdControllerConfig, *store.EntryStore, pkevidence.Signer) (controllerRunner, error)
+	uiFS              func() (fs.FS, error)
+	signalChan        func() <-chan os.Signal
+	listenAndServe    func(*http.Server) error
+	shutdownServer    func(*http.Server, context.Context) error
+	logf              func(string, ...any)
+}
 
 func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
 func run(args []string) int {
+	return runWithDeps(args, defaultRunDeps())
+}
+
+func defaultRunDeps() runDeps {
+	return runDeps{}
+}
+
+func runWithDeps(args []string, deps runDeps) int {
+	deps = deps.withDefaults()
+
 	flags := flag.NewFlagSet("evidra-api", flag.ContinueOnError)
 	versionFlag := flags.Bool("version", false, "print version and exit")
 	if err := flags.Parse(args); err != nil {
@@ -44,69 +92,81 @@ func run(args []string) int {
 	listenAddr := envOr("LISTEN_ADDR", ":8080")
 	apiKey := os.Getenv("EVIDRA_API_KEY")
 	if apiKey == "" {
-		log.Fatal("EVIDRA_API_KEY is required")
+		deps.logf("EVIDRA_API_KEY is required")
+		return 1
 	}
 
-	// Signer (optional).
-	signer, err := ievsigner.NewSigner(ievsigner.SignerConfig{
+	signer, err := deps.newSigner(signerConfig{
 		KeyBase64: os.Getenv("EVIDRA_SIGNING_KEY"),
 		KeyPath:   os.Getenv("EVIDRA_SIGNING_KEY_PATH"),
 		DevMode:   os.Getenv("EVIDRA_SIGNING_MODE") == "optional",
 	})
 	if err != nil {
-		log.Printf("warning: signer not configured: %v", err)
+		deps.logf("warning: signer not configured: %v", err)
+	}
+
+	controllerCfg := loadArgoCDControllerConfigFromEnv()
+	databaseURL := os.Getenv("DATABASE_URL")
+	if controllerCfg.Enabled && strings.TrimSpace(databaseURL) == "" {
+		deps.logf("argocd controller requires DATABASE_URL")
+		return 1
+	}
+	if controllerCfg.Enabled && signer == nil {
+		deps.logf("argocd controller requires signing")
+		return 1
 	}
 
 	cfg := api.RouterConfig{
 		APIKey:        apiKey,
 		DefaultTenant: "default",
 	}
-
 	if signer != nil {
 		cfg.PublicKey = signer.PublicKey()
 	}
 
-	// Database (optional).
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL != "" {
-		pool, err := db.Connect(databaseURL)
+	var resources persistenceResources
+	var closePersistence func()
+	if strings.TrimSpace(databaseURL) != "" {
+		resources, closePersistence, err = deps.setupPersistence(databaseURL)
 		if err != nil {
-			log.Fatalf("database connection failed: %v", err)
+			deps.logf("database connection failed: %v", err)
+			return 1
 		}
-		defer pool.Close()
+		if closePersistence != nil {
+			defer closePersistence()
+		}
 
-		cfg.Pinger = pool
-		es := store.NewEntryStore(pool)
-		cfg.EntryStore = es
-		cfg.RawStore = es // EntryStore implements RawEntryStore
-		cfg.KeyStore = store.NewKeyStore(pool)
-		cfg.BenchmarkStore = store.NewBenchmarkStore(pool)
+		cfg.Pinger = resources.Pinger
+		cfg.EntryStore = resources.EntryStore
+		cfg.RawStore = resources.EntryStore
+		cfg.KeyStore = resources.KeyStore
+		cfg.BenchmarkStore = resources.BenchmarkStore
 		cfg.InviteSecret = os.Getenv("EVIDRA_INVITE_SECRET")
-		cfg.Scorecard = es
-		cfg.Explain = es
-		cfg.WebhookStore = es
+		cfg.Scorecard = resources.EntryStore
+		cfg.Explain = resources.EntryStore
+		cfg.WebhookStore = resources.EntryStore
 		cfg.WebhookSigner = signer
 		cfg.ArgoCDSecret = os.Getenv("EVIDRA_WEBHOOK_SECRET_ARGOCD")
 		cfg.GenericSecret = os.Getenv("EVIDRA_WEBHOOK_SECRET_GENERIC")
 
-		log.Printf("database connected, migrations applied")
+		deps.logf("database connected, migrations applied")
 	} else {
-		log.Printf("no DATABASE_URL — running without persistence")
+		deps.logf("no DATABASE_URL — running without persistence")
 	}
 
-	// UI: prefer embedded React build (embed_ui tag), fall back to static/.
-	if evidrabenchmark.UIDistFS != nil {
-		cfg.UIFS = evidrabenchmark.UIDistFS
-	} else {
-		uiFS, err := fs.Sub(staticFS, "static")
-		if err != nil {
-			log.Fatalf("embed static: %v", err)
-		}
-		cfg.UIFS = uiFS
+	if controllerCfg.Enabled && resources.EntryStore == nil {
+		deps.logf("argocd controller requires database-backed entry store")
+		return 1
 	}
+
+	uiFS, err := deps.uiFS()
+	if err != nil {
+		deps.logf("embed static: %v", err)
+		return 1
+	}
+	cfg.UIFS = uiFS
 
 	handler := api.NewRouter(cfg)
-
 	srv := &http.Server{
 		Addr:         listenAddr,
 		Handler:      handler,
@@ -115,28 +175,149 @@ func run(args []string) int {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown.
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	go func() {
-		log.Printf("evidra-api %s listening on %s", version.Version, listenAddr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %v", err)
+	if controllerCfg.Enabled {
+		controller, err := deps.controllerFactory(controllerCfg, resources.EntryStore, signer)
+		if err != nil {
+			deps.logf("argocd controller startup failed: %v", err)
+			return 1
 		}
+		go func() {
+			if err := controller.Run(ctx); err != nil && ctx.Err() == nil {
+				deps.logf("argocd controller error: %v", err)
+			}
+		}()
+	}
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		deps.logf("evidra-api %s listening on %s", version.Version, listenAddr)
+		serverErrCh <- deps.listenAndServe(srv)
 	}()
 
-	<-done
-	log.Printf("shutting down...")
+	select {
+	case <-deps.signalChan():
+	case err := <-serverErrCh:
+		if err != nil && err != http.ErrServerClosed {
+			deps.logf("listen: %v", err)
+			cancel()
+			return 1
+		}
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("shutdown error: %v", err)
+	deps.logf("shutting down...")
+	cancel()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := deps.shutdownServer(srv, shutdownCtx); err != nil {
+		deps.logf("shutdown error: %v", err)
 		return 1
 	}
 
 	return 0
+}
+
+func (d runDeps) withDefaults() runDeps {
+	if d.newSigner == nil {
+		d.newSigner = func(cfg signerConfig) (pkevidence.Signer, error) {
+			return ievsigner.NewSigner(ievsigner.SignerConfig(cfg))
+		}
+	}
+	if d.setupPersistence == nil {
+		d.setupPersistence = defaultSetupPersistence
+	}
+	if d.controllerFactory == nil {
+		d.controllerFactory = defaultControllerFactory
+	}
+	if d.uiFS == nil {
+		d.uiFS = defaultUIFS
+	}
+	if d.signalChan == nil {
+		d.signalChan = defaultSignalChan
+	}
+	if d.listenAndServe == nil {
+		d.listenAndServe = func(srv *http.Server) error {
+			return srv.ListenAndServe()
+		}
+	}
+	if d.shutdownServer == nil {
+		d.shutdownServer = func(srv *http.Server, ctx context.Context) error {
+			return srv.Shutdown(ctx)
+		}
+	}
+	if d.logf == nil {
+		d.logf = log.Printf
+	}
+	return d
+}
+
+func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), error) {
+	pool, err := db.Connect(databaseURL)
+	if err != nil {
+		return persistenceResources{}, nil, err
+	}
+
+	es := store.NewEntryStore(pool)
+	return persistenceResources{
+			Pinger:         pool,
+			EntryStore:     es,
+			KeyStore:       store.NewKeyStore(pool),
+			BenchmarkStore: store.NewBenchmarkStore(pool),
+		}, func() {
+			pool.Close()
+		}, nil
+}
+
+func defaultControllerFactory(cfg argocdControllerConfig, entryStore *store.EntryStore, signer pkevidence.Signer) (controllerRunner, error) {
+	client, err := newDynamicClient(cfg.KubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	return argocdgitops.NewController(client, entryStore, signer, argocdgitops.ControllerConfig{
+		ApplicationNamespace: cfg.ApplicationNamespace,
+		TenantID:             cfg.TenantID,
+	}), nil
+}
+
+func defaultUIFS() (fs.FS, error) {
+	if evidrabenchmark.UIDistFS != nil {
+		return evidrabenchmark.UIDistFS, nil
+	}
+	return fs.Sub(staticFS, "static")
+}
+
+func defaultSignalChan() <-chan os.Signal {
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+	return done
+}
+
+func loadArgoCDControllerConfigFromEnv() argocdControllerConfig {
+	return argocdControllerConfig{
+		Enabled:              strings.EqualFold(strings.TrimSpace(os.Getenv("EVIDRA_ARGOCD_CONTROLLER_ENABLED")), "true"),
+		ApplicationNamespace: envOr("EVIDRA_ARGOCD_APPLICATION_NAMESPACE", "argocd"),
+		TenantID:             envOr("EVIDRA_ARGOCD_TENANT_ID", "default"),
+		KubeconfigPath:       strings.TrimSpace(os.Getenv("EVIDRA_KUBECONFIG")),
+	}
+}
+
+func newDynamicClient(kubeconfigPath string) (dynamic.Interface, error) {
+	var (
+		cfg *rest.Config
+		err error
+	)
+	if strings.TrimSpace(kubeconfigPath) != "" {
+		cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	} else {
+		cfg, err = rest.InClusterConfig()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfig(cfg)
 }
 
 func envOr(key, fallback string) string {

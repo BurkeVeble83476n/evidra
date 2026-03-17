@@ -792,56 +792,25 @@ identity.
 
 ## 7. ArgoCD Adapter (argocd/v1)
 
-**Delivery: SPEC RESERVED (contract defined, implementation v0.5.0+)**
+**Delivery: SPEC RESERVED**
 
-### 7.1 Approach
+V1 product direction for Argo CD is controller-first GitOps evidence, not a
+dedicated shipped `argocd/v1` artifact adapter.
 
-ArgoCD is the first "extension" adapter beyond the core two
-(k8s, terraform). It demonstrates how new tools plug in.
+Current rule:
 
-ArgoCD operations target applications, not raw manifests. The
-adapter handles two types of input:
+- when rendered manifests are explicitly available, they SHOULD flow through the Kubernetes adapter
+- when only reconciliation lifecycle is available, Evidra records controller evidence using the standard prescribe/report pair with `payload.flavor = reconcile`
+- `argocd/v1` remains reserved until a dedicated artifact-level adapter is implemented and fixture-backed
 
-**Sync operations:** ArgoCD syncs K8s manifests. The raw artifact
-is the rendered manifest set (same as kubectl). Parsed by K8s
-adapter.
+This avoids pretending that controller-observed reconciliation always has the
+same artifact fidelity as an explicit rendered manifest input.
 
-**App management operations:** Create/delete/modify ArgoCD
-Application resources. The raw artifact is the Application YAML.
+### 7.1 Adapter Extensibility Pattern
 
-### 7.2 Library
+ArgoCD still demonstrates the pattern for adding any new tool:
 
-Same as K8s adapter: `k8s.io/apimachinery`. ArgoCD Application
-is a Kubernetes CRD — parsed as unstructured.
-
-### 7.3 Identity
-
-For sync: same as K8s adapter (list of resource identities).
-For app management:
-
-```json
-{
-  "tool": "argocd",
-  "operation": "sync",
-  "operation_class": "mutate",
-  "resource_identity": [
-    {
-      "api_version": "argoproj.io/v1alpha1",
-      "kind": "Application",
-      "namespace": "argocd",
-      "name": "payments-service"
-    }
-  ],
-  "scope_class": "production",
-  "resource_count": 1
-}
-```
-
-### 7.4 Adapter Extensibility Pattern
-
-ArgoCD demonstrates the pattern for adding any new tool:
-
-1. Define input format (what raw artifact does the agent send?)
+1. Define input format (what raw artifact does the tool send?)
 2. Choose parsing library (prefer official, from tool creators)
 3. Extract resource_identity (what's being touched?)
 4. Map to operation_class (destroy, mutate, read, plan)

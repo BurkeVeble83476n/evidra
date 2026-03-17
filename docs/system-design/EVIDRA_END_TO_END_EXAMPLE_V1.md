@@ -516,15 +516,25 @@ else is identical to the K8s flow above.
 
 ### ArgoCD
 
-ArgoCD sync events produce Kubernetes manifests. Two paths:
+Argo CD is controller-first in v1. The lifecycle pair remains
+`prescribe` / `report`, but reconciliation uses `payload.flavor = reconcile`.
 
-```
-argocd app sync → rendered manifests → K8s adapter
-argocd app create → Application CRD YAML → K8s adapter (CRD as unstructured)
-```
+Zero-touch mode:
 
-ArgoCD adapter (v0.5.0+) will add sync-specific metadata
-(Application name, target revision) to actor_meta.
+- the controller observes an `Application` reconcile start
+- Evidra emits a mapped `prescribe`
+- the controller observes completion
+- Evidra emits the matching mapped `report`
+
+Explicit traceability mode:
+
+- CI or an upstream agent registers intent first using `prescribe`, `record`, or `import`
+- the Argo `Application` carries `evidra.cc/*` annotations such as `prescription-id`
+- the controller emits only the completion `report`, linked to the existing prescription
+
+Rendered manifests still flow through the Kubernetes adapter when customers
+explicitly provide them. A dedicated `argocd/v1` artifact adapter remains
+reserved, not shipped.
 
 ### Pre-Canonicalized Integration (Pulumi, Ansible, etc.)
 

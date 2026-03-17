@@ -11,6 +11,12 @@ CLI and MCP remain the primary local and agent-facing analytics surfaces. Self-h
 
 Self-hosted remains supported for centralized evidence collection.
 
+GitOps note:
+
+- Argo CD is controller-first in v1
+- webhook ingestion remains supported, but it is not the whole Argo story
+- no Git provider access is required for the controller path
+
 ## Quick Start
 
 ### 1. Configure Environment
@@ -30,6 +36,10 @@ export EVIDRA_SIGNING_MODE=optional             # "strict" (default) or "optiona
 export EVIDRA_SIGNING_KEY=                      # Base64 Ed25519 private key
 export EVIDRA_WEBHOOK_SECRET_ARGOCD=            # Bearer secret for ArgoCD webhooks
 export EVIDRA_WEBHOOK_SECRET_GENERIC=           # Bearer secret for generic webhooks
+export EVIDRA_ARGOCD_CONTROLLER_ENABLED=false   # Enable in-cluster Argo CD controller integration
+export EVIDRA_ARGOCD_APPLICATION_NAMESPACE=argocd
+export EVIDRA_ARGOCD_TENANT_ID=default
+export EVIDRA_KUBECONFIG=                       # Optional local-development kubeconfig override
 export LISTEN_ADDR=:8080                        # HTTP listen address (default :8080)
 ```
 
@@ -102,6 +112,23 @@ Response:
 | `EVIDRA_SIGNING_MODE` | No | `strict` | `strict` requires signing key; `optional` allows unsigned evidence |
 | `EVIDRA_WEBHOOK_SECRET_ARGOCD` | No | — | Bearer secret for `/v1/hooks/argocd` webhook receiver |
 | `EVIDRA_WEBHOOK_SECRET_GENERIC` | No | — | Bearer secret for `/v1/hooks/generic` webhook receiver |
+| `EVIDRA_ARGOCD_CONTROLLER_ENABLED` | No | `false` | Enable controller-observed Argo CD reconciliation evidence |
+| `EVIDRA_ARGOCD_APPLICATION_NAMESPACE` | No | `argocd` | Namespace containing Argo `Application` objects |
+| `EVIDRA_ARGOCD_TENANT_ID` | No | `default` | Tenant that receives controller-emitted evidence |
+| `EVIDRA_KUBECONFIG` | No | — | Optional kubeconfig path for local development; in-cluster config is used by default |
+
+## Argo CD Controller Mode
+
+When `EVIDRA_ARGOCD_CONTROLLER_ENABLED=true`, `evidra-api` watches Argo
+`Application` objects and emits reconciliation evidence.
+
+- zero-touch mode records mapped reconcile-flavor prescribe/report pairs
+- explicit mode links reconcile completion back to an existing prescription via
+  `evidra.cc/*` annotations
+- this path is intended for in-cluster deployment
+- direct Argo CLI capture is optional and non-strategic
+
+Guide: [Argo CD GitOps integration](argocd-gitops-integration.md)
 
 ## Supported Endpoints
 
@@ -129,6 +156,9 @@ Response:
 ### Webhooks
 - `POST /v1/hooks/argocd` — ArgoCD sync events
 - `POST /v1/hooks/generic` — generic operation events
+
+Webhook ingestion remains available, but for Argo CD it is now the adjacent
+path, not the primary GitOps integration story.
 
 Webhook ingestion is tenant-aware:
 - `Authorization: Bearer <webhook-secret>` gates the route
@@ -164,6 +194,7 @@ The web dashboard uses this pagination automatically.
 - Optional narrowing filters on scorecard and explain:
   - `actor`, `tool`, `scope`, `session_id`, `period`, `min_operations`
 - Webhook mapping support:
+  - controller-observed Argo CD reconciliation evidence
   - ArgoCD `sync_started` / `sync_completed`
   - Generic `operation_started` / `operation_completed`
   - generic webhook payloads must include `operation_id` on both start and completion events
@@ -197,5 +228,6 @@ evidra-mcp --evidence-dir ~/.evidra/evidence
 ## Practical Guidance
 
 - Use self-hosted when you want centralized evidence collection, API keys, entry browsing, dashboard monitoring, and tenant-wide analytics over forwarded evidence.
+- Use the Argo CD controller path when you want centralized GitOps reconciliation evidence without requiring Git access.
 - Use CLI or MCP when you want local-first workflows, immediate command assessment, or agent-native tool invocation.
 - Treat hosted `scorecard` and `explain` as the supported analytics surface for stored evidence. Hosted `compare` is still future work.

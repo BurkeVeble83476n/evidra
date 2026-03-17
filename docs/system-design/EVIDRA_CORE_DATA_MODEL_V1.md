@@ -199,6 +199,27 @@ artifact_digest (no drift possible). If provided and different
 from the prescription's artifact_digest, an `artifact_drift`
 signal is recorded at scorecard time.
 
+#### Payload flavor
+
+`prescribe` and `report` payloads MAY include `payload.flavor` as a context
+discriminator. v1 uses:
+
+- `imperative`
+- `reconcile`
+- `pipeline_stage`
+
+Flavor adds context for explanation and slicing. It does not create a second
+lifecycle model.
+
+#### Scope dimensions vs external refs
+
+- `scope_dimensions` are stable execution filters such as cluster, namespace,
+  application, revision, and correlation mode
+- `external_refs` belong on report payloads and carry foreign identifiers such
+  as Argo Application IDs, operation IDs, CI run IDs, or ticket IDs
+- volatile status such as current sync phase or health SHOULD NOT be used as
+  scope dimensions
+
 ---
 
 ### Findings Are NOT on Report
