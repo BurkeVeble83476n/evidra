@@ -53,16 +53,12 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		return Result{}, wrapError(ErrCodeInvalidInput, err.Error(), err)
 	}
 
-	release := func() {}
-	if claim := in.Claim; claim != nil && hasMeaningfulClaim(claim) {
-		duplicate, claimRelease, err := claimEvent(ctx, s.store, tenantID, claim.Source, claim.Key, claim.Payload)
-		if err != nil {
-			return Result{}, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
-		}
-		release = claimRelease
-		if duplicate {
-			return Result{Duplicate: true}, nil
-		}
+	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
+	if err != nil {
+		return Result{}, err
+	}
+	if duplicate {
+		return Result{Duplicate: true}, nil
 	}
 
 	success := false
@@ -72,22 +68,17 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		}
 	}()
 
-	lastHash, err := s.store.LastHash(ctx, tenantID)
-	if err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to read last hash", err)
-	}
-
-	entry, effectiveRisk, err := buildPrescribeEntry(lastHash, s.signer, in)
+	var (
+		effectiveRisk string
+		entry         evidence.EvidenceEntry
+	)
+	entry, err = s.saveEntry(ctx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
+		var buildErr error
+		entry, effectiveRisk, buildErr = buildPrescribeEntry(lastHash, s.signer, in)
+		return entry, buildErr
+	})
 	if err != nil {
 		return Result{}, err
-	}
-
-	raw, err := json.Marshal(entry)
-	if err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to marshal evidence entry", err)
-	}
-	if _, err := s.store.SaveRaw(ctx, tenantID, raw); err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to store evidence entry", err)
 	}
 
 	success = true
@@ -107,16 +98,12 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 		return Result{}, wrapError(ErrCodeInvalidInput, err.Error(), err)
 	}
 
-	release := func() {}
-	if claim := in.Claim; claim != nil && hasMeaningfulClaim(claim) {
-		duplicate, claimRelease, err := claimEvent(ctx, s.store, tenantID, claim.Source, claim.Key, claim.Payload)
-		if err != nil {
-			return Result{}, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
-		}
-		release = claimRelease
-		if duplicate {
-			return Result{Duplicate: true}, nil
-		}
+	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
+	if err != nil {
+		return Result{}, err
+	}
+	if duplicate {
+		return Result{Duplicate: true}, nil
 	}
 
 	success := false
@@ -126,27 +113,21 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 		}
 	}()
 
-	prescription, err := s.loadPrescription(ctx, tenantID, strings.TrimSpace(in.PrescriptionID))
+	reportPayload, prescriptionID, err := buildReportPayloadState(in)
 	if err != nil {
 		return Result{}, err
 	}
 
-	lastHash, err := s.store.LastHash(ctx, tenantID)
-	if err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to read last hash", err)
-	}
-
-	entry, err := buildReportEntry(lastHash, s.signer, in, prescription)
+	prescription, err := s.loadPrescription(ctx, tenantID, prescriptionID)
 	if err != nil {
 		return Result{}, err
 	}
 
-	raw, err := json.Marshal(entry)
+	entry, err := s.saveEntry(ctx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
+		return buildReportEntry(lastHash, s.signer, in, reportPayload, prescription)
+	})
 	if err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to marshal evidence entry", err)
-	}
-	if _, err := s.store.SaveRaw(ctx, tenantID, raw); err != nil {
-		return Result{}, wrapError(ErrCodeInternal, "failed to store evidence entry", err)
+		return Result{}, err
 	}
 
 	success = true
@@ -201,12 +182,30 @@ func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRe
 	return entry, effectiveRisk, nil
 }
 
-func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest, prescription store.StoredEntry) (evidence.EvidenceEntry, error) {
-	entryID := ulid.Make().String()
-	payload, err := buildReportPayload(entryID, in)
+func (s *Service) saveEntry(ctx context.Context, tenantID string, build func(lastHash string) (evidence.EvidenceEntry, error)) (evidence.EvidenceEntry, error) {
+	lastHash, err := s.store.LastHash(ctx, tenantID)
+	if err != nil {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to read last hash", err)
+	}
+
+	entry, err := build(lastHash)
 	if err != nil {
 		return evidence.EvidenceEntry{}, err
 	}
+
+	raw, err := json.Marshal(entry)
+	if err != nil {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to marshal evidence entry", err)
+	}
+	if _, err := s.store.SaveRaw(ctx, tenantID, raw); err != nil {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to store evidence entry", err)
+	}
+	return entry, nil
+}
+
+func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest, payload evidence.ReportPayload, prescription store.StoredEntry) (evidence.EvidenceEntry, error) {
+	entryID := ulid.Make().String()
+	payload.ReportID = entryID
 
 	sessionID := strings.TrimSpace(in.SessionID)
 	if sessionID == "" {
@@ -224,6 +223,11 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 		traceID = prescription.ID
 	}
 
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to marshal report payload", err)
+	}
+
 	entry, err := evidence.BuildEntry(evidence.EntryBuildParams{
 		EntryID:         entryID,
 		Type:            evidence.EntryTypeReport,
@@ -232,7 +236,7 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 		TraceID:         traceID,
 		Actor:           in.Actor,
 		ArtifactDigest:  strings.TrimSpace(in.ArtifactDigest),
-		Payload:         payload,
+		Payload:         rawPayload,
 		PreviousHash:    lastHash,
 		ScopeDimensions: in.ScopeDimensions,
 		SpecVersion:     version.SpecVersion,
@@ -310,29 +314,75 @@ func buildPrescribePayload(entryID string, in PrescribeRequest) (json.RawMessage
 	return rawPayload, action, canonVersion, payload.EffectiveRisk, nil
 }
 
-func buildReportPayload(entryID string, in ReportRequest) (json.RawMessage, error) {
-	var payload evidence.ReportPayload
+func buildReportPayloadState(in ReportRequest) (evidence.ReportPayload, string, error) {
 	if in.PayloadOverride != nil {
-		if err := json.Unmarshal(*in.PayloadOverride, &payload); err != nil {
-			return nil, wrapError(ErrCodeInvalidInput, "payload_override must be valid report payload JSON", err)
+		return parseReportPayloadOverride(*in.PayloadOverride, in.Envelope)
+	}
+
+	payload := evidence.ReportPayload{
+		PrescriptionID:  strings.TrimSpace(in.PrescriptionID),
+		ExitCode:        in.ExitCode,
+		Verdict:         in.Verdict,
+		DecisionContext: in.DecisionContext,
+		ExternalRefs:    in.ExternalRefs,
+		Flavor:          in.Flavor,
+		Evidence:        payloadEvidenceMetadata(in.Evidence),
+		Source:          payloadSourceMetadata(in.Source),
+	}
+	return payload, payload.PrescriptionID, nil
+}
+
+func parseReportPayloadOverride(raw json.RawMessage, env Envelope) (evidence.ReportPayload, string, error) {
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return evidence.ReportPayload{}, "", wrapError(ErrCodeInvalidInput, "payload_override must be valid report payload JSON", err)
+	}
+	if err := validateReportPayloadBody(payload); err != nil {
+		return evidence.ReportPayload{}, "", err
+	}
+
+	payload.Flavor = env.Flavor
+	payload.Evidence = payloadEvidenceMetadata(env.Evidence)
+	payload.Source = payloadSourceMetadata(env.Source)
+
+	return payload, strings.TrimSpace(payload.PrescriptionID), nil
+}
+
+func validateReportPayloadBody(payload evidence.ReportPayload) error {
+	if strings.TrimSpace(payload.PrescriptionID) == "" {
+		return wrapError(ErrCodeInvalidInput, "payload_override prescription_id is required", nil)
+	}
+	if !payload.Verdict.Valid() {
+		return wrapError(ErrCodeInvalidInput, "payload_override verdict is required and must be one of success, failure, error, declined", nil)
+	}
+	if payload.Verdict == evidence.VerdictDeclined {
+		if payload.ExitCode != nil {
+			return wrapError(ErrCodeInvalidInput, "declined reports must not include exit_code", nil)
 		}
+		if payload.DecisionContext == nil {
+			return wrapError(ErrCodeInvalidInput, "decision_context is required for declined reports", nil)
+		}
+		if strings.TrimSpace(payload.DecisionContext.Trigger) == "" {
+			return wrapError(ErrCodeInvalidInput, "decision_context.trigger is required", nil)
+		}
+		if strings.TrimSpace(payload.DecisionContext.Reason) == "" {
+			return wrapError(ErrCodeInvalidInput, "decision_context.reason is required", nil)
+		}
+		if len(strings.TrimSpace(payload.DecisionContext.Reason)) > 512 {
+			return wrapError(ErrCodeInvalidInput, "decision_context.reason exceeds 512 characters", nil)
+		}
+		return nil
 	}
-
-	payload.ReportID = entryID
-	payload.PrescriptionID = strings.TrimSpace(in.PrescriptionID)
-	payload.ExitCode = in.ExitCode
-	payload.Verdict = in.Verdict
-	payload.DecisionContext = in.DecisionContext
-	payload.ExternalRefs = in.ExternalRefs
-	payload.Flavor = in.Flavor
-	payload.Evidence = payloadEvidenceMetadata(in.Evidence)
-	payload.Source = payloadSourceMetadata(in.Source)
-
-	rawPayload, err := json.Marshal(payload)
-	if err != nil {
-		return nil, wrapError(ErrCodeInternal, "failed to marshal report payload", err)
+	if payload.DecisionContext != nil {
+		return wrapError(ErrCodeInvalidInput, "decision_context is only valid for declined reports", nil)
 	}
-	return rawPayload, nil
+	if payload.ExitCode == nil {
+		return wrapError(ErrCodeInvalidInput, fmt.Sprintf("report verdict %s requires exit_code", payload.Verdict), nil)
+	}
+	if inferred := evidence.VerdictFromExitCode(*payload.ExitCode); inferred != payload.Verdict {
+		return wrapError(ErrCodeInvalidInput, fmt.Sprintf("report verdict %s does not match exit_code %d", payload.Verdict, *payload.ExitCode), nil)
+	}
+	return nil
 }
 
 func buildPrescribeRiskInputs(action canon.CanonicalAction) ([]evidence.RiskInput, string) {
@@ -422,6 +472,22 @@ func claimEvent(ctx context.Context, store Store, tenantID, source, key string, 
 		return true, release, nil
 	}
 	return false, release, nil
+}
+
+func (s *Service) claimIfNeeded(ctx context.Context, tenantID string, claim *Claim) (func(), bool, error) {
+	if !hasMeaningfulClaim(claim) {
+		return func() {}, false, nil
+	}
+
+	duplicate, release, err := claimEvent(ctx, s.store, tenantID, claim.Source, claim.Key, claim.Payload)
+	if err != nil {
+		return nil, false, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
+	}
+	if duplicate {
+		release()
+		return func() {}, true, nil
+	}
+	return release, false, nil
 }
 
 func hasMeaningfulClaim(claim *Claim) bool {

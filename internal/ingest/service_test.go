@@ -276,6 +276,77 @@ func TestServiceReport_ResolvesReferencedPrescription(t *testing.T) {
 	}
 }
 
+func TestServiceReport_PayloadOverrideResolvesPrescriptionAndBuildsPayload(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	fakeStore.entries["presc-override"] = store.StoredEntry{
+		ID:        "presc-override",
+		TenantID:  "tenant-1",
+		EntryType: string(evidence.EntryTypePrescribe),
+		SessionID: "session-override",
+	}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	tenantID := "tenant-1"
+
+	override := json.RawMessage(`{
+		"prescription_id":"presc-override",
+		"verdict":"success",
+		"exit_code":0,
+		"decision_context":null,
+		"external_refs":[{"type":"upstream","id":"ref-1"}]
+	}`)
+
+	out, err := svc.Report(context.Background(), tenantID, ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-override",
+			OperationID: "operation-override",
+			TraceID:     "trace-override",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PayloadOverride: &override,
+	})
+	if err != nil {
+		t.Fatalf("Report: %v", err)
+	}
+	if out.Duplicate {
+		t.Fatal("expected non-duplicate report result")
+	}
+	if fakeStore.getEntryCalls != 1 {
+		t.Fatalf("get entry calls = %d, want 1", fakeStore.getEntryCalls)
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+
+	entry := decodeStoredEntry(t, fakeStore.savedRaw[0])
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal report payload: %v", err)
+	}
+	if payload.PrescriptionID != "presc-override" {
+		t.Fatalf("payload prescription_id = %q, want presc-override", payload.PrescriptionID)
+	}
+	if payload.Verdict != evidence.VerdictSuccess {
+		t.Fatalf("payload verdict = %q, want success", payload.Verdict)
+	}
+	if payload.ExitCode == nil || *payload.ExitCode != 0 {
+		t.Fatalf("payload exit_code = %v, want 0", payload.ExitCode)
+	}
+	if len(payload.ExternalRefs) != 1 || payload.ExternalRefs[0].ID != "ref-1" {
+		t.Fatalf("payload external_refs = %+v, want ref-1", payload.ExternalRefs)
+	}
+}
+
 func TestServiceTaxonomyFields_PropagateIntoTypedPayloads(t *testing.T) {
 	t.Parallel()
 
