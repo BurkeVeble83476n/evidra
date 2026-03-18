@@ -158,6 +158,66 @@ Agent → You: "I declined to apply it because the assessed risk was critical an
 
 ---
 
+## Proxy Mode
+
+Evidra-mcp has two operating modes:
+
+**Direct mode** (default) — the agent calls `prescribe` and `report` tools explicitly. The agent knows it's being recorded, participates in risk assessment, and can decline dangerous operations. This is the full protocol.
+
+**Proxy mode** — evidra-mcp wraps another MCP server and auto-records evidence for infrastructure mutations. The agent doesn't need to know about evidra. Zero extra tokens, zero agent changes.
+
+### When to use proxy mode
+
+Use proxy mode when:
+- You already have an infrastructure MCP server (kubectl, helm, terraform tools)
+- You want to add reliability monitoring without changing agent behavior
+- Your model can't follow the prescribe/report protocol
+- You want the fastest possible onboarding (one config line change)
+
+Use direct mode when:
+- You want the agent to actively participate in risk assessment
+- You need declined verdicts (agent refuses dangerous operations)
+- You want artifact-level drift detection
+- You're using a capable model (Claude, GPT-5.2) with the evidra skill
+
+### Proxy mode setup
+
+Wrap your existing MCP server command with `evidra-mcp --proxy --`:
+
+```json
+{
+  "mcpServers": {
+    "infra": {
+      "command": "evidra-mcp",
+      "args": ["--proxy", "--evidence-dir", "~/.evidra/evidence", "--", "your-mcp-server", "--your-flags"]
+    }
+  }
+}
+```
+
+The proxy intercepts `run_command` tool calls, detects mutations (kubectl apply, helm upgrade, terraform apply, etc.), and auto-records prescribe/report evidence. Read-only commands (kubectl get, helm list) pass through unrecorded.
+
+### What proxy mode records
+
+For each detected mutation:
+```json
+{"type":"prescribe","prescription_id":"proxy-...","tool":"kubectl","operation":"apply","command":"kubectl apply -f fix.yaml","timestamp":"..."}
+{"type":"report","prescription_id":"proxy-...","exit_code":0,"verdict":"success","timestamp":"..."}
+```
+
+This evidence feeds the same scorecard engine, behavioral signals, and reliability scoring as direct mode evidence.
+
+### Limitations of proxy mode
+
+- No risk assessment — the proxy infers tool/operation from the command, but doesn't analyze artifacts
+- No declined verdicts — the proxy can't know when the agent chose not to act
+- No artifact drift detection — no YAML manifest is captured for hash comparison
+- Command-level only — the proxy sees the command string, not the intent
+
+For full protocol compliance, use direct mode with the evidra skill.
+
+---
+
 ## What Evidra Measures
 
 Evidra detects 8 behavioral signals from the evidence chain:
