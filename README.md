@@ -170,6 +170,14 @@ References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](d
 
 Not every model follows the same prompt shape equally well. Evidra offers three MCP evidence modes so you can choose the tradeoff you need.
 
+| | Records what happened | Shows risk before action | Agent can decline | Works with any model |
+|---|---|---|---|---|
+| **Proxy** | Yes | No | No | Yes |
+| **Smart prescribe** | Yes | Yes | Yes | Yes |
+| **Full prescribe** | Yes | Yes | Yes | Strong models only |
+
+Proxy records silently — the agent never knows. Smart and full prescribe are explicit: the agent calls prescribe, receives risk assessment, and decides whether to proceed or decline. Smart prescribe uses 4 fields (~30 tokens); full prescribe sends the complete YAML artifact (~300 tokens) and enables drift detection.
+
 ```bash
 # Direct full mode: explicit prescribe/report with raw_artifact
 evidra-mcp --evidence-dir ~/.evidra/evidence
