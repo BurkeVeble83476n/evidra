@@ -61,7 +61,26 @@ Read-only examples (skip protocol):
 
 {{ .Contract.MCP.Prescribe.Intro }}
 
-### Required fields
+### Recommended default: smart prescribe
+
+{{ "```" }}json
+{
+  "tool": "kubectl",
+  "operation": "apply",
+  "resource": "deployment/web",
+  "namespace": "default",
+  "actor": {
+    "type": "agent",
+    "id": "your-agent-id",
+    "origin": "mcp-stdio",
+    "skill_version": "{{ .SkillVersion }}"
+  }
+}
+{{ "```" }}
+
+Use smart prescribe when you know the target resource and namespace but do not need artifact-level drift detection.
+
+### Full prescribe
 
 {{ "```" }}json
 {
@@ -76,6 +95,8 @@ Read-only examples (skip protocol):
   }
 }
 {{ "```" }}
+
+Use full prescribe when you have the artifact bytes and want native detector coverage plus artifact drift detection.
 
 Required inputs:
 {{ range .Contract.MCP.Prescribe.RequiredInputs -}}

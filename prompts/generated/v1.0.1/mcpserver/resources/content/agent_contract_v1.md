@@ -37,8 +37,8 @@ If uncertain, call `prescribe`.
 `prescribe` requires:
 - `tool`
 - `operation`
-- `raw_artifact`
 - `actor (type, id, origin)`
+- `either raw_artifact (full mode) or resource/canonical_action (smart prescribe)`
 
 
 `report` requires:

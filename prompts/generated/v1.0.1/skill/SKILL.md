@@ -62,9 +62,28 @@ Read-only examples (skip protocol):
 
 ## Calling Prescribe
 
-Record intent BEFORE an infrastructure operation that creates, modifies, or deletes resources.
+Record intent BEFORE an infrastructure operation that creates, modifies, or deletes resources. Full prescribe sends raw_artifact for native detector coverage. Smart prescribe sends tool, operation, actor, and target context when the full artifact is not available.
 
-### Required fields
+### Recommended default: smart prescribe
+
+```json
+{
+  "tool": "kubectl",
+  "operation": "apply",
+  "resource": "deployment/web",
+  "namespace": "default",
+  "actor": {
+    "type": "agent",
+    "id": "your-agent-id",
+    "origin": "mcp-stdio",
+    "skill_version": "1.0.1"
+  }
+}
+```
+
+Use smart prescribe when you know the target resource and namespace but do not need artifact-level drift detection.
+
+### Full prescribe
 
 ```json
 {
@@ -80,14 +99,17 @@ Record intent BEFORE an infrastructure operation that creates, modifies, or dele
 }
 ```
 
+Use full prescribe when you have the artifact bytes and want native detector coverage plus artifact drift detection.
+
 Required inputs:
 - **tool**
 - **operation**
-- **raw_artifact**
 - **actor (type, id, origin)**
+- **either raw_artifact (full mode) or resource/canonical_action (smart prescribe)**
 
 ### Pre-call checklist
-- tool/operation/raw_artifact must be non-empty.
+- tool/operation must be non-empty.
+- choose one prescribe shape: raw_artifact for full mode, or resource/canonical_action for smart prescribe.
 - actor.type/actor.id/actor.origin must be present.
 - actor.skill_version should be set to this contract version.
 - Keep session/operation/trace identifiers stable within one task.

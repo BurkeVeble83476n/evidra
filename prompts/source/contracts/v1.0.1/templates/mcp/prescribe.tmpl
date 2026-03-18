@@ -2,6 +2,11 @@
 
 {{ .Contract.MCP.Prescribe.Intro }}
 
+Smart prescribe:
+- Use smart prescribe when you know the tool, operation, and target resource but do not have the full artifact bytes.
+- Send `resource` and optional `namespace` together with the required actor fields.
+- Use full prescribe with `raw_artifact` when you want native detector coverage and artifact drift detection.
+
 Required inputs:
 {{ range .Contract.MCP.Prescribe.RequiredInputs -}}
 - {{ . }}

@@ -23,12 +23,12 @@ mcp:
       - "Do not use prescribe/report for non-infrastructure tasks (docs, coding, analysis)."
 
   prescribe:
-    intro: "Record intent BEFORE an infrastructure operation that creates, modifies, or deletes resources."
+    intro: "Record intent BEFORE an infrastructure operation that creates, modifies, or deletes resources. Full prescribe sends raw_artifact for native detector coverage. Smart prescribe sends tool, operation, actor, and target context when the full artifact is not available."
     required_inputs:
       - "tool"
       - "operation"
-      - "raw_artifact"
       - "actor (type, id, origin)"
+      - "either raw_artifact (full mode) or resource/canonical_action (smart prescribe)"
     recommended_actor_fields:
       - "actor.version"
       - "actor.skill_version"
@@ -37,7 +37,8 @@ mcp:
       - "trace_id, span_id, parent_span_id"
       - "scope_dimensions"
     pre_call_checklist:
-      - "tool/operation/raw_artifact must be non-empty."
+      - "tool/operation must be non-empty."
+      - "choose one prescribe shape: raw_artifact for full mode, or resource/canonical_action for smart prescribe."
       - "actor.type/actor.id/actor.origin must be present."
       - "actor.skill_version should be set to this contract version."
       - "Keep session/operation/trace identifiers stable within one task."

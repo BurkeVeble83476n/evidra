@@ -24,6 +24,36 @@ func TestReadSkill_ReturnsNonEmptyContent(t *testing.T) {
 	}
 }
 
+func TestReadSkill_IncludesSmartPrescribeGuidance(t *testing.T) {
+	t.Parallel()
+
+	content, err := ReadSkill()
+	if err != nil {
+		t.Fatalf("ReadSkill: %v", err)
+	}
+	if !strings.Contains(content, "\"resource\": \"deployment/web\"") {
+		t.Fatalf("skill missing smart prescribe example: %s", content)
+	}
+	if !strings.Contains(content, "smart prescribe") {
+		t.Fatalf("skill missing smart prescribe guidance: %s", content)
+	}
+}
+
+func TestReadMCPPrescribeDescription_IncludesSmartPrescribeGuidance(t *testing.T) {
+	t.Parallel()
+
+	content, err := Read(MCPPrescribeDescriptionPath)
+	if err != nil {
+		t.Fatalf("Read(%q): %v", MCPPrescribeDescriptionPath, err)
+	}
+	if !strings.Contains(content, "smart prescribe") {
+		t.Fatalf("prescribe description missing smart prescribe guidance: %s", content)
+	}
+	if !strings.Contains(content, "raw_artifact") {
+		t.Fatalf("prescribe description missing full prescribe guidance: %s", content)
+	}
+}
+
 func TestParseContractVersionHeader(t *testing.T) {
 	t.Parallel()
 
