@@ -110,7 +110,6 @@ func (s *Server) smartPrescribe(ctx context.Context, input PrescribeInput) (Pres
         OK:             true,
         PrescriptionID: prescriptionID,
         EffectiveRisk:  risk,
-        Mode:           "smart", // new field — tells client which mode was used
     }, nil
 }
 ```
@@ -126,22 +125,25 @@ both modes are accepted:
   "description": "Record intent BEFORE an infrastructure mutation. Two modes: send raw_artifact for full risk analysis, or just tool+operation+resource for lightweight recording.",
   "parameters": {
     "type": "object",
-    "required": ["tool", "operation"],
+    "required": ["tool", "operation", "actor"],
     "properties": {
       "tool":             {"type": "string", "description": "Infrastructure tool (kubectl, helm, terraform)"},
       "operation":        {"type": "string", "description": "Operation (apply, delete, patch, upgrade)"},
       "resource":         {"type": "string", "description": "Target resource (e.g. deployment/web)"},
       "namespace":        {"type": "string", "description": "Kubernetes namespace"},
       "raw_artifact":     {"type": "string", "description": "Full YAML artifact (optional — enables drift detection)"},
-      "actor":            {"type": "object", "description": "Actor metadata (optional)"},
+      "actor":            {"type": "object", "description": "Actor metadata (required in both modes)"},
       "scope_dimensions": {"type": "object", "description": "Scope metadata (optional)"}
     }
   }
 }
 ```
 
-Key: `raw_artifact` moves from required to optional. If present → full mode.
-If absent → smart mode. Schema is backward compatible.
+Compatibility constraints:
+- `actor` stays required in both modes so protocol attribution and behavior slicing keep working.
+- `raw_artifact` moves from required to optional.
+- Smart mode should still require either `resource` or `canonical_action` so the target is explicit.
+- If `raw_artifact` is present → full mode. If it is absent → smart mode. Schema remains backward compatible for existing full-mode callers.
 
 ## Risk Assessment Without Artifact
 
@@ -207,11 +209,20 @@ most use cases. Full mode only needed for artifact drift detection.
 ```
 pkg/mcpserver/server.go          — add smart prescribe path
 pkg/mcpserver/server_test.go     — test both modes
+pkg/mcpserver/integration_test.go — verify smart prescribe + report lifecycle
 pkg/execcontract/contracts.go    — make raw_artifact optional in schema
 pkg/execcontract/schemas/prescribe.schema.json — update JSON schema
+prompts/source/contracts/v1.0.1/CONTRACT.yaml — teach the contract about smart prescribe
+prompts/source/contracts/v1.0.1/templates/mcp/prescribe.tmpl — describe both input shapes
+prompts/source/contracts/v1.0.1/templates/skill/SKILL.tmpl — recommend smart mode without dropping actor fields
+README.md                        — explain direct full vs direct smart vs proxy
+docs/guides/mcp-setup.md         — document when to use each direct mode
+docs/ARCHITECTURE.md             — update the mode overview / diagrams
 ```
 
 ## Skill Prompt Update
+
+Smart prescribe must flow through the existing prompt factory, not through one-off edits to generated prompt files. Before rollout, confirm with the PO whether smart prescribe becomes the default recommendation for direct mode or remains a fallback path for weaker models. Public guides should not advertise smart prescribe until the MCP server, schema, and generated prompts ship together.
 
 The evidra contract skill needs a note about smart prescribe:
 
@@ -223,17 +234,28 @@ For each infrastructure mutation, call prescribe with:
 - operation: the subcommand (apply, delete, patch)
 - resource: target resource (deployment/web, configmap/app)
 - namespace: the namespace
+- actor.type / actor.id / actor.origin / actor.skill_version
 
-You do NOT need to send the full YAML artifact.
+You do NOT need to send the full YAML artifact unless you need full native detector coverage or artifact drift detection.
 ```
+
+## Documentation Rollout
+
+When implementation lands, update the public docs in one pass:
+
+- README: explain the three evidence modes (direct full, direct smart, proxy)
+- MCP setup guide: document smart-mode input shape, tradeoffs, and model fit
+- Architecture overview / diagrams: show that all three modes feed the same evidence chain and scorecard engine
+
+Do not merge doc copy that claims smart prescribe is available before the server and prompt artifacts are released.
 
 ## Migration
 
 1. Implement in `pkg/mcpserver/server.go` — auto-detect mode
 2. Update JSON schema — make raw_artifact optional
-3. Update skill prompt — recommend smart mode
+3. Update prompt contract + generated prompt artifacts — recommend smart mode
 4. Test with bench harness — verify Gemini Flash compliance
-5. Update docs — explain both modes
+5. Update docs — explain direct full vs direct smart vs proxy after implementation lands
 6. Release — backward compatible, existing agents work unchanged
 
 ## Testing Plan
