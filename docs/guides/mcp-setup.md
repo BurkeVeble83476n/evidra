@@ -104,17 +104,19 @@ Full guide: [Skill Setup](skill-setup.md)
 
 Ask your agent: *"What tools do you have from Evidra?"*
 
-You should see three tools: `prescribe`, `report`, and `get_event`.
+You should see four tools: `prescribe_full`, `prescribe_smart`, `report`, and `get_event`.
 
-Try: *"Apply this deployment to staging"* — the agent should call `prescribe` before executing and `report` after.
+Try: *"Apply this deployment to staging"* — the agent should call `prescribe_full` or `prescribe_smart` before executing and `report` after.
 
 ---
 
 ## How It Works
 
-Evidra exposes three MCP tools:
+Evidra exposes four MCP tools:
 
-**`prescribe`** — Record intent BEFORE an infrastructure mutation. In direct full mode it analyzes the artifact. In direct smart mode it infers matrix risk from tool, operation, and target context. In both cases it returns a `prescription_id`, and the agent must not execute until prescribe returns `ok=true`.
+**`prescribe_full`** — Record intent BEFORE an infrastructure mutation when artifact bytes are available. It analyzes the artifact, returns a `prescription_id`, and supports native detector coverage plus artifact drift detection.
+
+**`prescribe_smart`** — Record intent BEFORE an infrastructure mutation when you know the target operation and resource but do not have artifact bytes. It returns a `prescription_id` and computes matrix risk from tool, operation, and target context.
 
 **`report`** — Record the terminal verdict for the prescription. Executed operations report `success`, `failure`, or `error` with an exit code. Intentional refusals report `declined` with a short operational reason.
 
@@ -127,7 +129,7 @@ not intercept commands, block execution, or enforce policy.
 
 ```
 You → Agent: "Deploy nginx to production"
-       Agent → Evidra: prescribe(kubectl, apply, artifact=deployment.yaml, env=production)
+       Agent → Evidra: prescribe_full(kubectl, apply, artifact=deployment.yaml, env=production)
        Evidra → Agent: ok=true, prescription_id=rx-01JQ..., effective_risk=high, risk_inputs=[...]
        Agent → executes kubectl apply -f deployment.yaml
        Agent → Evidra: report(prescription_id=rx-01JQ..., verdict=success, exit_code=0)
@@ -138,7 +140,7 @@ Agent → You: "Deployed successfully. Risk level: high. Current score band: exc
 On failure:
 ```
 You → Agent: "Apply the config change"
-       Agent → Evidra: prescribe(kubectl, apply, artifact=config.yaml, env=staging)
+       Agent → Evidra: prescribe_full(kubectl, apply, artifact=config.yaml, env=staging)
        Evidra → Agent: ok=true, prescription_id=rx-01JR...
        Agent → executes kubectl apply -f config.yaml → fails (exit 1)
        Agent → Evidra: report(prescription_id=rx-01JR..., verdict=failure, exit_code=1)
@@ -149,7 +151,7 @@ Agent → You: "Apply failed (exit 1). Recorded for reliability tracking."
 On deliberate refusal:
 ```
 You → Agent: "Apply this privileged manifest to production"
-       Agent → Evidra: prescribe(kubectl, apply, artifact=privileged.yaml, env=production)
+       Agent → Evidra: prescribe_full(kubectl, apply, artifact=privileged.yaml, env=production)
        Evidra → Agent: ok=true, prescription_id=rx-01JS..., effective_risk=critical, risk_inputs=[...]
        Agent → Evidra: report(prescription_id=rx-01JS..., verdict=declined, decision_context={trigger:"risk_threshold_exceeded", reason:"effective_risk=critical and blast_radius covers production namespace"})
        Evidra → Agent: ok=true, report_id=rep-01JS..., verdict=declined
@@ -162,9 +164,9 @@ Agent → You: "I declined to apply it because the assessed risk was critical an
 
 Evidra-mcp has three evidence modes:
 
-**Direct full mode** — the agent calls `prescribe` and `report` explicitly and sends `raw_artifact`. This is the richest protocol path: native detector coverage, risk inputs derived from the artifact, and artifact drift detection.
+**Direct full mode** — the agent calls `prescribe_full` and `report` explicitly and sends `raw_artifact`. This is the richest protocol path: native detector coverage, risk inputs derived from the artifact, and artifact drift detection.
 
-**Direct smart mode** — the agent still calls `prescribe` and `report` explicitly, but sends a lightweight target shape such as `tool`, `operation`, `resource`, and optional `namespace`. This keeps the same evidence chain with lower token cost, but smart mode uses matrix risk only and does not support artifact drift detection.
+**Direct smart mode** — the agent calls `prescribe_smart` and `report` explicitly, sending a lightweight target shape such as `tool`, `operation`, `resource`, and optional `namespace`. This keeps the same evidence chain with lower token cost, but smart mode uses matrix risk only and does not support artifact drift detection.
 
 **Proxy mode** — evidra-mcp wraps another MCP server and auto-records evidence for infrastructure mutations. The agent doesn't need to know about evidra. Zero extra tokens, zero agent changes.
 
@@ -263,13 +265,13 @@ GitOps mode the agent or CI should register intent first and annotate the Argo
 
 ### Protocol rules
 
-1. Call `prescribe` BEFORE execution — do not execute until it returns `ok=true` with a `prescription_id`.
+1. Call `prescribe_full` or `prescribe_smart` BEFORE execution — do not execute until it returns `ok=true` with a `prescription_id`.
 2. Call `report` with an explicit `verdict` for every prescription.
 3. For `success`, `failure`, or `error`, include the exit code.
 4. For `declined`, do not include an exit code. Include `decision_context.trigger` and `decision_context.reason`.
 5. Every prescribe must have exactly one report. Never skip the report, even on failure or refusal.
-6. On retry, call `prescribe` again for each attempt (new prescription per attempt).
-7. If unsure whether a command mutates state, call `prescribe`.
+6. On retry, call the same prescribe tool again for each attempt (new prescription per attempt).
+7. If unsure whether a command mutates state, call `prescribe_smart`.
 8. Do not use prescribe/report for non-infrastructure tasks (coding, analysis, documentation).
 
 ### How to call prescribe
@@ -286,7 +288,7 @@ Direct smart mode:
     "type": "agent",
     "id": "claude",
     "origin": "mcp",
-    "skill_version": "1.0.1"
+    "skill_version": "1.1.0"
   }
 }
 ```
@@ -302,7 +304,7 @@ Direct full mode:
     "type": "agent",
     "id": "claude",
     "origin": "mcp",
-    "skill_version": "1.0.1"
+    "skill_version": "1.1.0"
   },
   "environment": "production",
   "session_id": "optional-session-id",
@@ -313,7 +315,9 @@ Direct full mode:
 }
 ```
 
-**Required fields:** `tool`, `operation`, `actor`, and one of `raw_artifact`, `resource`, or `canonical_action`.
+**Direct smart mode required fields:** `tool`, `operation`, `resource`, and `actor`.
+
+**Direct full mode required fields:** `tool`, `operation`, `raw_artifact`, and `actor`.
 
 **Direct full mode (`raw_artifact`) examples:**
 - **kubectl apply -f manifest.yaml** — read the file, pass full YAML content

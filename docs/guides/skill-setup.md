@@ -11,13 +11,13 @@ The Evidra skill teaches AI agents the prescribe/report protocol for infrastruct
 
 ## Why Install the Skill
 
-The Evidra MCP server gives AI agents access to `prescribe`, `report`, and `get_event` tools. But having tools available does not guarantee the agent will use them correctly. Without guidance, agents may:
+The Evidra MCP server gives AI agents access to `prescribe_full`, `prescribe_smart`, `report`, and `get_event` tools. But having tools available does not guarantee the agent will use them correctly. Without guidance, agents may:
 
-- Skip `prescribe` for some mutations
+- Skip the correct prescribe tool for some mutations
 - Forget to call `report` after failures
 - Omit required fields like `exit_code` or `actor.skill_version`
-- Call `prescribe` for read-only operations that don't need it
-- Reuse a `prescription_id` on retry instead of calling `prescribe` again
+- Call a prescribe tool for read-only operations that don't need it
+- Reuse a `prescription_id` on retry instead of calling a prescribe tool again
 
 The skill embeds protocol rules, invariants, classification tables, and a decision flowchart directly into the agent's context. In testing, agents with the skill installed achieved **100% protocol compliance** compared to inconsistent behavior with the MCP server alone.
 
@@ -60,7 +60,7 @@ You should see `evidra` in the list. Then ask:
 
 > "Apply this deployment to staging" (with a YAML manifest)
 
-The agent should call `prescribe` before executing `kubectl apply` and `report` after.
+The agent should call `prescribe_full` or `prescribe_smart` before executing `kubectl apply` and `report` after.
 
 ---
 
@@ -70,7 +70,8 @@ The agent should call `prescribe` before executing `kubectl apply` and `report` 
 MCP Server (evidra-mcp)          Skill (SKILL.md)
 ─────────────────────────        ─────────────────────────
 Provides tools:                  Provides protocol knowledge:
-  • prescribe                      • When to call prescribe
+  • prescribe_full                 • When to call prescribe_full
+  • prescribe_smart                • When to call prescribe_smart
   • report                         • What fields are required
   • get_event                      • How to handle failures
                                    • Classification tables
@@ -87,11 +88,11 @@ Observes and scores              • Decision flowchart
 
 The MCP server handles evidence recording, risk analysis, and scoring. The skill handles agent behavior — ensuring the agent calls the right tool at the right time with the right inputs.
 
-Smart prescribe is the recommended default in the skill:
+`prescribe_smart` is the recommended default in the skill:
 
 - send `tool`, `operation`, `resource`, and optional `namespace` when the target is known
 - keep `actor.type`, `actor.id`, `actor.origin`, and `actor.skill_version` present
-- fall back to full prescribe with `raw_artifact` when you want native detector coverage and artifact drift detection
+- fall back to `prescribe_full` with `raw_artifact` when you want native detector coverage and artifact drift detection
 
 ---
 
