@@ -19,6 +19,7 @@ import (
 	"samebits.com/evidra/pkg/evidence"
 	"samebits.com/evidra/pkg/mcpserver"
 	"samebits.com/evidra/pkg/mode"
+	"samebits.com/evidra/pkg/proxy"
 	"samebits.com/evidra/pkg/version"
 )
 
@@ -38,6 +39,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	apiKeyFlag := fs.String("api-key", os.Getenv("EVIDRA_API_KEY"), "Evidra API key")
 	offlineFlag := fs.Bool("offline", false, "Force offline mode")
 	fallbackOfflineFlag := fs.Bool("fallback-offline", false, "Fall back to offline on API failure")
+	proxyFlag := fs.Bool("proxy", false, "Proxy mode: wrap an upstream MCP server and auto-record mutations")
 	helpFlag := fs.Bool("help", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
@@ -54,6 +56,45 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	evidencePath := resolveEvidencePath(*evidenceFlag)
 	environment := resolveEnvironment(*environmentFlag)
+	logger := log.New(stderr, "", log.LstdFlags)
+
+	if *proxyFlag {
+		remaining := fs.Args()
+		if len(remaining) == 0 {
+			fmt.Fprintln(stderr, "proxy mode requires upstream command after --")
+			return 1
+		}
+		// Remove leading "--" if present
+		if remaining[0] == "--" {
+			remaining = remaining[1:]
+		}
+		if len(remaining) == 0 {
+			fmt.Fprintln(stderr, "proxy mode requires upstream command after --")
+			return 1
+		}
+
+		evidenceWriter, err := proxy.NewEvidenceWriter(evidencePath)
+		if err != nil {
+			fmt.Fprintf(stderr, "proxy evidence: %v\n", err)
+			return 1
+		}
+		defer evidenceWriter.Close()
+
+		p := &proxy.Proxy{
+			UpstreamCmd:  remaining[0],
+			UpstreamArgs: remaining[1:],
+			Evidence:     evidenceWriter,
+			Verbose:      envBool("EVIDRA_PROXY_VERBOSE", false),
+		}
+
+		logger.Printf("evidra-mcp proxy mode (upstream: %s, evidence: %s)", remaining[0], evidenceWriter.Dir())
+
+		if err := p.Run(context.Background()); err != nil {
+			fmt.Fprintf(stderr, "proxy: %v\n", err)
+			return 1
+		}
+		return 0
+	}
 
 	writeMode, writeModeErr := config.ResolveEvidenceWriteMode("")
 	if writeModeErr != nil {
@@ -117,7 +158,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}()
 
-	logger := log.New(stderr, "", log.LstdFlags)
 	logger.Printf("evidra-mcp running (evidence: %s, env: %s)", evidencePath, environment)
 
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
@@ -192,14 +232,26 @@ func resolveSigner(modeRaw string) (evidence.Signer, error) {
 func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "evidra-mcp — MCP integration point for infrastructure automation reliability (including AI agents).")
 	fmt.Fprintln(w)
+	fmt.Fprintln(w, "MODES:")
+	fmt.Fprintln(w, "  Direct (default)  Agent calls prescribe/report tools explicitly")
+	fmt.Fprintln(w, "  Proxy (--proxy)   Wraps upstream MCP server, auto-records mutations")
+	fmt.Fprintln(w)
 	fmt.Fprintln(w, "USAGE:")
 	fmt.Fprintln(w, "  evidra-mcp [flags]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "PROXY USAGE:")
+	fmt.Fprintln(w, "  evidra-mcp --proxy [flags] -- <upstream-command> [args...]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "PROXY EXAMPLE:")
+	fmt.Fprintln(w, "  evidra-mcp --proxy -- kubectl-mcp-server")
+	fmt.Fprintln(w, "  evidra-mcp --proxy --evidence-dir /tmp/evidence -- npx -y @example/kubectl-mcp")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "FLAGS:")
 	fmt.Fprintln(w, "  --evidence-dir <dir>    Where to store evidence chain (default: ~/.evidra/evidence)")
 	fmt.Fprintln(w, "  --environment <label>   Environment label (production, staging, development)")
 	fmt.Fprintln(w, "  --retry-tracker         Enable retry loop tracking")
 	fmt.Fprintln(w, "  --signing-mode <mode>   Signing mode: strict (default) or optional")
+	fmt.Fprintln(w, "  --proxy                 Enable proxy mode (wrap upstream MCP server)")
 	fmt.Fprintln(w, "  --version               Print version and exit")
 	fmt.Fprintln(w, "  --help                  Show this help")
 	fmt.Fprintln(w)
@@ -209,8 +261,9 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  EVIDRA_RETRY_TRACKER    Enable retry tracking (true/false)")
 	fmt.Fprintln(w, "  EVIDRA_EVIDENCE_WRITE_MODE  strict (default) or best_effort")
 	fmt.Fprintln(w, "  EVIDRA_SIGNING_MODE     strict (default) or optional")
+	fmt.Fprintln(w, "  EVIDRA_PROXY_VERBOSE    Enable verbose proxy logging (true/false)")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "TOOLS:")
+	fmt.Fprintln(w, "TOOLS (direct mode):")
 	fmt.Fprintln(w, "  prescribe   Analyze artifact BEFORE execution (returns risk + prescription_id)")
 	fmt.Fprintln(w, "  report      Record outcome AFTER execution (exit code + assessment snapshot)")
 	fmt.Fprintln(w, "  get_event   Look up evidence record by event_id")

@@ -148,6 +148,42 @@ Declined verdicts are first-class evidence — not silent gaps in the log.
 
 References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](docs/guides/skill-setup.md) · [Execution schemas](pkg/execcontract/schemas/)
 
+### Proxy Mode: Zero-Token Evidence
+
+Not every model follows the prescribe/report protocol. Proxy mode wraps any MCP server and auto-records evidence for infrastructure mutations — no agent changes, no extra tokens, no skill required.
+
+```bash
+# Direct mode (default): agent calls prescribe/report explicitly
+evidra-mcp --evidence-dir ~/.evidra/evidence
+
+# Proxy mode: wrap upstream server, auto-record mutations
+evidra-mcp --proxy -- kubectl-mcp-server
+```
+
+| | Direct Mode | Proxy Mode |
+|---|---|---|
+| Agent awareness | Explicit — calls prescribe/report | Transparent — agent unaware |
+| Token overhead | 200-500 per mutation | Zero |
+| Risk assessment | Agent provides risk opinion | Inferred from command |
+| Model requirement | Must follow protocol (Claude, GPT-5.2) | Any model |
+| Install | Skill prompt + MCP config | One config line change |
+| What it measures | Agent discipline + intent | What actually happened |
+
+Proxy mode detects mutations for kubectl, helm, terraform, Argo CD, and Docker. Read-only commands pass through unrecorded.
+
+**Configuration (one line change):**
+
+```json
+{
+  "mcpServers": {
+    "kubectl": {
+      "command": "evidra-mcp",
+      "args": ["--proxy", "--", "kubectl-mcp-server"]
+    }
+  }
+}
+```
+
 ## For CI/CD Pipelines
 
 The prescribe/report protocol also works without MCP. Two CLI modes feed the same lifecycle and scoring engine:
