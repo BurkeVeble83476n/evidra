@@ -4,18 +4,15 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra — Flight recorder for AI infrastructure agents**
+**Evidra  — Flight recorder and reliability scoring for infrastructure AI agents**
 
 Your AI agent fixes Kubernetes. Can you prove it?
-
-In 34 infrastructure scenarios, the best AI model fixed every problem but left no evidence 27%
-of the time. Unrecorded automation is invisible to audits and compliance.
 
 Evidra records intent, outcome, and refusal in a signed, append-only evidence chain. It shows
 risk before execution and reveals patterns like retry loops, drift, and escalation across
 agents, pipelines, and controllers.
 
-Evidra informs, not enforces. It is the flight recorder, not the proxy.
+Evidra informs, not enforces. It is the flight recorder and intelligent scoring engine, not the proxy.
 
 
 ## The Prescribe/Report Protocol
