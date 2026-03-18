@@ -21,6 +21,8 @@ func TestIsMutation(t *testing.T) {
 		"terraform apply -auto-approve",
 		"terraform destroy",
 		"terraform import aws_instance.foo i-123",
+		"docker run nginx",
+		"docker stop container-1",
 	}
 
 	for _, cmd := range mutations {
@@ -54,25 +56,33 @@ func TestIsMutation(t *testing.T) {
 	}
 }
 
-func TestParseCommand(t *testing.T) {
+func TestClassifyCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		input    string
-		wantTool string
-		wantOp   string
+		input     string
+		wantTool  string
+		wantOp    string
+		wantClass OperationClass
 	}{
-		{"kubectl apply -f x.yaml", "kubectl", "apply"},
-		{"helm install release chart", "helm", "install"},
-		{"terraform plan", "terraform", "plan"},
-		{"", "", ""},
-		{"kubectl", "kubectl", ""},
+		{"kubectl apply -f x.yaml", "kubectl", "apply", OpMutate},
+		{"kubectl delete pod nginx", "kubectl", "delete", OpDestroy},
+		{"kubectl get pods", "kubectl", "get", OpRead},
+		{"helm install release chart", "helm", "install", OpMutate},
+		{"helm list", "helm", "list", OpRead},
+		{"terraform plan", "terraform", "plan", OpPlan},
+		{"terraform apply", "terraform", "apply", OpMutate},
+		{"terraform destroy", "terraform", "destroy", OpDestroy},
+		{"", "", "", OpUnknown},
+		{"kubectl", "kubectl", "", OpUnknown},
+		{"unknowntool do something", "unknowntool", "", OpUnknown},
 	}
 
 	for _, tt := range tests {
-		tool, op := ParseCommand(tt.input)
-		if tool != tt.wantTool || op != tt.wantOp {
-			t.Errorf("ParseCommand(%q) = (%q, %q), want (%q, %q)", tt.input, tool, op, tt.wantTool, tt.wantOp)
+		tool, op, class := ClassifyCommand(tt.input)
+		if tool != tt.wantTool || op != tt.wantOp || class != tt.wantClass {
+			t.Errorf("ClassifyCommand(%q) = (%q, %q, %q), want (%q, %q, %q)",
+				tt.input, tool, op, class, tt.wantTool, tt.wantOp, tt.wantClass)
 		}
 	}
 }

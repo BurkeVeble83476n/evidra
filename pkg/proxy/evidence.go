@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"samebits.com/evidra/pkg/execcontract"
 )
 
 // EvidenceWriter records prescribe/report entries to a local JSONL file.
@@ -40,45 +42,37 @@ func (w *EvidenceWriter) Close() error {
 	return nil
 }
 
-// PrescribeEntry is an auto-generated prescribe record.
-type PrescribeEntry struct {
-	Type           string    `json:"type"`
-	PrescriptionID string    `json:"prescription_id"`
-	Tool           string    `json:"tool"`
-	Operation      string    `json:"operation"`
-	Command        string    `json:"command"`
-	Timestamp      time.Time `json:"timestamp"`
-	Actor          Actor     `json:"actor"`
-}
-
-// ReportEntry is an auto-generated report record.
-type ReportEntry struct {
-	Type           string    `json:"type"`
-	PrescriptionID string    `json:"prescription_id"`
-	ExitCode       int       `json:"exit_code"`
-	Verdict        string    `json:"verdict"`
-	Timestamp      time.Time `json:"timestamp"`
-}
-
-// Actor identifies the proxy as the evidence source.
-type Actor struct {
-	Type string `json:"type"`
-	ID   string `json:"id"`
+// ProxyEntry is a unified evidence entry for proxy-generated records.
+type ProxyEntry struct {
+	Type           string             `json:"type"` // prescribe or report
+	PrescriptionID string             `json:"prescription_id"`
+	Tool           string             `json:"tool,omitempty"`
+	Operation      string             `json:"operation,omitempty"`
+	OperationClass string             `json:"operation_class,omitempty"`
+	Command        string             `json:"command,omitempty"`
+	ExitCode       *int               `json:"exit_code,omitempty"`
+	Verdict        string             `json:"verdict,omitempty"`
+	Timestamp      time.Time          `json:"timestamp"`
+	Actor          execcontract.Actor `json:"actor"`
 }
 
 // Prescribe records a pre-execution entry and returns the prescription ID.
 func (w *EvidenceWriter) Prescribe(command string) string {
-	tool, operation := ParseCommand(command)
+	tool, operation, class := ClassifyCommand(command)
 	id := fmt.Sprintf("proxy-%d", time.Now().UnixNano())
 
-	entry := PrescribeEntry{
+	entry := ProxyEntry{
 		Type:           "prescribe",
 		PrescriptionID: id,
 		Tool:           tool,
 		Operation:      operation,
+		OperationClass: string(class),
 		Command:        command,
 		Timestamp:      time.Now().UTC(),
-		Actor:          Actor{Type: "proxy", ID: "evidra-proxy"},
+		Actor: execcontract.Actor{
+			Type: "proxy",
+			ID:   "evidra-proxy",
+		},
 	}
 
 	w.write(entry)
@@ -87,17 +81,21 @@ func (w *EvidenceWriter) Prescribe(command string) string {
 
 // Report records a post-execution entry.
 func (w *EvidenceWriter) Report(prescriptionID string, exitCode int) {
-	verdict := "success"
+	verdict := execcontract.VerdictSuccess
 	if exitCode != 0 {
-		verdict = "failure"
+		verdict = execcontract.VerdictFailure
 	}
 
-	entry := ReportEntry{
+	entry := ProxyEntry{
 		Type:           "report",
 		PrescriptionID: prescriptionID,
-		ExitCode:       exitCode,
+		ExitCode:       &exitCode,
 		Verdict:        verdict,
 		Timestamp:      time.Now().UTC(),
+		Actor: execcontract.Actor{
+			Type: "proxy",
+			ID:   "evidra-proxy",
+		},
 	}
 
 	w.write(entry)
