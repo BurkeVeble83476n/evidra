@@ -52,14 +52,8 @@ func validateMCPContract(mcp MCPContract) error {
 	if len(mcp.Initialize.Rules) == 0 {
 		return fmt.Errorf("mcp.initialize.rules is required")
 	}
-	if mcp.Prescribe.Intro == "" {
-		return fmt.Errorf("mcp.prescribe.intro is required")
-	}
-	if len(mcp.Prescribe.RequiredInputs) == 0 {
-		return fmt.Errorf("mcp.prescribe.required_inputs is required")
-	}
-	if len(mcp.Prescribe.PreCallChecklist) == 0 {
-		return fmt.Errorf("mcp.prescribe.pre_call_checklist is required")
+	if err := validatePrescribeContracts(mcp); err != nil {
+		return err
 	}
 	if len(mcp.Report.RequiredInputs) == 0 {
 		return fmt.Errorf("mcp.report.required_inputs is required")
@@ -78,6 +72,37 @@ func validateMCPContract(mcp MCPContract) error {
 	}
 	if len(mcp.GetEvent.Returns) == 0 {
 		return fmt.Errorf("mcp.get_event.returns is required")
+	}
+	return nil
+}
+
+func validatePrescribeContracts(mcp MCPContract) error {
+	if mcp.Prescribe.Intro != "" {
+		if len(mcp.Prescribe.RequiredInputs) == 0 {
+			return fmt.Errorf("mcp.prescribe.required_inputs is required")
+		}
+		if len(mcp.Prescribe.PreCallChecklist) == 0 {
+			return fmt.Errorf("mcp.prescribe.pre_call_checklist is required")
+		}
+		return nil
+	}
+	if mcp.PrescribeFull.Intro == "" {
+		return fmt.Errorf("mcp.prescribe_full.intro is required")
+	}
+	if len(mcp.PrescribeFull.RequiredInputs) == 0 {
+		return fmt.Errorf("mcp.prescribe_full.required_inputs is required")
+	}
+	if len(mcp.PrescribeFull.PreCallChecklist) == 0 {
+		return fmt.Errorf("mcp.prescribe_full.pre_call_checklist is required")
+	}
+	if mcp.PrescribeSmart.Intro == "" {
+		return fmt.Errorf("mcp.prescribe_smart.intro is required")
+	}
+	if len(mcp.PrescribeSmart.RequiredInputs) == 0 {
+		return fmt.Errorf("mcp.prescribe_smart.required_inputs is required")
+	}
+	if len(mcp.PrescribeSmart.PreCallChecklist) == 0 {
+		return fmt.Errorf("mcp.prescribe_smart.pre_call_checklist is required")
 	}
 	return nil
 }

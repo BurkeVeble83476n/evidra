@@ -2,7 +2,7 @@
 name: evidra
 description: "Use this skill when the user asks you to EXECUTE infrastructure mutations — commands that create, modify, or delete real resources. This includes: kubectl apply/delete/patch/create/replace/scale/rollout restart, helm install/upgrade/uninstall/rollback, terraform apply/destroy/import, docker run/rm/stop/kill, docker-compose up/down, podman/nerdctl equivalents, or any IaC tool that changes live infrastructure state. Also trigger when the user mentions Evidra, evidence chains, prescribe/report protocol, or reliability scorecards. DO NOT trigger for: writing Dockerfiles, writing Ansible/Terraform code without executing it, CI/CD pipeline setup, kubectl get/describe/logs (read-only), helm list/status/template, terraform plan/show, explaining infrastructure concepts, or writing tests for infrastructure tools. The key distinction is EXECUTING mutations vs WRITING code or READING state."
 ---
-<!-- contract: v1.1.0 -->
+<!-- contract: {{ .ContractVersion }} -->
 
 # Evidra MCP Protocol for Infrastructure Operations
 
@@ -14,21 +14,20 @@ The evidence chain enables reliability scoring, behavioral signal detection, and
 
 Every infrastructure **mutation** follows two steps:
 
-```
+{{ "```" }}
 1. prescribe_full or prescribe_smart  →  get prescription_id + risk assessment
 2. [execute the command]
 3. report     →  record verdict + get reliability score
-```
+{{ "```" }}
 
 Read-only operations skip the protocol entirely.
 
 ## Critical Invariants
 
 These three rules are non-negotiable:
-
-- **Do not execute mutate commands until a prescribe tool returns ok=true with prescription_id.**
-- **Every prescribe must have exactly one report.**
-- **Always include actor.skill_version (set to this contract version).**
+{{ range .Contract.Invariants }}
+- **{{ . }}**
+{{- end }}
 
 Breaking these invariants triggers protocol violation signals that degrade your reliability score.
 
@@ -49,24 +48,22 @@ Breaking these invariants triggers protocol violation signals that degrade your 
 Contract classification:
 
 Mutation examples (must use prescribe/report):
-- kubectl apply/delete/patch/create/replace/rollout restart
-- helm install/upgrade/uninstall/rollback
-- terraform apply/destroy/import
-
+{{ range .Classification.MutateExamples -}}
+- {{ . }}
+{{ end }}
 Read-only examples (skip protocol):
-- kubectl get/describe/logs/top/events
-- helm list/status/template
-- terraform plan/show/output
-
+{{ range .Classification.ReadOnlyExamples -}}
+- {{ . }}
+{{ end }}
 **When unsure whether a command mutates state, call `prescribe_smart`.** It's always safe to prescribe — the cost is one extra call. The cost of skipping is a protocol violation signal.
 
 ## Calling The Prescribe Tools
 
 ### Recommended default: `prescribe_smart`
 
-Record lightweight intent BEFORE an infrastructure operation that creates, modifies, or deletes resources. Use this tool when you know the tool, operation, and target resource but do not have artifact bytes.
+{{ .Contract.MCP.PrescribeSmart.Intro }}
 
-```json
+{{ "```" }}json
 {
   "tool": "kubectl",
   "operation": "apply",
@@ -76,33 +73,28 @@ Record lightweight intent BEFORE an infrastructure operation that creates, modif
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "1.1.0"
+    "skill_version": "{{ .SkillVersion }}"
   }
 }
-```
+{{ "```" }}
 
 Use `prescribe_smart` when you know the target resource and namespace but do not need artifact-level drift detection.
 
 Required inputs:
-- **tool**
-- **operation**
-- **resource**
-- **actor (type, id, origin)**
-
+{{ range .Contract.MCP.PrescribeSmart.RequiredInputs -}}
+- **{{ . }}**
+{{ end }}
 
 ### Smart pre-call checklist
-- tool/operation must be non-empty.
-- resource must identify the target (for example deployment/web).
-- actor.type/actor.id/actor.origin must be present.
-- actor.skill_version should be set to this contract version.
-- Keep session/operation/trace identifiers stable within one task.
-
+{{ range .Contract.MCP.PrescribeSmart.PreCallChecklist -}}
+- {{ . }}
+{{ end }}
 
 ### `prescribe_full`
 
-Record full artifact intent BEFORE an infrastructure operation that creates, modifies, or deletes resources. Use this tool when you have the actual artifact bytes and want native detector coverage plus artifact drift tracking.
+{{ .Contract.MCP.PrescribeFull.Intro }}
 
-```json
+{{ "```" }}json
 {
   "tool": "kubectl",
   "operation": "apply",
@@ -111,31 +103,26 @@ Record full artifact intent BEFORE an infrastructure operation that creates, mod
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "1.1.0"
+    "skill_version": "{{ .SkillVersion }}"
   }
 }
-```
+{{ "```" }}
 
 Use `prescribe_full` when you have the artifact bytes and want native detector coverage plus artifact drift detection.
 
 Required inputs:
-- **tool**
-- **operation**
-- **raw_artifact**
-- **actor (type, id, origin)**
-
+{{ range .Contract.MCP.PrescribeFull.RequiredInputs -}}
+- **{{ . }}**
+{{ end }}
 
 ### Full pre-call checklist
-- tool/operation must be non-empty.
-- raw_artifact must contain the artifact or command content being executed.
-- actor.type/actor.id/actor.origin must be present.
-- actor.skill_version should be set to this contract version.
-- Keep session/operation/trace identifiers stable within one task.
-
+{{ range .Contract.MCP.PrescribeFull.PreCallChecklist -}}
+- {{ . }}
+{{ end }}
 
 ### Optional but recommended fields
 
-```json
+{{ "```" }}json
 {
   "session_id": "stable-session-id",
   "operation_id": "unique-per-operation",
@@ -145,13 +132,13 @@ Required inputs:
     "namespace": "default"
   }
 }
-```
+{{ "```" }}
 
 Keep `session_id` stable within one task. Use `scope_dimensions` to provide cluster/namespace/account/region context.
 
 ### What the prescribe tools return
 
-```json
+{{ "```" }}json
 {
   "ok": true,
   "prescription_id": "01ABC...",
@@ -169,14 +156,12 @@ Keep `session_id` stable within one task. Use `scope_dimensions` to provide clus
   "scope_class": "production",
   "resource_count": 1
 }
-```
+{{ "```" }}
 
 Returns:
-- prescription_id (required for report)
-- risk_inputs, effective_risk
-- artifact_digest, intent_digest
-- resource_shape_hash, operation_class, scope_class
-
+{{ range .Contract.MCP.PrescribeFull.Returns -}}
+- {{ . }}
+{{ end }}
 
 ### If a prescribe tool fails
 
@@ -195,11 +180,11 @@ After a prescribe tool returns `ok=true`, execute the infrastructure command nor
 
 ## Calling Report
 
-Record the terminal verdict AFTER an infrastructure operation completes or is intentionally declined.
+{{ .Contract.MCP.Report.Intro }}
 
 ### Success
 
-```json
+{{ "```" }}json
 {
   "prescription_id": "01ABC...",
   "verdict": "success",
@@ -208,21 +193,21 @@ Record the terminal verdict AFTER an infrastructure operation completes or is in
     "type": "agent",
     "id": "your-agent-id",
     "origin": "mcp-stdio",
-    "skill_version": "1.1.0"
+    "skill_version": "{{ .SkillVersion }}"
   }
 }
-```
+{{ "```" }}
 
 ### Failure
 
-```json
+{{ "```" }}json
 {
   "prescription_id": "01ABC...",
   "verdict": "failure",
   "exit_code": 1,
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "1.1.0" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .SkillVersion }}" }
 }
-```
+{{ "```" }}
 
 Always report failures with the actual non-zero exit code. Hiding failures triggers artifact drift and protocol violation signals.
 
@@ -230,7 +215,7 @@ Always report failures with the actual non-zero exit code. Hiding failures trigg
 
 When you decide **not** to execute after prescribing (e.g., risk is too high):
 
-```json
+{{ "```" }}json
 {
   "prescription_id": "01ABC...",
   "verdict": "declined",
@@ -238,30 +223,23 @@ When you decide **not** to execute after prescribing (e.g., risk is too high):
     "trigger": "risk_threshold_exceeded",
     "reason": "Critical risk: privileged container in production"
   },
-  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "1.1.0" }
+  "actor": { "type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .SkillVersion }}" }
 }
-```
+{{ "```" }}
 
 Note: `exit_code` is **forbidden** for declined verdicts. Use `decision_context` instead.
 
 ### Terminal outcome rule
-- Every prescribe must end with exactly one report, including failed, errored, aborted, or declined attempts.
-- Retries require a new prescribe/report pair for each attempt.
-
+{{ range .Contract.MCP.Report.TerminalOutcomeRule -}}
+- {{ . }}
+{{ end }}
 ### Rules
-- Always report failures; do not hide non-zero exit codes.
-- Always report deliberate refusals with a concise operational reason.
-- Do not report twice for the same prescription_id.
-- Do not report another actor's prescription_id.
-- If prescription_id is lost, call a prescribe tool again before execution.
-- Actor identity should match the original prescribe actor.
-- Include actor.skill_version for behavior slicing.
-- exit_code is required for success/failure/error verdicts and forbidden for declined verdicts.
-- On retry, call a prescribe tool again to get a new prescription_id before re-executing. Each attempt is a separate prescribe/report pair.
-
+{{ range .Contract.MCP.Report.Rules -}}
+- {{ . }}
+{{ end }}
 ### What report returns
 
-```json
+{{ "```" }}json
 {
   "ok": true,
   "report_id": "01DEF...",
@@ -279,7 +257,7 @@ Note: `exit_code` is **forbidden** for declined verdicts. Use `decision_context`
     "risk_escalation": 0
   }
 }
-```
+{{ "```" }}
 
 The `score` (0-100) reflects your operational reliability within the current session. Non-zero signals indicate behavioral patterns that reduce trust.
 
@@ -351,7 +329,7 @@ Evidra monitors eight behavioral signals. Understanding them helps you maintain 
 
 Add to your MCP config (e.g., `~/.claude.json` or Claude Desktop settings):
 
-```json
+{{ "```" }}json
 {
   "mcpServers": {
     "evidra": {
@@ -360,10 +338,10 @@ Add to your MCP config (e.g., `~/.claude.json` or Claude Desktop settings):
     }
   }
 }
-```
+{{ "```" }}
 
 For development with optional signing:
-```json
+{{ "```" }}json
 {
   "mcpServers": {
     "evidra": {
@@ -372,16 +350,16 @@ For development with optional signing:
     }
   }
 }
-```
+{{ "```" }}
 
 ### Docker
 
-```bash
+{{ "```" }}bash
 docker run -v ~/.evidra/evidence:/evidence \
   -e EVIDRA_EVIDENCE_DIR=/evidence \
   -e EVIDRA_ENVIRONMENT=production \
   evidra-mcp
-```
+{{ "```" }}
 
 ### Environment Variables
 
@@ -398,11 +376,11 @@ docker run -v ~/.evidra/evidence:/evidence \
 
 ## Quick Decision Flowchart
 
-```
+{{ "```" }}
 Is this an infrastructure command?
 ├─ No  → Just execute it. No protocol needed.
 └─ Yes → Does it mutate state?
          ├─ No  (get/describe/logs/plan/show) → Execute directly.
          ├─ Yes (apply/delete/create/destroy)  → prescribe → execute → report
          └─ Unsure → prescribe → execute → report (safe default)
-```
+{{ "```" }}

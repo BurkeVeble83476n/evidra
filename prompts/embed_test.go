@@ -24,33 +24,48 @@ func TestReadSkill_ReturnsNonEmptyContent(t *testing.T) {
 	}
 }
 
-func TestReadSkill_IncludesSmartPrescribeGuidance(t *testing.T) {
+func TestReadSkill_IncludesSplitPrescribeGuidance(t *testing.T) {
 	t.Parallel()
 
 	content, err := ReadSkill()
 	if err != nil {
 		t.Fatalf("ReadSkill: %v", err)
 	}
-	if !strings.Contains(content, "\"resource\": \"deployment/web\"") {
-		t.Fatalf("skill missing smart prescribe example: %s", content)
+	if !strings.Contains(content, "`prescribe_smart`") {
+		t.Fatalf("skill missing prescribe_smart guidance: %s", content)
 	}
-	if !strings.Contains(content, "smart prescribe") {
-		t.Fatalf("skill missing smart prescribe guidance: %s", content)
+	if !strings.Contains(content, "`prescribe_full`") {
+		t.Fatalf("skill missing prescribe_full guidance: %s", content)
 	}
 }
 
-func TestReadMCPPrescribeDescription_IncludesSmartPrescribeGuidance(t *testing.T) {
+func TestReadMCPPrescribeFullDescription_IsArtifactSpecific(t *testing.T) {
 	t.Parallel()
 
-	content, err := Read(MCPPrescribeDescriptionPath)
+	content, err := Read(MCPPrescribeFullDescriptionPath)
 	if err != nil {
-		t.Fatalf("Read(%q): %v", MCPPrescribeDescriptionPath, err)
-	}
-	if !strings.Contains(content, "smart prescribe") {
-		t.Fatalf("prescribe description missing smart prescribe guidance: %s", content)
+		t.Fatalf("Read(%q): %v", MCPPrescribeFullDescriptionPath, err)
 	}
 	if !strings.Contains(content, "raw_artifact") {
-		t.Fatalf("prescribe description missing full prescribe guidance: %s", content)
+		t.Fatalf("prescribe_full description missing raw_artifact guidance: %s", content)
+	}
+	if strings.Contains(content, "prescribe_smart") {
+		t.Fatalf("prescribe_full description should stay tool-specific: %s", content)
+	}
+}
+
+func TestReadMCPPrescribeSmartDescription_IsLightweight(t *testing.T) {
+	t.Parallel()
+
+	content, err := Read(MCPPrescribeSmartDescriptionPath)
+	if err != nil {
+		t.Fatalf("Read(%q): %v", MCPPrescribeSmartDescriptionPath, err)
+	}
+	if !strings.Contains(content, "resource") {
+		t.Fatalf("prescribe_smart description missing resource guidance: %s", content)
+	}
+	if strings.Contains(content, "raw_artifact") {
+		t.Fatalf("prescribe_smart description should not require raw_artifact: %s", content)
 	}
 }
 
@@ -122,7 +137,7 @@ func TestResolvePromptMetadata_RuntimeContract(t *testing.T) {
 	if meta.Path != "prompts/experiments/runtime/agent_contract_v1.md" {
 		t.Fatalf("path = %q, want %q", meta.Path, "prompts/experiments/runtime/agent_contract_v1.md")
 	}
-	if meta.PromptVersion != "sha256:a79fc218d2d69f402fd200de808617de9b770adc95c064d69c6ab22511ad5aef" {
+	if meta.PromptVersion != "sha256:6d94c115a8d5c5641be5be89a526f3b27f7a54f9fdd5b8e96f16905696dc100e" {
 		t.Fatalf("prompt_version = %q", meta.PromptVersion)
 	}
 }

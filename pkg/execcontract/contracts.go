@@ -156,7 +156,7 @@ func PrescribeToolDefinition() (ToolDefinition, error) {
 }
 
 func PrescribeFullToolDefinition() (ToolDefinition, error) {
-	description, err := promptdata.Read(promptdata.MCPPrescribeDescriptionPath)
+	description, err := promptdata.Read(promptdata.MCPPrescribeFullDescriptionPath)
 	if err != nil {
 		return ToolDefinition{}, fmt.Errorf("read prescribe_full description: %w", err)
 	}
@@ -172,7 +172,7 @@ func PrescribeFullToolDefinition() (ToolDefinition, error) {
 }
 
 func PrescribeSmartToolDefinition() (ToolDefinition, error) {
-	description, err := promptdata.Read(promptdata.MCPPrescribeDescriptionPath)
+	description, err := promptdata.Read(promptdata.MCPPrescribeSmartDescriptionPath)
 	if err != nil {
 		return ToolDefinition{}, fmt.Errorf("read prescribe_smart description: %w", err)
 	}
