@@ -61,6 +61,8 @@ type PrescribeInput struct {
 	Tool            string            `json:"tool"`
 	Operation       string            `json:"operation"`
 	RawArtifact     string            `json:"raw_artifact"`
+	Resource        string            `json:"resource,omitempty"`
+	Namespace       string            `json:"namespace,omitempty"`
 	CanonicalAction *CanonicalAction  `json:"canonical_action,omitempty"`
 	Actor           Actor             `json:"actor"`
 	SessionID       string            `json:"session_id,omitempty"`
@@ -136,8 +138,10 @@ func ValidatePrescribeInput(input PrescribeInput) error {
 	if strings.TrimSpace(input.Operation) == "" {
 		return fmt.Errorf("operation is required")
 	}
-	if strings.TrimSpace(input.RawArtifact) == "" {
-		return fmt.Errorf("raw_artifact is required")
+	if strings.TrimSpace(input.RawArtifact) == "" &&
+		strings.TrimSpace(input.Resource) == "" &&
+		input.CanonicalAction == nil {
+		return fmt.Errorf("one of raw_artifact, resource, or canonical_action is required")
 	}
 	return validateActor(input.Actor)
 }

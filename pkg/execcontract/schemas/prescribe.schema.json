@@ -1,6 +1,11 @@
 {
   "type": "object",
-  "required": ["tool", "operation", "raw_artifact", "actor"],
+  "required": ["tool", "operation", "actor"],
+  "anyOf": [
+    { "required": ["raw_artifact"] },
+    { "required": ["resource"] },
+    { "required": ["canonical_action"] }
+  ],
   "properties": {
     "tool": {
       "type": "string",
@@ -12,7 +17,15 @@
     },
     "raw_artifact": {
       "type": "string",
-      "description": "Raw artifact content (YAML manifest, JSON plan, etc.)"
+      "description": "Raw artifact content (YAML manifest, JSON plan, etc.). Optional in smart prescribe mode."
+    },
+    "resource": {
+      "type": "string",
+      "description": "Target resource identity for smart prescribe mode (for example deployment/web)."
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Target namespace for smart prescribe mode."
     },
     "canonical_action": {
       "type": "object",
