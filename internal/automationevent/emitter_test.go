@@ -61,6 +61,8 @@ func TestEmitterMappedLifecycleCreatesPrescribeAndReport(t *testing.T) {
 		ArtifactDigest:  desiredDigest,
 		ScopeDimensions: scope,
 		Flavor:          FlavorReconcile,
+		EvidenceKind:    evidence.EvidenceKindTranslated,
+		SourceSystem:    "argocd",
 	})
 	if err != nil {
 		t.Fatalf("EmitMappedPrescribe: %v", err)
@@ -82,6 +84,8 @@ func TestEmitterMappedLifecycleCreatesPrescribeAndReport(t *testing.T) {
 		ArtifactDigest:  desiredDigest,
 		ScopeDimensions: scope,
 		Flavor:          FlavorReconcile,
+		EvidenceKind:    evidence.EvidenceKindTranslated,
+		SourceSystem:    "argocd",
 	})
 	if err != nil {
 		t.Fatalf("EmitMappedPrescribe duplicate: %v", err)
@@ -108,6 +112,8 @@ func TestEmitterMappedLifecycleCreatesPrescribeAndReport(t *testing.T) {
 		ExitCode:        intPtr(0),
 		ExternalRefs:    reportRefs,
 		Flavor:          FlavorReconcile,
+		EvidenceKind:    evidence.EvidenceKindTranslated,
+		SourceSystem:    "argocd",
 	})
 	if err != nil {
 		t.Fatalf("EmitMappedReport: %v", err)
@@ -135,19 +141,32 @@ func TestEmitterMappedLifecycleCreatesPrescribeAndReport(t *testing.T) {
 		t.Fatalf("report scope_dimensions = %#v, want %#v", reportEntry.ScopeDimensions, scope)
 	}
 
-	prescribePayload := decodePayloadMap(t, prescribeEntry.Payload)
-	if got := stringify(t, prescribePayload["flavor"]); got != "reconcile" {
-		t.Fatalf("prescribe payload flavor = %q, want reconcile", got)
+	var typedPrescribe evidence.PrescriptionPayload
+	if err := json.Unmarshal(prescribeEntry.Payload, &typedPrescribe); err != nil {
+		t.Fatalf("decode prescribe payload: %v", err)
 	}
-
-	reportPayload := decodePayloadMap(t, reportEntry.Payload)
-	if got := stringify(t, reportPayload["flavor"]); got != "reconcile" {
-		t.Fatalf("report payload flavor = %q, want reconcile", got)
+	if typedPrescribe.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("prescribe payload flavor = %q, want reconcile", typedPrescribe.Flavor)
+	}
+	if typedPrescribe.Evidence == nil || typedPrescribe.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("prescribe payload evidence = %+v, want translated", typedPrescribe.Evidence)
+	}
+	if typedPrescribe.Source == nil || typedPrescribe.Source.System != "argocd" {
+		t.Fatalf("prescribe payload source = %+v, want argocd", typedPrescribe.Source)
 	}
 
 	var typedReport evidence.ReportPayload
 	if err := json.Unmarshal(reportEntry.Payload, &typedReport); err != nil {
 		t.Fatalf("decode report payload: %v", err)
+	}
+	if typedReport.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("report payload flavor = %q, want reconcile", typedReport.Flavor)
+	}
+	if typedReport.Evidence == nil || typedReport.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("report payload evidence = %+v, want translated", typedReport.Evidence)
+	}
+	if typedReport.Source == nil || typedReport.Source.System != "argocd" {
+		t.Fatalf("report payload source = %+v, want argocd", typedReport.Source)
 	}
 	if typedReport.PrescriptionID != prescribeEntry.EntryID {
 		t.Fatalf("report prescription_id = %q, want %q", typedReport.PrescriptionID, prescribeEntry.EntryID)
@@ -209,6 +228,8 @@ func TestEmitterExplicitReportLinksExistingPrescriptionID(t *testing.T) {
 		ExitCode:        intPtr(0),
 		ExternalRefs:    reportRefs,
 		Flavor:          FlavorReconcile,
+		EvidenceKind:    evidence.EvidenceKindTranslated,
+		SourceSystem:    "argocd",
 	})
 	if err != nil {
 		t.Fatalf("EmitExplicitReport: %v", err)
@@ -237,14 +258,18 @@ func TestEmitterExplicitReportLinksExistingPrescriptionID(t *testing.T) {
 		t.Fatalf("report scope_dimensions = %#v, want %#v", reportEntry.ScopeDimensions, scope)
 	}
 
-	reportPayload := decodePayloadMap(t, reportEntry.Payload)
-	if got := stringify(t, reportPayload["flavor"]); got != "reconcile" {
-		t.Fatalf("report payload flavor = %q, want reconcile", got)
-	}
-
 	var typedReport evidence.ReportPayload
 	if err := json.Unmarshal(reportEntry.Payload, &typedReport); err != nil {
 		t.Fatalf("decode report payload: %v", err)
+	}
+	if typedReport.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("report payload flavor = %q, want reconcile", typedReport.Flavor)
+	}
+	if typedReport.Evidence == nil || typedReport.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("report payload evidence = %+v, want translated", typedReport.Evidence)
+	}
+	if typedReport.Source == nil || typedReport.Source.System != "argocd" {
+		t.Fatalf("report payload source = %+v, want argocd", typedReport.Source)
 	}
 	if typedReport.PrescriptionID != "presc-123" {
 		t.Fatalf("report prescription_id = %q, want presc-123", typedReport.PrescriptionID)
@@ -307,26 +332,6 @@ func decodeEntry(t *testing.T, raw json.RawMessage) evidence.EvidenceEntry {
 		t.Fatalf("decode evidence entry: %v", err)
 	}
 	return entry
-}
-
-func decodePayloadMap(t *testing.T, raw json.RawMessage) map[string]any {
-	t.Helper()
-
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		t.Fatalf("decode payload: %v", err)
-	}
-	return payload
-}
-
-func stringify(t *testing.T, value any) string {
-	t.Helper()
-
-	s, ok := value.(string)
-	if !ok {
-		t.Fatalf("value = %#v (%T), want string", value, value)
-	}
-	return s
 }
 
 func intPtr(v int) *int {

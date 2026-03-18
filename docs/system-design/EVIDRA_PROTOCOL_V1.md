@@ -113,16 +113,28 @@ The lifecycle pair is intentionally stable:
 - `report` means outcome recorded after execution
 
 This vocabulary applies to imperative commands, reconciliation loops, and
-pipeline stages. Integrations SHOULD prefer `payload.flavor` on prescribe/report
+workflows. Integrations SHOULD prefer payload metadata on prescribe/report
 payloads over introducing new primary lifecycle entry types.
 
 v1 flavors:
 
 - `imperative`
 - `reconcile`
-- `pipeline_stage`
+- `workflow`
 
-The same correlation rules and the same signal pipeline apply to all flavors.
+`payload.flavor` answers what kind of execution this was.
+
+`payload.evidence.kind` answers how Evidra obtained the lifecycle evidence:
+
+- `declared`
+- `observed`
+- `translated`
+
+`payload.source.system` identifies the producing system, for example `cli`,
+`mcp`, `argocd`, or `agentgateway`.
+
+The same correlation rules and the same signal pipeline apply across all
+flavors.
 
 ---
 

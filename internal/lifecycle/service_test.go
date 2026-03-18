@@ -177,6 +177,44 @@ func TestServicePrescribe_PopulatesRiskInputsAndEffectiveRisk(t *testing.T) {
 	}
 }
 
+func TestServicePrescribe_PersistsTaxonomyMetadata(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := NewService(Options{
+		EvidencePath: dir,
+		Signer:       testutil.TestSigner(t),
+	})
+
+	out, err := svc.Prescribe(context.Background(), PrescribeInput{
+		Actor:        evidence.Actor{Type: "cli", ID: "cli-1", Provenance: "cli"},
+		Tool:         "kubectl",
+		Operation:    "apply",
+		RawArtifact:  []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm1\n  namespace: default\n"),
+		SessionID:    "session-taxonomy",
+		Flavor:       evidence.FlavorImperative,
+		EvidenceKind: evidence.EvidenceKindDeclared,
+		SourceSystem: "cli",
+	})
+	if err != nil {
+		t.Fatalf("Prescribe: %v", err)
+	}
+
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(out.Entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal prescription payload: %v", err)
+	}
+	if payload.Flavor != evidence.FlavorImperative {
+		t.Fatalf("payload flavor = %q, want %q", payload.Flavor, evidence.FlavorImperative)
+	}
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindDeclared {
+		t.Fatalf("payload evidence = %+v, want declared", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "cli" {
+		t.Fatalf("payload source = %+v, want cli", payload.Source)
+	}
+}
+
 func TestServicePrescribe_DefaultsTraceIDToSessionIDWhenOmitted(t *testing.T) {
 	t.Parallel()
 

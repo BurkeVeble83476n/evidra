@@ -111,6 +111,9 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 				Action:          action,
 				ArtifactDigest:  artifactDigest,
 				ScopeDimensions: scope,
+				Flavor:          automationevent.FlavorImperative,
+				EvidenceKind:    pkevidence.EvidenceKindTranslated,
+				SourceSystem:    "generic",
 			})
 			writeWebhookEmitResult(w, result, err)
 			return
@@ -134,6 +137,9 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 			ScopeDimensions: scope,
 			Verdict:         payload.Verdict,
 			ExitCode:        exitCode,
+			Flavor:          automationevent.FlavorImperative,
+			EvidenceKind:    pkevidence.EvidenceKindTranslated,
+			SourceSystem:    "generic",
 		})
 		writeWebhookEmitResult(w, result, err)
 	}
@@ -198,6 +204,8 @@ func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence
 				ArtifactDigest:  artifactDigest,
 				ScopeDimensions: scope,
 				Flavor:          automationevent.FlavorReconcile,
+				EvidenceKind:    pkevidence.EvidenceKindTranslated,
+				SourceSystem:    "argocd",
 			})
 			writeWebhookEmitResult(w, result, err)
 		case "sync_completed":
@@ -221,6 +229,8 @@ func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence
 				ExitCode:        &exitCode,
 				ExternalRefs:    externalRefs,
 				Flavor:          automationevent.FlavorReconcile,
+				EvidenceKind:    pkevidence.EvidenceKindTranslated,
+				SourceSystem:    "argocd",
 			})
 			writeWebhookEmitResult(w, result, err)
 		default:

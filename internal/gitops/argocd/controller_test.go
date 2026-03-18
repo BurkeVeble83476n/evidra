@@ -47,9 +47,18 @@ func TestController_ClaimsStartEventOnce(t *testing.T) {
 	if entry.Type != evidence.EntryTypePrescribe {
 		t.Fatalf("entry.Type = %q, want %q", entry.Type, evidence.EntryTypePrescribe)
 	}
-	payload := decodeControllerPayload(t, entry.Payload)
-	if got, _ := payload["flavor"].(string); got != "reconcile" {
-		t.Fatalf("payload flavor = %q, want reconcile", got)
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("decode prescribe payload: %v", err)
+	}
+	if payload.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("payload flavor = %q, want reconcile", payload.Flavor)
+	}
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("payload evidence = %+v, want translated", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "argocd" {
+		t.Fatalf("payload source = %+v, want argocd", payload.Source)
 	}
 }
 
@@ -86,9 +95,18 @@ func TestController_ClaimsCompletionEventOnce(t *testing.T) {
 	if entry.Type != evidence.EntryTypeReport {
 		t.Fatalf("entry.Type = %q, want %q", entry.Type, evidence.EntryTypeReport)
 	}
-	payload := decodeControllerPayload(t, entry.Payload)
-	if got, _ := payload["flavor"].(string); got != "reconcile" {
-		t.Fatalf("payload flavor = %q, want reconcile", got)
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("decode report payload: %v", err)
+	}
+	if payload.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("payload flavor = %q, want reconcile", payload.Flavor)
+	}
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("payload evidence = %+v, want translated", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "argocd" {
+		t.Fatalf("payload source = %+v, want argocd", payload.Source)
 	}
 }
 
@@ -143,6 +161,15 @@ func TestController_UsesExplicitReportWhenPrescriptionAnnotationExists(t *testin
 	}
 	if payload.PrescriptionID != "presc-123" {
 		t.Fatalf("payload.PrescriptionID = %q, want presc-123", payload.PrescriptionID)
+	}
+	if payload.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("payload.Flavor = %q, want reconcile", payload.Flavor)
+	}
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("payload.Evidence = %+v, want translated", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "argocd" {
+		t.Fatalf("payload.Source = %+v, want argocd", payload.Source)
 	}
 	if entry.SessionID != "sess-123" {
 		t.Fatalf("entry.SessionID = %q, want sess-123", entry.SessionID)
@@ -215,6 +242,15 @@ func TestController_UsesMappedLifecycleInZeroTouchMode(t *testing.T) {
 	if !reflect.DeepEqual(reportPayload.ExternalRefs, wantRefs) {
 		t.Fatalf("report external_refs = %#v, want %#v", reportPayload.ExternalRefs, wantRefs)
 	}
+	if reportPayload.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("report flavor = %q, want reconcile", reportPayload.Flavor)
+	}
+	if reportPayload.Evidence == nil || reportPayload.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("report evidence = %+v, want translated", reportPayload.Evidence)
+	}
+	if reportPayload.Source == nil || reportPayload.Source.System != "argocd" {
+		t.Fatalf("report source = %+v, want argocd", reportPayload.Source)
+	}
 }
 
 type fakeControllerStore struct {
@@ -268,14 +304,4 @@ func decodeControllerEntry(t *testing.T, raw json.RawMessage) evidence.EvidenceE
 		t.Fatalf("decode evidence entry: %v", err)
 	}
 	return entry
-}
-
-func decodeControllerPayload(t *testing.T, raw json.RawMessage) map[string]any {
-	t.Helper()
-
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		t.Fatalf("decode payload: %v", err)
-	}
-	return payload
 }

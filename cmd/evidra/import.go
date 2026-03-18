@@ -74,6 +74,9 @@ func cmdImport(args []string, stdout, stderr io.Writer) int {
 		SessionID:       cmd.input.SessionID,
 		OperationID:     cmd.input.OperationID,
 		Attempt:         cmd.input.Attempt,
+		Flavor:          evidence.FlavorImperative,
+		EvidenceKind:    evidence.EvidenceKindDeclared,
+		SourceSystem:    "cli",
 	}
 	processor := NewOperationProcessor(cmd.service)
 	opResult, err := processor.Process(context.Background(), OperationRequest{

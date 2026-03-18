@@ -800,7 +800,7 @@ dedicated shipped `argocd/v1` artifact adapter.
 Current rule:
 
 - when rendered manifests are explicitly available, they SHOULD flow through the Kubernetes adapter
-- when only reconciliation lifecycle is available, Evidra records controller evidence using the standard prescribe/report pair with `payload.flavor = reconcile`
+- when only reconciliation lifecycle is available, Evidra records controller evidence using the standard prescribe/report pair with `payload.flavor = reconcile`, `payload.evidence.kind = translated`, and `payload.source.system = argocd`
 - `argocd/v1` remains reserved until a dedicated artifact-level adapter is implemented and fixture-backed
 
 This avoids pretending that controller-observed reconciliation always has the

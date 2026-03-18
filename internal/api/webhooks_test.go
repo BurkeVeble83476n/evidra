@@ -256,20 +256,28 @@ func TestHandleArgoCDWebhook_UsesOperationIDForLifecycleCorrelation(t *testing.T
 		t.Fatalf("report prescription_id = %q, want %q", payload.PrescriptionID, prescribe.EntryID)
 	}
 
-	var prescribePayload map[string]any
-	if err := json.Unmarshal(prescribe.Payload, &prescribePayload); err != nil {
-		t.Fatalf("decode prescribe payload map: %v", err)
+	var typedPrescribe evidence.PrescriptionPayload
+	if err := json.Unmarshal(prescribe.Payload, &typedPrescribe); err != nil {
+		t.Fatalf("decode prescribe payload: %v", err)
 	}
-	if got, _ := prescribePayload["flavor"].(string); got != "reconcile" {
-		t.Fatalf("prescribe payload flavor = %q, want reconcile", got)
+	if typedPrescribe.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("prescribe payload flavor = %q, want reconcile", typedPrescribe.Flavor)
+	}
+	if typedPrescribe.Evidence == nil || typedPrescribe.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("prescribe payload evidence = %+v, want translated", typedPrescribe.Evidence)
+	}
+	if typedPrescribe.Source == nil || typedPrescribe.Source.System != "argocd" {
+		t.Fatalf("prescribe payload source = %+v, want argocd", typedPrescribe.Source)
 	}
 
-	var reportPayload map[string]any
-	if err := json.Unmarshal(report.Payload, &reportPayload); err != nil {
-		t.Fatalf("decode report payload map: %v", err)
+	if payload.Flavor != evidence.FlavorReconcile {
+		t.Fatalf("report payload flavor = %q, want reconcile", payload.Flavor)
 	}
-	if got, _ := reportPayload["flavor"].(string); got != "reconcile" {
-		t.Fatalf("report payload flavor = %q, want reconcile", got)
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindTranslated {
+		t.Fatalf("report payload evidence = %+v, want translated", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "argocd" {
+		t.Fatalf("report payload source = %+v, want argocd", payload.Source)
 	}
 
 	wantScope := map[string]string{

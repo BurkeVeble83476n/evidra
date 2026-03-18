@@ -85,6 +85,44 @@ func TestProcessOperationUsesSingleLifecyclePath(t *testing.T) {
 	}
 }
 
+func TestProcessOperation_CopiesTaxonomyMetadataToReport(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyLifecycleService{
+		prescribeOut: lifecycle.PrescribeOutput{
+			PrescriptionID: "presc-1",
+			ArtifactDigest: "sha256:abc",
+		},
+		reportOut: lifecycle.ReportOutput{ReportID: "rep-1"},
+	}
+
+	processor := NewOperationProcessor(spy)
+	_, err := processor.Process(context.Background(), OperationRequest{
+		PrescribeInput: lifecycle.PrescribeInput{
+			Actor:        evidence.Actor{Type: "cli", ID: "cli-1", Provenance: "cli"},
+			Tool:         "kubectl",
+			Operation:    "apply",
+			RawArtifact:  []byte("kind: ConfigMap"),
+			Flavor:       evidence.FlavorImperative,
+			EvidenceKind: evidence.EvidenceKindDeclared,
+			SourceSystem: "cli",
+		},
+		ExitCode: 0,
+	})
+	if err != nil {
+		t.Fatalf("Process() error = %v", err)
+	}
+	if spy.reportInput.Flavor != evidence.FlavorImperative {
+		t.Fatalf("report flavor = %q, want %q", spy.reportInput.Flavor, evidence.FlavorImperative)
+	}
+	if spy.reportInput.EvidenceKind != evidence.EvidenceKindDeclared {
+		t.Fatalf("report evidence_kind = %q, want %q", spy.reportInput.EvidenceKind, evidence.EvidenceKindDeclared)
+	}
+	if spy.reportInput.SourceSystem != "cli" {
+		t.Fatalf("report source_system = %q, want cli", spy.reportInput.SourceSystem)
+	}
+}
+
 func TestProcessOperationReturnsPrescribeError(t *testing.T) {
 	t.Parallel()
 

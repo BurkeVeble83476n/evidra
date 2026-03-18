@@ -13,7 +13,10 @@ Evidra treats Argo CD as a GitOps execution source, not as a CLI-first adapter.
 
 - `prescribe` = intent registered before execution
 - `report` = outcome recorded after execution
-- `payload.flavor = reconcile` marks controller-observed reconciliation
+- `payload.flavor = reconcile` marks reconciliation-style execution
+- `payload.evidence.kind = translated` marks controller events mapped into the
+  standard Evidra lifecycle
+- `payload.source.system = argocd` identifies the producing control plane
 
 The same prescribe/report pair, signal detection, and scorecard logic apply in
 both imperative and reconciliation flows.
@@ -26,8 +29,8 @@ Use this when you want the fastest rollout and can accept best-effort
 correlation.
 
 - Evidra watches Argo `Application` objects in-cluster
-- reconcile start becomes a mapped `prescribe`
-- reconcile completion becomes a mapped `report`
+- reconcile start becomes a translated `prescribe`
+- reconcile completion becomes a translated `report`
 - correlation is best-effort using application identity, revision, cluster,
   namespace, and timing
 

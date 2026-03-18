@@ -28,6 +28,13 @@ func TestPrescriptionPayload_Marshal(t *testing.T) {
 		EffectiveRisk: "critical",
 		TTLMs:         30000,
 		CanonSource:   "k8s",
+		Flavor:        FlavorWorkflow,
+		Evidence: &EvidenceMetadata{
+			Kind: EvidenceKindObserved,
+		},
+		Source: &SourceMetadata{
+			System: "agentgateway",
+		},
 	}
 
 	data, err := json.Marshal(original)
@@ -52,6 +59,15 @@ func TestPrescriptionPayload_Marshal(t *testing.T) {
 	if decoded.EffectiveRisk != "critical" {
 		t.Errorf("effective_risk = %q, want %q", decoded.EffectiveRisk, "critical")
 	}
+	if decoded.Flavor != FlavorWorkflow {
+		t.Errorf("flavor = %q, want %q", decoded.Flavor, FlavorWorkflow)
+	}
+	if decoded.Evidence == nil || decoded.Evidence.Kind != EvidenceKindObserved {
+		t.Fatalf("evidence.kind = %+v, want observed", decoded.Evidence)
+	}
+	if decoded.Source == nil || decoded.Source.System != "agentgateway" {
+		t.Fatalf("source.system = %+v, want agentgateway", decoded.Source)
+	}
 	if len(decoded.RiskInputs) != 2 {
 		t.Fatalf("risk_inputs len = %d, want 2", len(decoded.RiskInputs))
 	}
@@ -67,7 +83,7 @@ func TestPrescriptionPayload_Marshal(t *testing.T) {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		t.Fatalf("raw unmarshal: %v", err)
 	}
-	for _, key := range []string{"prescription_id", "canonical_action", "risk_inputs", "effective_risk", "ttl_ms", "canon_source"} {
+	for _, key := range []string{"prescription_id", "canonical_action", "risk_inputs", "effective_risk", "ttl_ms", "canon_source", "flavor", "evidence", "source"} {
 		if _, ok := raw[key]; !ok {
 			t.Errorf("missing JSON key %q", key)
 		}
@@ -99,6 +115,15 @@ func TestPrescriptionPayload_OmitEmpty(t *testing.T) {
 	}
 	if _, ok := raw["risk_level"]; ok {
 		t.Error("legacy risk_level should be omitted when unset")
+	}
+	if _, ok := raw["flavor"]; ok {
+		t.Error("flavor should be omitted when empty")
+	}
+	if _, ok := raw["evidence"]; ok {
+		t.Error("evidence should be omitted when empty")
+	}
+	if _, ok := raw["source"]; ok {
+		t.Error("source should be omitted when empty")
 	}
 }
 
@@ -148,6 +173,13 @@ func TestReportPayload_Marshal(t *testing.T) {
 		PrescriptionID: "rx_01ABC",
 		ExitCode:       &exitCode,
 		Verdict:        VerdictSuccess,
+		Flavor:         FlavorImperative,
+		Evidence: &EvidenceMetadata{
+			Kind: EvidenceKindDeclared,
+		},
+		Source: &SourceMetadata{
+			System: "mcp",
+		},
 	}
 
 	data, err := json.Marshal(original)
@@ -172,6 +204,15 @@ func TestReportPayload_Marshal(t *testing.T) {
 	if decoded.Verdict != VerdictSuccess {
 		t.Errorf("verdict = %q, want %q", decoded.Verdict, VerdictSuccess)
 	}
+	if decoded.Flavor != FlavorImperative {
+		t.Errorf("flavor = %q, want %q", decoded.Flavor, FlavorImperative)
+	}
+	if decoded.Evidence == nil || decoded.Evidence.Kind != EvidenceKindDeclared {
+		t.Fatalf("evidence.kind = %+v, want declared", decoded.Evidence)
+	}
+	if decoded.Source == nil || decoded.Source.System != "mcp" {
+		t.Fatalf("source.system = %+v, want mcp", decoded.Source)
+	}
 
 	// Verify JSON has "verdict":"success".
 	var raw map[string]json.RawMessage
@@ -184,6 +225,15 @@ func TestReportPayload_Marshal(t *testing.T) {
 	}
 	if v != "success" {
 		t.Errorf("JSON verdict = %q, want %q", v, "success")
+	}
+	if _, ok := raw["flavor"]; !ok {
+		t.Error("missing JSON key flavor")
+	}
+	if _, ok := raw["evidence"]; !ok {
+		t.Error("missing JSON key evidence")
+	}
+	if _, ok := raw["source"]; !ok {
+		t.Error("missing JSON key source")
 	}
 }
 

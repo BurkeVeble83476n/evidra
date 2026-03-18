@@ -6,6 +6,7 @@
 - Added controller-first Argo CD integration for self-hosted `evidra-api`, with zero-touch reconciliation capture and explicit `evidra.cc/*` correlation
 - Kept GitOps evidence on the standard `prescribe` / `report` lifecycle using `payload.flavor = reconcile`
 - Added shared automation event emission for mapped Argo CD webhook and controller-reported lifecycle entries
+- Split execution flavor from ingest taxonomy so payloads can also record `evidence.kind` and `source.system`, and renamed `pipeline_stage` to `workflow`
 
 ### Documentation And Product Surface
 - Added the Argo CD GitOps integration guide and aligned architecture/system-design docs around the controller-first model

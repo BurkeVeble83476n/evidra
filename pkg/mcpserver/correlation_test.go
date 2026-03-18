@@ -135,10 +135,34 @@ func TestToLifecycleReportInput_MapsActorAndRefs(t *testing.T) {
 		OperationID:  "op-1",
 		SpanID:       "span-1",
 		ParentSpanID: "span-0",
+		Flavor:       evidence.FlavorImperative,
+		EvidenceKind: evidence.EvidenceKindDeclared,
+		SourceSystem: "mcp",
 	}
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("toLifecycleReportInput() = %#v, want %#v", got, want)
+	}
+}
+
+func TestToLifecyclePrescribeInput_SetsDeclaredMCPMetadata(t *testing.T) {
+	t.Parallel()
+
+	in := PrescribeInput{
+		Actor:     InputActor{Type: "agent", ID: "actor-1", Origin: "mcp"},
+		Tool:      "kubectl",
+		Operation: "apply",
+	}
+
+	got := toLifecyclePrescribeInput(in)
+	if got.Flavor != evidence.FlavorImperative {
+		t.Fatalf("flavor = %q, want %q", got.Flavor, evidence.FlavorImperative)
+	}
+	if got.EvidenceKind != evidence.EvidenceKindDeclared {
+		t.Fatalf("evidence_kind = %q, want %q", got.EvidenceKind, evidence.EvidenceKindDeclared)
+	}
+	if got.SourceSystem != "mcp" {
+		t.Fatalf("source_system = %q, want mcp", got.SourceSystem)
 	}
 }
 

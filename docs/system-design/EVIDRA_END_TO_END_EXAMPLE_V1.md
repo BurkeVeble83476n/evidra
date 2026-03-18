@@ -517,7 +517,9 @@ else is identical to the K8s flow above.
 ### ArgoCD
 
 Argo CD is controller-first in v1. The lifecycle pair remains
-`prescribe` / `report`, but reconciliation uses `payload.flavor = reconcile`.
+`prescribe` / `report`, but reconciliation uses `payload.flavor = reconcile`
+with translated controller evidence (`payload.evidence.kind = translated`,
+`payload.source.system = argocd`).
 
 Zero-touch mode:
 

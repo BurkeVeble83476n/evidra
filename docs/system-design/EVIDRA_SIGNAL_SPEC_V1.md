@@ -268,11 +268,11 @@ JSON, not repeated here.
 ### Flavor-Agnostic Detection
 
 All current detectors consume the same prescribe/report evidence pair regardless
-of `payload.flavor`.
+of payload taxonomy.
 
-- `imperative` entries and `reconcile` entries are scored by the same engine
+- `imperative`, `reconcile`, and `workflow` entries are scored by the same engine
 - no separate GitOps scoring lane exists in v1
-- flavor is explanatory context, not a detector selector
+- flavor and ingest metadata are explanatory context, not detector selectors
 
 ---
 

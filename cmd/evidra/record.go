@@ -279,6 +279,9 @@ func prepareRecordCommand(opts recordFlags, wrapped []string) (recordCommand, er
 			SessionID:        opts.sessionID,
 			OperationID:      opts.operationID,
 			Attempt:          opts.attempt,
+			Flavor:           evidence.FlavorImperative,
+			EvidenceKind:     evidence.EvidenceKindDeclared,
+			SourceSystem:     "cli",
 		},
 		wrapped: wrapped,
 	}, nil

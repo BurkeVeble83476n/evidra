@@ -157,6 +157,8 @@ func (c *Controller) handleApplication(ctx context.Context, obj *unstructured.Un
 			ExitCode:        exitCodePtr(exitCodeForPhase(event.Phase)),
 			ExternalRefs:    externalRefsForEvent(event),
 			Flavor:          automationevent.FlavorReconcile,
+			EvidenceKind:    evidence.EvidenceKindTranslated,
+			SourceSystem:    "argocd",
 		})
 		return err
 	}
@@ -177,6 +179,8 @@ func (c *Controller) handleApplication(ctx context.Context, obj *unstructured.Un
 			ArtifactDigest:  event.ArtifactDigest,
 			ScopeDimensions: event.ScopeDimensions,
 			Flavor:          automationevent.FlavorReconcile,
+			EvidenceKind:    evidence.EvidenceKindTranslated,
+			SourceSystem:    "argocd",
 		})
 		return err
 	}
@@ -196,6 +200,8 @@ func (c *Controller) handleApplication(ctx context.Context, obj *unstructured.Un
 		ExitCode:        exitCodePtr(exitCodeForPhase(event.Phase)),
 		ExternalRefs:    externalRefsForEvent(event),
 		Flavor:          automationevent.FlavorReconcile,
+		EvidenceKind:    evidence.EvidenceKindTranslated,
+		SourceSystem:    "argocd",
 	})
 	return err
 }

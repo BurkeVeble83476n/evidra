@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	FlavorImperative = "imperative"
-	FlavorReconcile  = "reconcile"
-	FlavorPipeline   = "pipeline_stage"
+	FlavorImperative = evidence.FlavorImperative
+	FlavorReconcile  = evidence.FlavorReconcile
+	FlavorWorkflow   = evidence.FlavorWorkflow
 )
 
 type EventStore interface {
@@ -51,7 +51,9 @@ type MappedPrescribeInput struct {
 	Action          canon.CanonicalAction
 	ArtifactDigest  string
 	ScopeDimensions map[string]string
-	Flavor          string
+	Flavor          evidence.Flavor
+	EvidenceKind    evidence.EvidenceKind
+	SourceSystem    string
 }
 
 type MappedReportInput struct {
@@ -68,7 +70,9 @@ type MappedReportInput struct {
 	Verdict         evidence.Verdict
 	ExitCode        *int
 	ExternalRefs    []evidence.ExternalRef
-	Flavor          string
+	Flavor          evidence.Flavor
+	EvidenceKind    evidence.EvidenceKind
+	SourceSystem    string
 }
 
 type ExplicitReportInput struct {
@@ -86,7 +90,9 @@ type ExplicitReportInput struct {
 	Verdict         evidence.Verdict
 	ExitCode        *int
 	ExternalRefs    []evidence.ExternalRef
-	Flavor          string
+	Flavor          evidence.Flavor
+	EvidenceKind    evidence.EvidenceKind
+	SourceSystem    string
 }
 
 func NewEmitter(store EventStore, signer evidence.Signer) *Emitter {
@@ -148,6 +154,8 @@ func (e *Emitter) EmitExplicitReport(ctx context.Context, in ExplicitReportInput
 			ExitCode:        in.ExitCode,
 			ExternalRefs:    in.ExternalRefs,
 			Flavor:          in.Flavor,
+			EvidenceKind:    in.EvidenceKind,
+			SourceSystem:    in.SourceSystem,
 			CanonVersion:    "mapped/v1",
 		})
 	})
@@ -210,7 +218,9 @@ type reportBuildInput struct {
 	Verdict         evidence.Verdict
 	ExitCode        *int
 	ExternalRefs    []evidence.ExternalRef
-	Flavor          string
+	Flavor          evidence.Flavor
+	EvidenceKind    evidence.EvidenceKind
+	SourceSystem    string
 	CanonVersion    string
 }
 
@@ -233,11 +243,10 @@ func buildMappedPrescribeEntry(lastHash string, signer evidence.Signer, in Mappe
 		RiskLevel:     riskLevel,
 		TTLMs:         evidence.DefaultTTLMs,
 		CanonSource:   "mapped",
+		Flavor:        in.Flavor,
+		Evidence:      payloadEvidenceMetadata(in.EvidenceKind),
+		Source:        payloadSourceMetadata(in.SourceSystem),
 	})
-	if err != nil {
-		return evidence.EvidenceEntry{}, err
-	}
-	payload, err = withPayloadFlavor(payload, in.Flavor)
 	if err != nil {
 		return evidence.EvidenceEntry{}, err
 	}
@@ -284,6 +293,8 @@ func buildMappedReportEntry(lastHash string, signer evidence.Signer, in MappedRe
 		ExitCode:        in.ExitCode,
 		ExternalRefs:    in.ExternalRefs,
 		Flavor:          in.Flavor,
+		EvidenceKind:    in.EvidenceKind,
+		SourceSystem:    in.SourceSystem,
 		CanonVersion:    "mapped/v1",
 	})
 }
@@ -299,11 +310,10 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in reportBuildInp
 		ExitCode:       in.ExitCode,
 		Verdict:        in.Verdict,
 		ExternalRefs:   in.ExternalRefs,
+		Flavor:         in.Flavor,
+		Evidence:       payloadEvidenceMetadata(in.EvidenceKind),
+		Source:         payloadSourceMetadata(in.SourceSystem),
 	})
-	if err != nil {
-		return evidence.EvidenceEntry{}, err
-	}
-	payload, err = withPayloadFlavor(payload, in.Flavor)
 	if err != nil {
 		return evidence.EvidenceEntry{}, err
 	}
@@ -346,16 +356,17 @@ func claimEvent(ctx context.Context, store EventStore, tenantID, source, key str
 	return false, release, nil
 }
 
-func withPayloadFlavor(payload json.RawMessage, flavor string) (json.RawMessage, error) {
-	flavor = strings.TrimSpace(flavor)
-	if flavor == "" {
-		return payload, nil
+func payloadEvidenceMetadata(kind evidence.EvidenceKind) *evidence.EvidenceMetadata {
+	if strings.TrimSpace(string(kind)) == "" {
+		return nil
 	}
+	return &evidence.EvidenceMetadata{Kind: kind}
+}
 
-	var envelope map[string]any
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return nil, err
+func payloadSourceMetadata(system string) *evidence.SourceMetadata {
+	system = strings.TrimSpace(system)
+	if system == "" {
+		return nil
 	}
-	envelope["flavor"] = flavor
-	return json.Marshal(envelope)
+	return &evidence.SourceMetadata{System: system}
 }

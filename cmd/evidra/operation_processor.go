@@ -69,6 +69,9 @@ func (p *OperationProcessor) Process(ctx context.Context, req OperationRequest) 
 		OperationID:    req.OperationID,
 		SpanID:         req.SpanID,
 		ParentSpanID:   req.ParentSpanID,
+		Flavor:         req.PrescribeInput.Flavor,
+		EvidenceKind:   req.PrescribeInput.EvidenceKind,
+		SourceSystem:   req.PrescribeInput.SourceSystem,
 	})
 	if err != nil {
 		return OperationResult{}, err

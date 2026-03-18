@@ -279,6 +279,9 @@ func prepareReportCommand(opts reportFlags) (reportCommand, error) {
 			OperationID:     opts.operationID,
 			SpanID:          opts.spanID,
 			ParentSpanID:    opts.parentSpanID,
+			Flavor:          evidence.FlavorImperative,
+			EvidenceKind:    evidence.EvidenceKindDeclared,
+			SourceSystem:    "cli",
 		},
 	}, nil
 }

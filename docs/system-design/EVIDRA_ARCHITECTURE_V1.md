@@ -12,19 +12,23 @@
 
 ## Protocol Vocabulary
 
-Evidra keeps one lifecycle vocabulary across imperative commands, pipeline
-stages, and reconciliation systems:
+Evidra keeps one lifecycle vocabulary across imperative commands, workflows,
+and reconciliation systems:
 
 - `prescribe` = intent registered before execution
 - `report` = outcome recorded after execution
 
-Context is carried by `payload.flavor`, not by inventing new primary lifecycle
-entry types. Current flavors are `imperative`, `reconcile`, and
-`pipeline_stage`.
+Context is carried by payload metadata, not by inventing new primary lifecycle
+entry types.
+
+- `payload.flavor` = execution shape (`imperative`, `reconcile`, `workflow`)
+- `payload.evidence.kind` = acquisition mode (`declared`, `observed`,
+  `translated`)
+- `payload.source.system` = producing adapter or upstream system
 
 The signal engine and scorecard remain flavor-agnostic in v1. They operate on
 the same prescribe/report pairs regardless of whether the execution came from an
-AI agent, a CI pipeline, or a controller such as Argo CD.
+AI agent, a workflow runner, or a controller such as Argo CD.
 
 ## Pipeline
 

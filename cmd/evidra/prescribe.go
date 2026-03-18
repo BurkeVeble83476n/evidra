@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"samebits.com/evidra/internal/lifecycle"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 type prescribeFlags struct {
@@ -210,6 +211,9 @@ func preparePrescribeCommand(opts prescribeFlags) (prescribeCommand, error) {
 			SpanID:           opts.spanID,
 			ParentSpanID:     opts.parentSpanID,
 			ScopeDimensions:  scopeDimensions,
+			Flavor:           evidence.FlavorImperative,
+			EvidenceKind:     evidence.EvidenceKindDeclared,
+			SourceSystem:     "cli",
 		},
 		evidencePath: evidencePath,
 	}, nil

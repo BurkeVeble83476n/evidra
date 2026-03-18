@@ -43,6 +43,9 @@ func toLifecyclePrescribeInput(input PrescribeInput) lifecycle.PrescribeInput {
 		SpanID:          input.SpanID,
 		ParentSpanID:    input.ParentSpanID,
 		ScopeDimensions: input.ScopeDimensions,
+		Flavor:          evidence.FlavorImperative,
+		EvidenceKind:    evidence.EvidenceKindDeclared,
+		SourceSystem:    "mcp",
 	}
 }
 
@@ -59,5 +62,8 @@ func toLifecycleReportInput(input ReportInput) lifecycle.ReportInput {
 		OperationID:     input.OperationID,
 		SpanID:          input.SpanID,
 		ParentSpanID:    input.ParentSpanID,
+		Flavor:          evidence.FlavorImperative,
+		EvidenceKind:    evidence.EvidenceKindDeclared,
+		SourceSystem:    "mcp",
 	}
 }

@@ -5,6 +5,24 @@ import "encoding/json"
 // Verdict represents the terminal outcome classification of a prescribed action.
 type Verdict string
 
+// Flavor represents the execution shape for prescribe/report lifecycle entries.
+type Flavor string
+
+const (
+	FlavorImperative Flavor = "imperative"
+	FlavorReconcile  Flavor = "reconcile"
+	FlavorWorkflow   Flavor = "workflow"
+)
+
+// EvidenceKind describes how Evidra obtained lifecycle evidence.
+type EvidenceKind string
+
+const (
+	EvidenceKindDeclared   EvidenceKind = "declared"
+	EvidenceKindObserved   EvidenceKind = "observed"
+	EvidenceKindTranslated EvidenceKind = "translated"
+)
+
 const (
 	// VerdictSuccess indicates the action completed successfully (exit code 0).
 	VerdictSuccess Verdict = "success"
@@ -53,6 +71,16 @@ type RiskInput struct {
 	Detail    string   `json:"detail,omitempty"`
 }
 
+// EvidenceMetadata records how the lifecycle evidence entered Evidra.
+type EvidenceMetadata struct {
+	Kind EvidenceKind `json:"kind,omitempty"`
+}
+
+// SourceMetadata records which system produced the lifecycle evidence.
+type SourceMetadata struct {
+	System string `json:"system,omitempty"`
+}
+
 // PrescriptionPayload is the typed payload for EntryTypePrescribe entries.
 // It captures the pre-execution risk assessment for a canonical action.
 type PrescriptionPayload struct {
@@ -67,9 +95,12 @@ type PrescriptionPayload struct {
 	RiskDetails []string `json:"risk_details,omitempty"`
 	// RiskTags is kept for backward compatibility with older readers.
 	// Deprecated: use RiskInputs. Planned removal in a later cleanup.
-	RiskTags    []string `json:"risk_tags,omitempty"`
-	TTLMs       int64    `json:"ttl_ms"`
-	CanonSource string   `json:"canon_source"`
+	RiskTags    []string          `json:"risk_tags,omitempty"`
+	TTLMs       int64             `json:"ttl_ms"`
+	CanonSource string            `json:"canon_source"`
+	Flavor      Flavor            `json:"flavor,omitempty"`
+	Evidence    *EvidenceMetadata `json:"evidence,omitempty"`
+	Source      *SourceMetadata   `json:"source,omitempty"`
 }
 
 // EffectiveRiskDetails returns canonical risk details when present,
@@ -104,12 +135,15 @@ type ExternalRef struct {
 // ReportPayload is the typed payload for EntryTypeReport entries.
 // It records the post-execution outcome linked back to a prescription.
 type ReportPayload struct {
-	ReportID        string           `json:"report_id"`
-	PrescriptionID  string           `json:"prescription_id"`
-	ExitCode        *int             `json:"exit_code,omitempty"`
-	Verdict         Verdict          `json:"verdict"`
-	DecisionContext *DecisionContext `json:"decision_context,omitempty"`
-	ExternalRefs    []ExternalRef    `json:"external_refs,omitempty"`
+	ReportID        string            `json:"report_id"`
+	PrescriptionID  string            `json:"prescription_id"`
+	ExitCode        *int              `json:"exit_code,omitempty"`
+	Verdict         Verdict           `json:"verdict"`
+	DecisionContext *DecisionContext  `json:"decision_context,omitempty"`
+	ExternalRefs    []ExternalRef     `json:"external_refs,omitempty"`
+	Flavor          Flavor            `json:"flavor,omitempty"`
+	Evidence        *EvidenceMetadata `json:"evidence,omitempty"`
+	Source          *SourceMetadata   `json:"source,omitempty"`
 }
 
 // FindingPayload is the typed payload for EntryTypeFinding entries.

@@ -34,6 +34,9 @@ func TestServiceReport_DeclinedStoresDecisionContext(t *testing.T) {
 	reportOut, err := svc.Report(context.Background(), ReportInput{
 		PrescriptionID: prescribeOut.PrescriptionID,
 		Verdict:        evidence.VerdictDeclined,
+		Flavor:         evidence.FlavorImperative,
+		EvidenceKind:   evidence.EvidenceKindDeclared,
+		SourceSystem:   "mcp",
 		DecisionContext: &evidence.DecisionContext{
 			Trigger: "risk_threshold_exceeded",
 			Reason:  "risk_level=critical and blast_radius covers production namespace",
@@ -66,6 +69,15 @@ func TestServiceReport_DeclinedStoresDecisionContext(t *testing.T) {
 	}
 	if payload.DecisionContext.Trigger != "risk_threshold_exceeded" {
 		t.Fatalf("trigger = %q", payload.DecisionContext.Trigger)
+	}
+	if payload.Flavor != evidence.FlavorImperative {
+		t.Fatalf("flavor = %q, want %q", payload.Flavor, evidence.FlavorImperative)
+	}
+	if payload.Evidence == nil || payload.Evidence.Kind != evidence.EvidenceKindDeclared {
+		t.Fatalf("evidence = %+v, want declared", payload.Evidence)
+	}
+	if payload.Source == nil || payload.Source.System != "mcp" {
+		t.Fatalf("source = %+v, want mcp", payload.Source)
 	}
 }
 

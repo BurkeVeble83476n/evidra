@@ -56,6 +56,9 @@ type PrescribeInput struct {
 	SpanID           string
 	ParentSpanID     string
 	ScopeDimensions  map[string]string
+	Flavor           evidence.Flavor
+	EvidenceKind     evidence.EvidenceKind
+	SourceSystem     string
 }
 
 type ExternalFindingsSource struct {
@@ -100,6 +103,9 @@ type ReportInput struct {
 	OperationID     string
 	SpanID          string
 	ParentSpanID    string
+	Flavor          evidence.Flavor
+	EvidenceKind    evidence.EvidenceKind
+	SourceSystem    string
 }
 
 // ReportOutput contains identifiers/correlation for written report entries.

@@ -63,6 +63,9 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		EffectiveRisk:   effectiveRisk,
 		TTLMs:           evidence.DefaultTTLMs,
 		CanonSource:     canonSource,
+		Flavor:          input.Flavor,
+		Evidence:        payloadEvidenceMetadata(input.EvidenceKind),
+		Source:          payloadSourceMetadata(input.SourceSystem),
 	}
 	payloadJSON, err := json.Marshal(prescPayload)
 	if err != nil {
@@ -162,6 +165,9 @@ func (s *Service) Report(_ context.Context, input ReportInput) (ReportOutput, er
 		Verdict:         input.Verdict,
 		DecisionContext: decisionContext,
 		ExternalRefs:    input.ExternalRefs,
+		Flavor:          input.Flavor,
+		Evidence:        payloadEvidenceMetadata(input.EvidenceKind),
+		Source:          payloadSourceMetadata(input.SourceSystem),
 	}
 	payloadJSON, err := json.Marshal(reportPayload)
 	if err != nil {
@@ -292,6 +298,21 @@ func buildPrescribeRiskState(cr canon.CanonResult, rawArtifact []byte, externalF
 		riskInputs = append(riskInputs, buildSARIFRiskInput(src))
 	}
 	return riskInputs, computeEffectiveRisk(riskInputs), nativeTags
+}
+
+func payloadEvidenceMetadata(kind evidence.EvidenceKind) *evidence.EvidenceMetadata {
+	if strings.TrimSpace(string(kind)) == "" {
+		return nil
+	}
+	return &evidence.EvidenceMetadata{Kind: kind}
+}
+
+func payloadSourceMetadata(system string) *evidence.SourceMetadata {
+	system = strings.TrimSpace(system)
+	if system == "" {
+		return nil
+	}
+	return &evidence.SourceMetadata{System: system}
 }
 
 func (s *Service) loadReportPrescription(input ReportInput, prescriptionID string) (evidence.EvidenceEntry, bool, error) {

@@ -199,17 +199,27 @@ artifact_digest (no drift possible). If provided and different
 from the prescription's artifact_digest, an `artifact_drift`
 signal is recorded at scorecard time.
 
-#### Payload flavor
+#### Payload taxonomy
 
-`prescribe` and `report` payloads MAY include `payload.flavor` as a context
-discriminator. v1 uses:
+`prescribe` and `report` payloads MAY include typed context metadata.
+
+`payload.flavor` is the execution-shape discriminator. v1 uses:
 
 - `imperative`
 - `reconcile`
-- `pipeline_stage`
+- `workflow`
 
-Flavor adds context for explanation and slicing. It does not create a second
-lifecycle model.
+`payload.evidence.kind` records how Evidra obtained the lifecycle evidence:
+
+- `declared`
+- `observed`
+- `translated`
+
+`payload.source.system` records which adapter or upstream system produced the
+evidence, for example `cli`, `mcp`, `argocd`, or `agentgateway`.
+
+These fields add context for explanation and slicing. They do not create a
+second lifecycle model.
 
 #### Scope dimensions vs external refs
 
