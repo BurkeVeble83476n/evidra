@@ -25,7 +25,7 @@ const SYSTEM_CHART = `flowchart TB
     CI["CI / AI Agents<br/>GitHub Actions · Codex · Claude"]
     CLI["evidra CLI<br/>record · import · scorecard"]
     MCP["evidra-mcp<br/>MCP Server for AI Agents"]
-    Controllers["GitOps Controllers<br/>Argo CD controller · notifications"]
+    Controllers["ArgoCD / generic webhooks<br/>Argo CD controller · notifications"]
   end
   subgraph Local ["Local Path"]
     LS[("Local Evidence<br/>append-only JSONL")]

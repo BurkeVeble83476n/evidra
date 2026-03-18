@@ -114,7 +114,7 @@ Try: *"Apply this deployment to staging"* — the agent should call `prescribe` 
 
 Evidra exposes three MCP tools:
 
-**`prescribe`** — Record intent BEFORE an infrastructure mutation. Analyzes the artifact, computes risk level, and returns a `prescription_id`. The agent must not execute until prescribe returns `ok=true`.
+**`prescribe`** — Record intent BEFORE an infrastructure mutation. In direct full mode it analyzes the artifact. In direct smart mode it infers matrix risk from tool, operation, and target context. In both cases it returns a `prescription_id`, and the agent must not execute until prescribe returns `ok=true`.
 
 **`report`** — Record the terminal verdict for the prescription. Executed operations report `success`, `failure`, or `error` with an exit code. Intentional refusals report `declined` with a short operational reason.
 
@@ -160,9 +160,11 @@ Agent → You: "I declined to apply it because the assessed risk was critical an
 
 ## Proxy Mode
 
-Evidra-mcp has two operating modes:
+Evidra-mcp has three evidence modes:
 
-**Direct mode** (default) — the agent calls `prescribe` and `report` tools explicitly. The agent knows it's being recorded, participates in risk assessment, and can decline dangerous operations. This is the full protocol.
+**Direct full mode** — the agent calls `prescribe` and `report` explicitly and sends `raw_artifact`. This is the richest protocol path: native detector coverage, risk inputs derived from the artifact, and artifact drift detection.
+
+**Direct smart mode** — the agent still calls `prescribe` and `report` explicitly, but sends a lightweight target shape such as `tool`, `operation`, `resource`, and optional `namespace`. This keeps the same evidence chain with lower token cost, but smart mode uses matrix risk only and does not support artifact drift detection.
 
 **Proxy mode** — evidra-mcp wraps another MCP server and auto-records evidence for infrastructure mutations. The agent doesn't need to know about evidra. Zero extra tokens, zero agent changes.
 
@@ -174,11 +176,17 @@ Use proxy mode when:
 - Your model can't follow the prescribe/report protocol
 - You want the fastest possible onboarding (one config line change)
 
-Use direct mode when:
+Use direct full mode when:
 - You want the agent to actively participate in risk assessment
 - You need declined verdicts (agent refuses dangerous operations)
 - You want artifact-level drift detection
-- You're using a capable model (Claude, GPT-5.2) with the evidra skill
+- You have the full manifest/plan content and a capable model
+
+Use direct smart mode when:
+- You still want explicit prescribe/report participation from the agent
+- Your model struggles with full-artifact prescribe payloads
+- You can describe the target resource and namespace but do not want to send the full artifact
+- You can accept matrix-only risk assessment and no artifact drift detection
 
 ### Proxy mode setup
 
@@ -215,6 +223,7 @@ This evidence feeds the same scorecard engine, behavioral signals, and reliabili
 - Command-level only — the proxy sees the command string, not the intent
 
 For full protocol compliance, use direct mode with the evidra skill.
+For the richest protocol compliance, use direct full mode with the evidra skill. For lower-cost explicit recording, use direct smart mode.
 
 ---
 
@@ -265,6 +274,25 @@ GitOps mode the agent or CI should register intent first and annotate the Argo
 
 ### How to call prescribe
 
+Direct smart mode:
+
+```json
+{
+  "tool": "kubectl",
+  "operation": "apply",
+  "resource": "deployment/web",
+  "namespace": "default",
+  "actor": {
+    "type": "agent",
+    "id": "claude",
+    "origin": "mcp",
+    "skill_version": "1.0.1"
+  }
+}
+```
+
+Direct full mode:
+
 ```json
 {
   "tool": "kubectl",
@@ -285,13 +313,18 @@ GitOps mode the agent or CI should register intent first and annotate the Argo
 }
 ```
 
-**Required fields:** `tool`, `operation`, `raw_artifact`, `actor`.
+**Required fields:** `tool`, `operation`, `actor`, and one of `raw_artifact`, `resource`, or `canonical_action`.
 
-**Filling raw_artifact from context:**
+**Direct full mode (`raw_artifact`) examples:**
 - **kubectl apply -f manifest.yaml** — read the file, pass full YAML content
 - **terraform apply** — pass the plan JSON or HCL content
 - **helm upgrade** — pass the values override YAML
 - **kubectl delete** — pass resource type and name as artifact
+
+**Direct smart mode (`resource` / `namespace`) examples:**
+- **kubectl apply deployment/web** — send `resource: "deployment/web"` and `namespace`
+- **kubectl delete configmap/app** — send `resource: "configmap/app"` and `namespace`
+- **helm upgrade release/chart** — send `resource: "release/my-app"` when chart bytes are not available in context
 
 ### How to call report
 

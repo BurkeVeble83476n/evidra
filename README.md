@@ -49,6 +49,8 @@ From the evidence chain, Evidra computes:
 
 Evidra does not replace OTel, Datadog, or Logfire. They record execution telemetry. Evidra records what they cannot: intent before execution, structured decisions, and behavioral patterns across the agent lifecycle.
 
+CLI and MCP are the authoritative analytics surfaces today.
+
 ## Fastest Path
 
 ### Install
@@ -105,6 +107,12 @@ The MCP server gives agents the tools. The skill teaches them when and how to us
 evidra skill install
 ```
 
+Evidra-mcp supports three evidence modes:
+
+- **Direct full mode** — the agent calls `prescribe` with `raw_artifact` and gets native detector coverage plus artifact drift detection.
+- **Direct smart mode** — the agent calls `prescribe` with `tool`, `operation`, `resource`, and optional `namespace`; Evidra computes matrix risk without requiring the full artifact.
+- **Proxy mode** — evidra wraps another MCP server and auto-records mutations without agent participation.
+
 ### Benchmark: MCP Tool Descriptions Are Enough
 
 The prescribe/report protocol works out of the box with capable models through MCP tool descriptions alone. The Evidra skill doesn't enable the protocol — it sharpens it: fewer turns, fewer tokens, correct behavior on first attempt.
@@ -119,6 +127,19 @@ The prescribe/report protocol works out of the box with capable models through M
 Sonnet discovers and follows the protocol without any skill — it self-corrects along the way. The skill removes the exploration overhead: correct behavior on first attempt, 23% fewer tokens.
 
 How the protocol looks from the agent's perspective:
+
+```text
+Agent: "I need to kubectl apply this deployment"
+  → prescribe(tool=kubectl, operation=apply, resource=deployment/web, namespace=default)
+  ← prescription_id, effective_risk=medium, risk_inputs=[{source=evidra/matrix, ...}]
+
+Agent: decides to proceed (or decline based on risk)
+  → executes kubectl apply
+  → report(prescription_id=..., verdict=success, exit_code=0)
+  ← score=95, score_band=excellent, signal_summary={...}
+```
+
+Direct full mode uses the same flow with the full artifact:
 
 ```text
 Agent: "I need to kubectl apply this deployment"
@@ -145,28 +166,32 @@ Declined verdicts are first-class evidence — not silent gaps in the log.
 
 References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](docs/guides/skill-setup.md) · [Execution schemas](pkg/execcontract/schemas/)
 
-### Proxy Mode: Zero-Token Evidence
+### Three MCP Evidence Modes
 
-Not every model follows the prescribe/report protocol. Proxy mode wraps any MCP server and auto-records evidence for infrastructure mutations — no agent changes, no extra tokens, no skill required.
+Not every model follows the same prompt shape equally well. Evidra offers three MCP evidence modes so you can choose the tradeoff you need.
 
 ```bash
-# Direct mode (default): agent calls prescribe/report explicitly
+# Direct full mode: explicit prescribe/report with raw_artifact
+evidra-mcp --evidence-dir ~/.evidra/evidence
+
+# Direct smart mode: same server, lighter prescribe payloads
 evidra-mcp --evidence-dir ~/.evidra/evidence
 
 # Proxy mode: wrap any upstream MCP server, auto-record mutations
 evidra-mcp --proxy -- npx -y @anthropic/mcp-server-kubernetes
 ```
 
-| | Direct Mode | Proxy Mode |
-|---|---|---|
-| Agent awareness | Explicit — calls prescribe/report | Transparent — agent unaware |
-| Token overhead | 200-500 per mutation | Zero |
-| Risk assessment | Agent provides risk opinion | Inferred from command |
-| Model requirement | Must follow protocol (Claude, GPT-5.2) | Any model |
-| Install | Skill prompt + MCP config | One config line change |
-| What it measures | Agent discipline + intent | What actually happened |
+| | Direct full mode | Direct smart mode | Proxy mode |
+|---|---|---|---|
+| Agent awareness | Explicit — calls prescribe/report | Explicit — calls prescribe/report | Transparent — agent unaware |
+| Token overhead | Highest | Lower | Zero |
+| Risk assessment | Native detectors + matrix | Matrix only | Inferred from command |
+| Drift detection | Yes | No | No |
+| Model requirement | Best for strong models | Better for weaker models | Any model |
+| Install | Skill prompt + MCP config | Skill prompt + MCP config | One config line change |
+| What it measures | Agent discipline + full intent | Agent discipline + lightweight intent | What actually happened |
 
-Proxy mode detects mutations for kubectl, helm, terraform, Argo CD, and Docker. Read-only commands pass through unrecorded. The proxy wraps any MCP server that exposes a `run_command` tool — your existing infrastructure MCP servers work unchanged.
+Direct full mode is the richest protocol path. Direct smart mode keeps the same prescribe/report lifecycle but drops artifact-level drift detection in exchange for much smaller prompts. Proxy mode detects mutations for kubectl, helm, terraform, Argo CD, and Docker. Read-only commands pass through unrecorded. The proxy wraps any MCP server that exposes a `run_command` tool — your existing infrastructure MCP servers work unchanged.
 
 **Configuration (one line change):**
 

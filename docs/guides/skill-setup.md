@@ -5,7 +5,7 @@
 - Canonical for: Skill installation and usage
 - Audience: public
 
-The Evidra skill teaches AI agents the prescribe/report protocol for infrastructure mutations. When installed, agents follow the protocol with 100% compliance — calling prescribe before every mutation and report after every execution or refusal.
+The Evidra skill teaches AI agents the prescribe/report protocol for infrastructure mutations. When installed, agents follow the protocol with 100% compliance — calling prescribe before every mutation and report after every execution or refusal. The current skill recommends smart prescribe by default for direct mode, and full prescribe when the artifact bytes are available and artifact-level analysis matters.
 
 ---
 
@@ -86,6 +86,12 @@ Observes and scores              • Decision flowchart
 ```
 
 The MCP server handles evidence recording, risk analysis, and scoring. The skill handles agent behavior — ensuring the agent calls the right tool at the right time with the right inputs.
+
+Smart prescribe is the recommended default in the skill:
+
+- send `tool`, `operation`, `resource`, and optional `namespace` when the target is known
+- keep `actor.type`, `actor.id`, `actor.origin`, and `actor.skill_version` present
+- fall back to full prescribe with `raw_artifact` when you want native detector coverage and artifact drift detection
 
 ---
 
