@@ -25,7 +25,7 @@ execute    →  run the command (or decline to act)
 report     →  record verdict, exit code, or refusal reason
 ```
 
-`prescribe` captures intent **before** the command runs — the artifact, its canonical form, digests, the per-source `risk_inputs` panel, and the rolled-up `effective_risk`. `report` captures what **actually happened** — success, failure, or an explicit decision not to act, with structured context for each.
+`prescribe_full` and `prescribe_smart` capture intent **before** the command runs. `prescribe_full` records the artifact, its canonical form, digests, the per-source `risk_inputs` panel, and the rolled-up `effective_risk`. `prescribe_smart` records lightweight target context when artifact bytes are not available. `report` captures what **actually happened** — success, failure, or an explicit decision not to act, with structured context for each.
 
 The evidence chain links prescriptions to reports through signed entries with hash chaining. Every entry is timestamped, actor-attributed, and cryptographically verifiable. Evidence cannot be modified after the fact.
 
@@ -109,8 +109,8 @@ evidra skill install
 
 Evidra-mcp supports three evidence modes:
 
-- **Direct full mode** — the agent calls `prescribe` with `raw_artifact` and gets native detector coverage plus artifact drift detection.
-- **Direct smart mode** — the agent calls `prescribe` with `tool`, `operation`, `resource`, and optional `namespace`; Evidra computes matrix risk without requiring the full artifact.
+- **Direct full mode** — the agent calls `prescribe_full` with `raw_artifact` and gets native detector coverage plus artifact drift detection.
+- **Direct smart mode** — the agent calls `prescribe_smart` with `tool`, `operation`, `resource`, and optional `namespace`; Evidra computes matrix risk without requiring the full artifact.
 - **Proxy mode** — evidra wraps another MCP server and auto-records mutations without agent participation.
 
 ### Benchmark: MCP Tool Descriptions Are Enough
@@ -130,7 +130,7 @@ How the protocol looks from the agent's perspective:
 
 ```text
 Agent: "I need to kubectl apply this deployment"
-  → prescribe(tool=kubectl, operation=apply, resource=deployment/web, namespace=default)
+  → prescribe_smart(tool=kubectl, operation=apply, resource=deployment/web, namespace=default)
   ← prescription_id, effective_risk=medium, risk_inputs=[{source=evidra/matrix, ...}]
 
 Agent: decides to proceed (or decline based on risk)
@@ -143,7 +143,7 @@ Direct full mode uses the same flow with the full artifact:
 
 ```text
 Agent: "I need to kubectl apply this deployment"
-  → prescribe(tool=kubectl, operation=apply, raw_artifact=<yaml>)
+  → prescribe_full(tool=kubectl, operation=apply, raw_artifact=<yaml>)
   ← prescription_id, effective_risk=high, risk_inputs=[{source=evidra/native, ...}]
 
 Agent: decides to proceed (or decline based on risk)

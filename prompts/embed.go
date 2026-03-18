@@ -12,20 +12,22 @@ import (
 const (
 	MCPInitializeInstructionsPath = "mcpserver/initialize/instructions.txt"
 	MCPPrescribeDescriptionPath   = "mcpserver/tools/prescribe_description.txt"
+	MCPPrescribeFullDescriptionPath  = "mcpserver/tools/prescribe_full_description.txt"
+	MCPPrescribeSmartDescriptionPath = "mcpserver/tools/prescribe_smart_description.txt"
 	MCPReportDescriptionPath      = "mcpserver/tools/report_description.txt"
 	MCPGetEventDescriptionPath    = "mcpserver/tools/get_event_description.txt"
 	MCPAgentContractPath          = "mcpserver/resources/content/agent_contract_v1.md"
 	SkillPath                     = "skill/SKILL.md"
 	RuntimeExperimentContractPath = "prompts/experiments/runtime/agent_contract_v1.md"
 
-	DefaultContractVersion      = "v1.0.1"
-	DefaultContractSkillVersion = "1.0.1"
+	DefaultContractVersion      = "v1.1.0"
+	DefaultContractSkillVersion = "1.1.0"
 )
 
 var (
 	contractVersionPattern = regexp.MustCompile(`^v?[0-9]+(\.[0-9]+){1,2}$`)
 
-	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md manifests/*.json
+	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_description.txt mcpserver/tools/prescribe_full_description.txt mcpserver/tools/prescribe_smart_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md manifests/*.json
 	files embed.FS
 )
 

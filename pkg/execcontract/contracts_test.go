@@ -2,15 +2,15 @@ package execcontract
 
 import "testing"
 
-func TestPrescribeToolDefinition_UsesSharedSchema(t *testing.T) {
+func TestPrescribeFullToolDefinition_UsesDedicatedSchema(t *testing.T) {
 	t.Parallel()
 
-	def, err := PrescribeToolDefinition()
+	def, err := PrescribeFullToolDefinition()
 	if err != nil {
-		t.Fatalf("PrescribeToolDefinition: %v", err)
+		t.Fatalf("PrescribeFullToolDefinition: %v", err)
 	}
-	if def.Name != PrescribeToolName {
-		t.Fatalf("name = %q, want %q", def.Name, PrescribeToolName)
+	if def.Name != PrescribeFullToolName {
+		t.Fatalf("name = %q, want %q", def.Name, PrescribeFullToolName)
 	}
 
 	required, ok := def.Parameters["required"].([]string)
@@ -22,8 +22,38 @@ func TestPrescribeToolDefinition_UsesSharedSchema(t *testing.T) {
 			t.Fatalf("required missing %q: %#v", field, required)
 		}
 	}
-	if contains(required, "raw_artifact") {
-		t.Fatalf("required unexpectedly contains raw_artifact: %#v", required)
+	if !contains(required, "raw_artifact") {
+		t.Fatalf("required missing raw_artifact: %#v", required)
+	}
+
+	properties, ok := def.Parameters["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("properties = %#v, want map[string]any", def.Parameters["properties"])
+	}
+	if _, ok := properties["raw_artifact"]; !ok {
+		t.Fatalf("properties missing raw_artifact: %#v", properties)
+	}
+}
+
+func TestPrescribeSmartToolDefinition_UsesDedicatedSchema(t *testing.T) {
+	t.Parallel()
+
+	def, err := PrescribeSmartToolDefinition()
+	if err != nil {
+		t.Fatalf("PrescribeSmartToolDefinition: %v", err)
+	}
+	if def.Name != PrescribeSmartToolName {
+		t.Fatalf("name = %q, want %q", def.Name, PrescribeSmartToolName)
+	}
+
+	required, ok := def.Parameters["required"].([]string)
+	if !ok {
+		t.Fatalf("required = %#v, want []string", def.Parameters["required"])
+	}
+	for _, field := range []string{"tool", "operation", "actor", "resource"} {
+		if !contains(required, field) {
+			t.Fatalf("required missing %q: %#v", field, required)
+		}
 	}
 
 	properties, ok := def.Parameters["properties"].(map[string]any)
@@ -37,28 +67,10 @@ func TestPrescribeToolDefinition_UsesSharedSchema(t *testing.T) {
 	}
 }
 
-func TestValidatePrescribeInput_AllowsSmartMode(t *testing.T) {
+func TestValidatePrescribeFullInput_RequiresRawArtifact(t *testing.T) {
 	t.Parallel()
 
-	err := ValidatePrescribeInput(PrescribeInput{
-		Tool:      "kubectl",
-		Operation: "apply",
-		Resource:  "deployment/web",
-		Actor: Actor{
-			Type:   "agent",
-			ID:     "bench",
-			Origin: "mcp-stdio",
-		},
-	})
-	if err != nil {
-		t.Fatalf("ValidatePrescribeInput: %v", err)
-	}
-}
-
-func TestValidatePrescribeInput_RequiresArtifactOrSmartTarget(t *testing.T) {
-	t.Parallel()
-
-	err := ValidatePrescribeInput(PrescribeInput{
+	err := ValidatePrescribeFullInput(PrescribeFullInput{
 		Tool:      "kubectl",
 		Operation: "apply",
 		Actor: Actor{
@@ -68,7 +80,43 @@ func TestValidatePrescribeInput_RequiresArtifactOrSmartTarget(t *testing.T) {
 		},
 	})
 	if err == nil {
-		t.Fatal("expected validation error when both raw_artifact and smart target are missing")
+		t.Fatal("expected validation error when raw_artifact is missing")
+	}
+}
+
+func TestValidatePrescribeSmartInput_RequiresResource(t *testing.T) {
+	t.Parallel()
+
+	err := ValidatePrescribeSmartInput(PrescribeSmartInput{
+		Tool:      "kubectl",
+		Operation: "apply",
+		Actor: Actor{
+			Type:   "agent",
+			ID:     "bench",
+			Origin: "mcp-stdio",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error when resource is missing")
+	}
+}
+
+func TestValidatePrescribeSmartInput_AllowsNamespaceTarget(t *testing.T) {
+	t.Parallel()
+
+	err := ValidatePrescribeSmartInput(PrescribeSmartInput{
+		Tool:      "kubectl",
+		Operation: "apply",
+		Resource:  "deployment/web",
+		Namespace: "default",
+		Actor: Actor{
+			Type:   "agent",
+			ID:     "bench",
+			Origin: "mcp-stdio",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidatePrescribeSmartInput: %v", err)
 	}
 }
 

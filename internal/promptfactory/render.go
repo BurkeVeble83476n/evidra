@@ -33,12 +33,6 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 			active:    filepath.Join("prompts", "mcpserver", "initialize", "instructions.txt"),
 		},
 		{
-			id:        "mcp.prescribe",
-			template:  "templates/mcp/prescribe.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_description.txt"),
-			active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_description.txt"),
-		},
-		{
 			id:        "mcp.report",
 			template:  "templates/mcp/report.tmpl",
 			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "report_description.txt"),
@@ -76,6 +70,41 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		},
 	}
 
+	templateBase := filepath.Join(rootDir, "prompts", "source", "contracts", bundle.Contract.Version)
+	specs = appendOptionalRenderSpec(specs, templateBase, struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	}{
+		id:        "mcp.prescribe",
+		template:  "templates/mcp/prescribe.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_description.txt"),
+		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_description.txt"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	}{
+		id:        "mcp.prescribe_full",
+		template:  "templates/mcp/prescribe_full.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_full_description.txt"),
+		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_full_description.txt"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	}{
+		id:        "mcp.prescribe_smart",
+		template:  "templates/mcp/prescribe_smart.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_smart_description.txt"),
+		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_smart_description.txt"),
+	})
+
 	data := renderData{
 		ContractVersion: bundle.Contract.Version,
 		SkillVersion:    promptdata.ParseSkillVersionFromContractVersion(bundle.Contract.Version),
@@ -83,8 +112,6 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		Classification:  bundle.Classification,
 		Output:          bundle.Output,
 	}
-
-	templateBase := filepath.Join(rootDir, "prompts", "source", "contracts", bundle.Contract.Version)
 
 	out := make([]RenderedFile, 0, len(specs))
 	for _, spec := range specs {
@@ -113,6 +140,32 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 	}
 
 	return out, nil
+}
+
+func appendOptionalRenderSpec(
+	specs []struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	},
+	templateBase string,
+	spec struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	},
+) []struct {
+	id        string
+	template  string
+	generated string
+	active    string
+} {
+	if _, err := os.Stat(filepath.Join(templateBase, spec.template)); err == nil {
+		return append(specs, spec)
+	}
+	return specs
 }
 
 func normalizeRenderedContent(in string) string {

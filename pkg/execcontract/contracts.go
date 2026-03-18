@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	PrescribeToolName = "evidra_prescribe"
-	ReportToolName    = "evidra_report"
+	PrescribeToolName      = "evidra_prescribe"
+	PrescribeFullToolName  = "evidra_prescribe_full"
+	PrescribeSmartToolName = "evidra_prescribe_smart"
+	ReportToolName         = "evidra_report"
 
 	VerdictSuccess  = "success"
 	VerdictFailure  = "failure"
@@ -21,6 +23,12 @@ const (
 
 //go:embed schemas/prescribe.schema.json
 var prescribeSchemaBytes []byte
+
+//go:embed schemas/prescribe_full.schema.json
+var prescribeFullSchemaBytes []byte
+
+//go:embed schemas/prescribe_smart.schema.json
+var prescribeSmartSchemaBytes []byte
 
 //go:embed schemas/report.schema.json
 var reportSchemaBytes []byte
@@ -75,6 +83,38 @@ type PrescribeInput struct {
 	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
 }
 
+type PrescribeFullInput struct {
+	Tool            string            `json:"tool"`
+	Operation       string            `json:"operation"`
+	RawArtifact     string            `json:"raw_artifact"`
+	CanonicalAction *CanonicalAction  `json:"canonical_action,omitempty"`
+	Actor           Actor             `json:"actor"`
+	SessionID       string            `json:"session_id,omitempty"`
+	OperationID     string            `json:"operation_id,omitempty"`
+	Attempt         int               `json:"attempt,omitempty"`
+	TraceID         string            `json:"trace_id,omitempty"`
+	SpanID          string            `json:"span_id,omitempty"`
+	ParentSpanID    string            `json:"parent_span_id,omitempty"`
+	Environment     string            `json:"environment,omitempty"`
+	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
+}
+
+type PrescribeSmartInput struct {
+	Tool            string            `json:"tool"`
+	Operation       string            `json:"operation"`
+	Resource        string            `json:"resource"`
+	Namespace       string            `json:"namespace,omitempty"`
+	Actor           Actor             `json:"actor"`
+	SessionID       string            `json:"session_id,omitempty"`
+	OperationID     string            `json:"operation_id,omitempty"`
+	Attempt         int               `json:"attempt,omitempty"`
+	TraceID         string            `json:"trace_id,omitempty"`
+	SpanID          string            `json:"span_id,omitempty"`
+	ParentSpanID    string            `json:"parent_span_id,omitempty"`
+	Environment     string            `json:"environment,omitempty"`
+	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
+}
+
 type DecisionContext struct {
 	Trigger string `json:"trigger"`
 	Reason  string `json:"reason"`
@@ -115,6 +155,38 @@ func PrescribeToolDefinition() (ToolDefinition, error) {
 	}, nil
 }
 
+func PrescribeFullToolDefinition() (ToolDefinition, error) {
+	description, err := promptdata.Read(promptdata.MCPPrescribeFullDescriptionPath)
+	if err != nil {
+		return ToolDefinition{}, fmt.Errorf("read prescribe_full description: %w", err)
+	}
+	parameters, err := loadSchema(prescribeFullSchemaBytes, "prescribe_full")
+	if err != nil {
+		return ToolDefinition{}, err
+	}
+	return ToolDefinition{
+		Name:        PrescribeFullToolName,
+		Description: description,
+		Parameters:  parameters,
+	}, nil
+}
+
+func PrescribeSmartToolDefinition() (ToolDefinition, error) {
+	description, err := promptdata.Read(promptdata.MCPPrescribeSmartDescriptionPath)
+	if err != nil {
+		return ToolDefinition{}, fmt.Errorf("read prescribe_smart description: %w", err)
+	}
+	parameters, err := loadSchema(prescribeSmartSchemaBytes, "prescribe_smart")
+	if err != nil {
+		return ToolDefinition{}, err
+	}
+	return ToolDefinition{
+		Name:        PrescribeSmartToolName,
+		Description: description,
+		Parameters:  parameters,
+	}, nil
+}
+
 func ReportToolDefinition() (ToolDefinition, error) {
 	description, err := promptdata.Read(promptdata.MCPReportDescriptionPath)
 	if err != nil {
@@ -132,16 +204,33 @@ func ReportToolDefinition() (ToolDefinition, error) {
 }
 
 func ValidatePrescribeInput(input PrescribeInput) error {
-	if strings.TrimSpace(input.Tool) == "" {
-		return fmt.Errorf("tool is required")
-	}
-	if strings.TrimSpace(input.Operation) == "" {
-		return fmt.Errorf("operation is required")
+	if err := validateToolOperation(input.Tool, input.Operation); err != nil {
+		return err
 	}
 	if strings.TrimSpace(input.RawArtifact) == "" &&
 		strings.TrimSpace(input.Resource) == "" &&
 		input.CanonicalAction == nil {
 		return fmt.Errorf("one of raw_artifact, resource, or canonical_action is required")
+	}
+	return validateActor(input.Actor)
+}
+
+func ValidatePrescribeFullInput(input PrescribeFullInput) error {
+	if err := validateToolOperation(input.Tool, input.Operation); err != nil {
+		return err
+	}
+	if strings.TrimSpace(input.RawArtifact) == "" {
+		return fmt.Errorf("raw_artifact is required")
+	}
+	return validateActor(input.Actor)
+}
+
+func ValidatePrescribeSmartInput(input PrescribeSmartInput) error {
+	if err := validateToolOperation(input.Tool, input.Operation); err != nil {
+		return err
+	}
+	if strings.TrimSpace(input.Resource) == "" {
+		return fmt.Errorf("resource is required")
 	}
 	return validateActor(input.Actor)
 }
@@ -178,6 +267,16 @@ func ValidateReportInput(input ReportInput) error {
 		return nil
 	}
 	return validateActor(input.Actor)
+}
+
+func validateToolOperation(tool, operation string) error {
+	if strings.TrimSpace(tool) == "" {
+		return fmt.Errorf("tool is required")
+	}
+	if strings.TrimSpace(operation) == "" {
+		return fmt.Errorf("operation is required")
+	}
+	return nil
 }
 
 func actorIsZero(actor Actor) bool {

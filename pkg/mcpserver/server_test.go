@@ -339,7 +339,8 @@ func TestSchemaStructParity(t *testing.T) {
 		schema     map[string]any
 		structType reflect.Type
 	}{
-		{name: "prescribe", schema: mustToolSchema(t, execcontract.PrescribeToolDefinition), structType: reflect.TypeOf(PrescribeInput{})},
+		{name: "prescribe_full", schema: mustToolSchema(t, execcontract.PrescribeFullToolDefinition), structType: reflect.TypeOf(PrescribeFullInput{})},
+		{name: "prescribe_smart", schema: mustToolSchema(t, execcontract.PrescribeSmartToolDefinition), structType: reflect.TypeOf(PrescribeSmartInput{})},
 		{name: "report", schema: mustToolSchema(t, execcontract.ReportToolDefinition), structType: reflect.TypeOf(ReportInput{})},
 	}
 

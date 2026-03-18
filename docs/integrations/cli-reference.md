@@ -228,8 +228,8 @@ The legacy score-band alias is not part of the v1 output contract.
 
 | Subcommand | Flags |
 |---|---|
-| `prompts generate` | `--contract` (default `v1.0.1`), `--root` (default `.`), `--write-active` (default `true`), `--write-generated` (default `true`), `--write-manifest` (default `true`) |
-| `prompts verify` | `--contract` (default `v1.0.1`), `--root` (default `.`) |
+| `prompts generate` | `--contract` (default `v1.1.0`), `--root` (default `.`), `--write-active` (default `true`), `--write-generated` (default `true`), `--write-manifest` (default `true`) |
+| `prompts verify` | `--contract` (default `v1.1.0`), `--root` (default `.`) |
 
 ### `evidra skill install` Flags
 
@@ -280,7 +280,7 @@ Output: JSON with `count` and `items` array of detector metadata (tag, descripti
 
 ### MCP Tools
 
-`prescribe`, `report`, `get_event`
+`prescribe_full`, `prescribe_smart`, `report`, `get_event`
 
 ## 3) `evidra-exp` (experiments)
 

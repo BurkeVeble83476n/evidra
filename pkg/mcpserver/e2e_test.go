@@ -13,7 +13,7 @@ import (
 	"samebits.com/evidra/pkg/evidence"
 )
 
-func TestE2E_PrescribeReportLifecycle(t *testing.T) {
+func TestE2E_PrescribeFullReportLifecycle(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 
@@ -48,36 +48,9 @@ func TestE2E_PrescribeReportLifecycle(t *testing.T) {
 	}
 	defer func() { _ = session.Close() }()
 
-	// List tools — verify all 3 registered
-	tools, err := session.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("list tools: %v", err)
-	}
-	toolNames := make(map[string]bool)
-	toolDefs := make(map[string]*mcp.Tool)
-	for _, tool := range tools.Tools {
-		toolNames[tool.Name] = true
-		toolDefs[tool.Name] = tool
-	}
-	for _, name := range []string{"prescribe", "report", "get_event"} {
-		if !toolNames[name] {
-			t.Errorf("missing tool %q in tools/list response", name)
-		}
-	}
-	prescribeTool, ok := toolDefs["prescribe"]
-	if !ok {
-		t.Fatal("missing prescribe tool definition")
-	}
-	if prescribeTool.Annotations == nil {
-		t.Fatal("prescribe tool missing annotations")
-	}
-	if prescribeTool.Annotations.ReadOnlyHint {
-		t.Fatal("prescribe tool must not advertise readOnlyHint=true")
-	}
-
-	// Prescribe
+	// Prescribe full
 	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "prescribe",
+		Name: "prescribe_full",
 		Arguments: map[string]any{
 			"actor": map[string]any{
 				"type":   "agent",
@@ -172,6 +145,156 @@ func TestE2E_PrescribeReportLifecycle(t *testing.T) {
 	}
 	if getEventOut.Entry.Type != evidence.EntryTypeReport {
 		t.Errorf("get_event type: got %q, want %q", getEventOut.Entry.Type, evidence.EntryTypeReport)
+	}
+}
+
+func TestE2E_PrescribeSmartReportLifecycle(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	server, serverErr := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: dir,
+		Environment:  "test",
+		Signer:       newTestSigner(t),
+	})
+	if serverErr != nil {
+		t.Fatalf("NewServer: %v", serverErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "prescribe_smart",
+		Arguments: map[string]any{
+			"actor": map[string]any{
+				"type":   "agent",
+				"id":     "test-agent",
+				"origin": "e2e-test",
+			},
+			"tool":      "kubectl",
+			"operation": "apply",
+			"resource":  "deployment/nginx",
+			"namespace": "default",
+		},
+	})
+	if err != nil {
+		t.Fatalf("prescribe_smart: %v", err)
+	}
+
+	var prescribeOut PrescribeOutput
+	if err := extractStructuredContent(prescribeResult, &prescribeOut); err != nil {
+		t.Fatalf("parse prescribe_smart output: %v", err)
+	}
+	if !prescribeOut.OK {
+		t.Fatalf("prescribe_smart not ok: %+v", prescribeOut)
+	}
+	if prescribeOut.PrescriptionID == "" {
+		t.Fatal("prescribe_smart returned empty prescription_id")
+	}
+	if len(prescribeOut.RiskInputs) != 1 || prescribeOut.RiskInputs[0].Source != "evidra/matrix" {
+		t.Fatalf("risk_inputs = %+v, want single evidra/matrix input", prescribeOut.RiskInputs)
+	}
+
+	reportResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "report",
+		Arguments: map[string]any{
+			"prescription_id": prescribeOut.PrescriptionID,
+			"verdict":         "success",
+			"exit_code":       0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+
+	var reportOut ReportOutput
+	if err := extractStructuredContent(reportResult, &reportOut); err != nil {
+		t.Fatalf("parse report output: %v", err)
+	}
+	if !reportOut.OK {
+		t.Fatalf("report not ok: %+v", reportOut)
+	}
+}
+
+func TestE2E_ListTools_UsesSplitPrescribeSurface(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: t.TempDir(),
+		Environment:  "test",
+		Signer:       newTestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	toolDefs := make(map[string]*mcp.Tool)
+	for _, tool := range tools.Tools {
+		toolDefs[tool.Name] = tool
+	}
+
+	for _, name := range []string{"prescribe_full", "prescribe_smart", "report", "get_event"} {
+		if _, ok := toolDefs[name]; !ok {
+			t.Fatalf("missing tool %q in tools/list response", name)
+		}
+	}
+	if _, ok := toolDefs["prescribe"]; ok {
+		t.Fatal("legacy prescribe tool should not be registered")
+	}
+	for _, name := range []string{"prescribe_full", "prescribe_smart"} {
+		if toolDefs[name].Annotations == nil {
+			t.Fatalf("%s tool missing annotations", name)
+		}
+		if toolDefs[name].Annotations.ReadOnlyHint {
+			t.Fatalf("%s tool must not advertise readOnlyHint=true", name)
+		}
 	}
 }
 
@@ -318,7 +441,7 @@ func TestE2E_ProtocolV1Fields(t *testing.T) {
 
 	// Prescribe with all protocol v1.0 fields
 	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "prescribe",
+		Name: "prescribe_full",
 		Arguments: map[string]any{
 			"actor": map[string]any{
 				"type":        "ai_agent",
@@ -511,7 +634,7 @@ func TestE2E_SignedEntries(t *testing.T) {
 
 	// Prescribe
 	prescribeResult, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name: "prescribe",
+		Name: "prescribe_full",
 		Arguments: map[string]any{
 			"actor": map[string]any{
 				"type":   "agent",
