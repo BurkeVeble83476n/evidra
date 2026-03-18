@@ -443,7 +443,7 @@ sequenceDiagram
   participant Signal as Signal Detectors
   participant Score as Scoring Engine
 
-  Note over Actor,CLI: payload.flavor = imperative | reconcile | pipeline_stage
+  Note over Actor,CLI: payload.flavor = imperative | reconcile | workflow; payload.evidence.kind + payload.source.system capture how evidence arrived
 
   Actor->>CLI: prescribe(tool, operation, artifact)
   CLI->>Canon: SelectAdapter → Normalize
