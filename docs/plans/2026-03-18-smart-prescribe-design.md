@@ -1,274 +1,256 @@
-# Smart Prescribe — Implementation Design
+# Smart Prescribe Tool Split — Implementation Design
 
 **Date:** 2026-03-18
-**Status:** Proven in bench harness, ready for evidra implementation
-**Target:** `pkg/mcpserver/server.go` in evidra repo
+**Status:** Approved for implementation
+**Target:** direct MCP mode in `pkg/mcpserver`, prompt contract generation in `prompts/`, shared lifecycle path unchanged
 
-## Proof of Concept
+## Problem
 
-Gemini 2.5 Flash — which scored 0% on full prescribe (can't format
-the 10+ field schema) — follows smart prescribe perfectly on first try.
-Tested in bench harness: `pkg/agent/smart_prescribe.go`.
+The current direct-mode MCP surface exposes one overloaded `prescribe` tool
+that accepts both full-artifact and smart/lightweight inputs. That keeps the
+backend simple, but it is the wrong shape for model-facing prompts:
 
-## What Changes
+- full mode and smart mode have different goals
+- full mode should ask for artifact bytes and detector-oriented context
+- smart mode should stay lightweight and target-oriented
+- one blended tool description forces the model to choose a payload shape
+  inside the prompt, which increases ambiguity and invalid mixed payloads
 
-The existing `evidra_prescribe` MCP tool accepts BOTH schemas.
-Auto-detects based on which fields are present. No new tool name.
+The skill prompt already wants to explain these as different workflows. The MCP
+tool surface should match that.
 
-### Current (Full Prescribe)
+## Decision
+
+Split the overloaded direct prescribe surface into two MCP tools:
+
+- `prescribe_full`
+- `prescribe_smart`
+
+Keep `report` and `get_event` unchanged.
+
+Both prescribe tools route into the same internal lifecycle service and produce
+the same output shape, so evidence persistence, scoring, retry tracking, and
+report semantics stay unified.
+
+## Non-Goals
+
+- No change to the `report` protocol
+- No change to evidence entry schemas
+- No change to proxy mode semantics
+- No attempt to keep the old `prescribe` tool visible in the default MCP
+  surface; doing so would preserve the model-selection ambiguity we are trying
+  to remove
+
+## API Shape
+
+### `prescribe_full`
+
+Purpose: artifact-aware direct mode for agents that have the real mutation
+artifact and want native detector coverage plus artifact drift detection.
+
+Required fields:
+
+- `tool`
+- `operation`
+- `raw_artifact`
+- `actor.type`
+- `actor.id`
+- `actor.origin`
+
+Optional fields:
+
+- `canonical_action`
+- `environment`
+- `scope_dimensions`
+- correlation identifiers
+
+Example:
+
 ```json
 {
   "tool": "kubectl",
   "operation": "apply",
-  "raw_artifact": "apiVersion: apps/v1\nkind: Deployment\n...(50+ lines)",
-  "actor": {"type": "agent", "id": "bench", "origin": "mcp", "skill_version": "1.0.1"},
-  "environment": "production",
-  "scope_dimensions": {"cluster": "kind-evidra", "namespace": "bench"},
-  "canonical_action": {"resource_identity": [...], "operation_class": "mutate"}
+  "raw_artifact": "apiVersion: apps/v1\nkind: Deployment\n...",
+  "actor": {
+    "type": "agent",
+    "id": "bench",
+    "origin": "mcp-stdio",
+    "skill_version": "1.1.0"
+  }
 }
 ```
-~200-500 tokens. Only Claude and GPT-5.2 can format this correctly.
 
-### New (Smart Prescribe)
+### `prescribe_smart`
+
+Purpose: lightweight direct mode for agents that know the target operation and
+resource but do not have artifact bytes.
+
+Required fields:
+
+- `tool`
+- `operation`
+- `resource`
+- `actor.type`
+- `actor.id`
+- `actor.origin`
+
+Optional fields:
+
+- `namespace`
+- `environment`
+- `scope_dimensions`
+- correlation identifiers
+
+Example:
+
 ```json
 {
   "tool": "kubectl",
   "operation": "apply",
   "resource": "deployment/web",
-  "namespace": "bench"
-}
-```
-~30 tokens. Any model can do this.
-
-### Same Response
-Both modes return the same response:
-```json
-{
-  "ok": true,
-  "prescription_id": "rx-01JQ...",
-  "effective_risk": "medium",
-  "risk_inputs": [...]
-}
-```
-
-### Same Report
-No change to `evidra_report` — works identically for both modes.
-
-## Detection Logic
-
-In `pkg/mcpserver/server.go`, the prescribe handler checks:
-
-```go
-func (s *Server) handlePrescribe(ctx context.Context, input PrescribeInput) (PrescribeOutput, error) {
-    if input.RawArtifact != "" {
-        // Full mode — existing path
-        return s.fullPrescribe(ctx, input)
-    }
-    // Smart mode — infer what we can, skip what we can't
-    return s.smartPrescribe(ctx, input)
-}
-```
-
-## Smart Prescribe Implementation
-
-```go
-func (s *Server) smartPrescribe(ctx context.Context, input PrescribeInput) (PrescribeOutput, error) {
-    // 1. Generate prescription ID (same as full mode)
-    prescriptionID := generatePrescriptionID()
-
-    // 2. Build canonical action from tool + operation
-    opClass := classifyOperation(input.Tool, input.Operation) // mutate/destroy/read
-
-    // 3. Build minimal scope from namespace
-    scopeClass := "unknown"
-    if input.Namespace != "" {
-        scopeClass = resolveScopeFromNamespace(input.Namespace)
-    }
-
-    // 4. Risk assessment from tool + operation + scope (no artifact)
-    risk := assessRiskFromOperation(input.Tool, input.Operation, opClass, scopeClass)
-    // kubectl delete in production → high
-    // kubectl apply in staging → medium
-    // kubectl patch in development → low
-
-    // 5. Write evidence entry (same format, fewer fields populated)
-    entry := evidence.Entry{
-        Type:           evidence.TypePrescription,
-        PrescriptionID: prescriptionID,
-        Tool:           input.Tool,
-        Operation:      input.Operation,
-        OperationClass: opClass,
-        ScopeClass:     scopeClass,
-        EffectiveRisk:  risk,
-        // No artifact digest, no intent digest, no resource identity
-        // These fields are empty but the entry is still valid
-    }
-    s.writeEntry(ctx, entry)
-
-    // 6. Return same response shape
-    return PrescribeOutput{
-        OK:             true,
-        PrescriptionID: prescriptionID,
-        EffectiveRisk:  risk,
-    }, nil
-}
-```
-
-## Tool Schema Update
-
-The MCP tool definition needs updated parameter descriptions to show
-both modes are accepted:
-
-```json
-{
-  "name": "evidra_prescribe",
-  "description": "Record intent BEFORE an infrastructure mutation. Two modes: send raw_artifact for full risk analysis, or just tool+operation+resource for lightweight recording.",
-  "parameters": {
-    "type": "object",
-    "required": ["tool", "operation", "actor"],
-    "properties": {
-      "tool":             {"type": "string", "description": "Infrastructure tool (kubectl, helm, terraform)"},
-      "operation":        {"type": "string", "description": "Operation (apply, delete, patch, upgrade)"},
-      "resource":         {"type": "string", "description": "Target resource (e.g. deployment/web)"},
-      "namespace":        {"type": "string", "description": "Kubernetes namespace"},
-      "raw_artifact":     {"type": "string", "description": "Full YAML artifact (optional — enables drift detection)"},
-      "actor":            {"type": "object", "description": "Actor metadata (required in both modes)"},
-      "scope_dimensions": {"type": "object", "description": "Scope metadata (optional)"}
-    }
+  "namespace": "default",
+  "actor": {
+    "type": "agent",
+    "id": "bench",
+    "origin": "mcp-stdio",
+    "skill_version": "1.1.0"
   }
 }
 ```
 
-Compatibility constraints:
-- `actor` stays required in both modes so protocol attribution and behavior slicing keep working.
-- `raw_artifact` moves from required to optional.
-- Smart mode should still require either `resource` or `canonical_action` so the target is explicit.
-- If `raw_artifact` is present → full mode. If it is absent → smart mode. Schema remains backward compatible for existing full-mode callers.
+### Shared Response
 
-## Risk Assessment Without Artifact
+Both tools return the current `PrescribeOutput` shape:
 
-Full mode analyzes the YAML artifact for risk. Smart mode infers risk
-from tool + operation + scope:
+- `ok`
+- `prescription_id`
+- `risk_inputs`
+- `effective_risk`
+- `artifact_digest`
+- `intent_digest`
+- `resource_shape_hash`
+- `operation_class`
+- `scope_class`
 
-```go
-var operationRisk = map[string]map[string]string{
-    "kubectl": {
-        "delete": "high",
-        "apply":  "medium",
-        "patch":  "medium",
-        "create": "low",
-        "scale":  "low",
-    },
-    "helm": {
-        "uninstall": "high",
-        "upgrade":   "medium",
-        "install":   "medium",
-        "rollback":  "medium",
-    },
-    "terraform": {
-        "destroy": "critical",
-        "apply":   "high",
-        "import":  "medium",
-    },
-}
+Full mode will usually populate artifact-derived fields more richly. Smart mode
+may leave artifact-specific outputs empty while still returning a valid
+prescription.
 
-func assessRiskFromOperation(tool, operation, opClass, scopeClass string) string {
-    // Start with operation-based risk
-    risk := operationRisk[tool][operation]
-    if risk == "" {
-        risk = "medium"
-    }
-    // Elevate for production scope
-    if scopeClass == "production" && risk == "medium" {
-        risk = "high"
-    }
-    return risk
-}
-```
+## Backend Architecture
 
-## Scorecard Compatibility
+The MCP layer changes; the lifecycle service does not.
 
-Which signals work with smart prescribe evidence?
+Implementation shape:
 
-| Signal | Full | Smart | Why |
-|--------|------|-------|-----|
-| protocol_violation | Yes | Yes | Checks prescribe/report pairing |
-| retry_loop | Yes | Yes | Same tool+operation repeated |
-| repair_loop | Yes | Yes | Delete+create patterns |
-| thrashing | Yes | Yes | Rapid apply/delete cycles |
-| blast_radius | Yes | Partial | No resource count from artifact |
-| artifact_drift | Yes | No | No artifact hash to compare |
-| risk_escalation | Yes | Yes | Risk level tracked per prescribe |
-| new_scope | Yes | Yes | Namespace/scope tracked |
+1. `prescribe_full` handler validates the full schema and forwards the request
+   through the existing artifact-aware path.
+2. `prescribe_smart` handler validates the smart schema, synthesizes a minimal
+   canonical action from `tool`, `operation`, `resource`, `namespace`,
+   `environment`, and `scope_dimensions`, and then forwards that normalized
+   request through the same lifecycle service.
+3. `report` continues to consume `prescription_id` only; it does not need to
+   know which prescribe tool produced it.
 
-6 of 8 signals work fully. 1 partial, 1 missing. Good enough for
-most use cases. Full mode only needed for artifact drift detection.
+This keeps storage, scoring, correlation, and retry semantics on one code path.
 
-## Files to Modify
+## Shared Normalization Rules
 
-```
-pkg/mcpserver/server.go          — add smart prescribe path
-pkg/mcpserver/server_test.go     — test both modes
-pkg/mcpserver/integration_test.go — verify smart prescribe + report lifecycle
-pkg/execcontract/contracts.go    — make raw_artifact optional in schema
-pkg/execcontract/schemas/prescribe.schema.json — update JSON schema
-prompts/source/contracts/v1.0.1/CONTRACT.yaml — teach the contract about smart prescribe
-prompts/source/contracts/v1.0.1/templates/mcp/prescribe.tmpl — describe both input shapes
-prompts/source/contracts/v1.0.1/templates/skill/SKILL.tmpl — recommend smart mode without dropping actor fields
-README.md                        — explain direct full vs direct smart vs proxy
-docs/guides/mcp-setup.md         — document when to use each direct mode
-docs/ARCHITECTURE.md             — update the mode overview / diagrams
-```
+### Full Mode
 
-## Skill Prompt Update
+- `raw_artifact` remains required
+- if `canonical_action` is absent, existing canonicalization rules apply
+- native detector and artifact drift signals remain available
 
-Smart prescribe must flow through the existing prompt factory, not through one-off edits to generated prompt files. Before rollout, confirm with the PO whether smart prescribe becomes the default recommendation for direct mode or remains a fallback path for weaker models. Public guides should not advertise smart prescribe until the MCP server, schema, and generated prompts ship together.
+### Smart Mode
 
-The evidra contract skill needs a note about smart prescribe:
+- `resource` is required
+- `namespace` is optional input but should be copied into canonical scope when
+  present
+- the adapter synthesizes a minimal `canon.CanonicalAction`
+- risk evaluation is matrix-driven when no artifact is present
+- artifact drift is unavailable by design
 
-```markdown
-## Smart Prescribe (recommended)
+## Tool Registration
 
-For each infrastructure mutation, call prescribe with:
-- tool: the CLI tool (kubectl, helm, terraform)
-- operation: the subcommand (apply, delete, patch)
-- resource: target resource (deployment/web, configmap/app)
-- namespace: the namespace
-- actor.type / actor.id / actor.origin / actor.skill_version
+`pkg/mcpserver.NewServer` should register these tools:
 
-You do NOT need to send the full YAML artifact unless you need full native detector coverage or artifact drift detection.
-```
+- `prescribe_full`
+- `prescribe_smart`
+- `report`
+- `get_event`
+
+The previous overloaded `prescribe` tool should be removed from the default MCP
+tool list so the model is forced to choose between the explicit full and smart
+surfaces.
+
+## Contract And Prompt Versioning
+
+Do not rewrite `v1.0.1` in place.
+
+The current prompt contract version is already embedded in generated assets,
+tests, manifests, and `actor.skill_version` guidance. Changing tool semantics
+under the same version would make historical prompt provenance misleading.
+
+Instead:
+
+- freeze `prompts/source/contracts/v1.0.1` as-is
+- add a new contract version `v1.1.0`
+- move the default prompt contract version to `v1.1.0`
+- update skill examples to use `skill_version: "1.1.0"`
+
+## Prompt Generation
+
+The prompt factory must generate separate MCP tool descriptions:
+
+- `prompts/generated/v1.1.0/mcpserver/tools/prescribe_full_description.txt`
+- `prompts/generated/v1.1.0/mcpserver/tools/prescribe_smart_description.txt`
+- active copies under `prompts/mcpserver/tools/`
+
+This requires:
+
+- new contract sections for `mcp.prescribe_full` and `mcp.prescribe_smart`
+- new templates `templates/mcp/prescribe_full.tmpl` and
+  `templates/mcp/prescribe_smart.tmpl`
+- prompt embed constants for both new files
+- updated manifest generation and prompt verification
+
+The skill prompt remains one document, but it should explain the two direct
+tools as intentionally different workflows, not two shapes of one tool.
 
 ## Documentation Rollout
 
-When implementation lands, update the public docs in one pass:
+Public docs should explain three evidence modes:
 
-- README: explain the three evidence modes (direct full, direct smart, proxy)
-- MCP setup guide: document smart-mode input shape, tradeoffs, and model fit
-- Architecture overview / diagrams: show that all three modes feed the same evidence chain and scorecard engine
+- direct full: `prescribe_full`
+- direct smart: `prescribe_smart`
+- proxy mode
 
-Do not merge doc copy that claims smart prescribe is available before the server and prompt artifacts are released.
+The docs must make the tradeoff explicit:
 
-## Migration
+- use `prescribe_full` when you have artifact bytes and want detector coverage
+- use `prescribe_smart` when you need a lightweight direct call
+- use proxy mode when you want command interception instead of direct protocol
+  calls
 
-1. Implement in `pkg/mcpserver/server.go` — auto-detect mode
-2. Update JSON schema — make raw_artifact optional
-3. Update prompt contract + generated prompt artifacts — recommend smart mode
-4. Test with bench harness — verify Gemini Flash compliance
-5. Update docs — explain direct full vs direct smart vs proxy after implementation lands
-6. Release — backward compatible, existing agents work unchanged
+## Testing Strategy
 
-## Testing Plan
+Required coverage:
 
-```bash
-# Smart mode — new
-infra-bench run --scenario missing-configmap --smart-prescribe --model gemini-2.5-flash
+- execcontract schema/validation tests for both tool shapes
+- prompt embed tests for both MCP descriptions and updated skill guidance
+- MCP server tests that list the new tool set
+- end-to-end tests proving:
+  - `prescribe_full` preserves artifact-aware behavior
+  - `prescribe_smart` produces a valid prescription and report lifecycle
+  - `report` works identically for both
+- prompt generation and manifest verification
+- repo lint and targeted doc guard scripts after docs updates
 
-# Full mode — existing, must still work
-infra-bench run --scenario missing-configmap --system-prompt-file contract.md --evidra-bin evidra --model gpt-5.2
+## Migration Notes
 
-# Proxy mode — existing, must still work
-infra-bench run --scenario missing-configmap --proxy-mode --model qwen-plus
-```
+This is an intentional MCP tool-surface change. Existing prompts and direct MCP
+callers that use `prescribe` must migrate to either `prescribe_full` or
+`prescribe_smart`.
 
-All three modes coexist. The evidra binary auto-detects. No breaking changes.
+That is acceptable because the split is the whole point of the redesign: one
+tool per workflow, one prompt per workflow, one shared backend.
