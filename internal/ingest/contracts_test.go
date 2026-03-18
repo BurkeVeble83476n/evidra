@@ -44,6 +44,36 @@ func TestValidatePrescribeRequestValidCanonicalAction(t *testing.T) {
 	}
 }
 
+func TestValidatePrescribeRequestRejectsEmptyCanonicalAction(t *testing.T) {
+	t.Parallel()
+
+	req := PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-3",
+			OperationID: "operation-3",
+			TraceID:     "trace-3",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		CanonicalAction: &canon.CanonicalAction{},
+	}
+
+	err := ValidatePrescribeRequest(req)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "canonical_action") {
+		t.Fatalf("error = %q, want canonical_action violation", err.Error())
+	}
+}
+
 func TestValidatePrescribeRequestValidSmartTarget(t *testing.T) {
 	t.Parallel()
 
@@ -97,6 +127,7 @@ func TestValidateReportRequestValidPrescriptionIDAndVerdict(t *testing.T) {
 		PrescriptionID: "rx-1",
 		Verdict:        evidence.VerdictSuccess,
 		ExitCode:       &exitCode,
+		ArtifactDigest: "sha256:" + strings.Repeat("b", 64),
 	}
 
 	if err := ValidateReportRequest(req); err != nil {
@@ -195,6 +226,38 @@ func TestValidatePrescribeRequestRequiresTaxonomyFields(t *testing.T) {
 	}
 }
 
+func TestValidatePrescribeRequestRejectsUnsupportedTaxonomyValues(t *testing.T) {
+	t.Parallel()
+
+	req := PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-1",
+			OperationID: "operation-1",
+			TraceID:     "trace-1",
+			Flavor:      evidence.Flavor("bogus"),
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKind("mystery")},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		CanonicalAction: &canon.CanonicalAction{Tool: "kubectl", Operation: "apply"},
+	}
+
+	err := ValidatePrescribeRequest(req)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	for _, want := range []string{"flavor", "evidence.kind"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error = %q, want violation for %q", err.Error(), want)
+		}
+	}
+}
+
 func TestValidateReportRequestDeclinedRules(t *testing.T) {
 	t.Parallel()
 
@@ -223,6 +286,21 @@ func TestValidateReportRequestDeclinedRules(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "exit_code") {
 			t.Fatalf("error = %q, want exit_code violation", err.Error())
+		}
+	})
+
+	t.Run("rejects long decision reason", func(t *testing.T) {
+		req := declinedReportRequest()
+		req.DecisionContext = &evidence.DecisionContext{
+			Trigger: "risk_threshold_exceeded",
+			Reason:  strings.Repeat("a", 513),
+		}
+		err := ValidateReportRequest(req)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "decision_context.reason") {
+			t.Fatalf("error = %q, want reason length violation", err.Error())
 		}
 	})
 }
@@ -255,6 +333,76 @@ func TestValidateReportRequestRequiresExitCodeForNonDeclined(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "exit_code") {
 		t.Fatalf("error = %q, want exit_code violation", err.Error())
+	}
+}
+
+func TestValidateReportRequestRejectsDecisionContextForNonDeclined(t *testing.T) {
+	t.Parallel()
+
+	exitCode := 0
+	req := ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-1",
+			OperationID: "operation-1",
+			TraceID:     "trace-1",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "rx-1",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       &exitCode,
+		DecisionContext: &evidence.DecisionContext{
+			Trigger: "manual_override",
+			Reason:  "not declined",
+		},
+	}
+
+	err := ValidateReportRequest(req)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "decision_context") {
+		t.Fatalf("error = %q, want decision_context violation", err.Error())
+	}
+}
+
+func TestValidateReportRequestRejectsVerdictExitCodeMismatch(t *testing.T) {
+	t.Parallel()
+
+	exitCode := 1
+	req := ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-1",
+			OperationID: "operation-1",
+			TraceID:     "trace-1",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "rx-1",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       &exitCode,
+	}
+
+	err := ValidateReportRequest(req)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "does not match exit_code") {
+		t.Fatalf("error = %q, want verdict/exit_code mismatch", err.Error())
 	}
 }
 
@@ -345,6 +493,7 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 			PrescriptionID:  "rx-1",
 			Verdict:         evidence.VerdictSuccess,
 			ExitCode:        &exitCode,
+			ArtifactDigest:  "sha256:" + strings.Repeat("c", 64),
 			PayloadOverride: &override,
 		}
 
@@ -375,6 +524,38 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 				Source:      &evidence.SourceMetadata{System: "argocd"},
 			},
 			Verdict:         evidence.Verdict("bogus"),
+			ArtifactDigest:  "sha256:" + strings.Repeat("d", 64),
+			PayloadOverride: &override,
+		}
+
+		err := ValidateReportRequest(req)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "payload_override") {
+			t.Fatalf("error = %q, want payload_override violation", err.Error())
+		}
+	})
+
+	t.Run("report rejects artifact digest plus override", func(t *testing.T) {
+		override := json.RawMessage(`{"verdict":"success"}`)
+		req := ReportRequest{
+			Envelope: Envelope{
+				ContractVersion: ContractVersionV1,
+				Actor: evidence.Actor{
+					Type:       "controller",
+					ID:         "argocd",
+					Provenance: "argocd",
+				},
+				SessionID:   "session-1",
+				OperationID: "operation-1",
+				TraceID:     "trace-1",
+				Flavor:      evidence.FlavorWorkflow,
+				Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+				Source:      &evidence.SourceMetadata{System: "argocd"},
+			},
+			PrescriptionID:  "rx-1",
+			ArtifactDigest:  "sha256:" + strings.Repeat("e", 64),
 			PayloadOverride: &override,
 		}
 

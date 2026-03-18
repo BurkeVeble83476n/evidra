@@ -65,6 +65,7 @@ type PrescribeRequest struct {
 type ReportRequest struct {
 	Envelope
 	PrescriptionID  string                    `json:"prescription_id,omitempty"`
+	ArtifactDigest  string                    `json:"artifact_digest,omitempty"`
 	Verdict         evidence.Verdict          `json:"verdict,omitempty"`
 	ExitCode        *int                      `json:"exit_code,omitempty"`
 	DecisionContext *evidence.DecisionContext `json:"decision_context,omitempty"`
@@ -119,7 +120,7 @@ func ValidateReportRequest(in ReportRequest) error {
 		if !hasRawJSON(*in.PayloadOverride) {
 			violations.Add("payload_override must not be empty")
 		}
-		if strings.TrimSpace(in.PrescriptionID) != "" || strings.TrimSpace(string(in.Verdict)) != "" || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
+		if strings.TrimSpace(in.PrescriptionID) != "" || strings.TrimSpace(in.ArtifactDigest) != "" || strings.TrimSpace(string(in.Verdict)) != "" || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
 			violations.Add("payload_override is mutually exclusive with explicit report fields")
 		}
 	} else {
@@ -155,11 +156,11 @@ func validateEnvelope(violations *ValidationError, env Envelope) {
 	if strings.TrimSpace(env.TraceID) == "" {
 		violations.Add("trace_id is required")
 	}
-	if strings.TrimSpace(string(env.Flavor)) == "" {
-		violations.Add("flavor is required")
-	}
-	if env.Evidence == nil || strings.TrimSpace(string(env.Evidence.Kind)) == "" {
+	validateFlavor(violations, env.Flavor)
+	if env.Evidence == nil {
 		violations.Add("evidence.kind is required")
+	} else {
+		validateEvidenceKind(violations, env.Evidence.Kind)
 	}
 	if env.Source == nil || strings.TrimSpace(env.Source.System) == "" {
 		violations.Add("source.system is required")
@@ -183,6 +184,7 @@ func validatePrescribeIntent(violations *ValidationError, canonicalAction *canon
 	case canonicalAction != nil && smartTarget != nil:
 		violations.Add("canonical_action and smart_target are mutually exclusive")
 	case canonicalAction != nil:
+		validateCanonicalAction(violations, canonicalAction)
 		return
 	case smartTarget != nil:
 		validateSmartTarget(violations, smartTarget)
@@ -206,6 +208,28 @@ func validateSmartTarget(violations *ValidationError, target *SmartTarget) {
 	}
 }
 
+func validateCanonicalAction(violations *ValidationError, action *canon.CanonicalAction) {
+	if action == nil {
+		violations.Add("canonical_action is required")
+		return
+	}
+	if strings.TrimSpace(action.Tool) == "" {
+		violations.Add("canonical_action.tool is required")
+	}
+	if strings.TrimSpace(action.Operation) == "" {
+		violations.Add("canonical_action.operation is required")
+	}
+	if strings.TrimSpace(action.Tool) == "" &&
+		strings.TrimSpace(action.Operation) == "" &&
+		strings.TrimSpace(action.OperationClass) == "" &&
+		strings.TrimSpace(action.ScopeClass) == "" &&
+		action.ResourceCount == 0 &&
+		strings.TrimSpace(action.ResourceShapeHash) == "" &&
+		len(action.ResourceIdentity) == 0 {
+		violations.Add("canonical_action must not be empty")
+	}
+}
+
 func validateActor(violations *ValidationError, actor evidence.Actor) {
 	if strings.TrimSpace(actor.Type) == "" {
 		violations.Add("actor.type is required")
@@ -226,21 +250,49 @@ func validateReportVerdict(violations *ValidationError, verdict evidence.Verdict
 		}
 		if decisionContext == nil {
 			violations.Add("decision_context is required for declined reports")
-			return
-		}
-		if strings.TrimSpace(decisionContext.Trigger) == "" {
-			violations.Add("decision_context.trigger is required")
-		}
-		if strings.TrimSpace(decisionContext.Reason) == "" {
-			violations.Add("decision_context.reason is required")
+		} else {
+			if strings.TrimSpace(decisionContext.Trigger) == "" {
+				violations.Add("decision_context.trigger is required")
+			}
+			if strings.TrimSpace(decisionContext.Reason) == "" {
+				violations.Add("decision_context.reason is required")
+			} else if len(strings.TrimSpace(decisionContext.Reason)) > 512 {
+				violations.Add("decision_context.reason exceeds 512 characters")
+			}
 		}
 	default:
-		if exitCode == nil {
-			violations.Add(fmt.Sprintf("report verdict %s requires exit_code", verdict))
-		}
 		if decisionContext != nil {
 			violations.Add("decision_context is only valid for declined reports")
 		}
+		if exitCode == nil {
+			violations.Add(fmt.Sprintf("report verdict %s requires exit_code", verdict))
+			return
+		}
+		if inferred := evidence.VerdictFromExitCode(*exitCode); inferred != verdict {
+			violations.Add(fmt.Sprintf("report verdict %s does not match exit_code %d", verdict, *exitCode))
+		}
+	}
+}
+
+func validateFlavor(violations *ValidationError, flavor evidence.Flavor) {
+	switch flavor {
+	case evidence.FlavorImperative, evidence.FlavorReconcile, evidence.FlavorWorkflow:
+		return
+	case "":
+		violations.Add("flavor is required")
+	default:
+		violations.Add("flavor must be one of imperative, reconcile, workflow")
+	}
+}
+
+func validateEvidenceKind(violations *ValidationError, kind evidence.EvidenceKind) {
+	switch kind {
+	case evidence.EvidenceKindDeclared, evidence.EvidenceKindObserved, evidence.EvidenceKindTranslated:
+		return
+	case "":
+		violations.Add("evidence.kind is required")
+	default:
+		violations.Add("evidence.kind must be one of declared, observed, translated")
 	}
 }
 
