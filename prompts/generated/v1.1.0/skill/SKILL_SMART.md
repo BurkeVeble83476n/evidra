@@ -10,6 +10,8 @@ Every infrastructure **mutation** follows three steps:
 
 Read-only operations (get, describe, logs, plan, show) skip the protocol.
 
+**Diagnose first.** Use read-only commands to understand the problem before prescribing any mutation. Only call prescribe when you have identified the root cause and know what fix to apply.
+
 ## Rules
 
 - Do not execute mutate commands until a prescribe tool returns ok=true with prescription_id.
