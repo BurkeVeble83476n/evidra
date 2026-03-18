@@ -119,10 +119,6 @@ type ErrInfo struct {
 	Message string `json:"message"`
 }
 
-type prescribeHandler struct {
-	service *MCPService
-}
-
 type prescribeFullHandler struct {
 	service *MCPService
 }
@@ -329,15 +325,6 @@ func defaultServerVersion(input string) string {
 		return v
 	}
 	return version.Version
-}
-
-func (h *prescribeHandler) Handle(
-	ctx context.Context,
-	_ *mcp.CallToolRequest,
-	input PrescribeInput,
-) (*mcp.CallToolResult, PrescribeOutput, error) {
-	output := h.service.PrescribeCtx(ctx, input)
-	return &mcp.CallToolResult{}, output, nil
 }
 
 func (h *reportHandler) Handle(
