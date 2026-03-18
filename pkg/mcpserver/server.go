@@ -123,6 +123,14 @@ type prescribeHandler struct {
 	service *MCPService
 }
 
+type prescribeFullHandler struct {
+	service *MCPService
+}
+
+type prescribeSmartHandler struct {
+	service *MCPService
+}
+
 type reportHandler struct {
 	service *MCPService
 }
@@ -186,11 +194,16 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		return nil, nil, err
 	}
 
-	prescribe := &prescribeHandler{service: svc}
+	prescribeFull := &prescribeFullHandler{service: svc}
+	prescribeSmart := &prescribeSmartHandler{service: svc}
 	report := &reportHandler{service: svc}
 	getEvent := &getEventHandler{service: svc}
 
-	prescribeDef, err := execcontract.PrescribeToolDefinition()
+	prescribeFullDef, err := execcontract.PrescribeFullToolDefinition()
+	if err != nil {
+		return nil, nil, err
+	}
+	prescribeSmartDef, err := execcontract.PrescribeSmartToolDefinition()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -215,18 +228,32 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	)
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "prescribe",
-		Title:       "Record Infrastructure Intent",
-		Description: prescribeDef.Description,
+		Name:        "prescribe_full",
+		Title:       "Record Full Infrastructure Intent",
+		Description: prescribeFullDef.Description,
 		Annotations: &mcp.ToolAnnotations{
-			Title:           "Prescribe",
+			Title:           "Prescribe Full",
 			ReadOnlyHint:    false,
 			IdempotentHint:  false,
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(false),
 		},
-		InputSchema: prescribeDef.Parameters,
-	}, prescribe.Handle)
+		InputSchema: prescribeFullDef.Parameters,
+	}, prescribeFull.Handle)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "prescribe_smart",
+		Title:       "Record Smart Infrastructure Intent",
+		Description: prescribeSmartDef.Description,
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Prescribe Smart",
+			ReadOnlyHint:    false,
+			IdempotentHint:  false,
+			DestructiveHint: boolPtr(false),
+			OpenWorldHint:   boolPtr(false),
+		},
+		InputSchema: prescribeSmartDef.Parameters,
+	}, prescribeSmart.Handle)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "report",

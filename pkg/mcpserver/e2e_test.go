@@ -175,6 +175,68 @@ func TestE2E_PrescribeReportLifecycle(t *testing.T) {
 	}
 }
 
+func TestE2E_ListTools_UsesSplitPrescribeSurface(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: t.TempDir(),
+		Environment:  "test",
+		Signer:       newTestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	toolDefs := make(map[string]*mcp.Tool)
+	for _, tool := range tools.Tools {
+		toolDefs[tool.Name] = tool
+	}
+
+	for _, name := range []string{"prescribe_full", "prescribe_smart", "report", "get_event"} {
+		if _, ok := toolDefs[name]; !ok {
+			t.Fatalf("missing tool %q in tools/list response", name)
+		}
+	}
+	if _, ok := toolDefs["prescribe"]; ok {
+		t.Fatal("legacy prescribe tool should not be registered")
+	}
+	for _, name := range []string{"prescribe_full", "prescribe_smart"} {
+		if toolDefs[name].Annotations == nil {
+			t.Fatalf("%s tool missing annotations", name)
+		}
+		if toolDefs[name].Annotations.ReadOnlyHint {
+			t.Fatalf("%s tool must not advertise readOnlyHint=true", name)
+		}
+	}
+}
+
 func TestE2E_UnprescribedReport(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
