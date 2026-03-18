@@ -20,11 +20,20 @@ type Claim struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+// SmartTarget captures a lightweight intent form that can be normalized into
+// a canonical action by the ingest layer.
+type SmartTarget struct {
+	Tool      string `json:"tool"`
+	Operation string `json:"operation"`
+	Resource  string `json:"resource"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // Envelope carries the common metadata required by both prescribe and report
 // ingest requests.
 type Envelope struct {
 	ContractVersion string            `json:"contract_version"`
-	Claim           Claim             `json:"claim"`
+	Claim           *Claim            `json:"claim,omitempty"`
 	Actor           evidence.Actor    `json:"actor"`
 	SessionID       string            `json:"session_id"`
 	OperationID     string            `json:"operation_id"`
@@ -48,6 +57,7 @@ type SourceMetadata = evidence.SourceMetadata
 type PrescribeRequest struct {
 	Envelope
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
+	SmartTarget     *SmartTarget           `json:"smart_target,omitempty"`
 	PayloadOverride *json.RawMessage       `json:"payload_override,omitempty"`
 }
 
@@ -90,11 +100,11 @@ func ValidatePrescribeRequest(in PrescribeRequest) error {
 		if !hasRawJSON(*in.PayloadOverride) {
 			violations.Add("payload_override must not be empty")
 		}
-		if in.CanonicalAction != nil {
-			violations.Add("payload_override is mutually exclusive with canonical_action")
+		if in.CanonicalAction != nil || in.SmartTarget != nil {
+			violations.Add("payload_override is mutually exclusive with explicit prescribe fields")
 		}
-	} else if in.CanonicalAction == nil {
-		violations.Add("canonical_action is required")
+	} else {
+		validatePrescribeIntent(&violations, in.CanonicalAction, in.SmartTarget)
 	}
 
 	return violationsOrNil(&violations)
@@ -109,7 +119,7 @@ func ValidateReportRequest(in ReportRequest) error {
 		if !hasRawJSON(*in.PayloadOverride) {
 			violations.Add("payload_override must not be empty")
 		}
-		if strings.TrimSpace(in.PrescriptionID) != "" || in.Verdict.Valid() || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
+		if strings.TrimSpace(in.PrescriptionID) != "" || strings.TrimSpace(string(in.Verdict)) != "" || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
 			violations.Add("payload_override is mutually exclusive with explicit report fields")
 		}
 	} else {
@@ -156,12 +166,43 @@ func validateEnvelope(violations *ValidationError, env Envelope) {
 	}
 }
 
-func validateClaim(violations *ValidationError, claim Claim) {
+func validateClaim(violations *ValidationError, claim *Claim) {
+	if claim == nil {
+		return
+	}
 	if strings.TrimSpace(claim.Source) == "" {
 		violations.Add("claim.source is required")
 	}
 	if strings.TrimSpace(claim.Key) == "" {
 		violations.Add("claim.key is required")
+	}
+}
+
+func validatePrescribeIntent(violations *ValidationError, canonicalAction *canon.CanonicalAction, smartTarget *SmartTarget) {
+	switch {
+	case canonicalAction != nil && smartTarget != nil:
+		violations.Add("canonical_action and smart_target are mutually exclusive")
+	case canonicalAction != nil:
+		return
+	case smartTarget != nil:
+		validateSmartTarget(violations, smartTarget)
+	default:
+		violations.Add("canonical_action or smart_target is required")
+	}
+}
+
+func validateSmartTarget(violations *ValidationError, target *SmartTarget) {
+	if target == nil {
+		return
+	}
+	if strings.TrimSpace(target.Tool) == "" {
+		violations.Add("smart_target.tool is required")
+	}
+	if strings.TrimSpace(target.Operation) == "" {
+		violations.Add("smart_target.operation is required")
+	}
+	if strings.TrimSpace(target.Resource) == "" {
+		violations.Add("smart_target.resource is required")
 	}
 }
 
