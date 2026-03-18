@@ -12,7 +12,7 @@ Evidra records intent, outcome, and refusal in a signed, append-only evidence ch
 risk before execution and reveals patterns like retry loops, drift, and escalation across
 agents, pipelines, and controllers.
 
-Evidra informs, not enforces. It is the flight recorder and intelligent scoring engine, not the proxy.
+Evidra informs, not enforces. It is the flight recorder and intelligent scoring engine.
 
 ### Three Evidence Modes
 
