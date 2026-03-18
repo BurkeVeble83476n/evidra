@@ -33,13 +33,15 @@ func TestServicePrescribe_CreatesAndStoresSignedPrescribeEntry(t *testing.T) {
 				Payload: json.RawMessage(`{"kind":"claim"}`),
 			},
 			Actor: evidence.Actor{
-				Type:       "controller",
-				ID:         "argocd",
-				Provenance: "argocd",
+				Type:       " controller ",
+				ID:         " argocd ",
+				Provenance: " argocd ",
 			},
 			SessionID:       "session-1",
 			OperationID:     "operation-1",
 			TraceID:         "trace-1",
+			SpanID:          " span-1 ",
+			ParentSpanID:    " parent-span-1 ",
 			ScopeDimensions: map[string]string{"cluster": "prod"},
 			Flavor:          evidence.FlavorWorkflow,
 			Evidence:        &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
@@ -72,6 +74,12 @@ func TestServicePrescribe_CreatesAndStoresSignedPrescribeEntry(t *testing.T) {
 	if !signer.Verify([]byte(entry.Hash), mustDecodeSignature(t, entry.Signature)) {
 		t.Fatal("signature verification failed")
 	}
+	if entry.Actor.Type != "controller" || entry.Actor.ID != "argocd" || entry.Actor.Provenance != "argocd" {
+		t.Fatalf("entry actor = %+v, want trimmed fields", entry.Actor)
+	}
+	if entry.SpanID != "span-1" || entry.ParentSpanID != "parent-span-1" {
+		t.Fatalf("entry span fields = span_id=%q parent_span_id=%q, want trimmed values", entry.SpanID, entry.ParentSpanID)
+	}
 
 	var payload evidence.PrescriptionPayload
 	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
@@ -85,6 +93,93 @@ func TestServicePrescribe_CreatesAndStoresSignedPrescribeEntry(t *testing.T) {
 	}
 	if payload.Source == nil || payload.Source.System != "argocd" {
 		t.Fatalf("payload source = %+v, want argocd", payload.Source)
+	}
+	var actionPayload canon.CanonicalAction
+	if err := json.Unmarshal(payload.CanonicalAction, &actionPayload); err != nil {
+		t.Fatalf("unmarshal canonical action: %v", err)
+	}
+	if actionPayload.Tool != "kubectl" || actionPayload.Operation != "apply" {
+		t.Fatalf("canonical action = %+v, want trimmed tool/operation", actionPayload)
+	}
+	if actionPayload.ScopeClass != "production" {
+		t.Fatalf("canonical action scope_class = %q, want production", actionPayload.ScopeClass)
+	}
+}
+
+func TestServicePrescribe_PayloadOverrideAlignsEntryIDAndPayload(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	tenantID := "tenant-1"
+
+	override := json.RawMessage(`{
+		"prescription_id":"presc-override",
+		"canonical_action":{
+			"tool":" kubectl ",
+			"operation":" apply ",
+			"operation_class":" mutate ",
+			"scope_class":" stage ",
+			"resource_count":1,
+			"resource_shape_hash":"sha256:` + strings.Repeat("a", 64) + `"
+		},
+		"ttl_ms":300000,
+		"canon_source":"external",
+		"risk_inputs":[{"source":"evidra/matrix","risk_level":"medium"}],
+		"effective_risk":"medium"
+	}`)
+
+	out, err := svc.Prescribe(context.Background(), tenantID, PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       " controller ",
+				ID:         " argocd ",
+				Provenance: " argocd ",
+			},
+			SessionID:    "session-override",
+			OperationID:  "operation-override",
+			TraceID:      "trace-override",
+			SpanID:       " span-override ",
+			ParentSpanID: " parent-override ",
+			Flavor:       evidence.FlavorWorkflow,
+			Evidence:     &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:       &evidence.SourceMetadata{System: " argocd "},
+		},
+		PayloadOverride: &override,
+	})
+	if err != nil {
+		t.Fatalf("Prescribe: %v", err)
+	}
+	if out.Entry.EntryID != "presc-override" {
+		t.Fatalf("entry id = %q, want presc-override", out.Entry.EntryID)
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+
+	entry := decodeStoredEntry(t, fakeStore.savedRaw[0])
+	if entry.EntryID != "presc-override" {
+		t.Fatalf("stored entry id = %q, want presc-override", entry.EntryID)
+	}
+	if entry.SpanID != "span-override" || entry.ParentSpanID != "parent-override" {
+		t.Fatalf("entry span fields = span_id=%q parent_span_id=%q, want trimmed values", entry.SpanID, entry.ParentSpanID)
+	}
+
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal prescribe payload: %v", err)
+	}
+	if payload.PrescriptionID != "presc-override" {
+		t.Fatalf("payload prescription_id = %q, want presc-override", payload.PrescriptionID)
+	}
+	var actionPayload canon.CanonicalAction
+	if err := json.Unmarshal(payload.CanonicalAction, &actionPayload); err != nil {
+		t.Fatalf("unmarshal canonical action: %v", err)
+	}
+	if actionPayload.ScopeClass != "staging" {
+		t.Fatalf("canonical action scope_class = %q, want staging", actionPayload.ScopeClass)
 	}
 }
 
@@ -107,13 +202,15 @@ func TestServiceReport_CreatesAndStoresSignedReportEntry(t *testing.T) {
 		Envelope: Envelope{
 			ContractVersion: ContractVersionV1,
 			Actor: evidence.Actor{
-				Type:       "controller",
-				ID:         "argocd",
-				Provenance: "argocd",
+				Type:       " controller ",
+				ID:         " argocd ",
+				Provenance: " argocd ",
 			},
 			SessionID:       "session-1",
 			OperationID:     "operation-1",
 			TraceID:         "trace-1",
+			SpanID:          " span-report ",
+			ParentSpanID:    " parent-report ",
 			ScopeDimensions: map[string]string{"cluster": "prod"},
 			Flavor:          evidence.FlavorWorkflow,
 			Evidence:        &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
@@ -148,6 +245,12 @@ func TestServiceReport_CreatesAndStoresSignedReportEntry(t *testing.T) {
 	if !signer.Verify([]byte(entry.Hash), mustDecodeSignature(t, entry.Signature)) {
 		t.Fatal("signature verification failed")
 	}
+	if entry.Actor.Type != "controller" || entry.Actor.ID != "argocd" || entry.Actor.Provenance != "argocd" {
+		t.Fatalf("entry actor = %+v, want trimmed fields", entry.Actor)
+	}
+	if entry.SpanID != "span-report" || entry.ParentSpanID != "parent-report" {
+		t.Fatalf("entry span fields = span_id=%q parent_span_id=%q, want trimmed values", entry.SpanID, entry.ParentSpanID)
+	}
 
 	var payload evidence.ReportPayload
 	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
@@ -164,6 +267,90 @@ func TestServiceReport_CreatesAndStoresSignedReportEntry(t *testing.T) {
 	}
 	if payload.Source == nil || payload.Source.System != "argocd" {
 		t.Fatalf("payload source = %+v, want argocd", payload.Source)
+	}
+}
+
+func TestServiceReport_RejectsSessionMismatch(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	fakeStore.entries["presc-mismatch"] = store.StoredEntry{
+		ID:          "presc-mismatch",
+		TenantID:    "tenant-1",
+		EntryType:   string(evidence.EntryTypePrescribe),
+		SessionID:   "session-prescription",
+		OperationID: "operation-prescription",
+	}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	_, err := svc.Report(context.Background(), "tenant-1", ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-other",
+			OperationID: "operation-other",
+			TraceID:     "trace-other",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-mismatch",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	})
+	if err == nil {
+		t.Fatal("expected session mismatch error")
+	}
+	if ErrorCode(err) != ErrCodeInvalidInput {
+		t.Fatalf("error code = %q, want invalid_input", ErrorCode(err))
+	}
+	if !strings.Contains(err.Error(), "session_id") {
+		t.Fatalf("error = %q, want session_id mismatch", err.Error())
+	}
+}
+
+func TestServicePrescribe_RejectsInvalidCanonicalActionScope(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	_, err := svc.Prescribe(context.Background(), "tenant-1", PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-invalid-scope",
+			OperationID: "operation-invalid-scope",
+			TraceID:     "trace-invalid-scope",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		CanonicalAction: &canon.CanonicalAction{
+			Tool:           "kubectl",
+			Operation:      "apply",
+			OperationClass: "mutate",
+			ScopeClass:     "moon",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid scope error")
+	}
+	if ErrorCode(err) != ErrCodeInvalidInput {
+		t.Fatalf("error code = %q, want invalid_input", ErrorCode(err))
+	}
+	if !strings.Contains(err.Error(), "scope_class") {
+		t.Fatalf("error = %q, want scope_class violation", err.Error())
 	}
 }
 

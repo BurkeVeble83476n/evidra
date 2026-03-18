@@ -53,6 +53,13 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		return Result{}, wrapError(ErrCodeInvalidInput, err.Error(), err)
 	}
 
+	in.Actor = normalizeActor(in.Actor)
+	in.SessionID = strings.TrimSpace(in.SessionID)
+	in.OperationID = strings.TrimSpace(in.OperationID)
+	in.TraceID = strings.TrimSpace(in.TraceID)
+	in.SpanID = strings.TrimSpace(in.SpanID)
+	in.ParentSpanID = strings.TrimSpace(in.ParentSpanID)
+
 	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
 	if err != nil {
 		return Result{}, err
@@ -97,6 +104,13 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 	if err := ValidateReportRequest(in); err != nil {
 		return Result{}, wrapError(ErrCodeInvalidInput, err.Error(), err)
 	}
+
+	in.Actor = normalizeActor(in.Actor)
+	in.SessionID = strings.TrimSpace(in.SessionID)
+	in.OperationID = strings.TrimSpace(in.OperationID)
+	in.TraceID = strings.TrimSpace(in.TraceID)
+	in.SpanID = strings.TrimSpace(in.SpanID)
+	in.ParentSpanID = strings.TrimSpace(in.ParentSpanID)
 
 	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
 	if err != nil {
@@ -152,8 +166,7 @@ func (s *Service) loadPrescription(ctx context.Context, tenantID, prescriptionID
 }
 
 func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRequest) (evidence.EvidenceEntry, string, error) {
-	entryID := ulid.Make().String()
-	payload, action, canonVersion, effectiveRisk, err := buildPrescribePayload(entryID, in)
+	payload, entryID, action, canonVersion, effectiveRisk, err := buildPrescribePayload(in)
 	if err != nil {
 		return evidence.EvidenceEntry{}, "", err
 	}
@@ -165,6 +178,8 @@ func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRe
 		SessionID:       strings.TrimSpace(in.SessionID),
 		OperationID:     strings.TrimSpace(in.OperationID),
 		TraceID:         strings.TrimSpace(in.TraceID),
+		SpanID:          strings.TrimSpace(in.SpanID),
+		ParentSpanID:    strings.TrimSpace(in.ParentSpanID),
 		Actor:           in.Actor,
 		IntentDigest:    intentDigest,
 		Payload:         payload,
@@ -211,6 +226,9 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(prescription.SessionID)
 	}
+	if prescriptionSession := strings.TrimSpace(prescription.SessionID); sessionID != "" && prescriptionSession != "" && sessionID != prescriptionSession {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInvalidInput, fmt.Sprintf("report session_id %q does not match prescription session_id %q", sessionID, prescriptionSession), nil)
+	}
 	operationID := strings.TrimSpace(in.OperationID)
 	if operationID == "" {
 		operationID = strings.TrimSpace(prescription.OperationID)
@@ -234,6 +252,8 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 		SessionID:       sessionID,
 		OperationID:     operationID,
 		TraceID:         traceID,
+		SpanID:          strings.TrimSpace(in.SpanID),
+		ParentSpanID:    strings.TrimSpace(in.ParentSpanID),
 		Actor:           in.Actor,
 		ArtifactDigest:  strings.TrimSpace(in.ArtifactDigest),
 		Payload:         rawPayload,
@@ -251,46 +271,62 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 	return entry, nil
 }
 
-func buildPrescribePayload(entryID string, in PrescribeRequest) (json.RawMessage, canon.CanonicalAction, string, string, error) {
+func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.CanonicalAction, string, string, error) {
 	var (
 		payload      evidence.PrescriptionPayload
 		action       canon.CanonicalAction
 		canonVersion string
+		entryID      string
 	)
 
 	switch {
 	case in.PayloadOverride != nil:
 		if err := json.Unmarshal(*in.PayloadOverride, &payload); err != nil {
-			return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override must be valid prescribe payload JSON", err)
+			return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override must be valid prescribe payload JSON", err)
 		}
 		if len(payload.CanonicalAction) == 0 {
-			return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override must include canonical_action", nil)
+			return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override must include canonical_action", nil)
 		}
 		if err := json.Unmarshal(payload.CanonicalAction, &action); err != nil {
-			return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override canonical_action is invalid", err)
+			return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "payload_override canonical_action is invalid", err)
 		}
+		normalized, err := normalizeCanonicalAction(action)
+		if err != nil {
+			return nil, "", canon.CanonicalAction{}, "", "", err
+		}
+		action = normalized
 		canonVersion = "external/v1"
+		entryID = strings.TrimSpace(payload.PrescriptionID)
 	case in.CanonicalAction != nil:
-		action = normalizeExplicitCanonicalAction(*in.CanonicalAction)
+		normalized, err := normalizeCanonicalAction(*in.CanonicalAction)
+		if err != nil {
+			return nil, "", canon.CanonicalAction{}, "", "", err
+		}
+		action = normalized
 		canonVersion = "external/v1"
+		entryID = ""
 	case in.SmartTarget != nil:
-		action = buildSmartTargetCanonicalAction(*in.SmartTarget)
+		normalized, err := normalizeCanonicalAction(buildSmartTargetCanonicalAction(*in.SmartTarget))
+		if err != nil {
+			return nil, "", canon.CanonicalAction{}, "", "", err
+		}
+		action = normalized
 		canonVersion = "external/v1"
+		entryID = ""
 	default:
-		return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "canonical_action or smart_target is required", nil)
+		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "canonical_action or smart_target is required", nil)
 	}
 
+	if strings.TrimSpace(entryID) == "" {
+		entryID = ulid.Make().String()
+	}
+	payload.PrescriptionID = entryID
 	riskInputs, effectiveRiskValue := buildPrescribeRiskInputs(action)
-	if payload.PrescriptionID == "" {
-		payload.PrescriptionID = entryID
+	rawAction, err := json.Marshal(action)
+	if err != nil {
+		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "failed to marshal canonical action", err)
 	}
-	if len(payload.CanonicalAction) == 0 {
-		rawAction, err := json.Marshal(action)
-		if err != nil {
-			return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "failed to marshal canonical action", err)
-		}
-		payload.CanonicalAction = rawAction
-	}
+	payload.CanonicalAction = rawAction
 	if len(payload.RiskInputs) == 0 {
 		payload.RiskInputs = riskInputs
 	}
@@ -309,9 +345,9 @@ func buildPrescribePayload(entryID string, in PrescribeRequest) (json.RawMessage
 
 	rawPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "failed to marshal prescribe payload", err)
+		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "failed to marshal prescribe payload", err)
 	}
-	return rawPayload, action, canonVersion, payload.EffectiveRisk, nil
+	return rawPayload, entryID, action, canonVersion, payload.EffectiveRisk, nil
 }
 
 func buildReportPayloadState(in ReportRequest) (evidence.ReportPayload, string, error) {
@@ -415,13 +451,34 @@ func buildSmartTargetCanonicalAction(target SmartTarget) canon.CanonicalAction {
 	}
 }
 
-func normalizeExplicitCanonicalAction(action canon.CanonicalAction) canon.CanonicalAction {
-	action.Tool = strings.TrimSpace(action.Tool)
-	action.Operation = strings.TrimSpace(action.Operation)
+func normalizeCanonicalAction(action canon.CanonicalAction) (canon.CanonicalAction, error) {
+	action.Tool = normalizeToken(action.Tool)
+	action.Operation = normalizeToken(action.Operation)
 	action.OperationClass = strings.TrimSpace(action.OperationClass)
-	action.ScopeClass = strings.TrimSpace(action.ScopeClass)
 	action.ResourceShapeHash = strings.TrimSpace(action.ResourceShapeHash)
-	return action
+
+	scopeClass, err := normalizeIngressScopeClass(action.ScopeClass)
+	if err != nil {
+		return canon.CanonicalAction{}, err
+	}
+	action.ScopeClass = scopeClass
+	return action, nil
+}
+
+func normalizeIngressScopeClass(raw string) (string, error) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return "unknown", nil
+	}
+	normalized := canon.NormalizeScopeClass(v)
+	if normalized != "unknown" || strings.EqualFold(v, "unknown") {
+		return normalized, nil
+	}
+	return "", wrapError(
+		ErrCodeInvalidInput,
+		fmt.Sprintf("invalid canonical_action.scope_class %q; expected one of production, staging, development, unknown (aliases: prod, stage, dev, test, sandbox)", v),
+		nil,
+	)
 }
 
 func inferOperationClass(operation string) string {
@@ -451,6 +508,20 @@ func payloadSourceMetadata(meta *SourceMetadata) *evidence.SourceMetadata {
 		return nil
 	}
 	return &evidence.SourceMetadata{System: system}
+}
+
+func normalizeActor(actor evidence.Actor) evidence.Actor {
+	actor.Type = strings.TrimSpace(actor.Type)
+	actor.ID = strings.TrimSpace(actor.ID)
+	actor.Provenance = strings.TrimSpace(actor.Provenance)
+	actor.InstanceID = strings.TrimSpace(actor.InstanceID)
+	actor.Version = strings.TrimSpace(actor.Version)
+	actor.SkillVersion = strings.TrimSpace(actor.SkillVersion)
+	return actor
+}
+
+func normalizeToken(v string) string {
+	return strings.ToLower(strings.TrimSpace(v))
 }
 
 func claimEvent(ctx context.Context, store Store, tenantID, source, key string, payload json.RawMessage) (bool, func(), error) {
