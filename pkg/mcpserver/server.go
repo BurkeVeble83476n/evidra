@@ -51,6 +51,8 @@ type PrescribeInput struct {
 	Tool            string                 `json:"tool"`
 	Operation       string                 `json:"operation"`
 	RawArtifact     string                 `json:"raw_artifact"`
+	Resource        string                 `json:"resource,omitempty"`
+	Namespace       string                 `json:"namespace,omitempty"`
 	Environment     string                 `json:"environment,omitempty"`
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
 	SessionID       string                 `json:"session_id,omitempty"`
@@ -367,6 +369,14 @@ func (s *MCPService) PrescribeCtx(ctx context.Context, input PrescribeInput) Pre
 		return PrescribeOutput{
 			OK:    false,
 			Error: &ErrInfo{Code: string(lifecycle.ErrCodeInternal), Message: err.Error()},
+		}
+	}
+
+	input, err = preparePrescribeInput(input)
+	if err != nil {
+		return PrescribeOutput{
+			OK:    false,
+			Error: &ErrInfo{Code: string(lifecycle.ErrCodeInvalidInput), Message: err.Error()},
 		}
 	}
 

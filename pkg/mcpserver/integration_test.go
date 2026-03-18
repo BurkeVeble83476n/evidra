@@ -71,6 +71,56 @@ func TestPrescribeReport_Lifecycle(t *testing.T) {
 	}
 }
 
+func TestPrescribeReport_SmartLifecycle(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &MCPService{
+		evidencePath: dir,
+		signer:       testutil.TestSigner(t),
+	}
+
+	prescOutput := svc.Prescribe(PrescribeInput{
+		Actor:     InputActor{Type: "ai_agent", ID: "test-agent", Origin: "mcp"},
+		Tool:      "kubectl",
+		Operation: "apply",
+		Resource:  "deployment/test",
+		Namespace: "staging",
+	})
+
+	if !prescOutput.OK {
+		t.Fatalf("prescribe failed: %v", prescOutput.Error)
+	}
+	if prescOutput.PrescriptionID == "" {
+		t.Fatal("prescription_id must not be empty")
+	}
+	if len(prescOutput.RiskInputs) != 1 || prescOutput.RiskInputs[0].Source != "evidra/matrix" {
+		t.Fatalf("risk_inputs = %+v, want single evidra/matrix input", prescOutput.RiskInputs)
+	}
+
+	reportOutput := svc.Report(ReportInput{
+		PrescriptionID: prescOutput.PrescriptionID,
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+		ArtifactDigest: prescOutput.ArtifactDigest,
+	})
+
+	if !reportOutput.OK {
+		t.Fatalf("report failed: %v", reportOutput.Error)
+	}
+
+	entries, err := evidence.ReadAllEntriesAtPath(dir)
+	if err != nil {
+		t.Fatalf("ReadAllEntriesAtPath: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 evidence entries, got %d", len(entries))
+	}
+	if entries[0].Type != evidence.EntryTypePrescribe || entries[1].Type != evidence.EntryTypeReport {
+		t.Fatalf("entry types = %q, %q", entries[0].Type, entries[1].Type)
+	}
+}
+
 func TestReport_ExplicitActor(t *testing.T) {
 	t.Parallel()
 
