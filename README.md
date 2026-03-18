@@ -156,8 +156,8 @@ Not every model follows the prescribe/report protocol. Proxy mode wraps any MCP 
 # Direct mode (default): agent calls prescribe/report explicitly
 evidra-mcp --evidence-dir ~/.evidra/evidence
 
-# Proxy mode: wrap upstream server, auto-record mutations
-evidra-mcp --proxy -- kubectl-mcp-server
+# Proxy mode: wrap any upstream MCP server, auto-record mutations
+evidra-mcp --proxy -- npx -y @anthropic/mcp-server-kubernetes
 ```
 
 | | Direct Mode | Proxy Mode |
@@ -169,16 +169,16 @@ evidra-mcp --proxy -- kubectl-mcp-server
 | Install | Skill prompt + MCP config | One config line change |
 | What it measures | Agent discipline + intent | What actually happened |
 
-Proxy mode detects mutations for kubectl, helm, terraform, Argo CD, and Docker. Read-only commands pass through unrecorded.
+Proxy mode detects mutations for kubectl, helm, terraform, Argo CD, and Docker. Read-only commands pass through unrecorded. The proxy wraps any MCP server that exposes a `run_command` tool — your existing infrastructure MCP servers work unchanged.
 
 **Configuration (one line change):**
 
 ```json
 {
   "mcpServers": {
-    "kubectl": {
+    "infra": {
       "command": "evidra-mcp",
-      "args": ["--proxy", "--", "kubectl-mcp-server"]
+      "args": ["--proxy", "--", "npx", "-y", "@anthropic/mcp-server-kubernetes"]
     }
   }
 }
