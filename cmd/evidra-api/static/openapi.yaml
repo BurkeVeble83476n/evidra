@@ -250,6 +250,13 @@ paths:
       summary: Ingest an external prescribe entry
       description: |
         Typed shared external lifecycle ingest route for prescribe entries.
+        Request contract fields are `contract_version`, actor/correlation
+        metadata, request taxonomy (`flavor`, `evidence.kind`,
+        `source.system`), and either `canonical_action` or `smart_target`.
+        `prescription_id` and `artifact_digest` are optional explicit
+        overrides. `payload_override` is the alternate raw-body form when a
+        caller wants to submit an already-shaped external ingest payload.
+
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
         transport paths for untyped entry forwarding.
       requestBody:
@@ -258,35 +265,65 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/IngestPrescribeRequest'
-            example:
-              contract_version: v1
-              claim:
-                source: agentgateway
-                key: deployment:payments
-              actor:
-                type: controller
-                id: payments-controller
-                provenance: agentgateway
-              session_id: sess-123
-              operation_id: op-123
-              trace_id: trace-123
-              flavor: workflow
-              evidence:
-                kind: observed
-              source:
-                system: agentgateway
-              prescription_id: presc-123
-              artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-              canonical_action:
-                tool: kubectl
-                operation: apply
+            examples:
+              typed:
+                summary: Typed prescribe request
+                value:
+                  contract_version: v1
+                  claim:
+                    source: agentgateway
+                    key: deployment:payments
+                  actor:
+                    type: controller
+                    id: payments-controller
+                    provenance: agentgateway
+                  session_id: sess-123
+                  operation_id: op-123
+                  trace_id: trace-123
+                  flavor: workflow
+                  evidence:
+                    kind: observed
+                  source:
+                    system: agentgateway
+                  prescription_id: presc-123
+                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  canonical_action:
+                    tool: kubectl
+                    operation: apply
+              override:
+                summary: Override-only prescribe request
+                value:
+                  contract_version: v1
+                  claim:
+                    source: agentgateway
+                    key: deployment:payments
+                  actor:
+                    type: controller
+                    id: payments-controller
+                    provenance: agentgateway
+                  session_id: sess-123
+                  operation_id: op-123
+                  trace_id: trace-123
+                  flavor: workflow
+                  evidence:
+                    kind: observed
+                  source:
+                    system: agentgateway
+                  payload_override:
+                    custom: raw-prescribe-body
       responses:
         '200':
           description: Entry accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ForwardResponse'
+                $ref: '#/components/schemas/IngestPrescribeResponse'
+        '202':
+          description: Entry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestPrescribeResponse'
         '400':
           description: Invalid input
           content:
@@ -300,6 +337,14 @@ paths:
       summary: Ingest an external report entry
       description: |
         Typed shared external lifecycle ingest route for report entries.
+        Request contract fields are `contract_version`, actor/correlation
+        metadata, request taxonomy (`flavor`, `evidence.kind`,
+        `source.system`), `prescription_id`, and `verdict`. Non-declined
+        reports require `exit_code`; declined reports require
+        `decision_context`. `payload_override` is the alternate raw-body form
+        when a caller wants to submit an already-shaped external ingest
+        payload.
+
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
         transport paths for untyped entry forwarding.
       requestBody:
@@ -308,34 +353,64 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/IngestReportRequest'
-            example:
-              contract_version: v1
-              claim:
-                source: agentgateway
-                key: deployment:payments:complete
-              actor:
-                type: controller
-                id: payments-controller
-                provenance: agentgateway
-              session_id: sess-123
-              operation_id: op-123
-              trace_id: trace-123
-              flavor: workflow
-              evidence:
-                kind: translated
-              source:
-                system: agentgateway
-              prescription_id: presc-123
-              artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-              verdict: success
-              exit_code: 0
+            examples:
+              typed:
+                summary: Typed report request
+                value:
+                  contract_version: v1
+                  claim:
+                    source: agentgateway
+                    key: deployment:payments:complete
+                  actor:
+                    type: controller
+                    id: payments-controller
+                    provenance: agentgateway
+                  session_id: sess-123
+                  operation_id: op-123
+                  trace_id: trace-123
+                  flavor: workflow
+                  evidence:
+                    kind: translated
+                  source:
+                    system: agentgateway
+                  prescription_id: presc-123
+                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                  verdict: success
+                  exit_code: 0
+              override:
+                summary: Override-only report request
+                value:
+                  contract_version: v1
+                  claim:
+                    source: agentgateway
+                    key: deployment:payments:complete
+                  actor:
+                    type: controller
+                    id: payments-controller
+                    provenance: agentgateway
+                  session_id: sess-123
+                  operation_id: op-123
+                  trace_id: trace-123
+                  flavor: workflow
+                  evidence:
+                    kind: translated
+                  source:
+                    system: agentgateway
+                  payload_override:
+                    custom: raw-report-body
       responses:
         '200':
           description: Entry accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ForwardResponse'
+                $ref: '#/components/schemas/IngestReportResponse'
+        '202':
+          description: Entry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestReportResponse'
         '400':
           description: Invalid input
           content:
@@ -1008,24 +1083,39 @@ components:
         - source
 
     IngestPrescribeRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          properties:
-            prescription_id:
-              type: string
-            artifact_digest:
-              type: string
-            canonical_action:
-              $ref: '#/components/schemas/IngestCanonicalAction'
-            smart_target:
-              $ref: '#/components/schemas/IngestSmartTarget'
-            payload_override:
-              type: object
-              additionalProperties: true
-          oneOf:
-            - required: [canonical_action]
-            - required: [smart_target]
+      oneOf:
+        - allOf:
+            - $ref: '#/components/schemas/IngestEnvelope'
+            - type: object
+              properties:
+                prescription_id:
+                  type: string
+                artifact_digest:
+                  type: string
+                canonical_action:
+                  $ref: '#/components/schemas/IngestCanonicalAction'
+                smart_target:
+                  $ref: '#/components/schemas/IngestSmartTarget'
+              oneOf:
+                - required: [canonical_action]
+                - required: [smart_target]
+              not:
+                required: [payload_override]
+        - allOf:
+            - $ref: '#/components/schemas/IngestEnvelope'
+            - type: object
+              required: [payload_override]
+              properties:
+                payload_override:
+                  description: Raw override body for an already-shaped external ingest payload.
+                  type: object
+                  additionalProperties: true
+              not:
+                anyOf:
+                  - required: [prescription_id]
+                  - required: [artifact_digest]
+                  - required: [canonical_action]
+                  - required: [smart_target]
 
     IngestExternalRef:
       type: object
@@ -1037,30 +1127,71 @@ components:
       required: [type, id]
 
     IngestReportRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          properties:
-            prescription_id:
-              type: string
-            artifact_digest:
-              type: string
-            verdict:
-              type: string
-              enum: [success, failure, error, declined]
-            exit_code:
-              type: integer
-              nullable: true
-            decision_context:
-              $ref: '#/components/schemas/IngestDecisionContext'
-            external_refs:
-              type: array
-              items:
-                $ref: '#/components/schemas/IngestExternalRef'
-            payload_override:
-              type: object
-              additionalProperties: true
-          required: [prescription_id, verdict]
+      oneOf:
+        - allOf:
+            - $ref: '#/components/schemas/IngestEnvelope'
+            - type: object
+              properties:
+                prescription_id:
+                  type: string
+                artifact_digest:
+                  type: string
+                verdict:
+                  type: string
+                  enum: [success, failure, error, declined]
+                exit_code:
+                  type: integer
+                  nullable: true
+                decision_context:
+                  $ref: '#/components/schemas/IngestDecisionContext'
+                external_refs:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/IngestExternalRef'
+              required: [prescription_id, verdict]
+              not:
+                required: [payload_override]
+        - allOf:
+            - $ref: '#/components/schemas/IngestEnvelope'
+            - type: object
+              required: [payload_override]
+              properties:
+                payload_override:
+                  description: Raw override body for an already-shaped external ingest payload.
+                  type: object
+                  additionalProperties: true
+              not:
+                anyOf:
+                  - required: [prescription_id]
+                  - required: [artifact_digest]
+                  - required: [verdict]
+                  - required: [exit_code]
+                  - required: [decision_context]
+                  - required: [external_refs]
+
+    IngestPrescribeResponse:
+      type: object
+      properties:
+        duplicate:
+          type: boolean
+        entry_id:
+          type: string
+        effective_risk:
+          type: string
+        prescription_id:
+          type: string
+      required: [duplicate, entry_id, effective_risk, prescription_id]
+
+    IngestReportResponse:
+      type: object
+      properties:
+        duplicate:
+          type: boolean
+        entry_id:
+          type: string
+        effective_risk:
+          type: string
+      required: [duplicate, entry_id, effective_risk]
 
     ArgoCDWebhookRequest:
       type: object

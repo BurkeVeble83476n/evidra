@@ -151,12 +151,15 @@ Guide: [Argo CD GitOps integration](argocd-gitops-integration.md)
 `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw transport
 paths. The `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`
 routes are the typed external lifecycle surface for adapters and controllers.
-They carry the explicit payload taxonomy:
+The request contract carries the explicit taxonomy:
 
-- `payload.flavor` for execution shape, including `workflow`
-- `payload.evidence.kind` for acquisition mode, including `declared`,
-  `observed`, and `translated`
-- `payload.source.system` for the producing adapter or upstream system
+- `flavor` for execution shape, including `workflow`
+- `evidence.kind` for acquisition mode, including `declared`, `observed`,
+  and `translated`
+- `source.system` for the producing adapter or upstream system
+
+Persisted evidence entries expose those same fields under `payload.flavor`,
+`payload.evidence.kind`, and `payload.source.system`.
 
 ### Evidence queries (Bearer auth)
 - `GET /v1/evidence/entries` — paginated entry listing with filters

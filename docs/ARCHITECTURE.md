@@ -25,7 +25,7 @@ Hosted mode changes where evidence is collected and replayed, not what evidence 
 - Self-hosted also accepts webhook ingestion and controller-observed GitOps reconciliation evidence from systems such as ArgoCD, and maps those events into the same evidence model. Webhook routes are compatibility wrappers over the shared lifecycle ingest service.
 - `evidra-api` stores tenant evidence in Postgres and runs tenant-wide `scorecard` / `explain` over that centralized evidence.
 - Deliberate refusals remain first-class evidence: `report(verdict=declined, decision_context)` is analyzed through the same signal and scoring path as any other terminal report.
-- The lifecycle pair stays `prescribe_full` or `prescribe_smart`, followed by `report`; `payload.flavor`, `payload.evidence.kind`, and `payload.source.system` describe execution shape and ingestion source without creating a second scoring lane. `payload.flavor` includes `imperative`, `reconcile`, and `workflow`; `payload.evidence.kind` includes `declared`, `observed`, and `translated`.
+- The lifecycle pair stays `prescribe_full` or `prescribe_smart`, followed by `report`; the external ingest request contract uses `flavor`, `evidence.kind`, and `source.system` to describe execution shape and ingestion source without creating a second scoring lane. Persisted entries expose the same context as `payload.flavor`, `payload.evidence.kind`, and `payload.source.system`. `flavor` includes `imperative`, `reconcile`, and `workflow`; `evidence.kind` includes `declared`, `observed`, and `translated`.
 
 ```text
 Direct full MCP ----\

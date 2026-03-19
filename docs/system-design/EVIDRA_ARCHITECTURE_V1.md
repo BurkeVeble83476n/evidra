@@ -21,10 +21,12 @@ and reconciliation systems:
 Context is carried by payload metadata, not by inventing new primary lifecycle
 entry types.
 
-- `payload.flavor` = execution shape (`imperative`, `reconcile`, `workflow`)
-- `payload.evidence.kind` = acquisition mode (`declared`, `observed`,
-  `translated`)
-- `payload.source.system` = producing adapter or upstream system
+- Request-side ingest taxonomy: `flavor` = execution shape (`imperative`,
+  `reconcile`, `workflow`), `evidence.kind` = acquisition mode (`declared`,
+  `observed`, `translated`), `source.system` = producing adapter or upstream
+  system
+- Persisted entries expose the same context as `payload.flavor`,
+  `payload.evidence.kind`, and `payload.source.system`
 
 The hosted API exposes the same taxonomy through raw `/v1/evidence/forward`
 and `/v1/evidence/batch`, plus typed `/v1/evidence/ingest/prescribe` and
