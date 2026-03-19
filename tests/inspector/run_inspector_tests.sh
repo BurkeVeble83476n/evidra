@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MCP Inspector deterministic e2e layer for prescribe/report/get_event.
+# MCP Inspector deterministic e2e layer for prescribe_full/prescribe_smart/report/get_event.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -122,19 +122,10 @@ check_prerequisites() {
       export PATH="$REPO_ROOT/bin:$PATH"
       export EVIDRA_SIGNING_MODE="${EVIDRA_SIGNING_MODE:-optional}"
       ;;
-    local-rest)
-      command -v curl >/dev/null 2>&1 || skip_all_and_exit "curl is required for local-rest mode"
-      [[ -n "${EVIDRA_LOCAL_API_URL:-}" ]] || skip_all_and_exit "set EVIDRA_LOCAL_API_URL for local-rest mode"
-      ;;
     hosted-mcp)
       [[ "${EVIDRA_ENABLE_NETWORK_TESTS:-0}" == "1" ]] || skip_all_and_exit "network tests disabled (set EVIDRA_ENABLE_NETWORK_TESTS=1)"
       command -v curl >/dev/null 2>&1 || skip_all_and_exit "curl is required for hosted-mcp mode"
       [[ -n "${EVIDRA_MCP_URL:-}" ]] || skip_all_and_exit "set EVIDRA_MCP_URL for hosted-mcp mode"
-      ;;
-    hosted-rest)
-      [[ "${EVIDRA_ENABLE_NETWORK_TESTS:-0}" == "1" ]] || skip_all_and_exit "network tests disabled (set EVIDRA_ENABLE_NETWORK_TESTS=1)"
-      command -v curl >/dev/null 2>&1 || skip_all_and_exit "curl is required for hosted-rest mode"
-      [[ -n "${EVIDRA_API_URL:-}" ]] || skip_all_and_exit "set EVIDRA_API_URL for hosted-rest mode"
       ;;
     *)
       echo "ERROR: unknown EVIDRA_TEST_MODE='$MODE'"
@@ -229,66 +220,14 @@ reset_evidence() {
   fi
 }
 
-rest_base_url() {
-  case "$MODE" in
-    local-rest) echo "$EVIDRA_LOCAL_API_URL" ;;
-    hosted-rest) echo "$EVIDRA_API_URL" ;;
-    *) return 1 ;;
-  esac
-}
-
-rest_post_json() {
-  local path="$1" body_json="$2"
-  local base
-  base=$(rest_base_url)
-  local -a auth_headers=()
-  if [[ -n "${EVIDRA_API_KEY:-}" ]]; then
-    auth_headers=( -H "Authorization: Bearer ${EVIDRA_API_KEY}" )
-  fi
-
-  local resp
-  resp=$(curl -sS -w "\n%{http_code}" -X POST "${base}${path}" \
-    -H "Content-Type: application/json" \
-    -H "Accept: application/json, text/event-stream" \
-    "${auth_headers[@]}" \
-    -d "$body_json")
-
-  local http_code
-  http_code=$(echo "$resp" | tail -n1)
-  local body
-  body=$(echo "$resp" | sed '$d')
-
-  local normalized
-  normalized=$(echo "$body" | jq -c . 2>/dev/null || echo '{}')
-  echo "$normalized" | jq --argjson c "$http_code" '. + {"_http_code": $c}'
-}
-
-call_prescribe() {
-  local args_json="$1" env_label="${2:-}"
+call_named_tool() {
+  local tool="$1" args_json="$2" env_label="${3:-}"
   case "$MODE" in
     local-mcp)
-      inspector_call_tool "prescribe" "$args_json" "$env_label" | extract_body
+      inspector_call_tool "$tool" "$args_json" "$env_label" | extract_body
       ;;
     hosted-mcp)
-      _hosted_call_tool_raw "prescribe" "$args_json" | extract_body
-      ;;
-    local-rest|hosted-rest)
-      rest_post_json "/v1/prescribe" "$args_json"
-      ;;
-  esac
-}
-
-call_report() {
-  local args_json="$1" env_label="${2:-}"
-  case "$MODE" in
-    local-mcp)
-      inspector_call_tool "report" "$args_json" "$env_label" | extract_body
-      ;;
-    hosted-mcp)
-      _hosted_call_tool_raw "report" "$args_json" | extract_body
-      ;;
-    local-rest|hosted-rest)
-      rest_post_json "/v1/report" "$args_json"
+      _hosted_call_tool_raw "$tool" "$args_json" | extract_body
       ;;
   esac
 }
@@ -309,10 +248,6 @@ lookup_event_from_local_store() {
 
 call_get_event() {
   local event_id="$1"
-  if [[ "$MODE" == "local-rest" || "$MODE" == "hosted-rest" ]]; then
-    return 1
-  fi
-
   local args
   args=$(jq -n --arg eid "$event_id" '{event_id:$eid}')
   case "$MODE" in
@@ -331,9 +266,6 @@ call_get_event() {
 }
 
 call_list_tools() {
-  if [[ "$MODE" == "local-rest" || "$MODE" == "hosted-rest" ]]; then
-    return 1
-  fi
   case "$MODE" in
     local-mcp)
       inspector_list_tools
@@ -559,16 +491,9 @@ run_cases() {
       }
 
       case "$tool" in
-        prescribe)
-          body_json=$(call_prescribe "$input_json" "$env_label") || {
-            fail "$case_id/$step_name" "prescribe call failed"
-            case_ok=false
-            continue
-          }
-          ;;
-        report)
-          body_json=$(call_report "$input_json" "$env_label") || {
-            fail "$case_id/$step_name" "report call failed"
+        prescribe_full|prescribe_smart|report)
+          body_json=$(call_named_tool "$tool" "$input_json" "$env_label") || {
+            fail "$case_id/$step_name" "${tool} call failed"
             case_ok=false
             continue
           }

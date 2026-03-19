@@ -3,7 +3,7 @@
   "modes": ["local-mcp"],
   "steps": [
     {
-      "tool": "prescribe",
+      "tool": "prescribe_full",
       "input": {
         "actor": {"type": "agent", "id": "agent-a", "origin": "mcp"},
         "tool": "kubectl",
