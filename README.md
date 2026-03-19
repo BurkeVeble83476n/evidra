@@ -22,8 +22,17 @@ Evidra informs, not enforces. It is the flight recorder and intelligent scoring 
 | **Smart Prescribe** | Yes | Yes | Yes | Yes |
 | **Full Prescribe** | Yes | Yes | Yes | Strong models only |
 
-Proxy Observed records silently — the agent never knows. Smart Prescribe and Full Prescribe are explicit: the agent calls prescribe, receives risk assessment, and decides whether to proceed or decline. Smart Prescribe uses 4 fields (~30 tokens); Full Prescribe sends the complete YAML artifact (~300 tokens) and enables drift detection.
+Proxy records silently — the agent never knows. Smart and full prescribe are explicit: the agent calls prescribe, receives risk assessment, and decides whether to proceed or decline. Smart prescribe uses 4 fields (~30 tokens); full prescribe sends the complete YAML artifact (~300 tokens) and enables drift detection.
 
+### Why Protocol Compliance Matters
+
+In benchmarks across 5 models and 33 scenarios, agents that follow the prescribe/report protocol don't just record evidence — they make better decisions.
+
+The protocol has a cost: every failed attempt requires a prescribe/report pair (~2 extra turns). Agents that brute-force retries burn through their turn budget. Agents that diagnose first and apply once succeed with the same turn budget.
+
+In one scenario, GPT-5.2 retried a broken manifest 3 times in smart mode (6 turns on protocol for failed attempts) and ran out of turns. Claude Sonnet 4 read the manifest, caught the namespace mismatch, fixed it, and applied once — same protocol, zero wasted turns.
+
+**The protocol doesn't slow good agents down. It reveals which agents think before acting.** That's exactly the signal you want in production infrastructure.
 
 ## The Prescribe/Report Protocol
 
