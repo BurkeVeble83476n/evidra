@@ -183,7 +183,7 @@ paths:
     post:
       tags: [Evidence]
       summary: Forward a single evidence entry
-      description: Receives a JSON evidence entry, stores it, and returns a receipt ID.
+      description: Receives a JSON evidence entry, stores it, and returns a receipt ID. Use this raw transport path for direct single-entry evidence; typed external lifecycle ingest should use `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`.
       requestBody:
         required: true
         content:
@@ -214,6 +214,7 @@ paths:
     post:
       tags: [Evidence]
       summary: Batch forward multiple entries
+      description: Bulk raw evidence transport for multiple entries. Use this path when forwarding untyped evidence in volume; typed external lifecycle ingest should use `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`.
       requestBody:
         required: true
         content:
@@ -242,6 +243,94 @@ paths:
                     type: array
                     items:
                       type: string
+
+  /v1/evidence/ingest/prescribe:
+    post:
+      tags: [Evidence]
+      summary: Ingest an external prescribe entry
+      description: |
+        Typed external lifecycle ingest route for prescribe entries. This is a
+        compatibility wrapper over the shared lifecycle ingest service, while
+        `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
+        transport paths.
+
+        Document the explicit taxonomy on the payload:
+        - `payload.flavor` (including `workflow`)
+        - `payload.evidence.kind` (`declared`, `observed`, `translated`)
+        - `payload.source.system`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Any valid prescribe lifecycle entry
+            example:
+              entry_id: "01HXYZ..."
+              type: prescribe
+              payload:
+                flavor: workflow
+                evidence:
+                  kind: observed
+                source:
+                  system: agentgateway
+      responses:
+        '200':
+          description: Entry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/ingest/report:
+    post:
+      tags: [Evidence]
+      summary: Ingest an external report entry
+      description: |
+        Typed external lifecycle ingest route for report entries. This is a
+        compatibility wrapper over the shared lifecycle ingest service, while
+        `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
+        transport paths.
+
+        Document the explicit taxonomy on the payload:
+        - `payload.flavor` (including `workflow`)
+        - `payload.evidence.kind` (`declared`, `observed`, `translated`)
+        - `payload.source.system`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Any valid report lifecycle entry
+            example:
+              entry_id: "01HXYZ..."
+              type: report
+              payload:
+                flavor: workflow
+                evidence:
+                  kind: translated
+                source:
+                  system: agentgateway
+      responses:
+        '200':
+          description: Entry accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/evidence/findings:
     post:
@@ -272,6 +361,7 @@ paths:
     post:
       tags: [Webhooks]
       summary: Ingest ArgoCD sync lifecycle events
+      description: Compatibility wrapper over the shared lifecycle ingest service. Maps Argo CD webhook payloads into translated reconcile evidence using the shared `prescribe` / `report` path.
       security: []
       parameters:
         - name: Authorization
@@ -335,6 +425,7 @@ paths:
     post:
       tags: [Webhooks]
       summary: Ingest generic controller lifecycle events
+      description: Compatibility wrapper over the shared lifecycle ingest service. Maps generic webhook payloads into translated lifecycle evidence using the shared `prescribe` / `report` path.
       security: []
       parameters:
         - name: Authorization

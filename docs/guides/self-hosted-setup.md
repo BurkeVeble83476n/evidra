@@ -15,6 +15,7 @@ GitOps note:
 
 - Argo CD is controller-first in v1
 - webhook ingestion remains supported, but it is not the whole Argo story
+- webhook routes are compatibility wrappers over the shared lifecycle ingest service
 - no Git provider access is required for the controller path
 
 ## Quick Start
@@ -141,9 +142,21 @@ Guide: [Argo CD GitOps integration](argocd-gitops-integration.md)
 - `POST /v1/keys` — issue API key (requires `X-Invite-Secret` header)
 
 ### Evidence ingestion (Bearer auth)
-- `POST /v1/evidence/forward` — forward single entry
-- `POST /v1/evidence/batch` — batch entry ingestion
+- `POST /v1/evidence/forward` — raw single-entry forwarding
+- `POST /v1/evidence/batch` — raw batch forwarding
+- `POST /v1/evidence/ingest/prescribe` — typed external lifecycle prescribe ingest
+- `POST /v1/evidence/ingest/report` — typed external lifecycle report ingest
 - `POST /v1/evidence/findings` — SARIF findings ingestion
+
+`/v1/evidence/forward` and `/v1/evidence/batch` remain the raw transport
+paths. The `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`
+routes are the typed external lifecycle surface for adapters and controllers.
+They carry the explicit payload taxonomy:
+
+- `payload.flavor` for execution shape, including `workflow`
+- `payload.evidence.kind` for acquisition mode, including `declared`,
+  `observed`, and `translated`
+- `payload.source.system` for the producing adapter or upstream system
 
 ### Evidence queries (Bearer auth)
 - `GET /v1/evidence/entries` — paginated entry listing with filters
@@ -158,7 +171,8 @@ Guide: [Argo CD GitOps integration](argocd-gitops-integration.md)
 - `POST /v1/hooks/generic` — generic operation events
 
 Webhook ingestion remains available, but for Argo CD it is now the adjacent
-path, not the primary GitOps integration story.
+path, not the primary GitOps integration story. Both webhook routes are
+compatibility wrappers over the shared lifecycle ingest service.
 
 Webhook ingestion is tenant-aware:
 - `Authorization: Bearer <webhook-secret>` gates the route
