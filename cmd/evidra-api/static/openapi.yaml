@@ -249,31 +249,37 @@ paths:
       tags: [Evidence]
       summary: Ingest an external prescribe entry
       description: |
-        Typed external lifecycle ingest route for prescribe entries. This is a
-        compatibility wrapper over the shared lifecycle ingest service, while
+        Typed shared external lifecycle ingest route for prescribe entries.
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
-        transport paths.
-
-        Document the explicit taxonomy on the payload:
-        - `payload.flavor` (including `workflow`)
-        - `payload.evidence.kind` (`declared`, `observed`, `translated`)
-        - `payload.source.system`
+        transport paths for untyped entry forwarding.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              description: Any valid prescribe lifecycle entry
+              $ref: '#/components/schemas/IngestPrescribeRequest'
             example:
-              entry_id: "01HXYZ..."
-              type: prescribe
-              payload:
-                flavor: workflow
-                evidence:
-                  kind: observed
-                source:
-                  system: agentgateway
+              contract_version: v1
+              claim:
+                source: agentgateway
+                key: deployment:payments
+              actor:
+                type: controller
+                id: payments-controller
+                provenance: agentgateway
+              session_id: sess-123
+              operation_id: op-123
+              trace_id: trace-123
+              flavor: workflow
+              evidence:
+                kind: observed
+              source:
+                system: agentgateway
+              prescription_id: presc-123
+              artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+              canonical_action:
+                tool: kubectl
+                operation: apply
       responses:
         '200':
           description: Entry accepted
@@ -293,31 +299,36 @@ paths:
       tags: [Evidence]
       summary: Ingest an external report entry
       description: |
-        Typed external lifecycle ingest route for report entries. This is a
-        compatibility wrapper over the shared lifecycle ingest service, while
+        Typed shared external lifecycle ingest route for report entries.
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
-        transport paths.
-
-        Document the explicit taxonomy on the payload:
-        - `payload.flavor` (including `workflow`)
-        - `payload.evidence.kind` (`declared`, `observed`, `translated`)
-        - `payload.source.system`
+        transport paths for untyped entry forwarding.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              description: Any valid report lifecycle entry
+              $ref: '#/components/schemas/IngestReportRequest'
             example:
-              entry_id: "01HXYZ..."
-              type: report
-              payload:
-                flavor: workflow
-                evidence:
-                  kind: translated
-                source:
-                  system: agentgateway
+              contract_version: v1
+              claim:
+                source: agentgateway
+                key: deployment:payments:complete
+              actor:
+                type: controller
+                id: payments-controller
+                provenance: agentgateway
+              session_id: sess-123
+              operation_id: op-123
+              trace_id: trace-123
+              flavor: workflow
+              evidence:
+                kind: translated
+              source:
+                system: agentgateway
+              prescription_id: presc-123
+              artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+              verdict: success
+              exit_code: 0
       responses:
         '200':
           description: Entry accepted
@@ -867,6 +878,189 @@ components:
         status:
           type: string
           example: accepted
+
+    IngestClaim:
+      type: object
+      properties:
+        source:
+          type: string
+        key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+      required: [source, key]
+
+    IngestActor:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+        provenance:
+          type: string
+        instance_id:
+          type: string
+        version:
+          type: string
+        skill_version:
+          type: string
+      required: [type, id, provenance]
+
+    IngestEvidenceMetadata:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [declared, observed, translated]
+      required: [kind]
+
+    IngestSourceMetadata:
+      type: object
+      properties:
+        system:
+          type: string
+      required: [system]
+
+    IngestCanonicalAction:
+      type: object
+      properties:
+        tool:
+          type: string
+        operation:
+          type: string
+        operation_class:
+          type: string
+        scope_class:
+          type: string
+        resource_count:
+          type: integer
+        resource_shape_hash:
+          type: string
+        resource_identity:
+          type: array
+          items:
+            type: object
+      required: [tool, operation]
+
+    IngestSmartTarget:
+      type: object
+      properties:
+        tool:
+          type: string
+        operation:
+          type: string
+        resource:
+          type: string
+        namespace:
+          type: string
+      required: [tool, operation, resource]
+
+    IngestDecisionContext:
+      type: object
+      properties:
+        trigger:
+          type: string
+        reason:
+          type: string
+      required: [trigger, reason]
+
+    IngestEnvelope:
+      type: object
+      properties:
+        contract_version:
+          type: string
+          enum: [v1]
+        claim:
+          $ref: '#/components/schemas/IngestClaim'
+        actor:
+          $ref: '#/components/schemas/IngestActor'
+        session_id:
+          type: string
+        operation_id:
+          type: string
+        trace_id:
+          type: string
+        span_id:
+          type: string
+        parent_span_id:
+          type: string
+        scope_dimensions:
+          type: object
+          additionalProperties:
+            type: string
+        flavor:
+          type: string
+          enum: [imperative, reconcile, workflow]
+        evidence:
+          $ref: '#/components/schemas/IngestEvidenceMetadata'
+        source:
+          $ref: '#/components/schemas/IngestSourceMetadata'
+      required:
+        - contract_version
+        - actor
+        - session_id
+        - operation_id
+        - trace_id
+        - flavor
+        - evidence
+        - source
+
+    IngestPrescribeRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          properties:
+            prescription_id:
+              type: string
+            artifact_digest:
+              type: string
+            canonical_action:
+              $ref: '#/components/schemas/IngestCanonicalAction'
+            smart_target:
+              $ref: '#/components/schemas/IngestSmartTarget'
+            payload_override:
+              type: object
+              additionalProperties: true
+          oneOf:
+            - required: [canonical_action]
+            - required: [smart_target]
+
+    IngestExternalRef:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+      required: [type, id]
+
+    IngestReportRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          properties:
+            prescription_id:
+              type: string
+            artifact_digest:
+              type: string
+            verdict:
+              type: string
+              enum: [success, failure, error, declined]
+            exit_code:
+              type: integer
+              nullable: true
+            decision_context:
+              $ref: '#/components/schemas/IngestDecisionContext'
+            external_refs:
+              type: array
+              items:
+                $ref: '#/components/schemas/IngestExternalRef'
+            payload_override:
+              type: object
+              additionalProperties: true
+          required: [prescription_id, verdict]
 
     ArgoCDWebhookRequest:
       type: object
