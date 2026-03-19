@@ -109,7 +109,6 @@ paths:
           application/json:
             schema:
               type: object
-              required: [label]
               properties:
                 label:
                   type: string
@@ -136,6 +135,12 @@ paths:
                   created_at:
                     type: string
                     format: date-time
+        '400':
+          description: Invalid JSON or label too long
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Invalid invite secret
           content:
@@ -144,6 +149,18 @@ paths:
                 $ref: '#/components/schemas/Error'
         '429':
           description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Key management not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Key issuance disabled because invite secret is not configured
           content:
             application/json:
               schema:
@@ -172,6 +189,23 @@ paths:
                   tenant_id:
                     type: string
                     example: default
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    head:
+      tags: [Auth]
+      summary: Verify authentication token without a response body
+      description: Returns 200 with `X-Evidra-Tenant` for valid tokens. Used as a forwardAuth target when only headers matter.
+      responses:
+        '200':
+          description: Token is valid
+          headers:
+            X-Evidra-Tenant:
+              schema:
+                type: string
         '401':
           description: Unauthorized
           content:
@@ -634,14 +668,18 @@ paths:
           in: query
           schema:
             type: integer
-            default: 50
-            maximum: 200
+            default: 100
+            maximum: 1000
         - name: offset
           in: query
           schema:
             type: integer
             default: 0
         - name: type
+          in: query
+          schema:
+            type: string
+        - name: period
           in: query
           schema:
             type: string

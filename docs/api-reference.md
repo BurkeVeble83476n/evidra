@@ -23,11 +23,15 @@ Keys are issued via `POST /v1/keys` (see below) or set statically with the `EVID
 
 ### `GET /healthz`
 
-Liveness probe. Returns `200 OK` with body `ok`.
+Liveness probe. Returns `200 OK` with JSON body:
+
+```json
+{"status":"ok"}
+```
 
 ### `GET /readyz`
 
-Readiness probe. Returns `200 OK` when the database connection is healthy.
+Readiness probe. Returns `200 OK` with JSON body `{"status":"ok"}` when the database connection is healthy, and `503` when it is not.
 
 ### `GET /v1/evidence/pubkey`
 
@@ -69,8 +73,10 @@ Issue a new API key. Gated by an invite secret, not by standard Bearer auth.
 **Rate limit:** 3 keys per hour per IP.
 
 **Errors:**
+- `400` — invalid JSON or label too long
 - `403` — missing or invalid invite secret
 - `429` — rate limit exceeded
+- `501` — key management not available
 - `503` — invite secret not configured on server
 
 ---
@@ -105,6 +111,53 @@ Ingest multiple entries in one request.
 
 ```json
 { "accepted": 5, "errors": [] }
+```
+
+### `POST /v1/evidence/ingest/prescribe`
+
+Typed external lifecycle ingest for prescribe entries. Use this when an external adapter wants Evidra to build and sign the final prescribe entry from normalized request fields instead of forwarding a raw entry blob.
+
+The request carries:
+- `contract_version`
+- actor and correlation fields
+- request taxonomy: `flavor`, `evidence.kind`, `source.system`
+- either `canonical_action` or `smart_target`
+- optional top-level `prescription_id` and `artifact_digest`
+- optional `payload_override` when the caller already has a shaped prescribe payload body
+
+**Response** (`200 OK` or `202 Accepted`):
+
+```json
+{
+  "entry_id": "01JD...",
+  "prescription_id": "presc_...",
+  "effective_risk": "medium",
+  "duplicate": false
+}
+```
+
+### `POST /v1/evidence/ingest/report`
+
+Typed external lifecycle ingest for report entries. Use this when an external adapter wants Evidra to resolve a prescription, validate the lifecycle terminal state, and build the canonical report entry server-side.
+
+The request carries:
+- `contract_version`
+- actor and correlation fields
+- request taxonomy: `flavor`, `evidence.kind`, `source.system`
+- `prescription_id`
+- `verdict`
+- `exit_code` for non-declined typed reports or `decision_context` for declined typed reports
+- optional top-level `artifact_digest`
+- optional `payload_override` for already-shaped report payload bodies
+
+**Response** (`200 OK` or `202 Accepted`):
+
+```json
+{
+  "entry_id": "01JD...",
+  "effective_risk": "medium",
+  "duplicate": false
+}
 ```
 
 ### `POST /v1/evidence/findings`
@@ -295,7 +348,9 @@ Compare actor reliability across benchmark runs.
 
 ### `GET /auth/check`
 
-Validate a Bearer token. Returns `200` if valid, `401` if not. Useful as a forward-auth target for reverse proxies.
+### `HEAD /auth/check`
+
+Validate a Bearer token. `GET` returns `200` with tenant metadata if valid, `401` if not. `HEAD` returns the same auth decision without a body. Both are useful as forward-auth targets for reverse proxies.
 
 ---
 
