@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+## v0.4.12 — 2026-03-19
+
+### MCP Modes And Ingest
+- Split the MCP lifecycle surface into `prescribe_full` and `prescribe_smart`, with clearer public mode wording around Full Prescribe, Smart Prescribe, and Proxy Observed
+- Added authenticated external lifecycle ingest routes for adapter-driven `prescribe` and `report` creation, and routed webhook ingestion through the same shared service
+- Extended payload taxonomy so entries now carry execution flavor plus explicit `evidence.kind` and `source.system`
+
+### Documentation And Compatibility Cleanup
+- Reconciled API, protocol, landing page, and README wording with the live split-tool MCP surface
+- Migrated the inspector suite to the split prescribe tools and removed legacy single-`prescribe` prompt/embed leftovers
+- Restored a green default test baseline by fixing promptfactory contract-version rendering and related doc/test drift
+
+### Release Tooling
+- Updated the version bump helper to work with the current `BaseVersion` layout and changelog format
+
+
 ## v0.4.11 — 2026-03-17
 
 ### GitOps And Argo CD
