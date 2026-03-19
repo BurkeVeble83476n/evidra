@@ -360,11 +360,11 @@ paths:
         Typed shared external lifecycle ingest route for report entries.
         Request contract fields are `contract_version`, actor/correlation
         metadata, request taxonomy (`flavor`, `evidence.kind`,
-        `source.system`), `prescription_id`, and `verdict`. Non-declined
-        reports require `exit_code`; declined reports require
-        `decision_context`. `payload_override` is the alternate raw-body form
-        when a caller wants to submit an already-shaped external ingest
-        payload.
+        `source.system`), `prescription_id`, and `verdict`. Typed
+        non-declined reports require `exit_code`; typed declined reports
+        require `decision_context`. Override requests split into matching
+        non-declined and declined forms inside `payload_override` when a
+        caller wants to submit an already-shaped external ingest payload.
 
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
         transport paths for untyped entry forwarding.
@@ -1213,8 +1213,8 @@ components:
                 $ref: '#/components/schemas/IngestExternalRef'
           required: [prescription_id, verdict, exit_code]
           not:
-            required: [payload_override]
             anyOf:
+              - required: [payload_override]
               - required: [decision_context]
 
     IngestReportDeclinedRequest:
@@ -1237,11 +1237,16 @@ components:
                 $ref: '#/components/schemas/IngestExternalRef'
           required: [prescription_id, verdict, decision_context]
           not:
-            required: [payload_override]
             anyOf:
+              - required: [payload_override]
               - required: [exit_code]
 
     IngestReportOverrideRequest:
+      oneOf:
+        - $ref: '#/components/schemas/IngestReportNonDeclinedOverrideRequest'
+        - $ref: '#/components/schemas/IngestReportDeclinedOverrideRequest'
+
+    IngestReportNonDeclinedOverrideRequest:
       allOf:
         - $ref: '#/components/schemas/IngestEnvelope'
         - type: object
@@ -1250,7 +1255,7 @@ components:
             payload_override:
               description: Raw override body for an already-shaped external ingest payload.
               type: object
-              required: [prescription_id, verdict]
+              required: [prescription_id, verdict, exit_code]
               properties:
                 prescription_id:
                   type: string
@@ -1258,7 +1263,7 @@ components:
                   type: string
                 verdict:
                   type: string
-                  enum: [success, failure, error, declined]
+                  enum: [success, failure, error]
                 exit_code:
                   type: integer
                 decision_context:
@@ -1267,6 +1272,46 @@ components:
                   type: array
                   items:
                     $ref: '#/components/schemas/IngestExternalRef'
+              not:
+                required: [decision_context]
+              additionalProperties: true
+          not:
+            anyOf:
+              - required: [prescription_id]
+              - required: [artifact_digest]
+              - required: [verdict]
+              - required: [exit_code]
+              - required: [decision_context]
+              - required: [external_refs]
+
+    IngestReportDeclinedOverrideRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          required: [payload_override]
+          properties:
+            payload_override:
+              description: Raw override body for an already-shaped external ingest payload.
+              type: object
+              required: [prescription_id, verdict, decision_context]
+              properties:
+                prescription_id:
+                  type: string
+                artifact_digest:
+                  type: string
+                verdict:
+                  type: string
+                  enum: [declined]
+                exit_code:
+                  type: integer
+                decision_context:
+                  $ref: '#/components/schemas/IngestDecisionContext'
+                external_refs:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/IngestExternalRef'
+              not:
+                required: [exit_code]
               additionalProperties: true
           not:
             anyOf:
