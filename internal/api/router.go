@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	iauth "samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/ingest"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
 )
@@ -84,6 +85,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		mux.Handle("POST /v1/evidence/forward", authMw(handleForward(cfg.RawStore)))
 		mux.Handle("POST /v1/evidence/batch", authMw(handleBatch(cfg.RawStore)))
 		mux.Handle("POST /v1/evidence/findings", authMw(handleFindings(cfg.RawStore)))
+	}
+	if cfg.EntryStore != nil {
+		ingestSvc := ingest.NewService(cfg.EntryStore, cfg.WebhookSigner)
+		mux.Handle("POST /v1/evidence/ingest/prescribe", authMw(handleIngestPrescribe(ingestSvc)))
+		mux.Handle("POST /v1/evidence/ingest/report", authMw(handleIngestReport(ingestSvc)))
 	}
 
 	// Evidence queries.
