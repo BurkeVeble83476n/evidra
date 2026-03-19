@@ -253,9 +253,10 @@ paths:
         Request contract fields are `contract_version`, actor/correlation
         metadata, request taxonomy (`flavor`, `evidence.kind`,
         `source.system`), and either `canonical_action` or `smart_target`.
-        `prescription_id` and `artifact_digest` are optional explicit
-        overrides. `payload_override` is the alternate raw-body form when a
-        caller wants to submit an already-shaped external ingest payload.
+        `prescription_id` is an optional explicit override and
+        `artifact_digest` remains a top-level field. `payload_override` is
+        the alternate raw-body form when a caller wants to submit an
+        already-shaped external ingest payload.
 
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
         transport paths for untyped entry forwarding.
@@ -365,6 +366,8 @@ paths:
         require `decision_context`. Override requests split into matching
         non-declined and declined forms inside `payload_override` when a
         caller wants to submit an already-shaped external ingest payload.
+        `artifact_digest` remains a top-level field and is not accepted in
+        override bodies.
 
         `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
         transport paths for untyped entry forwarding.
@@ -1166,15 +1169,12 @@ components:
               properties:
                 prescription_id:
                   type: string
-                artifact_digest:
-                  type: string
                 canonical_action:
                   $ref: '#/components/schemas/IngestCanonicalAction'
               additionalProperties: true
           not:
             anyOf:
               - required: [prescription_id]
-              - required: [artifact_digest]
               - required: [canonical_action]
               - required: [smart_target]
 
@@ -1259,8 +1259,6 @@ components:
               properties:
                 prescription_id:
                   type: string
-                artifact_digest:
-                  type: string
                 verdict:
                   type: string
                   enum: [success, failure, error]
@@ -1278,7 +1276,6 @@ components:
           not:
             anyOf:
               - required: [prescription_id]
-              - required: [artifact_digest]
               - required: [verdict]
               - required: [exit_code]
               - required: [decision_context]
@@ -1297,8 +1294,6 @@ components:
               properties:
                 prescription_id:
                   type: string
-                artifact_digest:
-                  type: string
                 verdict:
                   type: string
                   enum: [declined]
@@ -1316,7 +1311,6 @@ components:
           not:
             anyOf:
               - required: [prescription_id]
-              - required: [artifact_digest]
               - required: [verdict]
               - required: [exit_code]
               - required: [decision_context]

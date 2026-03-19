@@ -37,8 +37,10 @@ func TestOpenAPIIngestRoutesDocumentContracts(t *testing.T) {
 	assertSchemaRequiredFields(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), []string{"prescription_id", "verdict", "decision_context"})
 	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "not"), []string{"decision_context"})
 	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), "not"), []string{"exit_code"})
-	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "artifact_digest", "verdict", "exit_code", "decision_context", "external_refs"})
-	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "artifact_digest", "verdict", "exit_code", "decision_context", "external_refs"})
+	assertSchemaNoProperty(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "artifact_digest")
+	assertSchemaNoProperty(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), "artifact_digest")
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "verdict", "exit_code", "decision_context", "external_refs"})
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "verdict", "exit_code", "decision_context", "external_refs"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedRequest", "verdict"), []string{"success", "failure", "error"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportDeclinedRequest", "verdict"), []string{"declined"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override", "verdict"), []string{"success", "failure", "error"})
@@ -157,6 +159,18 @@ func assertSchemaEnumValues(t *testing.T, node *yaml.Node, want []string) {
 		if enum.Content[i].Value != value {
 			t.Fatalf("enum[%d] = %q, want %q", i, enum.Content[i].Value, value)
 		}
+	}
+}
+
+func assertSchemaNoProperty(t *testing.T, node *yaml.Node, property string) {
+	t.Helper()
+
+	properties := findMappingValueOptional(node, "properties")
+	if properties == nil {
+		t.Fatal("schema has no properties node")
+	}
+	if findMappingValueOptional(properties, property) != nil {
+		t.Fatalf("schema unexpectedly contains property %s", property)
 	}
 }
 

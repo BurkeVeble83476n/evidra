@@ -437,6 +437,60 @@ func TestHandleGenericWebhook_PreservesExplicitSessionID(t *testing.T) {
 	}
 }
 
+func TestHandleGenericWebhook_AcceptsTranslatedCompletionWithoutStartEntry(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeIngestStore{}
+	handler := handleGenericWebhookWithTenantResolver(store, testutil.TestSigner(t), "route-secret", func(context.Context, string) (string, error) {
+		return "tenant-123", nil
+	})
+
+	completeReq := httptest.NewRequest("POST", "/v1/hooks/generic", strings.NewReader(`{
+		"event_type":"operation_completed",
+		"tool":"kubectl",
+		"operation":"apply",
+		"operation_id":"op-soft",
+		"environment":"production",
+		"actor":"ci",
+		"session_id":"sess-soft",
+		"idempotency_key":"evt-soft",
+		"verdict":"success",
+		"exit_code":0
+	}`))
+	completeReq.Header.Set("Authorization", "Bearer route-secret")
+	completeReq.Header.Set("X-Evidra-API-Key", "tenant-api-key")
+	completeReq.Header.Set("Content-Type", "application/json")
+	completeRec := httptest.NewRecorder()
+
+	handler.ServeHTTP(completeRec, completeReq)
+
+	if completeRec.Code != http.StatusAccepted {
+		t.Fatalf("complete expected 202, got %d", completeRec.Code)
+	}
+	if len(store.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(store.savedRaw))
+	}
+
+	var report evidence.EvidenceEntry
+	if err := json.Unmarshal(store.savedRaw[0], &report); err != nil {
+		t.Fatalf("decode report entry: %v", err)
+	}
+	if report.SessionID != "sess-soft" {
+		t.Fatalf("report session_id = %q, want sess-soft", report.SessionID)
+	}
+	if report.OperationID != "op-soft" {
+		t.Fatalf("report operation_id = %q, want op-soft", report.OperationID)
+	}
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(report.Payload, &payload); err != nil {
+		t.Fatalf("decode report payload: %v", err)
+	}
+	wantID := mappedPrescriptionID("generic", "kubectl", "apply", "", "op-soft", "production", "")
+	if payload.PrescriptionID != wantID {
+		t.Fatalf("report prescription_id = %q, want %q", payload.PrescriptionID, wantID)
+	}
+}
+
 func TestHandleArgoCDWebhook_UsesOperationIDForLifecycleCorrelation(t *testing.T) {
 	t.Parallel()
 

@@ -113,6 +113,16 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 
 // Report builds, signs, and persists a report entry after resolving the prescription.
 func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest) (Result, error) {
+	return s.report(ctx, tenantID, in, false)
+}
+
+// ReportTranslated builds, signs, and persists a translated report entry using
+// webhook-compatible soft prescription resolution.
+func (s *Service) ReportTranslated(ctx context.Context, tenantID string, in ReportRequest) (Result, error) {
+	return s.report(ctx, tenantID, in, true)
+}
+
+func (s *Service) report(ctx context.Context, tenantID string, in ReportRequest, softResolve bool) (Result, error) {
 	if err := requiredSigner(s.signer); err != nil {
 		return Result{}, err
 	}
@@ -155,7 +165,6 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 		return Result{}, err
 	}
 
-	softResolve := reportUsesSoftResolution(in)
 	prescription, err := s.resolvePrescriptionForReport(ctx, tenantID, prescriptionID, softResolve)
 	if err != nil {
 		return Result{}, err
@@ -325,10 +334,6 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, err.Error(), err)
 	}
 	return entry, nil
-}
-
-func reportUsesSoftResolution(in ReportRequest) bool {
-	return in.Evidence != nil && in.Evidence.Kind == evidence.EvidenceKindTranslated
 }
 
 func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.CanonicalAction, string, string, error) {

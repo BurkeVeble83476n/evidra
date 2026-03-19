@@ -541,7 +541,7 @@ func TestServiceReport_ResolvesReferencedPrescription(t *testing.T) {
 	}
 }
 
-func TestServiceReport_AllowsTranslatedReportWithoutPersistedPrescription(t *testing.T) {
+func TestServiceReportTranslated_AllowsTranslatedReportWithoutPersistedPrescription(t *testing.T) {
 	t.Parallel()
 
 	fakeStore := newFakeIngestStore()
@@ -569,7 +569,7 @@ func TestServiceReport_AllowsTranslatedReportWithoutPersistedPrescription(t *tes
 		ExitCode:       intPtr(0),
 	}
 
-	out, err := svc.Report(context.Background(), tenantID, req)
+	out, err := svc.ReportTranslated(context.Background(), tenantID, req)
 	if err != nil {
 		t.Fatalf("Report: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestServiceReport_AllowsTranslatedReportWithoutPersistedPrescription(t *tes
 	}
 }
 
-func TestServiceReport_PreservesTranslatedSessionDrift(t *testing.T) {
+func TestServiceReportTranslated_PreservesTranslatedSessionDrift(t *testing.T) {
 	t.Parallel()
 
 	fakeStore := newFakeIngestStore()
@@ -634,7 +634,7 @@ func TestServiceReport_PreservesTranslatedSessionDrift(t *testing.T) {
 		ExitCode:       intPtr(0),
 	}
 
-	out, err := svc.Report(context.Background(), tenantID, req)
+	out, err := svc.ReportTranslated(context.Background(), tenantID, req)
 	if err != nil {
 		t.Fatalf("Report: %v", err)
 	}
@@ -683,7 +683,7 @@ func TestServiceReport_RejectsMissingPrescriptionForDirectPath(t *testing.T) {
 			OperationID: "operation-direct",
 			TraceID:     "trace-direct",
 			Flavor:      evidence.FlavorWorkflow,
-			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
 			Source:      &evidence.SourceMetadata{System: "argocd"},
 		},
 		PrescriptionID: "presc-missing",
@@ -695,6 +695,50 @@ func TestServiceReport_RejectsMissingPrescriptionForDirectPath(t *testing.T) {
 	}
 	if code := ErrorCode(err); code != ErrCodeNotFound {
 		t.Fatalf("error code = %v, want not found", code)
+	}
+}
+
+func TestServiceReport_RejectsTranslatedSessionMismatchOnDirectPath(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	fakeStore.entries["presc-mismatch"] = store.StoredEntry{
+		ID:          "presc-mismatch",
+		TenantID:    "tenant-1",
+		EntryType:   string(evidence.EntryTypePrescribe),
+		SessionID:   "session-prescription",
+		OperationID: "operation-prescription",
+	}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	_, err := svc.Report(context.Background(), "tenant-1", ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-other",
+			OperationID: "operation-other",
+			TraceID:     "trace-other",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-mismatch",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	})
+	if err == nil {
+		t.Fatal("expected session mismatch error")
+	}
+	if code := ErrorCode(err); code != ErrCodeInvalidInput {
+		t.Fatalf("error code = %v, want invalid_input", code)
+	}
+	if !strings.Contains(err.Error(), "session_id") {
+		t.Fatalf("error = %q, want session_id mismatch", err.Error())
 	}
 }
 
