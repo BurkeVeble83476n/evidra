@@ -69,6 +69,14 @@ func TestReadMCPPrescribeSmartDescription_IsLightweight(t *testing.T) {
 	}
 }
 
+func TestLegacyPrescribeDescription_IsNotEmbedded(t *testing.T) {
+	t.Parallel()
+
+	if _, err := Read("mcpserver/tools/prescribe_description.txt"); err == nil {
+		t.Fatal("legacy prescribe description should not be embedded")
+	}
+}
+
 func TestParseContractVersionHeader(t *testing.T) {
 	t.Parallel()
 

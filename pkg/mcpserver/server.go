@@ -151,7 +151,7 @@ const (
 	defaultGetEventToolDescription = "Look up an evidence record by event_id."
 
 	defaultInitializeInstructions = "Evidra — Flight recorder for AI infrastructure agents. " +
-		"Call `prescribe` BEFORE any infrastructure operation and `report` with an explicit verdict AFTER execution or decision."
+		"Call `prescribe_full` when artifact bytes are available or `prescribe_smart` when only target context is available BEFORE any infrastructure operation, and call `report` with an explicit verdict AFTER execution or decision."
 )
 
 var (

@@ -125,6 +125,15 @@ func TestInitializeInstructions_IncludeContractVersion(t *testing.T) {
 	if !strings.Contains(initializeInstructions, "Contract version: "+contractVersion) {
 		t.Fatalf("initialize instructions missing contract version marker for %q", contractVersion)
 	}
+	if !strings.Contains(defaultInitializeInstructions, "`prescribe_full`") {
+		t.Fatalf("default initialize instructions missing prescribe_full guidance: %q", defaultInitializeInstructions)
+	}
+	if !strings.Contains(defaultInitializeInstructions, "`prescribe_smart`") {
+		t.Fatalf("default initialize instructions missing prescribe_smart guidance: %q", defaultInitializeInstructions)
+	}
+	if strings.Contains(defaultInitializeInstructions, "Call `prescribe` BEFORE") {
+		t.Fatalf("default initialize instructions should not mention legacy prescribe flow: %q", defaultInitializeInstructions)
+	}
 }
 
 func TestPrescribe_SimpleK8s(t *testing.T) {
