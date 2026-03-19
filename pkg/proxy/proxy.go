@@ -56,7 +56,11 @@ func (p *Proxy) Run(ctx context.Context) error {
 	// Client → Upstream (intercept requests)
 	go func() {
 		defer wg.Done()
-		defer upstreamIn.Close()
+		defer func() {
+			if closeErr := upstreamIn.Close(); closeErr != nil && p.Verbose {
+				log.Printf("[proxy] close upstream stdin: %v", closeErr)
+			}
+		}()
 		p.relayRequests(os.Stdin, upstreamIn)
 	}()
 
@@ -94,8 +98,12 @@ func (p *Proxy) relayRequests(client io.Reader, server io.Writer) {
 		}
 
 		// Always forward to upstream
-		server.Write(line)
-		server.Write([]byte("\n"))
+		if err := writeLine(server, line); err != nil {
+			if p.Verbose {
+				log.Printf("[proxy] forward request: %v", err)
+			}
+			return
+		}
 	}
 }
 
@@ -129,9 +137,21 @@ func (p *Proxy) relayResponses(server io.Reader, client io.Writer) {
 		}
 
 		// Always forward to client
-		client.Write(line)
-		client.Write([]byte("\n"))
+		if err := writeLine(client, line); err != nil {
+			if p.Verbose {
+				log.Printf("[proxy] forward response: %v", err)
+			}
+			return
+		}
 	}
+}
+
+func writeLine(w io.Writer, line []byte) error {
+	if _, err := w.Write(line); err != nil {
+		return err
+	}
+	_, err := w.Write([]byte("\n"))
+	return err
 }
 
 // jsonRPCRequest represents a parsed tools/call request.

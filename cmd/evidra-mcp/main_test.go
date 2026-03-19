@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 
 	"samebits.com/evidra/internal/config"
@@ -42,5 +43,29 @@ func TestResolveEvidenceWriteMode_FromEnv(t *testing.T) {
 	}
 	if mode != config.EvidenceWriteModeBestEffort {
 		t.Fatalf("mode=%q, want %q", mode, config.EvidenceWriteModeBestEffort)
+	}
+}
+
+func TestNormalizeProxyArgs_StripsLeadingSeparator(t *testing.T) {
+	got, err := normalizeProxyArgs([]string{"--", "upstream", "--flag"})
+	if err != nil {
+		t.Fatalf("normalizeProxyArgs: %v", err)
+	}
+	want := []string{"upstream", "--flag"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("args=%v, want %v", got, want)
+	}
+}
+
+func TestNormalizeProxyArgs_RejectsMissingCommand(t *testing.T) {
+	cases := [][]string{
+		nil,
+		{},
+		{"--"},
+	}
+	for _, tc := range cases {
+		if _, err := normalizeProxyArgs(tc); err == nil {
+			t.Fatalf("normalizeProxyArgs(%v): expected error", tc)
+		}
 	}
 }

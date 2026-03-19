@@ -59,41 +59,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	logger := log.New(stderr, "", log.LstdFlags)
 
 	if *proxyFlag {
-		remaining := fs.Args()
-		if len(remaining) == 0 {
-			fmt.Fprintln(stderr, "proxy mode requires upstream command after --")
-			return 1
-		}
-		// Remove leading "--" if present
-		if remaining[0] == "--" {
-			remaining = remaining[1:]
-		}
-		if len(remaining) == 0 {
-			fmt.Fprintln(stderr, "proxy mode requires upstream command after --")
-			return 1
-		}
-
-		evidenceWriter, err := proxy.NewEvidenceWriter(evidencePath)
-		if err != nil {
-			fmt.Fprintf(stderr, "proxy evidence: %v\n", err)
-			return 1
-		}
-		defer evidenceWriter.Close()
-
-		p := &proxy.Proxy{
-			UpstreamCmd:  remaining[0],
-			UpstreamArgs: remaining[1:],
-			Evidence:     evidenceWriter,
-			Verbose:      envBool("EVIDRA_PROXY_VERBOSE", false),
-		}
-
-		logger.Printf("evidra-mcp proxy mode (upstream: %s, evidence: %s)", remaining[0], evidenceWriter.Dir())
-
-		if err := p.Run(context.Background()); err != nil {
-			fmt.Fprintf(stderr, "proxy: %v\n", err)
-			return 1
-		}
-		return 0
+		return runProxyMode(context.Background(), stderr, evidencePath, logger, fs.Args())
 	}
 
 	writeMode, writeModeErr := config.ResolveEvidenceWriteMode("")
@@ -162,6 +128,53 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintf(stderr, "run mcp server: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func normalizeProxyArgs(args []string) ([]string, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("proxy mode requires upstream command after --")
+	}
+	if args[0] == "--" {
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		return nil, fmt.Errorf("proxy mode requires upstream command after --")
+	}
+	return args, nil
+}
+
+func runProxyMode(ctx context.Context, stderr io.Writer, evidencePath string, logger *log.Logger, args []string) int {
+	remaining, err := normalizeProxyArgs(args)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+
+	evidenceWriter, err := proxy.NewEvidenceWriter(evidencePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "proxy evidence: %v\n", err)
+		return 1
+	}
+	defer func() {
+		if closeErr := evidenceWriter.Close(); closeErr != nil {
+			logger.Printf("warning: close proxy evidence writer: %v", closeErr)
+		}
+	}()
+
+	p := &proxy.Proxy{
+		UpstreamCmd:  remaining[0],
+		UpstreamArgs: remaining[1:],
+		Evidence:     evidenceWriter,
+		Verbose:      envBool("EVIDRA_PROXY_VERBOSE", false),
+	}
+
+	logger.Printf("evidra-mcp proxy mode (upstream: %s, evidence: %s)", remaining[0], evidenceWriter.Dir())
+
+	if err := p.Run(ctx); err != nil {
+		fmt.Fprintf(stderr, "proxy: %v\n", err)
 		return 1
 	}
 	return 0

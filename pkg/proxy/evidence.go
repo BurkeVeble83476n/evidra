@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -102,14 +103,20 @@ func (w *EvidenceWriter) Report(prescriptionID string, exitCode int) {
 }
 
 func (w *EvidenceWriter) write(entry any) {
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return
-	}
-
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.file.Write(append(data, '\n'))
+	if err := writeJSONLine(w.file, entry); err != nil {
+		return
+	}
+}
+
+func writeJSONLine(w io.Writer, entry any) error {
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(append(data, '\n'))
+	return err
 }
 
 // Dir returns the evidence session directory path.
