@@ -36,13 +36,28 @@ type Result struct {
 
 // Service owns server-side external lifecycle ingest.
 type Service struct {
-	store  Store
-	signer evidence.Signer
+	store                        Store
+	signer                       evidence.Signer
+	claimNamespacePrefix         string
+	allowLegacyDuplicateFallback bool
 }
 
 // NewService creates an ingest service.
 func NewService(store Store, signer evidence.Signer) *Service {
-	return &Service{store: store, signer: signer}
+	return &Service{
+		store:                store,
+		signer:               signer,
+		claimNamespacePrefix: "api:",
+	}
+}
+
+// NewWebhookService creates an ingest service configured for legacy webhook compatibility.
+func NewWebhookService(store Store, signer evidence.Signer) *Service {
+	return &Service{
+		store:                        store,
+		signer:                       signer,
+		allowLegacyDuplicateFallback: true,
+	}
 }
 
 // Prescribe builds, signs, and persists a prescribe entry.
@@ -72,12 +87,13 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		}
 	}()
 
-	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, in.Claim)
+	claimSource := s.claimSource(in.Claim)
+	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, claimSource, in.Claim)
 	if err != nil {
 		return Result{}, err
 	}
 	if duplicate {
-		result, err := s.loadDuplicatePrescribeResult(ctx, tx, tenantID, in.Claim)
+		result, err := s.loadDuplicatePrescribeResult(ctx, tx, tenantID, claimSource, in.Claim)
 		if err != nil {
 			return Result{}, err
 		}
@@ -97,7 +113,7 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		return Result{}, err
 	}
 
-	if err := s.finalizeClaim(ctx, tx, tenantID, in.Claim, entry.EntryID, effectiveRisk); err != nil {
+	if err := s.finalizeClaim(ctx, tx, tenantID, claimSource, in.Claim, entry.EntryID, effectiveRisk); err != nil {
 		return Result{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -113,16 +129,6 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 
 // Report builds, signs, and persists a report entry after resolving the prescription.
 func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest) (Result, error) {
-	return s.report(ctx, tenantID, in, false)
-}
-
-// ReportTranslated builds, signs, and persists a translated report entry using
-// webhook-compatible soft prescription resolution.
-func (s *Service) ReportTranslated(ctx context.Context, tenantID string, in ReportRequest) (Result, error) {
-	return s.report(ctx, tenantID, in, true)
-}
-
-func (s *Service) report(ctx context.Context, tenantID string, in ReportRequest, softResolve bool) (Result, error) {
 	if err := requiredSigner(s.signer); err != nil {
 		return Result{}, err
 	}
@@ -148,12 +154,13 @@ func (s *Service) report(ctx context.Context, tenantID string, in ReportRequest,
 		}
 	}()
 
-	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, in.Claim)
+	claimSource := s.claimSource(in.Claim)
+	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, claimSource, in.Claim)
 	if err != nil {
 		return Result{}, err
 	}
 	if duplicate {
-		result, err := s.loadDuplicateReportResult(ctx, tx, tenantID, in.Claim)
+		result, err := s.loadDuplicateReportResult(ctx, tx, tenantID, claimSource, in.Claim)
 		if err != nil {
 			return Result{}, err
 		}
@@ -165,6 +172,7 @@ func (s *Service) report(ctx context.Context, tenantID string, in ReportRequest,
 		return Result{}, err
 	}
 
+	softResolve := s.allowLegacyDuplicateFallback && reportUsesSoftResolution(in)
 	prescription, err := s.resolvePrescriptionForReport(ctx, tenantID, prescriptionID, softResolve)
 	if err != nil {
 		return Result{}, err
@@ -177,7 +185,7 @@ func (s *Service) report(ctx context.Context, tenantID string, in ReportRequest,
 		return Result{}, err
 	}
 
-	if err := s.finalizeClaim(ctx, tx, tenantID, in.Claim, entry.EntryID, ""); err != nil {
+	if err := s.finalizeClaim(ctx, tx, tenantID, claimSource, in.Claim, entry.EntryID, ""); err != nil {
 		return Result{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -592,12 +600,12 @@ func normalizeToken(v string) string {
 	return strings.ToLower(strings.TrimSpace(v))
 }
 
-func (s *Service) claimIfNeeded(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (bool, error) {
+func (s *Service) claimIfNeeded(ctx context.Context, tx store.IngestTx, tenantID, claimSource string, claim *Claim) (bool, error) {
 	if !hasMeaningfulClaim(claim) {
 		return false, nil
 	}
 
-	duplicate, err := tx.ClaimWebhookEvent(ctx, tenantID, claim.Source, claim.Key, claim.Payload)
+	duplicate, err := tx.ClaimWebhookEvent(ctx, tenantID, claimSource, claim.Key, claim.Payload)
 	if err != nil {
 		return false, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
 	}
@@ -611,8 +619,8 @@ func hasMeaningfulClaim(claim *Claim) bool {
 	return claim != nil && (strings.TrimSpace(claim.Source) != "" || strings.TrimSpace(claim.Key) != "" || len(claim.Payload) > 0)
 }
 
-func (s *Service) loadDuplicatePrescribeResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (Result, error) {
-	return s.loadDuplicateResult(ctx, tx, tenantID, claim, func(entry store.StoredEntry) (Result, error) {
+func (s *Service) loadDuplicatePrescribeResult(ctx context.Context, tx store.IngestTx, tenantID, claimSource string, claim *Claim) (Result, error) {
+	return s.loadDuplicateResult(ctx, tx, tenantID, claimSource, claim, s.allowLegacyDuplicateFallback, func(entry store.StoredEntry) (Result, error) {
 		decoded, err := decodeStoredEvidenceEntry(entry)
 		if err != nil {
 			return Result{}, err
@@ -627,8 +635,8 @@ func (s *Service) loadDuplicatePrescribeResult(ctx context.Context, tx store.Ing
 	})
 }
 
-func (s *Service) loadDuplicateReportResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (Result, error) {
-	return s.loadDuplicateResult(ctx, tx, tenantID, claim, func(entry store.StoredEntry) (Result, error) {
+func (s *Service) loadDuplicateReportResult(ctx context.Context, tx store.IngestTx, tenantID, claimSource string, claim *Claim) (Result, error) {
+	return s.loadDuplicateResult(ctx, tx, tenantID, claimSource, claim, s.allowLegacyDuplicateFallback, func(entry store.StoredEntry) (Result, error) {
 		decoded, err := decodeStoredEvidenceEntry(entry)
 		if err != nil {
 			return Result{}, err
@@ -641,17 +649,20 @@ func (s *Service) loadDuplicateReportResult(ctx context.Context, tx store.Ingest
 	})
 }
 
-func (s *Service) loadDuplicateResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim, build func(store.StoredEntry) (Result, error)) (Result, error) {
+func (s *Service) loadDuplicateResult(ctx context.Context, tx store.IngestTx, tenantID, claimSource string, claim *Claim, allowLegacyFallback bool, build func(store.StoredEntry) (Result, error)) (Result, error) {
 	if !hasMeaningfulClaim(claim) {
 		return Result{Duplicate: true}, nil
 	}
 
-	meta, err := tx.GetWebhookEventResult(ctx, tenantID, claim.Source, claim.Key)
+	meta, err := tx.GetWebhookEventResult(ctx, tenantID, claimSource, claim.Key)
 	if err != nil {
 		return Result{}, err
 	}
 	if strings.TrimSpace(meta.EntryID) == "" {
-		return Result{Duplicate: true}, nil
+		if allowLegacyFallback {
+			return Result{Duplicate: true}, nil
+		}
+		return Result{}, wrapError(ErrCodeInternal, "duplicate ingest claim missing result entry id", nil)
 	}
 
 	entry, err := tx.GetEntry(ctx, tenantID, meta.EntryID)
@@ -671,17 +682,32 @@ func (s *Service) loadDuplicateResult(ctx context.Context, tx store.IngestTx, te
 	return result, nil
 }
 
-func (s *Service) finalizeClaim(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim, entryID, effectiveRisk string) error {
+func (s *Service) finalizeClaim(ctx context.Context, tx store.IngestTx, tenantID, claimSource string, claim *Claim, entryID, effectiveRisk string) error {
 	if !hasMeaningfulClaim(claim) {
 		return nil
 	}
-	if err := tx.FinalizeWebhookEvent(ctx, tenantID, claim.Source, claim.Key, entryID, effectiveRisk); err != nil {
+	if err := tx.FinalizeWebhookEvent(ctx, tenantID, claimSource, claim.Key, entryID, effectiveRisk); err != nil {
 		if errorsIsNotFound(err) {
 			return wrapError(ErrCodeInternal, "failed to finalize ingest claim", err)
 		}
 		return wrapError(ErrCodeInternal, "failed to finalize ingest claim", err)
 	}
 	return nil
+}
+
+func (s *Service) claimSource(claim *Claim) string {
+	if claim == nil {
+		return ""
+	}
+	source := strings.TrimSpace(claim.Source)
+	if source == "" {
+		return ""
+	}
+	return s.claimNamespacePrefix + source
+}
+
+func reportUsesSoftResolution(in ReportRequest) bool {
+	return in.Evidence != nil && in.Evidence.Kind == evidence.EvidenceKindTranslated
 }
 
 func decodeStoredEvidenceEntry(entry store.StoredEntry) (evidence.EvidenceEntry, error) {

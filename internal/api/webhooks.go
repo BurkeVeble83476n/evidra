@@ -49,7 +49,7 @@ type argoCDWebhookPayload struct {
 }
 
 func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
-	svc := ingest.NewService(store, signer)
+	svc := ingest.NewWebhookService(store, signer)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
@@ -82,7 +82,7 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			result, err := svc.ReportTranslated(r.Context(), tenantID, req)
+			result, err := svc.Report(r.Context(), tenantID, req)
 			writeWebhookIngestResult(w, result, err)
 		default:
 			writeError(w, http.StatusBadRequest, "unsupported event_type")
@@ -91,7 +91,7 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 }
 
 func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
-	svc := ingest.NewService(store, signer)
+	svc := ingest.NewWebhookService(store, signer)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
@@ -124,7 +124,7 @@ func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			result, err := svc.ReportTranslated(r.Context(), tenantID, req)
+			result, err := svc.Report(r.Context(), tenantID, req)
 			writeWebhookIngestResult(w, result, err)
 		default:
 			writeError(w, http.StatusBadRequest, "unsupported argocd event")

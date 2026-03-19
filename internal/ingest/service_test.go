@@ -483,7 +483,7 @@ func TestServiceDuplicateClaim_ReturnsDuplicateWithoutStoringTwice(t *testing.T)
 	}
 }
 
-func TestServiceReportTranslated_DuplicateClaimWithMissingResultEntryReturnsDuplicate(t *testing.T) {
+func TestServiceReportWebhook_DuplicateClaimWithMissingResultEntryReturnsDuplicate(t *testing.T) {
 	t.Parallel()
 
 	fakeStore := newFakeIngestStore()
@@ -492,9 +492,9 @@ func TestServiceReportTranslated_DuplicateClaimWithMissingResultEntryReturnsDupl
 	claimStoreKey := "tenant-1|report|" + claimKey
 	fakeStore.claimed[claimStoreKey] = json.RawMessage(`{"legacy":true}`)
 	fakeStore.claimResults[claimStoreKey] = store.WebhookEventResult{}
-	svc := NewService(fakeStore, testutil.TestSigner(t))
+	svc := NewWebhookService(fakeStore, testutil.TestSigner(t))
 
-	out, err := svc.ReportTranslated(context.Background(), "tenant-1", ReportRequest{
+	out, err := svc.Report(context.Background(), "tenant-1", ReportRequest{
 		Envelope: Envelope{
 			ContractVersion: ContractVersionV1,
 			Claim: &Claim{
@@ -519,7 +519,7 @@ func TestServiceReportTranslated_DuplicateClaimWithMissingResultEntryReturnsDupl
 		ExitCode:       intPtr(0),
 	})
 	if err != nil {
-		t.Fatalf("ReportTranslated: %v", err)
+		t.Fatalf("Report: %v", err)
 	}
 	if !out.Duplicate {
 		t.Fatal("expected duplicate result")
@@ -529,6 +529,100 @@ func TestServiceReportTranslated_DuplicateClaimWithMissingResultEntryReturnsDupl
 	}
 	if len(fakeStore.savedRaw) != 0 {
 		t.Fatalf("saved entries = %d, want 0", len(fakeStore.savedRaw))
+	}
+}
+
+func TestServiceReport_PublicDuplicateWithLegacyClaimRowsDoesNotFallback(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	claimKey := "public-claim"
+	claimStoreKey := "tenant-1|api:report|" + claimKey
+	fakeStore.claimed[claimStoreKey] = json.RawMessage(`{"public":true}`)
+	fakeStore.claimResults[claimStoreKey] = store.WebhookEventResult{}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	_, err := svc.Report(context.Background(), "tenant-1", ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Claim: &Claim{
+				Source:  "report",
+				Key:     claimKey,
+				Payload: json.RawMessage(`{"public":true}`),
+			},
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-public",
+			OperationID: "operation-public",
+			TraceID:     "trace-public",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-public",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	})
+	if err == nil {
+		t.Fatal("expected duplicate lookup error")
+	}
+	if ErrorCode(err) != ErrCodeInternal {
+		t.Fatalf("error code = %v, want internal", ErrorCode(err))
+	}
+	if !strings.Contains(err.Error(), "missing result entry id") {
+		t.Fatalf("error = %q, want missing result entry id", err.Error())
+	}
+}
+
+func TestServicePrescribe_PublicClaimNamespaceDoesNotCollideWithLegacyWebhookRows(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	legacyKey := "legacy-prescribe"
+	legacyStoreKey := "tenant-1|generic|" + legacyKey
+	fakeStore.claimed[legacyStoreKey] = json.RawMessage(`{"legacy":true}`)
+	fakeStore.claimResults[legacyStoreKey] = store.WebhookEventResult{}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	action := canonicalActionForTest()
+
+	out, err := svc.Prescribe(context.Background(), "tenant-1", PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Claim: &Claim{
+				Source:  "generic",
+				Key:     legacyKey,
+				Payload: json.RawMessage(`{"legacy":true}`),
+			},
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-public",
+			OperationID: "operation-public",
+			TraceID:     "trace-public",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		CanonicalAction: &action,
+	})
+	if err != nil {
+		t.Fatalf("Prescribe: %v", err)
+	}
+	if out.Duplicate {
+		t.Fatal("expected non-duplicate prescribe result")
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+	if _, ok := fakeStore.claimed["tenant-1|api:generic|"+legacyKey]; !ok {
+		t.Fatal("expected public claim namespace to be stored separately from legacy webhook row")
 	}
 }
 
@@ -590,12 +684,12 @@ func TestServiceReport_ResolvesReferencedPrescription(t *testing.T) {
 	}
 }
 
-func TestServiceReportTranslated_AllowsTranslatedReportWithoutPersistedPrescription(t *testing.T) {
+func TestServiceReportWebhook_AllowsTranslatedReportWithoutPersistedPrescription(t *testing.T) {
 	t.Parallel()
 
 	fakeStore := newFakeIngestStore()
 	fakeStore.lastHash = "sha256:previous"
-	svc := NewService(fakeStore, testutil.TestSigner(t))
+	svc := NewWebhookService(fakeStore, testutil.TestSigner(t))
 	tenantID := "tenant-1"
 
 	req := ReportRequest{
@@ -618,7 +712,7 @@ func TestServiceReportTranslated_AllowsTranslatedReportWithoutPersistedPrescript
 		ExitCode:       intPtr(0),
 	}
 
-	out, err := svc.ReportTranslated(context.Background(), tenantID, req)
+	out, err := svc.Report(context.Background(), tenantID, req)
 	if err != nil {
 		t.Fatalf("Report: %v", err)
 	}
@@ -648,7 +742,7 @@ func TestServiceReportTranslated_AllowsTranslatedReportWithoutPersistedPrescript
 	}
 }
 
-func TestServiceReportTranslated_PreservesTranslatedSessionDrift(t *testing.T) {
+func TestServiceReportWebhook_PreservesTranslatedSessionDrift(t *testing.T) {
 	t.Parallel()
 
 	fakeStore := newFakeIngestStore()
@@ -660,7 +754,7 @@ func TestServiceReportTranslated_PreservesTranslatedSessionDrift(t *testing.T) {
 		SessionID:   "session-start",
 		OperationID: "operation-start",
 	}
-	svc := NewService(fakeStore, testutil.TestSigner(t))
+	svc := NewWebhookService(fakeStore, testutil.TestSigner(t))
 	tenantID := "tenant-1"
 
 	req := ReportRequest{
@@ -683,7 +777,7 @@ func TestServiceReportTranslated_PreservesTranslatedSessionDrift(t *testing.T) {
 		ExitCode:       intPtr(0),
 	}
 
-	out, err := svc.ReportTranslated(context.Background(), tenantID, req)
+	out, err := svc.Report(context.Background(), tenantID, req)
 	if err != nil {
 		t.Fatalf("Report: %v", err)
 	}
