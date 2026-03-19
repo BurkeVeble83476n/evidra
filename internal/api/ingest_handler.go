@@ -1,13 +1,18 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"samebits.com/evidra/internal/auth"
 	"samebits.com/evidra/internal/ingest"
-	"samebits.com/evidra/pkg/evidence"
 )
+
+type IngestPort interface {
+	Prescribe(ctx context.Context, tenantID string, in ingest.PrescribeRequest) (ingest.Result, error)
+	Report(ctx context.Context, tenantID string, in ingest.ReportRequest) (ingest.Result, error)
+}
 
 type ingestResponse struct {
 	Duplicate     bool   `json:"duplicate"`
@@ -17,10 +22,10 @@ type ingestResponse struct {
 
 type ingestPrescribeResponse struct {
 	ingestResponse
-	PrescriptionID string `json:"prescription_id,omitempty"`
+	PrescriptionID string `json:"prescription_id"`
 }
 
-func handleIngestPrescribe(svc *ingest.Service) http.HandlerFunc {
+func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if svc == nil {
 			writeError(w, http.StatusServiceUnavailable, "ingest not configured")
@@ -55,14 +60,7 @@ func handleIngestPrescribe(svc *ingest.Service) http.HandlerFunc {
 				EntryID:       result.EntryID,
 				EffectiveRisk: result.EffectiveRisk,
 			},
-		}
-		if !result.Duplicate {
-			prescriptionID, err := prescriptionIDFromEntry(result.Entry.Payload)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "marshal response")
-				return
-			}
-			resp.PrescriptionID = prescriptionID
+			PrescriptionID: result.EntryID,
 		}
 
 		status := http.StatusAccepted
@@ -73,7 +71,7 @@ func handleIngestPrescribe(svc *ingest.Service) http.HandlerFunc {
 	}
 }
 
-func handleIngestReport(svc *ingest.Service) http.HandlerFunc {
+func handleIngestReport(svc IngestPort) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if svc == nil {
 			writeError(w, http.StatusServiceUnavailable, "ingest not configured")
@@ -125,12 +123,4 @@ func writeIngestServiceError(w http.ResponseWriter, err error) {
 	default:
 		writeError(w, http.StatusInternalServerError, "ingest failed")
 	}
-}
-
-func prescriptionIDFromEntry(raw json.RawMessage) (string, error) {
-	var payload evidence.PrescriptionPayload
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return "", err
-	}
-	return payload.PrescriptionID, nil
 }

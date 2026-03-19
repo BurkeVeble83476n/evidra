@@ -28,6 +28,27 @@ type fakeIngestStore struct {
 	releaseCalls  int
 }
 
+type fakeIngestService struct {
+	prescribeResult ingest.Result
+	reportResult    ingest.Result
+	prescribeTenant string
+	reportTenant    string
+	prescribeReq    ingest.PrescribeRequest
+	reportReq       ingest.ReportRequest
+}
+
+func (f *fakeIngestService) Prescribe(_ context.Context, tenantID string, in ingest.PrescribeRequest) (ingest.Result, error) {
+	f.prescribeTenant = tenantID
+	f.prescribeReq = in
+	return f.prescribeResult, nil
+}
+
+func (f *fakeIngestService) Report(_ context.Context, tenantID string, in ingest.ReportRequest) (ingest.Result, error) {
+	f.reportTenant = tenantID
+	f.reportReq = in
+	return f.reportResult, nil
+}
+
 func (f *fakeIngestStore) LastHash(context.Context, string) (string, error) {
 	return f.lastHash, nil
 }
@@ -298,8 +319,113 @@ func TestIngestPrescribeHandler_DuplicateClaimResponseStable(t *testing.T) {
 	if first.Body.String() != second.Body.String() {
 		t.Fatalf("duplicate responses differ:\nfirst:  %s\nsecond: %s", first.Body.String(), second.Body.String())
 	}
+	var resp map[string]any
+	if err := json.Unmarshal(second.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if _, ok := resp["prescription_id"]; !ok {
+		t.Fatalf("expected prescription_id field in duplicate response, got %s", second.Body.String())
+	}
 	if len(store.savedRaw) != 0 {
 		t.Fatalf("saved entries = %d, want 0 for duplicate claim", len(store.savedRaw))
+	}
+}
+
+func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		prescribeResult: ingest.Result{
+			EntryID:       "presc-1",
+			EffectiveRisk: "medium",
+		},
+	}
+	router := NewRouter(RouterConfig{
+		APIKey:        "test-key",
+		DefaultTenant: "tenant-1",
+		Ingest:        fakeSvc,
+	})
+
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(`{
+		"contract_version":"v1",
+		"actor":{"type":"controller","id":"ci-bot","provenance":"github-actions"},
+		"session_id":"session-1",
+		"operation_id":"operation-1",
+		"trace_id":"trace-1",
+		"flavor":"workflow",
+		"evidence":{"kind":"observed"},
+		"source":{"system":"argocd"},
+		"canonical_action":{"tool":"kubectl","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":1}
+	}`))
+	req.Header.Set("Authorization", "Bearer test-key")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if fakeSvc.prescribeTenant != "tenant-1" {
+		t.Fatalf("tenant = %q, want tenant-1", fakeSvc.prescribeTenant)
+	}
+	if fakeSvc.prescribeReq.ContractVersion != ingest.ContractVersionV1 {
+		t.Fatalf("contract_version = %q, want v1", fakeSvc.prescribeReq.ContractVersion)
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["prescription_id"] != "presc-1" {
+		t.Fatalf("prescription_id = %v, want presc-1", resp["prescription_id"])
+	}
+}
+
+func TestIngestRouter_ReportAcceptsAuthenticatedRequest(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		reportResult: ingest.Result{
+			EntryID: "report-1",
+		},
+	}
+	router := NewRouter(RouterConfig{
+		APIKey:        "test-key",
+		DefaultTenant: "tenant-1",
+		Ingest:        fakeSvc,
+	})
+
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/report", strings.NewReader(`{
+		"contract_version":"v1",
+		"actor":{"type":"controller","id":"ci-bot","provenance":"github-actions"},
+		"session_id":"session-1",
+		"operation_id":"operation-1",
+		"trace_id":"trace-1",
+		"flavor":"workflow",
+		"evidence":{"kind":"observed"},
+		"source":{"system":"argocd"},
+		"prescription_id":"presc-1",
+		"verdict":"success",
+		"exit_code":0
+	}`))
+	req.Header.Set("Authorization", "Bearer test-key")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if fakeSvc.reportTenant != "tenant-1" {
+		t.Fatalf("tenant = %q, want tenant-1", fakeSvc.reportTenant)
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entry_id"] != "report-1" {
+		t.Fatalf("entry_id = %v, want report-1", resp["entry_id"])
 	}
 }
 
@@ -309,8 +435,10 @@ func TestIngestRouter_RequiresAuth(t *testing.T) {
 	router := NewRouter(RouterConfig{
 		APIKey:        "test-key",
 		DefaultTenant: "tenant-1",
-		EntryStore:    &store.EntryStore{},
-		WebhookSigner: testutil.TestSigner(t),
+		Ingest: &fakeIngestService{
+			prescribeResult: ingest.Result{EntryID: "presc-1", EffectiveRisk: "medium"},
+			reportResult:    ingest.Result{EntryID: "report-1"},
+		},
 	})
 
 	for _, path := range []string{

@@ -19,6 +19,7 @@ type RouterConfig struct {
 	DefaultTenant  string
 	PublicKey      ed25519.PublicKey
 	EntryStore     *store.EntryStore
+	Ingest         IngestPort
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
 	RawStore       RawEntryStore
@@ -86,8 +87,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		mux.Handle("POST /v1/evidence/batch", authMw(handleBatch(cfg.RawStore)))
 		mux.Handle("POST /v1/evidence/findings", authMw(handleFindings(cfg.RawStore)))
 	}
-	if cfg.EntryStore != nil {
-		ingestSvc := ingest.NewService(cfg.EntryStore, cfg.WebhookSigner)
+	ingestSvc := cfg.Ingest
+	if ingestSvc == nil && cfg.EntryStore != nil {
+		ingestSvc = ingest.NewService(cfg.EntryStore, cfg.WebhookSigner)
+	}
+	if ingestSvc != nil {
 		mux.Handle("POST /v1/evidence/ingest/prescribe", authMw(handleIngestPrescribe(ingestSvc)))
 		mux.Handle("POST /v1/evidence/ingest/report", authMw(handleIngestReport(ingestSvc)))
 	}
