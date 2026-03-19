@@ -68,12 +68,6 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL.md"),
 			active:    filepath.Join("prompts", "skill", "SKILL.md"),
 		},
-		{
-			id:        "skill.skill_smart",
-			template:  "templates/skill/SKILL_SMART.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_SMART.md"),
-			active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
-		},
 	}
 
 	templateBase := filepath.Join(rootDir, "prompts", "source", "contracts", bundle.Contract.Version)
@@ -109,6 +103,17 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		template:  "templates/mcp/prescribe_smart.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_smart_description.txt"),
 		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_smart_description.txt"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, struct {
+		id        string
+		template  string
+		generated string
+		active    string
+	}{
+		id:        "skill.skill_smart",
+		template:  "templates/skill/SKILL_SMART.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_SMART.md"),
+		active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
 	})
 
 	data := renderData{
