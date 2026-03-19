@@ -18,11 +18,11 @@ Evidra informs, not enforces. It is the flight recorder and intelligent scoring 
 
 | | Records what happened | Shows risk before action | Agent can decline | Works with any model |
 |---|---|---|---|---|
-| **Proxy** | Yes | No | No | Yes |
-| **Smart prescribe** | Yes | Yes | Yes | Yes |
-| **Full prescribe** | Yes | Yes | Yes | Strong models only |
+| **Proxy Observed** | Yes | No | No | Yes |
+| **Smart Prescribe** | Yes | Yes | Yes | Yes |
+| **Full Prescribe** | Yes | Yes | Yes | Strong models only |
 
-Proxy records silently — the agent never knows. Smart and full prescribe are explicit: the agent calls prescribe, receives risk assessment, and decides whether to proceed or decline. Smart prescribe uses 4 fields (~30 tokens); full prescribe sends the complete YAML artifact (~300 tokens) and enables drift detection.
+Proxy Observed records silently — the agent never knows. Smart Prescribe and Full Prescribe are explicit: the agent calls prescribe, receives risk assessment, and decides whether to proceed or decline. Smart Prescribe uses 4 fields (~30 tokens); Full Prescribe sends the complete YAML artifact (~300 tokens) and enables drift detection.
 
 
 ## The Prescribe/Report Protocol
@@ -142,7 +142,7 @@ Agent: "Risk too high, declining"
 
 Declined verdicts are first-class evidence — not silent gaps in the log.
 
-**Proxy mode** — one config line, zero agent changes:
+**Proxy Observed** — one config line, zero agent changes:
 
 ```json
 {
