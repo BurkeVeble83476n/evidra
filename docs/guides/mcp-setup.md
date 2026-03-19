@@ -160,37 +160,37 @@ Agent → You: "I declined to apply it because the assessed risk was critical an
 
 ---
 
-## Proxy Mode
+## Evidence Modes
 
 Evidra-mcp has three evidence modes:
 
-**Direct full mode** — the agent calls `prescribe_full` and `report` explicitly and sends `raw_artifact`. This is the richest protocol path: native detector coverage, risk inputs derived from the artifact, and artifact drift detection.
+**Full Prescribe** — the agent calls `prescribe_full` and `report` explicitly and sends `raw_artifact`. This is the richest protocol path: native detector coverage, risk inputs derived from the artifact, and artifact drift detection.
 
-**Direct smart mode** — the agent calls `prescribe_smart` and `report` explicitly, sending a lightweight target shape such as `tool`, `operation`, `resource`, and optional `namespace`. This keeps the same evidence chain with lower token cost, but smart mode uses matrix risk only and does not support artifact drift detection.
+**Smart Prescribe** — the agent calls `prescribe_smart` and `report` explicitly, sending a lightweight target shape such as `tool`, `operation`, `resource`, and optional `namespace`. This keeps the same evidence chain with lower token cost, but smart mode uses matrix risk only and does not support artifact drift detection.
 
-**Proxy mode** — evidra-mcp wraps another MCP server and auto-records evidence for infrastructure mutations. The agent doesn't need to know about evidra. Zero extra tokens, zero agent changes.
+**Proxy Observed** — evidra-mcp wraps another MCP server and auto-records evidence for infrastructure mutations. The agent doesn't need to know about evidra. Zero extra tokens, zero agent changes.
 
-### When to use proxy mode
+### When to use each mode
 
-Use proxy mode when:
-- You already have an infrastructure MCP server (kubectl, helm, terraform tools)
-- You want to add reliability monitoring without changing agent behavior
-- Your model can't follow the prescribe/report protocol
-- You want the fastest possible onboarding (one config line change)
-
-Use direct full mode when:
+Use Full Prescribe when:
 - You want the agent to actively participate in risk assessment
 - You need declined verdicts (agent refuses dangerous operations)
 - You want artifact-level drift detection
 - You have the full manifest/plan content and a capable model
 
-Use direct smart mode when:
+Use Smart Prescribe when:
 - You still want explicit prescribe/report participation from the agent
 - Your model struggles with full-artifact prescribe payloads
 - You can describe the target resource and namespace but do not want to send the full artifact
 - You can accept matrix-only risk assessment and no artifact drift detection
 
-### Proxy mode setup
+Use Proxy Observed when:
+- You already have an infrastructure MCP server (kubectl, helm, terraform tools)
+- You want to add reliability monitoring without changing agent behavior
+- Your model can't follow the prescribe/report protocol
+- You want the fastest possible onboarding (one config line change)
+
+### Proxy Observed setup
 
 Wrap your existing MCP server command with `evidra-mcp --proxy --`:
 
@@ -207,7 +207,7 @@ Wrap your existing MCP server command with `evidra-mcp --proxy --`:
 
 The proxy intercepts `run_command` tool calls, detects mutations (kubectl apply, helm upgrade, terraform apply, etc.), and auto-records prescribe/report evidence. Read-only commands (kubectl get, helm list) pass through unrecorded.
 
-### What proxy mode records
+### What Proxy Observed records
 
 For each detected mutation:
 ```json
@@ -215,17 +215,17 @@ For each detected mutation:
 {"type":"report","prescription_id":"proxy-...","exit_code":0,"verdict":"success","timestamp":"..."}
 ```
 
-This evidence feeds the same scorecard engine, behavioral signals, and reliability scoring as direct mode evidence.
+This evidence feeds the same scorecard engine, behavioral signals, and reliability scoring as Full Prescribe and Smart Prescribe.
 
-### Limitations of proxy mode
+### Limitations of Proxy Observed
 
 - No risk assessment — the proxy infers tool/operation from the command, but doesn't analyze artifacts
 - No declined verdicts — the proxy can't know when the agent chose not to act
 - No artifact drift detection — no YAML manifest is captured for hash comparison
 - Command-level only — the proxy sees the command string, not the intent
 
-For full protocol compliance, use direct mode with the evidra skill.
-For the richest protocol compliance, use direct full mode with the evidra skill. For lower-cost explicit recording, use direct smart mode.
+For explicit agent participation, use Full Prescribe or Smart Prescribe with the evidra skill.
+For the richest protocol compliance, use Full Prescribe with the evidra skill. For lower-cost explicit recording, use Smart Prescribe.
 
 ---
 

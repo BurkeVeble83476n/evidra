@@ -59,7 +59,7 @@ export const SEQUENCE_CHART = `sequenceDiagram
 
   Note over Initiator,CLI: payload.flavor = imperative | reconcile | workflow; payload.evidence.kind + payload.source.system capture how evidence arrived
 
-  Initiator->>CLI: prescribe(tool, operation, artifact)
+  Initiator->>CLI: prescribe_full(artifact) / prescribe_smart(target context)
   CLI->>Canon: SelectAdapter → Normalize
   Canon-->>CLI: CanonicalAction + digests
   CLI->>Risk: build risk inputs
@@ -556,14 +556,14 @@ function McpSetup() {
         <div className="mb-8">
           <h3 className="text-[0.95rem] font-bold text-fg mb-3">{editor === "claude-code" && mode !== "hosted" ? "4" : mode === "hosted" ? "2" : "3"}. Verify</h3>
           <p className="text-[0.85rem] text-fg-muted">
-            Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>prescribe</code>, <code>report</code>, and <code>get_event</code>.
+            Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>prescribe_full</code>, <code>prescribe_smart</code>, <code>report</code>, and <code>get_event</code>.
           </p>
         </div>
 
         <div className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)]">
           <h3 className="text-[0.92rem] font-bold text-fg mb-2">How it works</h3>
           <p className="text-[0.83rem] text-fg-muted leading-relaxed mb-3">
-            Every infrastructure mutation follows the same lifecycle. The agent calls <code>prescribe</code> with the artifact before execution &mdash; Evidra returns risk level, risk tags, and a prescription ID. After execution (or refusal), the agent calls <code>report</code> with the outcome. The evidence chain grows. Behavioral patterns become visible.
+            Every infrastructure mutation follows the same lifecycle. The agent calls <code>prescribe_full</code> with an artifact or <code>prescribe_smart</code> with lightweight target context before execution &mdash; Evidra returns risk level, risk tags, and a prescription ID. After execution (or refusal), the agent calls <code>report</code> with the outcome. The evidence chain grows. Behavioral patterns become visible.
           </p>
           <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
             <div className="text-center">

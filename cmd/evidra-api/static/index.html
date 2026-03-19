@@ -445,7 +445,7 @@ sequenceDiagram
 
   Note over Actor,CLI: payload.flavor = imperative | reconcile | workflow; payload.evidence.kind + payload.source.system capture how evidence arrived
 
-  Actor->>CLI: prescribe(tool, operation, artifact)
+  Actor->>CLI: prescribe_full(artifact) / prescribe_smart(target context)
   CLI->>Canon: SelectAdapter → Normalize
   Canon-->>CLI: CanonicalAction + digests
   CLI->>Risk: build risk inputs

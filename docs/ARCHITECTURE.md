@@ -12,9 +12,9 @@ One-sentence model:
 
 All three modes feed the same evidence chain.
 
-- Direct full mode: MCP agent calls `prescribe_full` with `raw_artifact`, then `report`
-- Direct smart mode: MCP agent calls `prescribe_smart` with lightweight target context, then `report`
-- Proxy mode: evidra records mutations around an upstream MCP server without agent participation
+- Full Prescribe: MCP agent calls `prescribe_full` with `raw_artifact`, then `report`
+- Smart Prescribe: MCP agent calls `prescribe_smart` with lightweight target context, then `report`
+- Proxy Observed: evidra records mutations around an upstream MCP server without agent participation
 
 ## Hosted Mode
 
@@ -28,9 +28,9 @@ Hosted mode changes where evidence is collected and replayed, not what evidence 
 - The lifecycle pair stays `prescribe_full` or `prescribe_smart`, followed by `report`; the external ingest request contract uses `flavor`, `evidence.kind`, and `source.system` to describe execution shape and ingestion source without creating a second scoring lane. Persisted entries expose the same context as `payload.flavor`, `payload.evidence.kind`, and `payload.source.system`. `flavor` includes `imperative`, `reconcile`, and `workflow`; `evidence.kind` includes `declared`, `observed`, and `translated`.
 
 ```text
-Direct full MCP ----\
-Direct smart MCP ----+-----> local JSONL evidence --------> local scorecard / explain
-Proxy MCP ----------/                \
+Full Prescribe -----\
+Smart Prescribe ----+-----> local JSONL evidence --------> local scorecard / explain
+Proxy Observed -----/                \
 CLI ----------------------------------\ forward evidence
                                        v
                                 evidra-api <----- webhook ingestion + GitOps controller evidence
