@@ -1,7 +1,7 @@
 .PHONY: build test e2e clean canon-fixtures-update docker-mcp docker-cli docker-api docker-up docker-down fmt lint tidy \
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
-	test-contracts test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-local-rest test-mcp-inspector-hosted test-mcp-inspector-hosted-rest \
+	test-contracts test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-hosted \
 	prompts-generate prompts-verify test-experiments test-signals \
 	ui-build build-api
 
@@ -39,14 +39,8 @@ test-mcp-inspector-ci:
 	mkdir -p tests/inspector/out
 	bash -o pipefail -c 'bash tests/inspector/run_inspector_tests.sh | tee tests/inspector/out/latest.log'
 
-test-mcp-inspector-local-rest:
-	EVIDRA_TEST_MODE=local-rest bash tests/inspector/run_inspector_tests.sh
-
 test-mcp-inspector-hosted:
 	EVIDRA_TEST_MODE=hosted-mcp bash tests/inspector/run_inspector_tests.sh
-
-test-mcp-inspector-hosted-rest:
-	EVIDRA_TEST_MODE=hosted-rest bash tests/inspector/run_inspector_tests.sh
 
 benchmark-validate:
 	bash tests/benchmark/scripts/validate-dataset.sh

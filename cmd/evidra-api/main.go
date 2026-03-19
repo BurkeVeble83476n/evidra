@@ -336,6 +336,9 @@ func defaultControllerFactory(cfg argocdControllerConfig, entryStore *store.Entr
 }
 
 func defaultUIFS() (fs.FS, error) {
+	// Prefer the built React bundle when present. The checked-in static/ tree is a
+	// compatibility fallback and should mirror the public product wording, not
+	// grow into a separate product surface.
 	if evidrabenchmark.UIDistFS != nil {
 		return evidrabenchmark.UIDistFS, nil
 	}

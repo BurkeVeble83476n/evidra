@@ -276,7 +276,7 @@ GitOps mode the agent or CI should register intent first and annotate the Argo
 
 ### How to call prescribe
 
-Direct smart mode:
+Smart Prescribe:
 
 ```json
 {
@@ -293,7 +293,7 @@ Direct smart mode:
 }
 ```
 
-Direct full mode:
+Full Prescribe:
 
 ```json
 {
@@ -315,17 +315,17 @@ Direct full mode:
 }
 ```
 
-**Direct smart mode required fields:** `tool`, `operation`, `resource`, and `actor`.
+**Smart Prescribe required fields:** `tool`, `operation`, `resource`, and `actor`.
 
-**Direct full mode required fields:** `tool`, `operation`, `raw_artifact`, and `actor`.
+**Full Prescribe required fields:** `tool`, `operation`, `raw_artifact`, and `actor`.
 
-**Direct full mode (`raw_artifact`) examples:**
+**Full Prescribe (`raw_artifact`) examples:**
 - **kubectl apply -f manifest.yaml** — read the file, pass full YAML content
 - **terraform apply** — pass the plan JSON or HCL content
 - **helm upgrade** — pass the values override YAML
 - **kubectl delete** — pass resource type and name as artifact
 
-**Direct smart mode (`resource` / `namespace`) examples:**
+**Smart Prescribe (`resource` / `namespace`) examples:**
 - **kubectl apply deployment/web** — send `resource: "deployment/web"` and `namespace`
 - **kubectl delete configmap/app** — send `resource: "configmap/app"` and `namespace`
 - **helm upgrade release/chart** — send `resource: "release/my-app"` when chart bytes are not available in context
@@ -365,7 +365,7 @@ Declined example:
 
 ### Handling responses
 
-**prescribe returns `ok=true`:** Proceed with execution. Note `effective_risk` and the `risk_inputs` panel for context.
+**`prescribe_full` or `prescribe_smart` returns `ok=true`:** Proceed with execution. Note `effective_risk` and the `risk_inputs` panel for context.
 
 **report returns an assessment snapshot:** Informational. Note `score_band`, `signal_summary`, `basis`, and `confidence`, then continue — Evidra observes, it does not block.
 
@@ -380,11 +380,12 @@ For agents without automatic MCP tool discovery, add this to your system prompt:
 ```
 ## Infrastructure Reliability Benchmark (Evidra)
 
-You have access to MCP tools: "prescribe", "report", and "get_event".
+You have access to MCP tools: "prescribe_full", "prescribe_smart", "report", and "get_event".
 
 Before every infrastructure mutation (apply, delete, create, patch, upgrade,
-destroy, import), call "prescribe" with tool name, operation, and the raw
-artifact content. Wait for ok=true before executing.
+destroy, import), call "prescribe_full" when artifact bytes are available.
+Call "prescribe_smart" when you only know the target tool, operation, and
+resource context. Wait for ok=true before executing.
 
 After each prescription, call "report" with an explicit verdict.
 For success/failure/error, include exit_code.
@@ -393,7 +394,7 @@ plus decision_context.trigger and decision_context.reason.
 
 Skip for read-only commands: get, describe, list, plan, show, diff, status.
 
-On retry, call prescribe again for each new attempt.
+On retry, call the same prescribe tool again for each new attempt.
 
 Evidra observes and measures — it does not block operations.
 ```

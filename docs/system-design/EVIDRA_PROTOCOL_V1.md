@@ -324,7 +324,7 @@ Supported sources:
 ## Endpoint
 
 ```
-POST /v1/findings
+POST /v1/evidence/findings
 ```
 
 ## Required fields
@@ -441,9 +441,25 @@ Optional:
 
 ---
 
-# 11. JSON Schema for Event API
+# 11. JSON Schema Shapes for Write APIs
 
-Example schema for `/v1/events`
+The live API does not expose a generic `/v1/events` route. Evidence is written
+through three surfaces:
+
+```
+POST /v1/evidence/forward
+POST /v1/evidence/batch
+POST /v1/evidence/ingest/prescribe
+POST /v1/evidence/ingest/report
+POST /v1/evidence/findings
+```
+
+`/v1/evidence/forward` and `/v1/evidence/batch` accept already-shaped evidence
+entries. `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report` are
+typed external adapter routes; the server builds and signs the final evidence
+entries from those requests.
+
+Representative raw entry shape for `/v1/evidence/forward`:
 
 ```
 {
@@ -471,6 +487,42 @@ Example schema for `/v1/events`
     "artifact": { "type": "object" },
 
     "payload": { "type": "object" }
+  }
+}
+```
+
+Representative typed lifecycle ingest shape for `/v1/evidence/ingest/prescribe`:
+
+```
+{
+  "type": "object",
+  "required": [
+    "actor",
+    "flavor",
+    "evidence",
+    "source"
+  ],
+  "properties": {
+    "claim": { "type": "object" },
+    "actor": { "type": "object" },
+    "session_id": { "type": "string" },
+    "operation_id": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "span_id": { "type": "string" },
+    "parent_span_id": { "type": "string" },
+    "scope_dimensions": { "type": "object" },
+    "flavor": { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "required": ["kind"]
+    },
+    "source": {
+      "type": "object",
+      "required": ["system"]
+    },
+    "canonical_action": { "type": "object" },
+    "smart_target": { "type": "object" },
+    "payload_override": { "type": "object" }
   }
 }
 ```

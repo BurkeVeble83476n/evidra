@@ -2,7 +2,7 @@
   "id": "parse_error_artifact",
   "steps": [
     {
-      "tool": "prescribe",
+      "tool": "prescribe_full",
       "input": {
         "actor": {"type": "agent", "id": "parse-agent", "origin": "mcp"},
         "tool": "terraform",

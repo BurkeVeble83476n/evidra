@@ -2,7 +2,7 @@
   "id": "lifecycle_ok",
   "steps": [
     {
-      "tool": "prescribe",
+      "tool": "prescribe_full",
       "input": {
         "actor": {"type": "agent", "id": "agent-a", "origin": "mcp"},
         "tool": "kubectl",

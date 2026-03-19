@@ -14,8 +14,8 @@ prescribe_args=$(jq -n --arg raw "$(cat "$REPO_ROOT/tests/inspector/fixtures/saf
   raw_artifact: $raw
 }')
 
-prescribe_body=$(call_prescribe "$prescribe_args") || {
-  fail "chain/prescribe" "call failed"
+prescribe_body=$(call_named_tool "prescribe_full" "$prescribe_args") || {
+  fail "chain/prescribe_full" "call failed"
   return
 }
 
@@ -41,7 +41,7 @@ report_args=$(jq -n --arg pid "$prescription_id" --arg ad "$artifact_digest" '{
   actor: {type:"agent", id:"chain-agent", origin:"mcp"}
 }')
 
-report_body=$(call_report "$report_args") || {
+report_body=$(call_named_tool "report" "$report_args") || {
   fail "chain/report" "call failed"
   return
 }

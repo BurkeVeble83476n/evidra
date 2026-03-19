@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
 
-if [[ "$MODE" == "local-rest" || "$MODE" == "hosted-rest" ]]; then
-  skip "list_tools" "not available in REST modes"
-  return
-fi
-
 raw_tools=$(call_list_tools) || {
   fail "list_tools" "tools/list failed"
   return
 }
 
-for t in prescribe report get_event; do
+for t in prescribe_full prescribe_smart report get_event; do
   has_tool=$(echo "$raw_tools" | jq --arg t "$t" '[.tools[]? | select(.name == $t)] | length')
   if [[ "$has_tool" -gt 0 ]]; then
     pass "list_tools/${t}_registered"
@@ -19,13 +14,30 @@ for t in prescribe report get_event; do
   fi
 done
 
-prescribe_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "prescribe")][0].inputSchema.required // []')
+legacy_prescribe=$(echo "$raw_tools" | jq --arg t "prescribe" '[.tools[]? | select(.name == $t)] | length')
+if [[ "$legacy_prescribe" == "0" ]]; then
+  pass "list_tools/legacy_prescribe_absent"
+else
+  fail "list_tools/legacy_prescribe_absent" "legacy prescribe tool should not be registered"
+fi
+
+prescribe_full_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "prescribe_full")][0].inputSchema.required // []')
 for field in tool operation raw_artifact actor; do
-  found=$(echo "$prescribe_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
+  found=$(echo "$prescribe_full_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
   if [[ "$found" -gt 0 ]]; then
-    pass "list_tools/prescribe_requires_${field}"
+    pass "list_tools/prescribe_full_requires_${field}"
   else
-    fail "list_tools/prescribe_requires_${field}" "missing required field"
+    fail "list_tools/prescribe_full_requires_${field}" "missing required field"
+  fi
+done
+
+prescribe_smart_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "prescribe_smart")][0].inputSchema.required // []')
+for field in tool operation resource actor; do
+  found=$(echo "$prescribe_smart_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
+  if [[ "$found" -gt 0 ]]; then
+    pass "list_tools/prescribe_smart_requires_${field}"
+  else
+    fail "list_tools/prescribe_smart_requires_${field}" "missing required field"
   fi
 done
 

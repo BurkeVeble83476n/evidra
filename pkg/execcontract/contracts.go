@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	PrescribeToolName      = "evidra_prescribe"
 	PrescribeFullToolName  = "evidra_prescribe_full"
 	PrescribeSmartToolName = "evidra_prescribe_smart"
 	ReportToolName         = "evidra_report"
@@ -20,9 +19,6 @@ const (
 	VerdictError    = "error"
 	VerdictDeclined = "declined"
 )
-
-//go:embed schemas/prescribe.schema.json
-var prescribeSchemaBytes []byte
 
 //go:embed schemas/prescribe_full.schema.json
 var prescribeFullSchemaBytes []byte
@@ -137,22 +133,6 @@ type ReportInput struct {
 	OperationID     string           `json:"operation_id,omitempty"`
 	SpanID          string           `json:"span_id,omitempty"`
 	ParentSpanID    string           `json:"parent_span_id,omitempty"`
-}
-
-func PrescribeToolDefinition() (ToolDefinition, error) {
-	description, err := promptdata.Read(promptdata.MCPPrescribeDescriptionPath)
-	if err != nil {
-		return ToolDefinition{}, fmt.Errorf("read prescribe description: %w", err)
-	}
-	parameters, err := loadSchema(prescribeSchemaBytes, "prescribe")
-	if err != nil {
-		return ToolDefinition{}, err
-	}
-	return ToolDefinition{
-		Name:        PrescribeToolName,
-		Description: description,
-		Parameters:  parameters,
-	}, nil
 }
 
 func PrescribeFullToolDefinition() (ToolDefinition, error) {

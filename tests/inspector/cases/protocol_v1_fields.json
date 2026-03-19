@@ -2,7 +2,7 @@
   "id": "protocol_v1_fields",
   "steps": [
     {
-      "tool": "prescribe",
+      "tool": "prescribe_full",
       "input": {
         "actor": {
           "type": "ai_agent",

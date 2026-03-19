@@ -19,96 +19,40 @@ type renderData struct {
 	Output          OutputContracts
 }
 
+type renderSpec struct {
+	id        string
+	template  string
+	generated string
+	active    string
+}
+
 func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
-	specs := []struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	}{
-		{
-			id:        "mcp.initialize",
-			template:  "templates/mcp/initialize.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "initialize", "instructions.txt"),
-			active:    filepath.Join("prompts", "mcpserver", "initialize", "instructions.txt"),
-		},
-		{
-			id:        "mcp.report",
-			template:  "templates/mcp/report.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "report_description.txt"),
-			active:    filepath.Join("prompts", "mcpserver", "tools", "report_description.txt"),
-		},
-		{
-			id:        "mcp.get_event",
-			template:  "templates/mcp/get_event.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "get_event_description.txt"),
-			active:    filepath.Join("prompts", "mcpserver", "tools", "get_event_description.txt"),
-		},
-		{
-			id:        "mcp.agent_contract",
-			template:  "templates/mcp/agent_contract.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "resources", "content", "agent_contract_v1.md"),
-			active:    filepath.Join("prompts", "mcpserver", "resources", "content", "agent_contract_v1.md"),
-		},
-		{
-			id:        "runtime.system",
-			template:  "templates/runtime/system_instructions.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "runtime", "system_instructions.txt"),
-			active:    filepath.Join("prompts", "experiments", "runtime", "system_instructions.txt"),
-		},
-		{
-			id:        "runtime.agent_contract",
-			template:  "templates/runtime/agent_contract.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "experiments", "runtime", "agent_contract_v1.md"),
-			active:    filepath.Join("prompts", "experiments", "runtime", "agent_contract_v1.md"),
-		},
-		{
-			id:        "skill.skill",
-			template:  "templates/skill/SKILL.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL.md"),
-			active:    filepath.Join("prompts", "skill", "SKILL.md"),
-		},
-		{
-			id:        "skill.skill_smart",
-			template:  "templates/skill/SKILL_SMART.tmpl",
-			generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_SMART.md"),
-			active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
-		},
-	}
+	specs := requiredRenderSpecs(bundle.Contract.Version)
 
 	templateBase := filepath.Join(rootDir, "prompts", "source", "contracts", bundle.Contract.Version)
-	specs = appendOptionalRenderSpec(specs, templateBase, struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	}{
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
 		id:        "mcp.prescribe",
 		template:  "templates/mcp/prescribe.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_description.txt"),
 		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_description.txt"),
 	})
-	specs = appendOptionalRenderSpec(specs, templateBase, struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	}{
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
 		id:        "mcp.prescribe_full",
 		template:  "templates/mcp/prescribe_full.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_full_description.txt"),
 		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_full_description.txt"),
 	})
-	specs = appendOptionalRenderSpec(specs, templateBase, struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	}{
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
 		id:        "mcp.prescribe_smart",
 		template:  "templates/mcp/prescribe_smart.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_smart_description.txt"),
 		active:    filepath.Join("prompts", "mcpserver", "tools", "prescribe_smart_description.txt"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "skill.skill_smart",
+		template:  "templates/skill/SKILL_SMART.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_SMART.md"),
+		active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
 	})
 
 	data := renderData{
@@ -148,26 +92,54 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 	return out, nil
 }
 
-func appendOptionalRenderSpec(
-	specs []struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	},
-	templateBase string,
-	spec struct {
-		id        string
-		template  string
-		generated string
-		active    string
-	},
-) []struct {
-	id        string
-	template  string
-	generated string
-	active    string
-} {
+func requiredRenderSpecs(contractVersion string) []renderSpec {
+	return []renderSpec{
+		{
+			id:        "mcp.initialize",
+			template:  "templates/mcp/initialize.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "mcpserver", "initialize", "instructions.txt"),
+			active:    filepath.Join("prompts", "mcpserver", "initialize", "instructions.txt"),
+		},
+		{
+			id:        "mcp.report",
+			template:  "templates/mcp/report.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "mcpserver", "tools", "report_description.txt"),
+			active:    filepath.Join("prompts", "mcpserver", "tools", "report_description.txt"),
+		},
+		{
+			id:        "mcp.get_event",
+			template:  "templates/mcp/get_event.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "mcpserver", "tools", "get_event_description.txt"),
+			active:    filepath.Join("prompts", "mcpserver", "tools", "get_event_description.txt"),
+		},
+		{
+			id:        "mcp.agent_contract",
+			template:  "templates/mcp/agent_contract.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "mcpserver", "resources", "content", "agent_contract_v1.md"),
+			active:    filepath.Join("prompts", "mcpserver", "resources", "content", "agent_contract_v1.md"),
+		},
+		{
+			id:        "runtime.system",
+			template:  "templates/runtime/system_instructions.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "experiments", "runtime", "system_instructions.txt"),
+			active:    filepath.Join("prompts", "experiments", "runtime", "system_instructions.txt"),
+		},
+		{
+			id:        "runtime.agent_contract",
+			template:  "templates/runtime/agent_contract.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "experiments", "runtime", "agent_contract_v1.md"),
+			active:    filepath.Join("prompts", "experiments", "runtime", "agent_contract_v1.md"),
+		},
+		{
+			id:        "skill.skill",
+			template:  "templates/skill/SKILL.tmpl",
+			generated: filepath.Join("prompts", "generated", contractVersion, "skill", "SKILL.md"),
+			active:    filepath.Join("prompts", "skill", "SKILL.md"),
+		},
+	}
+}
+
+func appendOptionalRenderSpec(specs []renderSpec, templateBase string, spec renderSpec) []renderSpec {
 	if _, err := os.Stat(filepath.Join(templateBase, spec.template)); err == nil {
 		return append(specs, spec)
 	}
