@@ -1162,7 +1162,7 @@ components:
             payload_override:
               description: Raw override body for an already-shaped external ingest payload.
               type: object
-              required: [prescription_id, canonical_action]
+              required: [canonical_action]
               properties:
                 prescription_id:
                   type: string

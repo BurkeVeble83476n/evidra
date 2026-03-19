@@ -107,9 +107,6 @@ func assertPrescribeExamples(t *testing.T, spec *yaml.Node) {
 	}
 
 	overrideBody := mustMap(t, override["payload_override"], "prescribe override payload_override")
-	if _, ok := overrideBody["prescription_id"]; !ok {
-		t.Fatal("prescribe override payload_override missing prescription_id")
-	}
 	if _, ok := overrideBody["canonical_action"]; !ok {
 		t.Fatal("prescribe override payload_override missing canonical_action")
 	}
