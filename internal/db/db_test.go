@@ -23,6 +23,7 @@ func TestMigrationsEmbedded(t *testing.T) {
 		"002_evidence_entries.up.sql",
 		"003_benchmark_runs.up.sql",
 		"004_webhook_events.up.sql",
+		"005_webhook_event_results.up.sql",
 	} {
 		if !found[want] {
 			t.Fatalf("missing embedded migration %s", want)

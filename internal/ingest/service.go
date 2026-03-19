@@ -23,6 +23,7 @@ type Store interface {
 	GetEntry(ctx context.Context, tenantID, entryID string) (store.StoredEntry, error)
 	ClaimWebhookEvent(ctx context.Context, tenantID, source, key string, payload json.RawMessage) (bool, error)
 	ReleaseWebhookEvent(ctx context.Context, tenantID, source, key string) error
+	BeginIngestTx(ctx context.Context) (store.IngestTx, error)
 }
 
 // Result captures the stable ingest response shape.
@@ -60,26 +61,34 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 	in.SpanID = strings.TrimSpace(in.SpanID)
 	in.ParentSpanID = strings.TrimSpace(in.ParentSpanID)
 
-	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
+	tx, err := s.store.BeginIngestTx(ctx)
+	if err != nil {
+		return Result{}, wrapError(ErrCodeInternal, "failed to begin ingest transaction", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, in.Claim)
 	if err != nil {
 		return Result{}, err
 	}
 	if duplicate {
-		return Result{Duplicate: true}, nil
-	}
-
-	success := false
-	defer func() {
-		if !success {
-			release()
+		result, err := s.loadDuplicatePrescribeResult(ctx, tx, tenantID, in.Claim)
+		if err != nil {
+			return Result{}, err
 		}
-	}()
+		return result, nil
+	}
 
 	var (
 		effectiveRisk string
 		entry         evidence.EvidenceEntry
 	)
-	entry, err = s.saveEntry(ctx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
+	entry, err = s.saveEntry(ctx, tx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
 		var buildErr error
 		entry, effectiveRisk, buildErr = buildPrescribeEntry(lastHash, s.signer, in)
 		return entry, buildErr
@@ -88,7 +97,13 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 		return Result{}, err
 	}
 
-	success = true
+	if err := s.finalizeClaim(ctx, tx, tenantID, in.Claim, entry.EntryID, effectiveRisk); err != nil {
+		return Result{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Result{}, wrapError(ErrCodeInternal, "failed to commit ingest transaction", err)
+	}
+	committed = true
 	return Result{
 		EntryID:       entry.EntryID,
 		EffectiveRisk: effectiveRisk,
@@ -112,20 +127,28 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 	in.SpanID = strings.TrimSpace(in.SpanID)
 	in.ParentSpanID = strings.TrimSpace(in.ParentSpanID)
 
-	release, duplicate, err := s.claimIfNeeded(ctx, tenantID, in.Claim)
+	tx, err := s.store.BeginIngestTx(ctx)
+	if err != nil {
+		return Result{}, wrapError(ErrCodeInternal, "failed to begin ingest transaction", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	duplicate, err := s.claimIfNeeded(ctx, tx, tenantID, in.Claim)
 	if err != nil {
 		return Result{}, err
 	}
 	if duplicate {
-		return Result{Duplicate: true}, nil
-	}
-
-	success := false
-	defer func() {
-		if !success {
-			release()
+		result, err := s.loadDuplicateReportResult(ctx, tx, tenantID, in.Claim)
+		if err != nil {
+			return Result{}, err
 		}
-	}()
+		return result, nil
+	}
 
 	reportPayload, prescriptionID, err := buildReportPayloadState(in)
 	if err != nil {
@@ -137,14 +160,20 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 		return Result{}, err
 	}
 
-	entry, err := s.saveEntry(ctx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
+	entry, err := s.saveEntry(ctx, tx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
 		return buildReportEntry(lastHash, s.signer, in, reportPayload, prescription)
 	})
 	if err != nil {
 		return Result{}, err
 	}
 
-	success = true
+	if err := s.finalizeClaim(ctx, tx, tenantID, in.Claim, entry.EntryID, ""); err != nil {
+		return Result{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Result{}, wrapError(ErrCodeInternal, "failed to commit ingest transaction", err)
+	}
+	committed = true
 	return Result{
 		EntryID: entry.EntryID,
 		Entry:   entry,
@@ -197,8 +226,13 @@ func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRe
 	return entry, effectiveRisk, nil
 }
 
-func (s *Service) saveEntry(ctx context.Context, tenantID string, build func(lastHash string) (evidence.EvidenceEntry, error)) (evidence.EvidenceEntry, error) {
-	lastHash, err := s.store.LastHash(ctx, tenantID)
+type ingestPersistence interface {
+	LastHash(ctx context.Context, tenantID string) (string, error)
+	SaveRaw(ctx context.Context, tenantID string, raw json.RawMessage) (string, error)
+}
+
+func (s *Service) saveEntry(ctx context.Context, persist ingestPersistence, tenantID string, build func(lastHash string) (evidence.EvidenceEntry, error)) (evidence.EvidenceEntry, error) {
+	lastHash, err := persist.LastHash(ctx, tenantID)
 	if err != nil {
 		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to read last hash", err)
 	}
@@ -212,7 +246,7 @@ func (s *Service) saveEntry(ctx context.Context, tenantID string, build func(las
 	if err != nil {
 		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to marshal evidence entry", err)
 	}
-	if _, err := s.store.SaveRaw(ctx, tenantID, raw); err != nil {
+	if _, err := persist.SaveRaw(ctx, tenantID, raw); err != nil {
 		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to store evidence entry", err)
 	}
 	return entry, nil
@@ -524,45 +558,104 @@ func normalizeToken(v string) string {
 	return strings.ToLower(strings.TrimSpace(v))
 }
 
-func claimEvent(ctx context.Context, store Store, tenantID, source, key string, payload json.RawMessage) (bool, func(), error) {
-	duplicate, err := store.ClaimWebhookEvent(ctx, tenantID, source, key, payload)
-	if err != nil {
-		return false, nil, err
-	}
-
-	released := false
-	release := func() {
-		if released {
-			return
-		}
-		released = true
-		_ = store.ReleaseWebhookEvent(ctx, tenantID, source, key)
-	}
-	if duplicate {
-		released = true
-		return true, release, nil
-	}
-	return false, release, nil
-}
-
-func (s *Service) claimIfNeeded(ctx context.Context, tenantID string, claim *Claim) (func(), bool, error) {
+func (s *Service) claimIfNeeded(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (bool, error) {
 	if !hasMeaningfulClaim(claim) {
-		return func() {}, false, nil
+		return false, nil
 	}
 
-	duplicate, release, err := claimEvent(ctx, s.store, tenantID, claim.Source, claim.Key, claim.Payload)
+	duplicate, err := tx.ClaimWebhookEvent(ctx, tenantID, claim.Source, claim.Key, claim.Payload)
 	if err != nil {
-		return nil, false, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
+		return false, wrapError(ErrCodeInternal, "failed to claim ingest event", err)
 	}
 	if duplicate {
-		release()
-		return func() {}, true, nil
+		return true, nil
 	}
-	return release, false, nil
+	return false, nil
 }
 
 func hasMeaningfulClaim(claim *Claim) bool {
 	return claim != nil && (strings.TrimSpace(claim.Source) != "" || strings.TrimSpace(claim.Key) != "" || len(claim.Payload) > 0)
+}
+
+func (s *Service) loadDuplicatePrescribeResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (Result, error) {
+	return s.loadDuplicateResult(ctx, tx, tenantID, claim, func(entry store.StoredEntry) (Result, error) {
+		decoded, err := decodeStoredEvidenceEntry(entry)
+		if err != nil {
+			return Result{}, err
+		}
+		effectiveRisk := ""
+		return Result{
+			Duplicate:     true,
+			EntryID:       decoded.EntryID,
+			EffectiveRisk: effectiveRisk,
+			Entry:         decoded,
+		}, nil
+	})
+}
+
+func (s *Service) loadDuplicateReportResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim) (Result, error) {
+	return s.loadDuplicateResult(ctx, tx, tenantID, claim, func(entry store.StoredEntry) (Result, error) {
+		decoded, err := decodeStoredEvidenceEntry(entry)
+		if err != nil {
+			return Result{}, err
+		}
+		return Result{
+			Duplicate: true,
+			EntryID:   decoded.EntryID,
+			Entry:     decoded,
+		}, nil
+	})
+}
+
+func (s *Service) loadDuplicateResult(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim, build func(store.StoredEntry) (Result, error)) (Result, error) {
+	if !hasMeaningfulClaim(claim) {
+		return Result{Duplicate: true}, nil
+	}
+
+	meta, err := tx.GetWebhookEventResult(ctx, tenantID, claim.Source, claim.Key)
+	if err != nil {
+		return Result{}, err
+	}
+	if strings.TrimSpace(meta.EntryID) == "" {
+		return Result{}, wrapError(ErrCodeInternal, "duplicate ingest claim missing result entry id", nil)
+	}
+
+	entry, err := tx.GetEntry(ctx, tenantID, meta.EntryID)
+	if err != nil {
+		if errorsIsNotFound(err) {
+			return Result{}, wrapError(ErrCodeInternal, "duplicate ingest result entry not found", err)
+		}
+		return Result{}, err
+	}
+
+	result, err := build(entry)
+	if err != nil {
+		return Result{}, err
+	}
+	result.EntryID = meta.EntryID
+	result.EffectiveRisk = meta.EffectiveRisk
+	return result, nil
+}
+
+func (s *Service) finalizeClaim(ctx context.Context, tx store.IngestTx, tenantID string, claim *Claim, entryID, effectiveRisk string) error {
+	if !hasMeaningfulClaim(claim) {
+		return nil
+	}
+	if err := tx.FinalizeWebhookEvent(ctx, tenantID, claim.Source, claim.Key, entryID, effectiveRisk); err != nil {
+		if errorsIsNotFound(err) {
+			return wrapError(ErrCodeInternal, "failed to finalize ingest claim", err)
+		}
+		return wrapError(ErrCodeInternal, "failed to finalize ingest claim", err)
+	}
+	return nil
+}
+
+func decodeStoredEvidenceEntry(entry store.StoredEntry) (evidence.EvidenceEntry, error) {
+	var decoded evidence.EvidenceEntry
+	if err := json.Unmarshal(entry.Payload, &decoded); err != nil {
+		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, "failed to decode stored evidence entry", err)
+	}
+	return decoded, nil
 }
 
 func errorsIsNotFound(err error) bool {

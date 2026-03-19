@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
 
 	"samebits.com/evidra/internal/auth"
 	"samebits.com/evidra/internal/ingest"
@@ -62,8 +62,13 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 				EntryID:       result.EntryID,
 				EffectiveRisk: result.EffectiveRisk,
 			},
-			PrescriptionID: prescribeResponsePrescriptionID(req, result),
 		}
+		prescriptionID, err := prescriptionIDFromEntry(result.Entry.Payload)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "marshal response")
+			return
+		}
+		resp.PrescriptionID = prescriptionID
 
 		status := http.StatusAccepted
 		if result.Duplicate {
@@ -73,43 +78,19 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 	}
 }
 
-func prescribeResponsePrescriptionID(req ingest.PrescribeRequest, result ingest.Result) string {
-	if id := requestPrescriptionID(req); result.Duplicate && id != "" {
-		return id
-	}
-	if id, ok := entryPrescriptionID(result.Entry.Payload); ok {
-		return id
-	}
-	if id := requestPrescriptionID(req); id != "" {
-		return id
-	}
-	return result.EntryID
-}
-
-func requestPrescriptionID(req ingest.PrescribeRequest) string {
-	if req.PayloadOverride == nil {
-		return ""
-	}
-	var payload evidence.PrescriptionPayload
-	if err := json.Unmarshal(*req.PayloadOverride, &payload); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(payload.PrescriptionID)
-}
-
-func entryPrescriptionID(raw json.RawMessage) (string, bool) {
+func prescriptionIDFromEntry(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 {
-		return "", false
+		return "", fmt.Errorf("missing evidence entry payload")
 	}
 	var payload evidence.PrescriptionPayload
 	if err := json.Unmarshal(raw, &payload); err != nil {
-		return "", false
+		return "", err
 	}
-	id := strings.TrimSpace(payload.PrescriptionID)
+	id := payload.PrescriptionID
 	if id == "" {
-		return "", false
+		return "", fmt.Errorf("missing prescription_id")
 	}
-	return id, true
+	return id, nil
 }
 
 func handleIngestReport(svc IngestPort) http.HandlerFunc {

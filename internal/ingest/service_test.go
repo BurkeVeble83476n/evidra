@@ -400,6 +400,21 @@ func TestServiceDuplicateClaim_ReturnsDuplicateWithoutStoringTwice(t *testing.T)
 	if !second.Duplicate {
 		t.Fatal("duplicate claim should be reported as duplicate")
 	}
+	if first.EntryID == "" || second.EntryID == "" {
+		t.Fatal("expected stable entry ids on duplicate retry")
+	}
+	if first.EntryID != second.EntryID {
+		t.Fatalf("entry ids differ: first=%q second=%q", first.EntryID, second.EntryID)
+	}
+	if first.EffectiveRisk == "" || second.EffectiveRisk == "" {
+		t.Fatal("expected effective risk on duplicate retry")
+	}
+	if first.EffectiveRisk != second.EffectiveRisk {
+		t.Fatalf("effective risk differs: first=%q second=%q", first.EffectiveRisk, second.EffectiveRisk)
+	}
+	if len(first.Entry.Payload) == 0 || len(second.Entry.Payload) == 0 {
+		t.Fatal("expected duplicate retry to return stored entry payload")
+	}
 	if len(fakeStore.savedRaw) != 1 {
 		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
 	}
@@ -632,19 +647,32 @@ type fakeIngestStore struct {
 	lastHash      string
 	entries       map[string]store.StoredEntry
 	claimed       map[string]json.RawMessage
+	claimResults  map[string]store.WebhookEventResult
 	savedRaw      []json.RawMessage
 	getEntryCalls int
 }
 
 func newFakeIngestStore() *fakeIngestStore {
 	return &fakeIngestStore{
-		entries: make(map[string]store.StoredEntry),
-		claimed: make(map[string]json.RawMessage),
+		entries:      make(map[string]store.StoredEntry),
+		claimed:      make(map[string]json.RawMessage),
+		claimResults: make(map[string]store.WebhookEventResult),
 	}
 }
 
 func (f *fakeIngestStore) LastHash(context.Context, string) (string, error) {
 	return f.lastHash, nil
+}
+
+func (f *fakeIngestStore) BeginIngestTx(context.Context) (store.IngestTx, error) {
+	tx := &fakeIngestTx{
+		parent:       f,
+		lastHash:     f.lastHash,
+		entries:      cloneStoredEntries(f.entries),
+		claimed:      cloneClaimedEntries(f.claimed),
+		claimResults: cloneClaimResults(f.claimResults),
+	}
+	return tx, nil
 }
 
 func (f *fakeIngestStore) SaveRaw(_ context.Context, _ string, raw json.RawMessage) (string, error) {
@@ -661,7 +689,7 @@ func (f *fakeIngestStore) SaveRaw(_ context.Context, _ string, raw json.RawMessa
 		EntryType:   string(entry.Type),
 		SessionID:   entry.SessionID,
 		OperationID: entry.OperationID,
-		Payload:     append(json.RawMessage(nil), entry.Payload...),
+		Payload:     append(json.RawMessage(nil), raw...),
 	}
 	return entry.EntryID, nil
 }
@@ -686,6 +714,129 @@ func (f *fakeIngestStore) ClaimWebhookEvent(_ context.Context, tenantID, source,
 
 func (f *fakeIngestStore) ReleaseWebhookEvent(context.Context, string, string, string) error {
 	return nil
+}
+
+type fakeIngestTx struct {
+	parent       *fakeIngestStore
+	lastHash     string
+	entries      map[string]store.StoredEntry
+	claimed      map[string]json.RawMessage
+	claimResults map[string]store.WebhookEventResult
+	savedRaw     []json.RawMessage
+}
+
+func (t *fakeIngestTx) LastHash(context.Context, string) (string, error) {
+	return t.lastHash, nil
+}
+
+func (t *fakeIngestTx) SaveRaw(_ context.Context, _ string, raw json.RawMessage) (string, error) {
+	t.savedRaw = append(t.savedRaw, append(json.RawMessage(nil), raw...))
+	var entry evidence.EvidenceEntry
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		return "", err
+	}
+	if entry.EntryID == "" {
+		return "", errors.New("missing entry_id")
+	}
+	t.entries[entry.EntryID] = store.StoredEntry{
+		ID:          entry.EntryID,
+		EntryType:   string(entry.Type),
+		SessionID:   entry.SessionID,
+		OperationID: entry.OperationID,
+		Payload:     append(json.RawMessage(nil), raw...),
+	}
+	t.lastHash = entry.Hash
+	return entry.EntryID, nil
+}
+
+func (t *fakeIngestTx) GetEntry(_ context.Context, _ string, entryID string) (store.StoredEntry, error) {
+	entry, ok := t.entries[entryID]
+	if !ok {
+		return store.StoredEntry{}, store.ErrNotFound
+	}
+	return entry, nil
+}
+
+func (t *fakeIngestTx) ClaimWebhookEvent(_ context.Context, tenantID, source, key string, payload json.RawMessage) (bool, error) {
+	claimKey := tenantID + "|" + source + "|" + key
+	if _, ok := t.claimed[claimKey]; ok {
+		return true, nil
+	}
+	t.claimed[claimKey] = append(json.RawMessage(nil), payload...)
+	return false, nil
+}
+
+func (t *fakeIngestTx) GetWebhookEventResult(_ context.Context, tenantID, source, key string) (store.WebhookEventResult, error) {
+	claimKey := tenantID + "|" + source + "|" + key
+	result, ok := t.claimResults[claimKey]
+	if !ok {
+		return store.WebhookEventResult{}, store.ErrNotFound
+	}
+	return result, nil
+}
+
+func (t *fakeIngestTx) FinalizeWebhookEvent(_ context.Context, tenantID, source, key, entryID, effectiveRisk string) error {
+	claimKey := tenantID + "|" + source + "|" + key
+	if _, ok := t.claimed[claimKey]; !ok {
+		return store.ErrNotFound
+	}
+	t.claimResults[claimKey] = store.WebhookEventResult{EntryID: entryID, EffectiveRisk: effectiveRisk}
+	return nil
+}
+
+func (t *fakeIngestTx) Commit(context.Context) error {
+	if t.parent == nil {
+		return nil
+	}
+	if t.parent.entries == nil {
+		t.parent.entries = make(map[string]store.StoredEntry)
+	}
+	if t.parent.claimed == nil {
+		t.parent.claimed = make(map[string]json.RawMessage)
+	}
+	if t.parent.claimResults == nil {
+		t.parent.claimResults = make(map[string]store.WebhookEventResult)
+	}
+	t.parent.lastHash = t.lastHash
+	for id, entry := range t.entries {
+		t.parent.entries[id] = entry
+	}
+	for key, payload := range t.claimed {
+		t.parent.claimed[key] = append(json.RawMessage(nil), payload...)
+	}
+	for key, result := range t.claimResults {
+		t.parent.claimResults[key] = result
+	}
+	t.parent.savedRaw = append(t.parent.savedRaw, t.savedRaw...)
+	return nil
+}
+
+func (t *fakeIngestTx) Rollback(context.Context) error {
+	return nil
+}
+
+func cloneStoredEntries(src map[string]store.StoredEntry) map[string]store.StoredEntry {
+	dst := make(map[string]store.StoredEntry, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func cloneClaimedEntries(src map[string]json.RawMessage) map[string]json.RawMessage {
+	dst := make(map[string]json.RawMessage, len(src))
+	for k, v := range src {
+		dst[k] = append(json.RawMessage(nil), v...)
+	}
+	return dst
+}
+
+func cloneClaimResults(src map[string]store.WebhookEventResult) map[string]store.WebhookEventResult {
+	dst := make(map[string]store.WebhookEventResult, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 func canonicalActionForTest() canon.CanonicalAction {
