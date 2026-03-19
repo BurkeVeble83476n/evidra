@@ -56,6 +56,8 @@ type SourceMetadata = evidence.SourceMetadata
 // PrescribeRequest is the external contract for server-side prescribe ingest.
 type PrescribeRequest struct {
 	Envelope
+	PrescriptionID  string                    `json:"prescription_id,omitempty"`
+	ArtifactDigest  string                    `json:"artifact_digest,omitempty"`
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
 	SmartTarget     *SmartTarget           `json:"smart_target,omitempty"`
 	PayloadOverride *json.RawMessage       `json:"payload_override,omitempty"`

@@ -211,6 +211,7 @@ func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRe
 		ParentSpanID:    strings.TrimSpace(in.ParentSpanID),
 		Actor:           in.Actor,
 		IntentDigest:    intentDigest,
+		ArtifactDigest:  strings.TrimSpace(in.ArtifactDigest),
 		Payload:         payload,
 		PreviousHash:    lastHash,
 		ScopeDimensions: in.ScopeDimensions,
@@ -330,7 +331,10 @@ func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.
 		}
 		action = normalized
 		canonVersion = "external/v1"
-		entryID = strings.TrimSpace(payload.PrescriptionID)
+		entryID = strings.TrimSpace(in.PrescriptionID)
+		if entryID == "" {
+			entryID = strings.TrimSpace(payload.PrescriptionID)
+		}
 	case in.CanonicalAction != nil:
 		normalized, err := normalizeCanonicalAction(*in.CanonicalAction)
 		if err != nil {
@@ -338,7 +342,7 @@ func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.
 		}
 		action = normalized
 		canonVersion = "external/v1"
-		entryID = ""
+		entryID = strings.TrimSpace(in.PrescriptionID)
 	case in.SmartTarget != nil:
 		normalized, err := normalizeCanonicalAction(buildSmartTargetCanonicalAction(*in.SmartTarget))
 		if err != nil {
@@ -346,7 +350,7 @@ func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.
 		}
 		action = normalized
 		canonVersion = "external/v1"
-		entryID = ""
+		entryID = strings.TrimSpace(in.PrescriptionID)
 	default:
 		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInvalidInput, "canonical_action or smart_target is required", nil)
 	}

@@ -106,6 +106,69 @@ func TestServicePrescribe_CreatesAndStoresSignedPrescribeEntry(t *testing.T) {
 	}
 }
 
+func TestServicePrescribe_UsesExplicitPrescriptionIDAndArtifactDigest(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	tenantID := "tenant-1"
+
+	req := PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       " controller ",
+				ID:         " argocd ",
+				Provenance: " argocd ",
+			},
+			SessionID:       "session-explicit",
+			OperationID:     "operation-explicit",
+			TraceID:         "trace-explicit",
+			ScopeDimensions: map[string]string{"cluster": "prod"},
+			Flavor:          evidence.FlavorWorkflow,
+			Evidence:        &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:          &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-explicit",
+		ArtifactDigest:  "sha256:" + strings.Repeat("b", 64),
+		CanonicalAction: &canon.CanonicalAction{
+			Tool:           "kubectl",
+			Operation:      "apply",
+			OperationClass: "mutate",
+			ScopeClass:     "production",
+			ResourceCount:  1,
+		},
+	}
+
+	out, err := svc.Prescribe(context.Background(), tenantID, req)
+	if err != nil {
+		t.Fatalf("Prescribe: %v", err)
+	}
+	if out.Entry.EntryID != "presc-explicit" {
+		t.Fatalf("entry id = %q, want presc-explicit", out.Entry.EntryID)
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+
+	entry := decodeStoredEntry(t, fakeStore.savedRaw[0])
+	if entry.EntryID != "presc-explicit" {
+		t.Fatalf("stored entry id = %q, want presc-explicit", entry.EntryID)
+	}
+	if entry.ArtifactDigest != "sha256:"+strings.Repeat("b", 64) {
+		t.Fatalf("artifact digest = %q, want explicit digest", entry.ArtifactDigest)
+	}
+
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal prescribe payload: %v", err)
+	}
+	if payload.PrescriptionID != "presc-explicit" {
+		t.Fatalf("payload prescription_id = %q, want presc-explicit", payload.PrescriptionID)
+	}
+}
+
 func TestServicePrescribe_PayloadOverrideAlignsEntryIDAndPayload(t *testing.T) {
 	t.Parallel()
 

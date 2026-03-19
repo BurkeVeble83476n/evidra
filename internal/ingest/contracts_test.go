@@ -44,6 +44,40 @@ func TestValidatePrescribeRequestValidCanonicalAction(t *testing.T) {
 	}
 }
 
+func TestValidatePrescribeRequestValidExplicitPrescriptionID(t *testing.T) {
+	t.Parallel()
+
+	req := PrescribeRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-explicit",
+			OperationID: "operation-explicit",
+			TraceID:     "trace-explicit",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-explicit",
+		CanonicalAction: &canon.CanonicalAction{
+			Tool:              "kubectl",
+			Operation:         "apply",
+			OperationClass:    "mutate",
+			ScopeClass:        "production",
+			ResourceCount:     1,
+			ResourceShapeHash: "sha256:" + strings.Repeat("a", 64),
+		},
+	}
+
+	if err := ValidatePrescribeRequest(req); err != nil {
+		t.Fatalf("ValidatePrescribeRequest: %v", err)
+	}
+}
+
 func TestValidatePrescribeRequestRejectsEmptyCanonicalAction(t *testing.T) {
 	t.Parallel()
 
