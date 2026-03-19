@@ -61,7 +61,7 @@ func TestBuildGenericWebhookRequestsSharePrescriptionID(t *testing.T) {
 		Environment:    "production",
 		Actor:          "ci",
 		SessionID:      "sess-1",
-		IdempotencyKey:  "evt-123",
+		IdempotencyKey: "evt-123",
 		Verdict:        evidence.VerdictSuccess,
 		ExitCode:       intPtr(0),
 	}, completeBody)

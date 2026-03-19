@@ -131,7 +131,7 @@ func TestServicePrescribe_UsesExplicitPrescriptionIDAndArtifactDigest(t *testing
 			Source:          &evidence.SourceMetadata{System: "argocd"},
 		},
 		PrescriptionID: "presc-explicit",
-		ArtifactDigest:  "sha256:" + strings.Repeat("b", 64),
+		ArtifactDigest: "sha256:" + strings.Repeat("b", 64),
 		CanonicalAction: &canon.CanonicalAction{
 			Tool:           "kubectl",
 			Operation:      "apply",
@@ -538,6 +538,163 @@ func TestServiceReport_ResolvesReferencedPrescription(t *testing.T) {
 	}
 	if payload.PrescriptionID != "presc-2" {
 		t.Fatalf("payload prescription_id = %q, want presc-2", payload.PrescriptionID)
+	}
+}
+
+func TestServiceReport_AllowsTranslatedReportWithoutPersistedPrescription(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	tenantID := "tenant-1"
+
+	req := ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-complete",
+			OperationID: "operation-complete",
+			TraceID:     "trace-complete",
+			Flavor:      evidence.FlavorImperative,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-missing",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	}
+
+	out, err := svc.Report(context.Background(), tenantID, req)
+	if err != nil {
+		t.Fatalf("Report: %v", err)
+	}
+	if out.Duplicate {
+		t.Fatal("expected non-duplicate report result")
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+
+	entry := decodeStoredEntry(t, fakeStore.savedRaw[0])
+	if entry.SessionID != "session-complete" {
+		t.Fatalf("entry session_id = %q, want session-complete", entry.SessionID)
+	}
+	if entry.OperationID != "operation-complete" {
+		t.Fatalf("entry operation_id = %q, want operation-complete", entry.OperationID)
+	}
+	if entry.TraceID != "trace-complete" {
+		t.Fatalf("entry trace_id = %q, want trace-complete", entry.TraceID)
+	}
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal report payload: %v", err)
+	}
+	if payload.PrescriptionID != "presc-missing" {
+		t.Fatalf("payload prescription_id = %q, want presc-missing", payload.PrescriptionID)
+	}
+}
+
+func TestServiceReport_PreservesTranslatedSessionDrift(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	fakeStore.entries["presc-drift"] = store.StoredEntry{
+		ID:          "presc-drift",
+		TenantID:    "tenant-1",
+		EntryType:   string(evidence.EntryTypePrescribe),
+		SessionID:   "session-start",
+		OperationID: "operation-start",
+	}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+	tenantID := "tenant-1"
+
+	req := ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-complete",
+			OperationID: "operation-complete",
+			TraceID:     "trace-complete",
+			Flavor:      evidence.FlavorImperative,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-drift",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	}
+
+	out, err := svc.Report(context.Background(), tenantID, req)
+	if err != nil {
+		t.Fatalf("Report: %v", err)
+	}
+	if out.Duplicate {
+		t.Fatal("expected non-duplicate report result")
+	}
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+
+	entry := decodeStoredEntry(t, fakeStore.savedRaw[0])
+	if entry.SessionID != "session-complete" {
+		t.Fatalf("entry session_id = %q, want session-complete", entry.SessionID)
+	}
+	if entry.OperationID != "operation-complete" {
+		t.Fatalf("entry operation_id = %q, want operation-complete", entry.OperationID)
+	}
+	if entry.TraceID != "trace-complete" {
+		t.Fatalf("entry trace_id = %q, want trace-complete", entry.TraceID)
+	}
+	var payload evidence.ReportPayload
+	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal report payload: %v", err)
+	}
+	if payload.PrescriptionID != "presc-drift" {
+		t.Fatalf("payload prescription_id = %q, want presc-drift", payload.PrescriptionID)
+	}
+}
+
+func TestServiceReport_RejectsMissingPrescriptionForDirectPath(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	_, err := svc.Report(context.Background(), "tenant-1", ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-direct",
+			OperationID: "operation-direct",
+			TraceID:     "trace-direct",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-missing",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if code := ErrorCode(err); code != ErrCodeNotFound {
+		t.Fatalf("error code = %v, want not found", code)
 	}
 }
 

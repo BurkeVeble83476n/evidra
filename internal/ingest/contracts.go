@@ -56,8 +56,8 @@ type SourceMetadata = evidence.SourceMetadata
 // PrescribeRequest is the external contract for server-side prescribe ingest.
 type PrescribeRequest struct {
 	Envelope
-	PrescriptionID  string                    `json:"prescription_id,omitempty"`
-	ArtifactDigest  string                    `json:"artifact_digest,omitempty"`
+	PrescriptionID  string                 `json:"prescription_id,omitempty"`
+	ArtifactDigest  string                 `json:"artifact_digest,omitempty"`
 	CanonicalAction *canon.CanonicalAction `json:"canonical_action,omitempty"`
 	SmartTarget     *SmartTarget           `json:"smart_target,omitempty"`
 	PayloadOverride *json.RawMessage       `json:"payload_override,omitempty"`
@@ -102,6 +102,12 @@ func ValidatePrescribeRequest(in PrescribeRequest) error {
 	if in.PayloadOverride != nil {
 		if !hasRawJSON(*in.PayloadOverride) {
 			violations.Add("payload_override must not be empty")
+		}
+		if strings.TrimSpace(in.PrescriptionID) != "" {
+			violations.Add("payload_override is mutually exclusive with prescription_id")
+		}
+		if strings.TrimSpace(in.ArtifactDigest) != "" {
+			violations.Add("payload_override is mutually exclusive with artifact_digest")
 		}
 		if in.CanonicalAction != nil || in.SmartTarget != nil {
 			violations.Add("payload_override is mutually exclusive with explicit prescribe fields")

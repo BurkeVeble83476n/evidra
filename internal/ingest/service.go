@@ -155,13 +155,14 @@ func (s *Service) Report(ctx context.Context, tenantID string, in ReportRequest)
 		return Result{}, err
 	}
 
-	prescription, err := s.loadPrescription(ctx, tenantID, prescriptionID)
+	softResolve := reportUsesSoftResolution(in)
+	prescription, err := s.resolvePrescriptionForReport(ctx, tenantID, prescriptionID, softResolve)
 	if err != nil {
 		return Result{}, err
 	}
 
 	entry, err := s.saveEntry(ctx, tx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
-		return buildReportEntry(lastHash, s.signer, in, reportPayload, prescription)
+		return buildReportEntry(lastHash, s.signer, in, reportPayload, prescription, softResolve)
 	})
 	if err != nil {
 		return Result{}, err
@@ -185,6 +186,24 @@ func (s *Service) loadPrescription(ctx context.Context, tenantID, prescriptionID
 	if err != nil {
 		if errorsIsNotFound(err) {
 			return store.StoredEntry{}, wrapError(ErrCodeNotFound, "prescription_id not found", err)
+		}
+		return store.StoredEntry{}, wrapError(ErrCodeInternal, "failed to read prescription entry", err)
+	}
+	if entry.EntryType != string(evidence.EntryTypePrescribe) {
+		return store.StoredEntry{}, wrapError(ErrCodeInvalidInput, fmt.Sprintf("entry %q is not a prescribe entry", prescriptionID), nil)
+	}
+	return entry, nil
+}
+
+func (s *Service) resolvePrescriptionForReport(ctx context.Context, tenantID, prescriptionID string, softResolve bool) (store.StoredEntry, error) {
+	if !softResolve {
+		return s.loadPrescription(ctx, tenantID, prescriptionID)
+	}
+
+	entry, err := s.store.GetEntry(ctx, tenantID, prescriptionID)
+	if err != nil {
+		if errorsIsNotFound(err) {
+			return store.StoredEntry{ID: prescriptionID}, nil
 		}
 		return store.StoredEntry{}, wrapError(ErrCodeInternal, "failed to read prescription entry", err)
 	}
@@ -253,7 +272,7 @@ func (s *Service) saveEntry(ctx context.Context, persist ingestPersistence, tena
 	return entry, nil
 }
 
-func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest, payload evidence.ReportPayload, prescription store.StoredEntry) (evidence.EvidenceEntry, error) {
+func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest, payload evidence.ReportPayload, prescription store.StoredEntry, softResolve bool) (evidence.EvidenceEntry, error) {
 	entryID := ulid.Make().String()
 	payload.ReportID = entryID
 
@@ -261,8 +280,10 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 	if sessionID == "" {
 		sessionID = strings.TrimSpace(prescription.SessionID)
 	}
-	if prescriptionSession := strings.TrimSpace(prescription.SessionID); sessionID != "" && prescriptionSession != "" && sessionID != prescriptionSession {
-		return evidence.EvidenceEntry{}, wrapError(ErrCodeInvalidInput, fmt.Sprintf("report session_id %q does not match prescription session_id %q", sessionID, prescriptionSession), nil)
+	if !softResolve {
+		if prescriptionSession := strings.TrimSpace(prescription.SessionID); sessionID != "" && prescriptionSession != "" && sessionID != prescriptionSession {
+			return evidence.EvidenceEntry{}, wrapError(ErrCodeInvalidInput, fmt.Sprintf("report session_id %q does not match prescription session_id %q", sessionID, prescriptionSession), nil)
+		}
 	}
 	operationID := strings.TrimSpace(in.OperationID)
 	if operationID == "" {
@@ -304,6 +325,10 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 		return evidence.EvidenceEntry{}, wrapError(ErrCodeInternal, err.Error(), err)
 	}
 	return entry, nil
+}
+
+func reportUsesSoftResolution(in ReportRequest) bool {
+	return in.Evidence != nil && in.Evidence.Kind == evidence.EvidenceKindTranslated
 }
 
 func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.CanonicalAction, string, string, error) {

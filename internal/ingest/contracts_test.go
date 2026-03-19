@@ -506,6 +506,39 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 		}
 	})
 
+	t.Run("prescribe rejects explicit fields plus override", func(t *testing.T) {
+		override := json.RawMessage(`{"canonical_action":{"tool":"kubectl","operation":"apply"}}`)
+		req := PrescribeRequest{
+			Envelope: Envelope{
+				ContractVersion: ContractVersionV1,
+				Actor: evidence.Actor{
+					Type:       "controller",
+					ID:         "argocd",
+					Provenance: "argocd",
+				},
+				SessionID:   "session-1",
+				OperationID: "operation-1",
+				TraceID:     "trace-1",
+				Flavor:      evidence.FlavorWorkflow,
+				Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+				Source:      &evidence.SourceMetadata{System: "argocd"},
+			},
+			PrescriptionID:  "presc-1",
+			ArtifactDigest:  "sha256:" + strings.Repeat("f", 64),
+			PayloadOverride: &override,
+		}
+
+		err := ValidatePrescribeRequest(req)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		for _, want := range []string{"payload_override", "prescription_id", "artifact_digest"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("error = %q, want violation for %q", err.Error(), want)
+			}
+		}
+	})
+
 	t.Run("report rejects explicit fields plus override", func(t *testing.T) {
 		exitCode := 0
 		override := json.RawMessage(`{"verdict":"success"}`)
