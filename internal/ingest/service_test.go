@@ -483,6 +483,55 @@ func TestServiceDuplicateClaim_ReturnsDuplicateWithoutStoringTwice(t *testing.T)
 	}
 }
 
+func TestServiceReportTranslated_DuplicateClaimWithMissingResultEntryReturnsDuplicate(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := newFakeIngestStore()
+	fakeStore.lastHash = "sha256:previous"
+	claimKey := "legacy-claim"
+	claimStoreKey := "tenant-1|report|" + claimKey
+	fakeStore.claimed[claimStoreKey] = json.RawMessage(`{"legacy":true}`)
+	fakeStore.claimResults[claimStoreKey] = store.WebhookEventResult{}
+	svc := NewService(fakeStore, testutil.TestSigner(t))
+
+	out, err := svc.ReportTranslated(context.Background(), "tenant-1", ReportRequest{
+		Envelope: Envelope{
+			ContractVersion: ContractVersionV1,
+			Claim: &Claim{
+				Source:  "report",
+				Key:     claimKey,
+				Payload: json.RawMessage(`{"legacy":true}`),
+			},
+			Actor: evidence.Actor{
+				Type:       "controller",
+				ID:         "argocd",
+				Provenance: "argocd",
+			},
+			SessionID:   "session-legacy",
+			OperationID: "operation-legacy",
+			TraceID:     "trace-legacy",
+			Flavor:      evidence.FlavorWorkflow,
+			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindTranslated},
+			Source:      &evidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: "presc-legacy",
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       intPtr(0),
+	})
+	if err != nil {
+		t.Fatalf("ReportTranslated: %v", err)
+	}
+	if !out.Duplicate {
+		t.Fatal("expected duplicate result")
+	}
+	if out.EntryID != "" {
+		t.Fatalf("entry id = %q, want empty for legacy duplicate", out.EntryID)
+	}
+	if len(fakeStore.savedRaw) != 0 {
+		t.Fatalf("saved entries = %d, want 0", len(fakeStore.savedRaw))
+	}
+}
+
 func TestServiceReport_ResolvesReferencedPrescription(t *testing.T) {
 	t.Parallel()
 

@@ -651,7 +651,7 @@ func (s *Service) loadDuplicateResult(ctx context.Context, tx store.IngestTx, te
 		return Result{}, err
 	}
 	if strings.TrimSpace(meta.EntryID) == "" {
-		return Result{}, wrapError(ErrCodeInternal, "duplicate ingest claim missing result entry id", nil)
+		return Result{Duplicate: true}, nil
 	}
 
 	entry, err := tx.GetEntry(ctx, tenantID, meta.EntryID)

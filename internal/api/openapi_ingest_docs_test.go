@@ -35,6 +35,12 @@ func TestOpenAPIIngestRoutesDocumentContracts(t *testing.T) {
 	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportDeclinedRequest"), "not"), "anyOf"), []string{"payload_override", "exit_code"})
 	assertSchemaRequiredFields(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), []string{"prescription_id", "verdict", "exit_code"})
 	assertSchemaRequiredFields(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), []string{"prescription_id", "verdict", "decision_context"})
+	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestPrescribeOverrideRequest"), []string{"payload_override"})
+	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), []string{"payload_override"})
+	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), []string{"payload_override"})
+	_ = findSchemaProperty(t, spec, "IngestPrescribeOverrideRequest", "artifact_digest")
+	_ = findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "artifact_digest")
+	_ = findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "artifact_digest")
 	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "not"), []string{"decision_context"})
 	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), "not"), []string{"exit_code"})
 	assertSchemaNoProperty(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "artifact_digest")
@@ -228,6 +234,9 @@ func assertPrescribeExamples(t *testing.T, spec *yaml.Node) {
 	if _, ok := override["smart_target"]; ok {
 		t.Fatal("prescribe override example should not set top-level smart_target")
 	}
+	if _, ok := override["artifact_digest"]; !ok {
+		t.Fatal("prescribe override example missing top-level artifact_digest")
+	}
 }
 
 func assertReportExamples(t *testing.T, spec *yaml.Node) {
@@ -286,6 +295,9 @@ func assertReportExamples(t *testing.T, spec *yaml.Node) {
 	}
 	if _, ok := override["decision_context"]; ok {
 		t.Fatal("report override example should not set top-level decision_context")
+	}
+	if _, ok := override["artifact_digest"]; !ok {
+		t.Fatal("report override example missing top-level artifact_digest")
 	}
 }
 

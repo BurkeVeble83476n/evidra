@@ -106,9 +106,6 @@ func ValidatePrescribeRequest(in PrescribeRequest) error {
 		if strings.TrimSpace(in.PrescriptionID) != "" {
 			violations.Add("payload_override is mutually exclusive with prescription_id")
 		}
-		if strings.TrimSpace(in.ArtifactDigest) != "" {
-			violations.Add("payload_override is mutually exclusive with artifact_digest")
-		}
 		if in.CanonicalAction != nil || in.SmartTarget != nil {
 			violations.Add("payload_override is mutually exclusive with explicit prescribe fields")
 		}
@@ -128,7 +125,7 @@ func ValidateReportRequest(in ReportRequest) error {
 		if !hasRawJSON(*in.PayloadOverride) {
 			violations.Add("payload_override must not be empty")
 		}
-		if strings.TrimSpace(in.PrescriptionID) != "" || strings.TrimSpace(in.ArtifactDigest) != "" || strings.TrimSpace(string(in.Verdict)) != "" || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
+		if strings.TrimSpace(in.PrescriptionID) != "" || strings.TrimSpace(string(in.Verdict)) != "" || in.ExitCode != nil || in.DecisionContext != nil || len(in.ExternalRefs) > 0 {
 			violations.Add("payload_override is mutually exclusive with explicit report fields")
 		}
 	} else {

@@ -532,10 +532,36 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected validation error")
 		}
-		for _, want := range []string{"payload_override", "prescription_id", "artifact_digest"} {
+		for _, want := range []string{"payload_override", "prescription_id"} {
 			if !strings.Contains(err.Error(), want) {
 				t.Fatalf("error = %q, want violation for %q", err.Error(), want)
 			}
+		}
+	})
+
+	t.Run("prescribe allows artifact digest plus override", func(t *testing.T) {
+		override := json.RawMessage(`{"canonical_action":{"tool":"kubectl","operation":"apply"}}`)
+		req := PrescribeRequest{
+			Envelope: Envelope{
+				ContractVersion: ContractVersionV1,
+				Actor: evidence.Actor{
+					Type:       "controller",
+					ID:         "argocd",
+					Provenance: "argocd",
+				},
+				SessionID:   "session-1",
+				OperationID: "operation-1",
+				TraceID:     "trace-1",
+				Flavor:      evidence.FlavorWorkflow,
+				Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+				Source:      &evidence.SourceMetadata{System: "argocd"},
+			},
+			ArtifactDigest:  "sha256:" + strings.Repeat("f", 64),
+			PayloadOverride: &override,
+		}
+
+		if err := ValidatePrescribeRequest(req); err != nil {
+			t.Fatalf("ValidatePrescribeRequest: %v", err)
 		}
 	})
 
@@ -573,6 +599,32 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 		}
 	})
 
+	t.Run("report allows artifact digest plus override", func(t *testing.T) {
+		override := json.RawMessage(`{"verdict":"success","exit_code":0}`)
+		req := ReportRequest{
+			Envelope: Envelope{
+				ContractVersion: ContractVersionV1,
+				Actor: evidence.Actor{
+					Type:       "controller",
+					ID:         "argocd",
+					Provenance: "argocd",
+				},
+				SessionID:   "session-1",
+				OperationID: "operation-1",
+				TraceID:     "trace-1",
+				Flavor:      evidence.FlavorWorkflow,
+				Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
+				Source:      &evidence.SourceMetadata{System: "argocd"},
+			},
+			ArtifactDigest:  "sha256:" + strings.Repeat("d", 64),
+			PayloadOverride: &override,
+		}
+
+		if err := ValidateReportRequest(req); err != nil {
+			t.Fatalf("ValidateReportRequest: %v", err)
+		}
+	})
+
 	t.Run("report rejects invalid verdict plus override", func(t *testing.T) {
 		override := json.RawMessage(`{"verdict":"success"}`)
 		req := ReportRequest{
@@ -604,36 +656,6 @@ func TestValidatePayloadOverrideCombinations(t *testing.T) {
 		}
 	})
 
-	t.Run("report rejects artifact digest plus override", func(t *testing.T) {
-		override := json.RawMessage(`{"verdict":"success"}`)
-		req := ReportRequest{
-			Envelope: Envelope{
-				ContractVersion: ContractVersionV1,
-				Actor: evidence.Actor{
-					Type:       "controller",
-					ID:         "argocd",
-					Provenance: "argocd",
-				},
-				SessionID:   "session-1",
-				OperationID: "operation-1",
-				TraceID:     "trace-1",
-				Flavor:      evidence.FlavorWorkflow,
-				Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
-				Source:      &evidence.SourceMetadata{System: "argocd"},
-			},
-			PrescriptionID:  "rx-1",
-			ArtifactDigest:  "sha256:" + strings.Repeat("e", 64),
-			PayloadOverride: &override,
-		}
-
-		err := ValidateReportRequest(req)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-		if !strings.Contains(err.Error(), "payload_override") {
-			t.Fatalf("error = %q, want payload_override violation", err.Error())
-		}
-	})
 }
 
 func declinedReportRequest() ReportRequest {

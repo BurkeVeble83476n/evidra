@@ -310,6 +310,7 @@ paths:
                     kind: observed
                   source:
                     system: agentgateway
+                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
                   payload_override:
                     prescription_id: presc-override
                     canonical_action:
@@ -420,6 +421,7 @@ paths:
                     kind: translated
                   source:
                     system: agentgateway
+                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
                   payload_override:
                     prescription_id: presc-override
                     verdict: success
@@ -1162,6 +1164,8 @@ components:
         - type: object
           required: [payload_override]
           properties:
+            artifact_digest:
+              type: string
             payload_override:
               description: Raw override body for an already-shaped external ingest payload.
               type: object
@@ -1252,6 +1256,8 @@ components:
         - type: object
           required: [payload_override]
           properties:
+            artifact_digest:
+              type: string
             payload_override:
               description: Raw override body for an already-shaped external ingest payload.
               type: object
@@ -1287,6 +1293,8 @@ components:
         - type: object
           required: [payload_override]
           properties:
+            artifact_digest:
+              type: string
             payload_override:
               description: Raw override body for an already-shaped external ingest payload.
               type: object
