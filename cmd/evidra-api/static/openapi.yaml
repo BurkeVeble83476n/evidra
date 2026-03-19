@@ -310,7 +310,10 @@ paths:
                   source:
                     system: agentgateway
                   payload_override:
-                    custom: raw-prescribe-body
+                    prescription_id: presc-override
+                    canonical_action:
+                      tool: kubectl
+                      operation: apply
       responses:
         '200':
           description: Entry accepted
@@ -326,6 +329,24 @@ paths:
                 $ref: '#/components/schemas/IngestPrescribeResponse'
         '400':
           description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ingest failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Ingest not configured
           content:
             application/json:
               schema:
@@ -397,7 +418,9 @@ paths:
                   source:
                     system: agentgateway
                   payload_override:
-                    custom: raw-report-body
+                    prescription_id: presc-override
+                    verdict: success
+                    exit_code: 0
       responses:
         '200':
           description: Entry accepted
@@ -413,6 +436,30 @@ paths:
                 $ref: '#/components/schemas/IngestReportResponse'
         '400':
           description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Prescription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Ingest failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Ingest not configured
           content:
             application/json:
               schema:
@@ -1084,9 +1131,38 @@ components:
 
     IngestPrescribeRequest:
       oneOf:
-        - allOf:
-            - $ref: '#/components/schemas/IngestEnvelope'
-            - type: object
+        - $ref: '#/components/schemas/IngestPrescribeTypedRequest'
+        - $ref: '#/components/schemas/IngestPrescribeOverrideRequest'
+
+    IngestPrescribeTypedRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          properties:
+            prescription_id:
+              type: string
+            artifact_digest:
+              type: string
+            canonical_action:
+              $ref: '#/components/schemas/IngestCanonicalAction'
+            smart_target:
+              $ref: '#/components/schemas/IngestSmartTarget'
+          oneOf:
+            - required: [canonical_action]
+            - required: [smart_target]
+          not:
+            required: [payload_override]
+
+    IngestPrescribeOverrideRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          required: [payload_override]
+          properties:
+            payload_override:
+              description: Raw override body for an already-shaped external ingest payload.
+              type: object
+              required: [prescription_id, canonical_action]
               properties:
                 prescription_id:
                   type: string
@@ -1094,28 +1170,13 @@ components:
                   type: string
                 canonical_action:
                   $ref: '#/components/schemas/IngestCanonicalAction'
-                smart_target:
-                  $ref: '#/components/schemas/IngestSmartTarget'
-              oneOf:
-                - required: [canonical_action]
-                - required: [smart_target]
-              not:
-                required: [payload_override]
-        - allOf:
-            - $ref: '#/components/schemas/IngestEnvelope'
-            - type: object
-              required: [payload_override]
-              properties:
-                payload_override:
-                  description: Raw override body for an already-shaped external ingest payload.
-                  type: object
-                  additionalProperties: true
-              not:
-                anyOf:
-                  - required: [prescription_id]
-                  - required: [artifact_digest]
-                  - required: [canonical_action]
-                  - required: [smart_target]
+              additionalProperties: true
+          not:
+            anyOf:
+              - required: [prescription_id]
+              - required: [artifact_digest]
+              - required: [canonical_action]
+              - required: [smart_target]
 
     IngestExternalRef:
       type: object
@@ -1128,9 +1189,68 @@ components:
 
     IngestReportRequest:
       oneOf:
-        - allOf:
-            - $ref: '#/components/schemas/IngestEnvelope'
-            - type: object
+        - $ref: '#/components/schemas/IngestReportNonDeclinedRequest'
+        - $ref: '#/components/schemas/IngestReportDeclinedRequest'
+        - $ref: '#/components/schemas/IngestReportOverrideRequest'
+
+    IngestReportNonDeclinedRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          properties:
+            prescription_id:
+              type: string
+            artifact_digest:
+              type: string
+            verdict:
+              type: string
+              enum: [success, failure, error]
+            exit_code:
+              type: integer
+            external_refs:
+              type: array
+              items:
+                $ref: '#/components/schemas/IngestExternalRef'
+          required: [prescription_id, verdict, exit_code]
+          not:
+            required: [payload_override]
+            anyOf:
+              - required: [decision_context]
+
+    IngestReportDeclinedRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          properties:
+            prescription_id:
+              type: string
+            artifact_digest:
+              type: string
+            verdict:
+              type: string
+              enum: [declined]
+            decision_context:
+              $ref: '#/components/schemas/IngestDecisionContext'
+            external_refs:
+              type: array
+              items:
+                $ref: '#/components/schemas/IngestExternalRef'
+          required: [prescription_id, verdict, decision_context]
+          not:
+            required: [payload_override]
+            anyOf:
+              - required: [exit_code]
+
+    IngestReportOverrideRequest:
+      allOf:
+        - $ref: '#/components/schemas/IngestEnvelope'
+        - type: object
+          required: [payload_override]
+          properties:
+            payload_override:
+              description: Raw override body for an already-shaped external ingest payload.
+              type: object
+              required: [prescription_id, verdict]
               properties:
                 prescription_id:
                   type: string
@@ -1141,33 +1261,21 @@ components:
                   enum: [success, failure, error, declined]
                 exit_code:
                   type: integer
-                  nullable: true
                 decision_context:
                   $ref: '#/components/schemas/IngestDecisionContext'
                 external_refs:
                   type: array
                   items:
                     $ref: '#/components/schemas/IngestExternalRef'
-              required: [prescription_id, verdict]
-              not:
-                required: [payload_override]
-        - allOf:
-            - $ref: '#/components/schemas/IngestEnvelope'
-            - type: object
-              required: [payload_override]
-              properties:
-                payload_override:
-                  description: Raw override body for an already-shaped external ingest payload.
-                  type: object
-                  additionalProperties: true
-              not:
-                anyOf:
-                  - required: [prescription_id]
-                  - required: [artifact_digest]
-                  - required: [verdict]
-                  - required: [exit_code]
-                  - required: [decision_context]
-                  - required: [external_refs]
+              additionalProperties: true
+          not:
+            anyOf:
+              - required: [prescription_id]
+              - required: [artifact_digest]
+              - required: [verdict]
+              - required: [exit_code]
+              - required: [decision_context]
+              - required: [external_refs]
 
     IngestPrescribeResponse:
       type: object
