@@ -31,15 +31,14 @@ func TestOpenAPIIngestRoutesDocumentContracts(t *testing.T) {
 	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedRequest"), []string{"prescription_id", "verdict", "decision_context"})
 	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), []string{"payload_override"})
 	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), []string{"payload_override"})
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedRequest"), "not"), "anyOf"), []string{"payload_override", "decision_context"})
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportDeclinedRequest"), "not"), "anyOf"), []string{"payload_override", "exit_code"})
 	assertSchemaRequiredFields(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), []string{"prescription_id", "verdict", "exit_code"})
 	assertSchemaRequiredFields(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), []string{"prescription_id", "verdict", "decision_context"})
-
-	assertSchemaForbidsRequiredField(t, spec, "IngestReportNonDeclinedRequest", "decision_context")
-	assertSchemaForbidsRequiredField(t, spec, "IngestReportDeclinedRequest", "exit_code")
-	assertSchemaForbidsRequiredField(t, spec, "IngestReportNonDeclinedOverrideRequest", "decision_context")
-	assertSchemaForbidsRequiredField(t, spec, "IngestReportDeclinedOverrideRequest", "exit_code")
-	assertNodeForbidsRequiredField(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "decision_context")
-	assertNodeForbidsRequiredField(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), "exit_code")
+	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override"), "not"), []string{"decision_context"})
+	assertSchemaRequiredFields(t, findMappingValue(t, findSchemaProperty(t, spec, "IngestReportDeclinedOverrideRequest", "payload_override"), "not"), []string{"exit_code"})
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "artifact_digest", "verdict", "exit_code", "decision_context", "external_refs"})
+	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), "not"), "anyOf"), []string{"prescription_id", "artifact_digest", "verdict", "exit_code", "decision_context", "external_refs"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedRequest", "verdict"), []string{"success", "failure", "error"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportDeclinedRequest", "verdict"), []string{"declined"})
 	assertSchemaEnumValues(t, findSchemaProperty(t, spec, "IngestReportNonDeclinedOverrideRequest", "payload_override", "verdict"), []string{"success", "failure", "error"})
@@ -123,18 +122,27 @@ func assertSchemaRequiredFields(t *testing.T, node *yaml.Node, want []string) {
 	}
 }
 
-func assertSchemaForbidsRequiredField(t *testing.T, spec *yaml.Node, schemaName, field string) {
+func assertSchemaAnyOfRequiredFields(t *testing.T, node *yaml.Node, want []string) {
 	t.Helper()
 
-	assertNodeForbidsRequiredField(t, schemaObjectNode(t, spec, schemaName), field)
-}
-
-func assertNodeForbidsRequiredField(t *testing.T, node *yaml.Node, field string) {
-	t.Helper()
-
-	notNode := findMappingValue(t, node, "not")
-	if !nodeContainsRequiredField(notNode, field) {
-		t.Fatalf("node does not forbid required field %s", field)
+	if node == nil {
+		t.Fatal("anyOf node is nil")
+	}
+	if len(node.Content) != len(want) {
+		t.Fatalf("anyOf len = %d, want %d", len(node.Content), len(want))
+	}
+	got := map[string]struct{}{}
+	for _, item := range node.Content {
+		required := findMappingValue(t, item, "required")
+		if len(required.Content) != 1 {
+			t.Fatalf("anyOf item required len = %d, want 1", len(required.Content))
+		}
+		got[required.Content[0].Value] = struct{}{}
+	}
+	for _, field := range want {
+		if _, ok := got[field]; !ok {
+			t.Fatalf("anyOf missing required field %s", field)
+		}
 	}
 }
 
@@ -177,25 +185,6 @@ func schemaObjectNode(t *testing.T, spec *yaml.Node, schemaName string) *yaml.No
 		t.Fatalf("schema %s allOf has no object node", schemaName)
 	}
 	return schema
-}
-
-func nodeContainsRequiredField(node *yaml.Node, field string) bool {
-	if node == nil {
-		return false
-	}
-	if required := findMappingValueOptional(node, "required"); required != nil {
-		for _, item := range required.Content {
-			if item.Value == field {
-				return true
-			}
-		}
-	}
-	for _, child := range node.Content {
-		if nodeContainsRequiredField(child, field) {
-			return true
-		}
-	}
-	return false
 }
 
 func assertPrescribeExamples(t *testing.T, spec *yaml.Node) {
