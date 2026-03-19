@@ -153,7 +153,7 @@ const GUIDES = [
   { tag: "AI Agents", title: "Skill Setup", desc: "Install the Evidra skill \u2014 agents with the skill achieve 100% protocol compliance for infrastructure mutations.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/skill-setup.md" },
   { tag: "GitOps", title: "Argo CD Integration", desc: "Controller-first GitOps evidence for zero-touch reconciliation and explicit traceability via evidra.cc/* annotations.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/argocd-gitops-integration.md" },
   { tag: "Platform", title: "Self-Hosted Setup", desc: "Centralize evidence across agents, pipelines, and controllers. Compare reliability fleet-wide.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/self-hosted-setup.md" },
-  { tag: "CI / CD", title: "Pipeline Setup", desc: "Add prescribe/report to your CI pipeline. Record intent before deploy, outcome after. The same protocol works for pipeline stages and deploy jobs.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
+  { tag: "CI / CD", title: "Pipeline Setup", desc: "Add prescribe/report to your CI pipeline. Record intent before deploy, outcome after. The same protocol works for workflow jobs and deploy runs.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/terraform-ci-quickstart.md" },
   { tag: "Observability", title: "Metrics Export", desc: "Export signals and scores to Grafana, Datadog, or any OTLP-compatible backend.", href: "https://github.com/vitas/evidra/blob/main/docs/guides/observability-quickstart.md" },
 ];
 
@@ -567,8 +567,8 @@ function McpSetup() {
           </p>
           <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
             <div className="text-center">
-              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe</div>
-              <div className="text-[0.78rem] text-fg-muted">What does the agent intend to do? Record before execution.</div>
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe_full / prescribe_smart</div>
+              <div className="text-[0.78rem] text-fg-muted">What does the agent intend to do? Record before execution with artifact bytes or lightweight target context.</div>
             </div>
             <div className="text-center">
               <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">report</div>
