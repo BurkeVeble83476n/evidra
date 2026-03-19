@@ -30,16 +30,34 @@ today="$(date +%F)"
 [[ -f "$server_json" ]] || fail "missing $server_json"
 [[ -f "$changelog" ]] || fail "missing $changelog"
 
-grep -Eq 'Version = "[0-9]+\.[0-9]+\.[0-9]+"' "$version_go" \
-  || fail "could not find Version assignment in $version_go"
+if grep -Eq 'BaseVersion = "[0-9]+\.[0-9]+\.[0-9]+"' "$version_go"; then
+  version_symbol='BaseVersion'
+elif grep -Eq 'Version = "[0-9]+\.[0-9]+\.[0-9]+"' "$version_go"; then
+  version_symbol='Version'
+else
+  fail "could not find BaseVersion or Version assignment in $version_go"
+fi
 grep -Eq '"version": "[0-9]+\.[0-9]+\.[0-9]+"' "$server_json" \
   || fail "could not find top-level version in $server_json"
 grep -Eq 'ghcr\.io/vitas/evidra-mcp:[0-9]+\.[0-9]+\.[0-9]+' "$server_json" \
   || fail "could not find MCP image tag in $server_json"
-grep -Fq '## Unreleased' "$changelog" \
-  || fail "could not find '## Unreleased' in $changelog"
 
-perl -0pi -e 's/Version = "[0-9]+\.[0-9]+\.[0-9]+"/Version = "'"$version"'"/' "$version_go"
+if ! grep -Fq '## Unreleased' "$changelog"; then
+  tmp_file="$(mktemp)"
+  awk '
+    NR == 1 {
+      print
+      print ""
+      print "## Unreleased"
+      print ""
+      next
+    }
+    { print }
+  ' "$changelog" >"$tmp_file"
+  mv "$tmp_file" "$changelog"
+fi
+
+perl -0pi -e 's/'"$version_symbol"' = "[0-9]+\.[0-9]+\.[0-9]+"/'"$version_symbol"' = "'"$version"'"/' "$version_go"
 perl -0pi -e 's/"version": "[0-9]+\.[0-9]+\.[0-9]+"/"version": "'"$version"'"/' "$server_json"
 perl -0pi -e 's#(ghcr\.io/vitas/evidra-mcp:)[0-9]+\.[0-9]+\.[0-9]+#${1}'"$version"'#' "$server_json"
 
@@ -59,7 +77,7 @@ if ! grep -Fq "$heading" "$changelog"; then
   mv "$tmp_file" "$changelog"
 fi
 
-grep -Fq "Version = \"$version\"" "$version_go" \
+grep -Fq "$version_symbol = \"$version\"" "$version_go" \
   || fail "failed to update $version_go"
 grep -Fq "\"version\": \"$version\"" "$server_json" \
   || fail "failed to update version in $server_json"
