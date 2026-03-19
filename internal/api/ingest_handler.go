@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"samebits.com/evidra/internal/auth"
 	"samebits.com/evidra/internal/ingest"
+	"samebits.com/evidra/pkg/evidence"
 )
 
 type IngestPort interface {
@@ -60,7 +62,7 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 				EntryID:       result.EntryID,
 				EffectiveRisk: result.EffectiveRisk,
 			},
-			PrescriptionID: result.EntryID,
+			PrescriptionID: prescribeResponsePrescriptionID(req, result),
 		}
 
 		status := http.StatusAccepted
@@ -69,6 +71,45 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 		}
 		writeJSON(w, status, resp)
 	}
+}
+
+func prescribeResponsePrescriptionID(req ingest.PrescribeRequest, result ingest.Result) string {
+	if id := requestPrescriptionID(req); result.Duplicate && id != "" {
+		return id
+	}
+	if id, ok := entryPrescriptionID(result.Entry.Payload); ok {
+		return id
+	}
+	if id := requestPrescriptionID(req); id != "" {
+		return id
+	}
+	return result.EntryID
+}
+
+func requestPrescriptionID(req ingest.PrescribeRequest) string {
+	if req.PayloadOverride == nil {
+		return ""
+	}
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(*req.PayloadOverride, &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.PrescriptionID)
+}
+
+func entryPrescriptionID(raw json.RawMessage) (string, bool) {
+	if len(raw) == 0 {
+		return "", false
+	}
+	var payload evidence.PrescriptionPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return "", false
+	}
+	id := strings.TrimSpace(payload.PrescriptionID)
+	if id == "" {
+		return "", false
+	}
+	return id, true
 }
 
 func handleIngestReport(svc IngestPort) http.HandlerFunc {

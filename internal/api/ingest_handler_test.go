@@ -270,33 +270,27 @@ func TestIngestPrescribeHandler_DuplicateClaimResponseStable(t *testing.T) {
 	svc := ingest.NewService(store, testutil.TestSigner(t))
 	handler := handleIngestPrescribe(svc)
 
-	body := mustJSON(t, ingest.PrescribeRequest{
-		Envelope: ingest.Envelope{
-			ContractVersion: ingest.ContractVersionV1,
-			Claim: &ingest.Claim{
-				Source: "gateway",
-				Key:    "claim-dup",
-			},
-			Actor: evidence.Actor{
-				Type:       "controller",
-				ID:         "ci-bot",
-				Provenance: "github-actions",
-			},
-			SessionID:   "session-dup",
-			OperationID: "operation-dup",
-			TraceID:     "trace-dup",
-			Flavor:      evidence.FlavorWorkflow,
-			Evidence:    &evidence.EvidenceMetadata{Kind: evidence.EvidenceKindObserved},
-			Source:      &evidence.SourceMetadata{System: "argocd"},
-		},
-		CanonicalAction: &canon.CanonicalAction{
-			Tool:           "kubectl",
-			Operation:      "apply",
-			OperationClass: "mutate",
-			ScopeClass:     "production",
-			ResourceCount:  1,
-		},
-	})
+	body := []byte(`{
+		"contract_version":"v1",
+		"claim":{"source":"gateway","key":"claim-dup"},
+		"actor":{"type":"controller","id":"ci-bot","provenance":"github-actions"},
+		"session_id":"session-dup",
+		"operation_id":"operation-dup",
+		"trace_id":"trace-dup",
+		"flavor":"workflow",
+		"evidence":{"kind":"observed"},
+		"source":{"system":"argocd"},
+		"payload_override":{
+			"prescription_id":"presc-dup",
+			"canonical_action":{
+				"tool":"kubectl",
+				"operation":"apply",
+				"operation_class":"mutate",
+				"scope_class":"production",
+				"resource_count":1
+			}
+		}
+	}`)
 
 	first := httptest.NewRecorder()
 	req1 := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", bytes.NewReader(body))
@@ -323,8 +317,8 @@ func TestIngestPrescribeHandler_DuplicateClaimResponseStable(t *testing.T) {
 	if err := json.Unmarshal(second.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if _, ok := resp["prescription_id"]; !ok {
-		t.Fatalf("expected prescription_id field in duplicate response, got %s", second.Body.String())
+	if resp["prescription_id"] != "presc-dup" {
+		t.Fatalf("prescription_id = %v, want presc-dup", resp["prescription_id"])
 	}
 	if len(store.savedRaw) != 0 {
 		t.Fatalf("saved entries = %d, want 0 for duplicate claim", len(store.savedRaw))
@@ -336,7 +330,7 @@ func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
 
 	fakeSvc := &fakeIngestService{
 		prescribeResult: ingest.Result{
-			EntryID:       "presc-1",
+			EntryID:       "entry-123",
 			EffectiveRisk: "medium",
 		},
 	}
@@ -348,6 +342,7 @@ func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(`{
 		"contract_version":"v1",
+		"claim":{"source":"gateway","key":"claim-1"},
 		"actor":{"type":"controller","id":"ci-bot","provenance":"github-actions"},
 		"session_id":"session-1",
 		"operation_id":"operation-1",
@@ -355,7 +350,16 @@ func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
 		"flavor":"workflow",
 		"evidence":{"kind":"observed"},
 		"source":{"system":"argocd"},
-		"canonical_action":{"tool":"kubectl","operation":"apply","operation_class":"mutate","scope_class":"production","resource_count":1}
+		"payload_override":{
+			"prescription_id":"presc-override",
+			"canonical_action":{
+				"tool":"kubectl",
+				"operation":"apply",
+				"operation_class":"mutate",
+				"scope_class":"production",
+				"resource_count":1
+			}
+		}
 	}`))
 	req.Header.Set("Authorization", "Bearer test-key")
 	req.Header.Set("Content-Type", "application/json")
@@ -376,8 +380,8 @@ func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp["prescription_id"] != "presc-1" {
-		t.Fatalf("prescription_id = %v, want presc-1", resp["prescription_id"])
+	if resp["prescription_id"] != "presc-override" {
+		t.Fatalf("prescription_id = %v, want presc-override", resp["prescription_id"])
 	}
 }
 
