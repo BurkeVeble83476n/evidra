@@ -140,7 +140,10 @@ func buildGenericWebhookPrescribeRequest(payload genericWebhookPayload, body jso
 	if operationID == "" {
 		return ingest.PrescribeRequest{}, fmt.Errorf("operation_id is required")
 	}
-	sessionID := operationID
+	sessionID := strings.TrimSpace(payload.SessionID)
+	if sessionID == "" {
+		sessionID = operationID
+	}
 	idempotencyKey := strings.TrimSpace(payload.IdempotencyKey)
 	if idempotencyKey == "" {
 		idempotencyKey = "generic:" + operationID + ":start"
@@ -185,7 +188,10 @@ func buildGenericWebhookReportRequest(payload genericWebhookPayload, body json.R
 		defaultCode := exitCodeForVerdict(payload.Verdict)
 		exitCode = &defaultCode
 	}
-	sessionID := operationID
+	sessionID := strings.TrimSpace(payload.SessionID)
+	if sessionID == "" {
+		sessionID = operationID
+	}
 	return ingest.ReportRequest{
 		Envelope: ingest.Envelope{
 			ContractVersion: ingest.ContractVersionV1,

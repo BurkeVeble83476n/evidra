@@ -48,6 +48,7 @@ func TestBuildGenericWebhookRequestsSharePrescriptionID(t *testing.T) {
 		"operation_id":"op-123",
 		"environment":"production",
 		"actor":"ci",
+		"session_id":"sess-1",
 		"idempotency_key":"evt-123",
 		"verdict":"success",
 		"exit_code":0
@@ -59,6 +60,7 @@ func TestBuildGenericWebhookRequestsSharePrescriptionID(t *testing.T) {
 		OperationID:    "op-123",
 		Environment:    "production",
 		Actor:          "ci",
+		SessionID:      "sess-1",
 		IdempotencyKey:  "evt-123",
 		Verdict:        evidence.VerdictSuccess,
 		ExitCode:       intPtr(0),
@@ -74,8 +76,14 @@ func TestBuildGenericWebhookRequestsSharePrescriptionID(t *testing.T) {
 	if completeReq.PrescriptionID != wantID {
 		t.Fatalf("report prescription_id = %q, want %q", completeReq.PrescriptionID, wantID)
 	}
-	if startReq.TraceID != "op-123" {
-		t.Fatalf("start trace_id = %q, want op-123", startReq.TraceID)
+	if completeReq.SessionID != "sess-1" {
+		t.Fatalf("report session_id = %q, want sess-1", completeReq.SessionID)
+	}
+	if startReq.TraceID != "sess-1" {
+		t.Fatalf("start trace_id = %q, want sess-1", startReq.TraceID)
+	}
+	if startReq.SessionID != "sess-1" {
+		t.Fatalf("start session_id = %q, want sess-1", startReq.SessionID)
 	}
 	if startReq.ContractVersion != ingest.ContractVersionV1 {
 		t.Fatalf("start contract_version = %q, want v1", startReq.ContractVersion)
@@ -289,8 +297,7 @@ func TestHandleGenericWebhook_UsesOperationIDForLifecycleCorrelation(t *testing.
 		"operation":"apply",
 		"operation_id":"op-123",
 		"environment":"production",
-		"actor":"ci",
-		"session_id":"sess-1"
+		"actor":"ci"
 	}`))
 	startReq.Header.Set("Authorization", "Bearer route-secret")
 	startReq.Header.Set("X-Evidra-API-Key", "tenant-api-key")
@@ -357,6 +364,76 @@ func TestHandleGenericWebhook_UsesOperationIDForLifecycleCorrelation(t *testing.
 	}
 	if prescribePayload.RiskInputs[0].Source != "evidra/matrix" {
 		t.Fatalf("mapped prescribe risk_inputs[0].source = %q, want evidra/matrix", prescribePayload.RiskInputs[0].Source)
+	}
+}
+
+func TestHandleGenericWebhook_PreservesExplicitSessionID(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeIngestStore{}
+	handler := handleGenericWebhookWithTenantResolver(store, testutil.TestSigner(t), "route-secret", func(context.Context, string) (string, error) {
+		return "tenant-123", nil
+	})
+
+	startReq := httptest.NewRequest("POST", "/v1/hooks/generic", strings.NewReader(`{
+		"event_type":"operation_started",
+		"tool":"kubectl",
+		"operation":"apply",
+		"operation_id":"op-456",
+		"environment":"production",
+		"actor":"ci",
+		"session_id":"sess-456"
+	}`))
+	startReq.Header.Set("Authorization", "Bearer route-secret")
+	startReq.Header.Set("X-Evidra-API-Key", "tenant-api-key")
+	startReq.Header.Set("Content-Type", "application/json")
+	startRec := httptest.NewRecorder()
+
+	handler.ServeHTTP(startRec, startReq)
+
+	if startRec.Code != http.StatusAccepted {
+		t.Fatalf("start expected 202, got %d", startRec.Code)
+	}
+
+	completeReq := httptest.NewRequest("POST", "/v1/hooks/generic", strings.NewReader(`{
+		"event_type":"operation_completed",
+		"tool":"kubectl",
+		"operation":"apply",
+		"operation_id":"op-456",
+		"environment":"production",
+		"actor":"ci",
+		"session_id":"sess-456",
+		"idempotency_key":"evt-456",
+		"verdict":"success",
+		"exit_code":0
+	}`))
+	completeReq.Header.Set("Authorization", "Bearer route-secret")
+	completeReq.Header.Set("X-Evidra-API-Key", "tenant-api-key")
+	completeReq.Header.Set("Content-Type", "application/json")
+	completeRec := httptest.NewRecorder()
+
+	handler.ServeHTTP(completeRec, completeReq)
+
+	if completeRec.Code != http.StatusAccepted {
+		t.Fatalf("complete expected 202, got %d", completeRec.Code)
+	}
+	if len(store.savedRaw) != 2 {
+		t.Fatalf("saved entries = %d, want 2", len(store.savedRaw))
+	}
+
+	var prescribe evidence.EvidenceEntry
+	if err := json.Unmarshal(store.savedRaw[0], &prescribe); err != nil {
+		t.Fatalf("decode prescribe entry: %v", err)
+	}
+	var report evidence.EvidenceEntry
+	if err := json.Unmarshal(store.savedRaw[1], &report); err != nil {
+		t.Fatalf("decode report entry: %v", err)
+	}
+	if prescribe.SessionID != "sess-456" {
+		t.Fatalf("prescribe session_id = %q, want sess-456", prescribe.SessionID)
+	}
+	if report.SessionID != "sess-456" {
+		t.Fatalf("report session_id = %q, want sess-456", report.SessionID)
 	}
 }
 
