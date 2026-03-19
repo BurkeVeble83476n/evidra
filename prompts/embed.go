@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	MCPInitializeInstructionsPath = "mcpserver/initialize/instructions.txt"
+	MCPInitializeInstructionsPath    = "mcpserver/initialize/instructions.txt"
 	MCPPrescribeFullDescriptionPath  = "mcpserver/tools/prescribe_full_description.txt"
 	MCPPrescribeSmartDescriptionPath = "mcpserver/tools/prescribe_smart_description.txt"
-	MCPReportDescriptionPath      = "mcpserver/tools/report_description.txt"
-	MCPGetEventDescriptionPath    = "mcpserver/tools/get_event_description.txt"
-	MCPAgentContractPath          = "mcpserver/resources/content/agent_contract_v1.md"
-	SkillPath                     = "skill/SKILL.md"
-	RuntimeExperimentContractPath = "prompts/experiments/runtime/agent_contract_v1.md"
+	MCPReportDescriptionPath         = "mcpserver/tools/report_description.txt"
+	MCPGetEventDescriptionPath       = "mcpserver/tools/get_event_description.txt"
+	MCPAgentContractPath             = "mcpserver/resources/content/agent_contract_v1.md"
+	SkillPath                        = "skill/SKILL.md"
+	RuntimeExperimentContractPath    = "prompts/experiments/runtime/agent_contract_v1.md"
 
 	DefaultContractVersion      = "v1.1.0"
 	DefaultContractSkillVersion = "1.1.0"

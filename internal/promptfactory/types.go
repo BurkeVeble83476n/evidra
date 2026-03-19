@@ -18,12 +18,12 @@ type Contract struct {
 }
 
 type MCPContract struct {
-	Initialize InitializeContract `yaml:"initialize"`
-	Prescribe  PrescribeContract  `yaml:"prescribe"`
+	Initialize     InitializeContract `yaml:"initialize"`
+	Prescribe      PrescribeContract  `yaml:"prescribe"`
 	PrescribeFull  PrescribeContract  `yaml:"prescribe_full"`
 	PrescribeSmart PrescribeContract  `yaml:"prescribe_smart"`
-	Report     ReportContract     `yaml:"report"`
-	GetEvent   GetEventContract   `yaml:"get_event"`
+	Report         ReportContract     `yaml:"report"`
+	GetEvent       GetEventContract   `yaml:"get_event"`
 }
 
 type InitializeContract struct {
