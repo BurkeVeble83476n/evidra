@@ -4,19 +4,20 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	iauth "samebits.com/evidra/internal/auth"
-	"samebits.com/evidra/internal/automationevent"
 	"samebits.com/evidra/internal/canon"
+	"samebits.com/evidra/internal/ingest"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
 )
 
 type WebhookStore interface {
-	automationevent.EventStore
+	ingest.Store
 }
 
 type WebhookTenantResolver func(ctx context.Context, apiKey string) (string, error)
@@ -48,7 +49,7 @@ type argoCDWebhookPayload struct {
 }
 
 func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
-	emitter := automationevent.NewEmitter(store, signer)
+	svc := ingest.NewWebhookService(store, signer)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
@@ -65,88 +66,32 @@ func handleGenericWebhookWithTenantResolver(store WebhookStore, signer pkevidenc
 			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
-		if strings.TrimSpace(payload.Tool) == "" || strings.TrimSpace(payload.Operation) == "" {
-			writeError(w, http.StatusBadRequest, "tool and operation are required")
-			return
-		}
-		operationID := strings.TrimSpace(payload.OperationID)
-		if operationID == "" {
-			writeError(w, http.StatusBadRequest, "operation_id is required")
-			return
-		}
-		if payload.EventType != "operation_started" && payload.EventType != "operation_completed" {
+
+		switch payload.EventType {
+		case "operation_started":
+			req, err := buildGenericWebhookPrescribeRequest(payload, body)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			result, err := svc.Prescribe(r.Context(), tenantID, req)
+			writeWebhookIngestResult(w, result, err)
+		case "operation_completed":
+			req, err := buildGenericWebhookReportRequest(payload, body)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			result, err := svc.Report(r.Context(), tenantID, req)
+			writeWebhookIngestResult(w, result, err)
+		default:
 			writeError(w, http.StatusBadRequest, "unsupported event_type")
-			return
 		}
-		if payload.EventType == "operation_completed" && strings.TrimSpace(payload.IdempotencyKey) == "" {
-			writeError(w, http.StatusBadRequest, "idempotency_key is required for operation_completed")
-			return
-		}
-
-		idempotencyKey := strings.TrimSpace(payload.IdempotencyKey)
-		if idempotencyKey == "" {
-			idempotencyKey = "generic:" + operationID + ":start"
-		}
-
-		action := mappedCanonicalAction(payload.Tool, payload.Operation, payload.Environment)
-		actor := mappedActor(payload.Actor, "generic")
-		sessionID := strings.TrimSpace(payload.SessionID)
-		if sessionID == "" {
-			sessionID = operationID
-		}
-		prescriptionID := mappedPrescriptionID("generic", payload.Tool, payload.Operation, "", operationID, payload.Environment, "")
-		scope := mappedScopeDimensions("generic", payload.Environment, map[string]string{})
-		artifactDigest := canon.SHA256Hex(body)
-
-		if payload.EventType == "operation_started" {
-			result, err := emitter.EmitMappedPrescribe(r.Context(), automationevent.MappedPrescribeInput{
-				TenantID:        tenantID,
-				ClaimSource:     "generic",
-				ClaimKey:        idempotencyKey,
-				ClaimPayload:    body,
-				Actor:           actor,
-				SessionID:       sessionID,
-				OperationID:     operationID,
-				PrescriptionID:  prescriptionID,
-				Action:          action,
-				ArtifactDigest:  artifactDigest,
-				ScopeDimensions: scope,
-				Flavor:          automationevent.FlavorImperative,
-				EvidenceKind:    pkevidence.EvidenceKindTranslated,
-				SourceSystem:    "generic",
-			})
-			writeWebhookEmitResult(w, result, err)
-			return
-		}
-
-		exitCode := payload.ExitCode
-		if exitCode == nil {
-			defaultCode := exitCodeForVerdict(payload.Verdict)
-			exitCode = &defaultCode
-		}
-		result, err := emitter.EmitMappedReport(r.Context(), automationevent.MappedReportInput{
-			TenantID:        tenantID,
-			ClaimSource:     "generic",
-			ClaimKey:        idempotencyKey,
-			ClaimPayload:    body,
-			Actor:           actor,
-			SessionID:       sessionID,
-			OperationID:     operationID,
-			PrescriptionID:  prescriptionID,
-			ArtifactDigest:  artifactDigest,
-			ScopeDimensions: scope,
-			Verdict:         payload.Verdict,
-			ExitCode:        exitCode,
-			Flavor:          automationevent.FlavorImperative,
-			EvidenceKind:    pkevidence.EvidenceKindTranslated,
-			SourceSystem:    "generic",
-		})
-		writeWebhookEmitResult(w, result, err)
 	}
 }
 
 func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence.Signer, secret string, resolveTenant WebhookTenantResolver) http.HandlerFunc {
-	emitter := automationevent.NewEmitter(store, signer)
+	svc := ingest.NewWebhookService(store, signer)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, ok := webhookRequestBody(w, r, secret, signer)
@@ -163,80 +108,179 @@ func handleArgoCDWebhookWithTenantResolver(store WebhookStore, signer pkevidence
 			writeError(w, http.StatusBadRequest, "invalid JSON")
 			return
 		}
-		if strings.TrimSpace(payload.AppName) == "" || strings.TrimSpace(payload.OperationID) == "" {
-			writeError(w, http.StatusBadRequest, "app_name and operation_id are required")
-			return
-		}
-
-		sourceKey := mappedPrescriptionID("argocd", payload.AppName, "sync", payload.InitiatedBy, payload.OperationID, payload.AppNamespace, "")
-		idempotencyKey := payload.AppName + ":" + payload.OperationID
-		source := "argocd_start"
-		if payload.Event != "sync_started" {
-			source = "argocd_complete"
-			idempotencyKey += ":complete"
-		}
-
-		action := mappedCanonicalAction("argocd", "sync", payload.AppNamespace)
-		actor := mappedActor(payload.InitiatedBy, "argocd")
-		scope := mappedScopeDimensions("argocd", payload.AppNamespace, map[string]string{
-			"application": payload.AppName,
-			"revision":    payload.Revision,
-		})
-		artifactDigest := canon.SHA256Hex(body)
-		externalRefs := []pkevidence.ExternalRef{
-			{Type: "argocd_application", ID: payload.AppNamespace + "/" + payload.AppName},
-			{Type: "argocd_revision", ID: payload.Revision},
-			{Type: "argocd_operation", ID: payload.OperationID},
-		}
 
 		switch payload.Event {
 		case "sync_started":
-			result, err := emitter.EmitMappedPrescribe(r.Context(), automationevent.MappedPrescribeInput{
-				TenantID:        tenantID,
-				ClaimSource:     source,
-				ClaimKey:        idempotencyKey,
-				ClaimPayload:    body,
-				Actor:           actor,
-				SessionID:       payload.OperationID,
-				OperationID:     payload.OperationID,
-				PrescriptionID:  sourceKey,
-				Action:          action,
-				ArtifactDigest:  artifactDigest,
-				ScopeDimensions: scope,
-				Flavor:          automationevent.FlavorReconcile,
-				EvidenceKind:    pkevidence.EvidenceKindTranslated,
-				SourceSystem:    "argocd",
-			})
-			writeWebhookEmitResult(w, result, err)
-		case "sync_completed":
-			verdict, exitCode, ok := argoCDVerdict(payload.Phase)
-			if !ok {
-				writeError(w, http.StatusBadRequest, "unsupported argocd phase")
+			req, err := buildArgoCDWebhookPrescribeRequest(payload, body)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			result, err := emitter.EmitMappedReport(r.Context(), automationevent.MappedReportInput{
-				TenantID:        tenantID,
-				ClaimSource:     source,
-				ClaimKey:        idempotencyKey,
-				ClaimPayload:    body,
-				Actor:           actor,
-				SessionID:       payload.OperationID,
-				OperationID:     payload.OperationID,
-				PrescriptionID:  sourceKey,
-				ArtifactDigest:  artifactDigest,
-				ScopeDimensions: scope,
-				Verdict:         verdict,
-				ExitCode:        &exitCode,
-				ExternalRefs:    externalRefs,
-				Flavor:          automationevent.FlavorReconcile,
-				EvidenceKind:    pkevidence.EvidenceKindTranslated,
-				SourceSystem:    "argocd",
-			})
-			writeWebhookEmitResult(w, result, err)
+			result, err := svc.Prescribe(r.Context(), tenantID, req)
+			writeWebhookIngestResult(w, result, err)
+		case "sync_completed":
+			req, err := buildArgoCDWebhookReportRequest(payload, body)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			result, err := svc.Report(r.Context(), tenantID, req)
+			writeWebhookIngestResult(w, result, err)
 		default:
 			writeError(w, http.StatusBadRequest, "unsupported argocd event")
 		}
 	}
+}
+
+func buildGenericWebhookPrescribeRequest(payload genericWebhookPayload, body json.RawMessage) (ingest.PrescribeRequest, error) {
+	if strings.TrimSpace(payload.Tool) == "" || strings.TrimSpace(payload.Operation) == "" {
+		return ingest.PrescribeRequest{}, fmt.Errorf("tool and operation are required")
+	}
+	operationID := strings.TrimSpace(payload.OperationID)
+	if operationID == "" {
+		return ingest.PrescribeRequest{}, fmt.Errorf("operation_id is required")
+	}
+	sessionID := strings.TrimSpace(payload.SessionID)
+	if sessionID == "" {
+		sessionID = operationID
+	}
+	idempotencyKey := strings.TrimSpace(payload.IdempotencyKey)
+	if idempotencyKey == "" {
+		idempotencyKey = "generic:" + operationID + ":start"
+	}
+	action := mappedCanonicalAction(payload.Tool, payload.Operation, payload.Environment)
+	return ingest.PrescribeRequest{
+		Envelope: ingest.Envelope{
+			ContractVersion: ingest.ContractVersionV1,
+			Claim: &ingest.Claim{
+				Source:  "generic",
+				Key:     idempotencyKey,
+				Payload: body,
+			},
+			Actor:           mappedActor(payload.Actor, "generic"),
+			SessionID:       sessionID,
+			OperationID:     operationID,
+			TraceID:         sessionID,
+			ScopeDimensions: mappedScopeDimensions("generic", payload.Environment, map[string]string{}),
+			Flavor:          pkevidence.FlavorImperative,
+			Evidence:        &pkevidence.EvidenceMetadata{Kind: pkevidence.EvidenceKindTranslated},
+			Source:          &pkevidence.SourceMetadata{System: "generic"},
+		},
+		PrescriptionID:  mappedPrescriptionID("generic", payload.Tool, payload.Operation, "", operationID, payload.Environment, ""),
+		ArtifactDigest:  canon.SHA256Hex(body),
+		CanonicalAction: &action,
+	}, nil
+}
+
+func buildGenericWebhookReportRequest(payload genericWebhookPayload, body json.RawMessage) (ingest.ReportRequest, error) {
+	if strings.TrimSpace(payload.Tool) == "" || strings.TrimSpace(payload.Operation) == "" {
+		return ingest.ReportRequest{}, fmt.Errorf("tool and operation are required")
+	}
+	operationID := strings.TrimSpace(payload.OperationID)
+	if operationID == "" {
+		return ingest.ReportRequest{}, fmt.Errorf("operation_id is required")
+	}
+	if strings.TrimSpace(payload.IdempotencyKey) == "" {
+		return ingest.ReportRequest{}, fmt.Errorf("idempotency_key is required for operation_completed")
+	}
+	exitCode := payload.ExitCode
+	if exitCode == nil {
+		defaultCode := exitCodeForVerdict(payload.Verdict)
+		exitCode = &defaultCode
+	}
+	sessionID := strings.TrimSpace(payload.SessionID)
+	if sessionID == "" {
+		sessionID = operationID
+	}
+	return ingest.ReportRequest{
+		Envelope: ingest.Envelope{
+			ContractVersion: ingest.ContractVersionV1,
+			Claim: &ingest.Claim{
+				Source:  "generic",
+				Key:     strings.TrimSpace(payload.IdempotencyKey),
+				Payload: body,
+			},
+			Actor:           mappedActor(payload.Actor, "generic"),
+			SessionID:       sessionID,
+			OperationID:     operationID,
+			TraceID:         sessionID,
+			ScopeDimensions: mappedScopeDimensions("generic", payload.Environment, map[string]string{}),
+			Flavor:          pkevidence.FlavorImperative,
+			Evidence:        &pkevidence.EvidenceMetadata{Kind: pkevidence.EvidenceKindTranslated},
+			Source:          &pkevidence.SourceMetadata{System: "generic"},
+		},
+		PrescriptionID: mappedPrescriptionID("generic", payload.Tool, payload.Operation, "", operationID, payload.Environment, ""),
+		ArtifactDigest: canon.SHA256Hex(body),
+		Verdict:        payload.Verdict,
+		ExitCode:       exitCode,
+	}, nil
+}
+
+func buildArgoCDWebhookPrescribeRequest(payload argoCDWebhookPayload, body json.RawMessage) (ingest.PrescribeRequest, error) {
+	if strings.TrimSpace(payload.AppName) == "" || strings.TrimSpace(payload.OperationID) == "" {
+		return ingest.PrescribeRequest{}, fmt.Errorf("app_name and operation_id are required")
+	}
+	operationID := strings.TrimSpace(payload.OperationID)
+	action := mappedCanonicalAction("argocd", "sync", payload.AppNamespace)
+	return ingest.PrescribeRequest{
+		Envelope: ingest.Envelope{
+			ContractVersion: ingest.ContractVersionV1,
+			Claim: &ingest.Claim{
+				Source:  "argocd_start",
+				Key:     payload.AppName + ":" + operationID,
+				Payload: body,
+			},
+			Actor:           mappedActor(payload.InitiatedBy, "argocd"),
+			SessionID:       operationID,
+			OperationID:     operationID,
+			TraceID:         operationID,
+			ScopeDimensions: mappedScopeDimensions("argocd", payload.AppNamespace, map[string]string{"application": payload.AppName, "revision": payload.Revision}),
+			Flavor:          pkevidence.FlavorReconcile,
+			Evidence:        &pkevidence.EvidenceMetadata{Kind: pkevidence.EvidenceKindTranslated},
+			Source:          &pkevidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID:  mappedPrescriptionID("argocd", payload.AppName, "sync", payload.InitiatedBy, operationID, payload.AppNamespace, ""),
+		ArtifactDigest:  canon.SHA256Hex(body),
+		CanonicalAction: &action,
+	}, nil
+}
+
+func buildArgoCDWebhookReportRequest(payload argoCDWebhookPayload, body json.RawMessage) (ingest.ReportRequest, error) {
+	if strings.TrimSpace(payload.AppName) == "" || strings.TrimSpace(payload.OperationID) == "" {
+		return ingest.ReportRequest{}, fmt.Errorf("app_name and operation_id are required")
+	}
+	verdict, exitCode, ok := argoCDVerdict(payload.Phase)
+	if !ok {
+		return ingest.ReportRequest{}, fmt.Errorf("unsupported argocd phase")
+	}
+	operationID := strings.TrimSpace(payload.OperationID)
+	return ingest.ReportRequest{
+		Envelope: ingest.Envelope{
+			ContractVersion: ingest.ContractVersionV1,
+			Claim: &ingest.Claim{
+				Source:  "argocd_complete",
+				Key:     payload.AppName + ":" + operationID + ":complete",
+				Payload: body,
+			},
+			Actor:           mappedActor(payload.InitiatedBy, "argocd"),
+			SessionID:       operationID,
+			OperationID:     operationID,
+			TraceID:         operationID,
+			ScopeDimensions: mappedScopeDimensions("argocd", payload.AppNamespace, map[string]string{"application": payload.AppName, "revision": payload.Revision}),
+			Flavor:          pkevidence.FlavorReconcile,
+			Evidence:        &pkevidence.EvidenceMetadata{Kind: pkevidence.EvidenceKindTranslated},
+			Source:          &pkevidence.SourceMetadata{System: "argocd"},
+		},
+		PrescriptionID: mappedPrescriptionID("argocd", payload.AppName, "sync", payload.InitiatedBy, operationID, payload.AppNamespace, ""),
+		ArtifactDigest: canon.SHA256Hex(body),
+		Verdict:        verdict,
+		ExitCode:       &exitCode,
+		ExternalRefs: []pkevidence.ExternalRef{
+			{Type: "argocd_application", ID: payload.AppNamespace + "/" + payload.AppName},
+			{Type: "argocd_revision", ID: payload.Revision},
+			{Type: "argocd_operation", ID: operationID},
+		},
+	}, nil
 }
 
 func resolveWebhookTenant(w http.ResponseWriter, r *http.Request, resolveTenant WebhookTenantResolver) (string, bool) {
@@ -287,9 +331,9 @@ func webhookRequestBody(w http.ResponseWriter, r *http.Request, secret string, s
 	return body, true
 }
 
-func writeWebhookEmitResult(w http.ResponseWriter, result automationevent.EmitResult, err error) {
+func writeWebhookIngestResult(w http.ResponseWriter, result ingest.Result, err error) {
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "build mapped evidence failed")
+		writeIngestServiceError(w, err)
 		return
 	}
 	if result.Duplicate {

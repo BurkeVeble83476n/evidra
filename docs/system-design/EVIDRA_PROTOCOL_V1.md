@@ -136,6 +136,18 @@ v1 flavors:
 The same correlation rules and the same signal pipeline apply across all
 flavors.
 
+The same lifecycle vocabulary is also exposed through the server-side external
+ingest API:
+
+- `POST /v1/evidence/ingest/prescribe`
+- `POST /v1/evidence/ingest/report`
+
+These routes are the typed external lifecycle surface. The request contract
+keeps `flavor`, `evidence.kind`, and `source.system` explicit; persisted
+entries then expose the same context as `payload.flavor`,
+`payload.evidence.kind`, and `payload.source.system`. The webhook routes remain
+compatibility wrappers over the shared ingest service.
+
 ---
 
 # 3. Correlation Model

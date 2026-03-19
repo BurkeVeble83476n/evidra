@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	iauth "samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/ingest"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
 )
@@ -18,6 +19,7 @@ type RouterConfig struct {
 	DefaultTenant  string
 	PublicKey      ed25519.PublicKey
 	EntryStore     *store.EntryStore
+	Ingest         IngestPort
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
 	RawStore       RawEntryStore
@@ -84,6 +86,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		mux.Handle("POST /v1/evidence/forward", authMw(handleForward(cfg.RawStore)))
 		mux.Handle("POST /v1/evidence/batch", authMw(handleBatch(cfg.RawStore)))
 		mux.Handle("POST /v1/evidence/findings", authMw(handleFindings(cfg.RawStore)))
+	}
+	ingestSvc := cfg.Ingest
+	if ingestSvc == nil && cfg.EntryStore != nil {
+		ingestSvc = ingest.NewService(cfg.EntryStore, cfg.WebhookSigner)
+	}
+	if ingestSvc != nil {
+		mux.Handle("POST /v1/evidence/ingest/prescribe", authMw(handleIngestPrescribe(ingestSvc)))
+		mux.Handle("POST /v1/evidence/ingest/report", authMw(handleIngestReport(ingestSvc)))
 	}
 
 	// Evidence queries.
