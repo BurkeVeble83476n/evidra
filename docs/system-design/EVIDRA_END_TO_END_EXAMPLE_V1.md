@@ -25,7 +25,7 @@ Actors:
 - **AI agent**: Claude Code via MCP, operating on Kubernetes (staging).
 - **CI**: GitHub Actions running Terraform + kubectl apply.
 - **Evidra**:
-  - MCP tool endpoint for agent calls (`prescribe`, `report`)
+  - MCP tool endpoint for agent calls (`prescribe_full` or `prescribe_smart`, then `report`)
   - CLI wrapper in CI (`evidra prescribe`, `evidra report`)
   - Append-only evidence chain (JSONL, hash-linked)
 
@@ -74,14 +74,14 @@ spec:
         image: registry.corp.com/api-server:v2.4.1
 ```
 
-## Step 2: Agent calls prescribe()
+## Step 2: Agent calls prescribe_full()
 
-Request (MCP → Evidra):
+Request (MCP `prescribe_full` → Evidra):
 
 - tool: `kubectl`
 - operation: `apply`
 - raw_artifact: the YAML bytes above
-- actor: `{"type":"ai_agent","id":"claude-code","provenance":"mcp","instance_id":"pod-abc123","version":"v1.3"}`
+- actor: `{"type":"ai_agent","id":"claude-code","origin":"mcp","instance_id":"pod-abc123","version":"v1.3"}`
 - session_id: `"session-20260304-staging"` (optional, auto-generated if omitted)
 - scope_dimensions: `{"cluster":"staging-us-east","namespace":"staging"}`
 
@@ -543,7 +543,7 @@ reserved, not shipped.
 Tools that already know their resource identity can bypass
 the adapter entirely by providing a pre-built canonical action:
 
-**MCP server:** Pass `canonical_action` field in prescribe input.
+**MCP server:** Pass `canonical_action` field in `prescribe_full` input.
 
 **CLI (v0.3.x+):** Use `--canonical-action` flag:
 

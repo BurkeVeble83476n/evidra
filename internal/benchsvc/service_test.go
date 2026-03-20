@@ -17,6 +17,7 @@ type fakeRepo struct {
 	leaderboardTenant string
 	leaderboardMode   string
 	beginTxErr        error
+	tx                pgx.Tx
 }
 
 func (f *fakeRepo) ListRuns(_ context.Context, _ string, _ bench.RunFilters) ([]bench.RunRecord, int, error) {
@@ -48,6 +49,9 @@ func (f *fakeRepo) GetArtifact(_ context.Context, _, _, _ string) ([]byte, strin
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr
+	}
+	if f.tx != nil {
+		return f.tx, nil
 	}
 	return nil, fmt.Errorf("fakeRepo: no real tx available")
 }

@@ -28,7 +28,7 @@ entry types.
 - Persisted entries expose the same context as `payload.flavor`,
   `payload.evidence.kind`, and `payload.source.system`
 
-The hosted API exposes the same taxonomy through raw `/v1/evidence/forward`
+The self-hosted API exposes the same taxonomy through raw `/v1/evidence/forward`
 and `/v1/evidence/batch`, plus typed `/v1/evidence/ingest/prescribe` and
 `/v1/evidence/ingest/report` lifecycle ingest. Webhook routes are compatibility
 wrappers over that shared ingest service, not a second evidence lane.
@@ -150,17 +150,17 @@ Phase 1 terminology note:
                                              │
                               ┌──────────────┼──────────────┐
                               ▼              ▼              ▼
-                         ┌────────┐    ┌──────────┐   ┌──────────┐
-                         │  CLI   │    │ MCP      │   │ REST API │
-                         │        │    │ Server   │   │          │
-                         │scorecard│   │prescribe │   │/assess   │
-                         │explain │    │report    │   │/scorecard│
-                         │validate│    │get_event │   │+ LLM     │
-                         └────────┘    └──────────┘   └──────────┘
-                                            │              │
-                                       AI Agents      LLM Layer
-                                       (Claude Code,  (tag discovery,
-                                        Cursor, etc)   explanation)
+                      ┌────────────────┐ ┌──────────────────┐ ┌────────────────────┐
+                      │ CLI            │ │ MCP Server       │ │ Self-hosted API    │
+                      │ record         │ │ prescribe_full   │ │ /v1/evidence/      │
+                      │ scorecard      │ │ prescribe_smart  │ │   scorecard        │
+                      │ explain        │ │ report           │ │ /v1/evidence/      │
+                      │ validate       │ │ get_event        │ │   explain          │
+                      └────────────────┘ └──────────────────┘ └────────────────────┘
+                                             │                    │
+                                        AI Agents          Hosted analytics
+                                        (Claude Code,      consumers
+                                         Cursor, etc)
 ```
 
 ---
@@ -278,7 +278,7 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | Ed25519 signing | `pkg/evidence/` | Stable |
 | Hash chain | `pkg/evidence/` | Stable |
 
-### v1.0 (in progress)
+### v1.0 (delivered)
 
 | Component | Document | Status |
 |-----------|----------|--------|
@@ -288,7 +288,11 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | Self-hosted API | [self-hosted-setup.md](../guides/self-hosted-setup.md) | Delivered for evidence ingestion, browsing, and tenant-wide scorecard/explain |
 | Signal validation | `tests/signal-validation/` scripts | Running in CI/manual flows |
 
-CLI and MCP are the primary analytics entry points in v1. Self-hosted also exposes tenant-wide `/v1/evidence/scorecard` and `/v1/evidence/explain` over centralized stored evidence using the same signal and scoring path.
+CLI and MCP are the primary local analytics entry points in v1. Self-hosted also
+exposes tenant-wide `/v1/evidence/scorecard` and `/v1/evidence/explain` over
+centralized stored evidence using the same signal and scoring path. The adjacent
+`/v1/bench/*` surface shares the same API process and auth shell, but it is not
+part of the core v1 evidence and scorecard contract described in this document.
 
 ## Self-Hosted Mode
 
@@ -296,29 +300,29 @@ Self-hosted mode keeps the same evidence semantics as local CLI and MCP workflow
 
 - **Forwarded evidence:** CLI and MCP can append evidence locally or forward the same signed entries to `evidra-api` for centralized storage.
 - **Controller-first GitOps ingress:** Argo CD can contribute controller-observed reconciliation evidence in self-hosted mode. Webhooks remain supported, but they are not the only GitOps path.
-- **Centralized store:** Hosted evidence is persisted in Postgres so teams can browse and replay tenant-wide evidence instead of reading per-machine JSONL chains.
-- **Shared analytics path:** Hosted `scorecard` and `explain` load stored evidence and run the same signal detectors and scoring engine as local analysis.
-- **deliberate refusal:** A deny decision is still explicit evidence, not a side channel. The terminal record remains `report(verdict=declined, decision_context)`, so local and hosted analytics interpret it the same way.
+- **Centralized store:** Self-hosted evidence is persisted in Postgres so teams can browse and replay tenant-wide evidence instead of reading per-machine JSONL chains.
+- **Shared analytics path:** Self-hosted `scorecard` and `explain` load stored evidence and run the same signal detectors and scoring engine as local analysis.
+- **deliberate refusal:** A deny decision is still explicit evidence, not a side channel. The terminal record remains `report(verdict=declined, decision_context)`, so local and self-hosted analytics interpret it the same way.
 
 ```text
 CLI / MCP ---> signed evidence entries ---> evidra-api ---> Postgres
     |                                                 |
     | local JSONL                                     | tenant-wide replay
     v                                                 v
-local scorecard/explain                     hosted scorecard/explain
+local scorecard/explain                  self-hosted scorecard/explain
 
 GitOps controllers / webhooks ---> mapped or controller-observed evidence ---^
 ```
 
 ### v1.x (designed, not started)
 
-| Component | Document |
-|-----------|----------|
-| Community contribution + percentiles | COMMUNITY_BENCHMARK_DESIGN |
-| Benchmark dataset (corpus + cases) | DATASET_ARCHITECTURE |
-| Agent experiment (multi-model) | EXPERIMENT_DESIGN |
-| Fault injection CI job | FAULT_INJECTION_RUNBOOK |
-| Scanner mapping lifecycle (Trivy/Checkov/Kubescape) | V1_ARCHITECTURE + LLM_RISK_PREDICTION_CONTRACT |
+| Component | Status / notes |
+|-----------|----------------|
+| Community contribution + percentiles | Planned. No checked-in design doc yet. |
+| Benchmark dataset (corpus + cases) | Planned. No checked-in design doc yet. |
+| Agent experiment (multi-model) | Planned. No checked-in design doc yet. |
+| Fault injection CI job | Planned. No checked-in design doc yet. |
+| Scanner mapping lifecycle (Trivy/Checkov/Kubescape) | Planned. Current notes live in this document; no dedicated checked-in design doc yet. |
 
 ### v1.1+ (designed, not started — requires signal validation first)
 
@@ -418,7 +422,8 @@ Score comparison between scenarios is meaningful only when operation count reach
 
 ### Remaining Scope (not delivered in this snapshot)
 
-- REST API + hosted LLM integration remains a separate dependency stream.
+- Hosted LLM-generated explanation or analysis layers are not part of the
+  delivered v1 surface in this repo.
 - External scanner mappings are scaffolded via `TagProducer` and SARIF producer, but need production mapping/config lifecycle.
 - Intent graph is not required for the currently delivered signal set.
 
@@ -520,9 +525,9 @@ type SignalDetector interface {
 
 | Interface | Consumer | Protocol |
 |-----------|----------|----------|
-| **CLI** (`evidra record/import/scorecard`) | CI pipelines, bash scripts, human operators | Shell + JSONL evidence files |
-| **MCP Server** (`evidra-mcp`) | AI agents (Claude Code, Cursor, custom) | JSON-RPC over stdio |
-| **Self-hosted API** | Forwarded evidence, webhook sources, hosted analytics consumers | HTTP + JSON |
+| **CLI** (`evidra record/import/scorecard/explain`) | CI pipelines, bash scripts, human operators | Shell + JSONL evidence files |
+| **MCP Server** (`evidra-mcp`) | AI agents (Claude Code, Cursor, custom) | JSON-RPC over stdio (`prescribe_full`, `prescribe_smart`, `report`, `get_event`) |
+| **Self-hosted API** | Forwarded evidence, webhook sources, self-hosted analytics consumers | HTTP + JSON |
 
 All three share the same evidence model and analytics path. Same detectors, same signals, same scorecard. Different entry points and storage boundaries.
 

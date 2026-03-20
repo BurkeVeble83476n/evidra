@@ -196,3 +196,30 @@ func TestParse_ReadOnlyOnly(t *testing.T) {
 		t.Errorf("verify phase count = %d, want 0", count)
 	}
 }
+
+func TestParse_IgnoresLegacyPrescribeAlias(t *testing.T) {
+	t.Parallel()
+
+	calls := []ToolCall{
+		makeToolCall("run_command", map[string]string{"command": "kubectl get pods -n bench"}, "NAME  READY  STATUS\nweb   0/1    ErrImagePull"),
+		makeToolCall("evidra_prescribe", map[string]string{"operation": "patch", "tool": "kubectl"}, `{"ok":true,"prescription_id":"abc123"}`),
+		makeToolCall("run_command", map[string]string{"command": "kubectl patch deployment/web -n bench --type=json -p=[...]"}, "deployment.apps/web patched"),
+	}
+
+	tl := Parse(calls)
+
+	if tl.TotalSteps != 2 {
+		t.Fatalf("expected 2 steps after ignoring legacy prescribe alias, got %d", tl.TotalSteps)
+	}
+
+	if count := tl.PhaseCount[PhaseDecide]; count != 0 {
+		t.Fatalf("decide phase count = %d, want 0 when only legacy alias is present", count)
+	}
+
+	expected := []Phase{PhaseDiscover, PhaseAct}
+	for i, want := range expected {
+		if tl.Steps[i].Phase != want {
+			t.Errorf("step %d: phase = %q, want %q", i, tl.Steps[i].Phase, want)
+		}
+	}
+}

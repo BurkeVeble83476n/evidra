@@ -206,7 +206,7 @@ Required checks:
 2. All active prompt files have valid contract header.
 3. Contract version in generated files is consistent across targets.
 4. Hash manifest matches generated files.
-5. Prompt text does not contradict `docs/system-design/EVIDRA_PROTOCOL.md`.
+5. Prompt text does not contradict `docs/system-design/EVIDRA_PROTOCOL_V1.md`.
 
 Recommended command contract:
 

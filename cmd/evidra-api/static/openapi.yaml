@@ -31,6 +31,8 @@ tags:
     description: Scorecard computation and signal analysis
   - name: Auth
     description: Authentication and key management
+  - name: Bench
+    description: Infrastructure benchmark runs and leaderboard
 
 paths:
   /healthz:
@@ -526,6 +528,150 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /v1/bench/leaderboard:
+    get:
+      summary: Model leaderboard (public, no auth)
+      tags: [Bench]
+      security: []
+      parameters:
+        - name: evidence_mode
+          in: query
+          schema:
+            type: string
+            enum: [proxy, smart]
+            default: proxy
+      responses:
+        '200':
+          description: Leaderboard data
+
+  /v1/bench/scenarios:
+    get:
+      summary: Scenario catalog (public, no auth)
+      tags: [Bench]
+      security: []
+      responses:
+        '200':
+          description: List of scenarios
+
+  /v1/bench/runs:
+    get:
+      summary: List benchmark runs
+      tags: [Bench]
+      parameters:
+        - name: model
+          in: query
+          schema: { type: string }
+        - name: scenario
+          in: query
+          schema: { type: string }
+        - name: evidence_mode
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: Paginated run list
+    post:
+      summary: Submit a benchmark run
+      tags: [Bench]
+      responses:
+        '201':
+          description: Run created
+
+  /v1/bench/runs/batch:
+    post:
+      summary: Batch submit runs (idempotent)
+      tags: [Bench]
+      responses:
+        '200':
+          description: Import result
+
+  /v1/bench/runs/{id}:
+    get:
+      summary: Get run detail
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Run record
+
+  /v1/bench/runs/{id}/transcript:
+    get:
+      summary: Run transcript (text/plain)
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Transcript text
+
+  /v1/bench/runs/{id}/tool-calls:
+    get:
+      summary: Tool call log (JSON)
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tool calls array
+
+  /v1/bench/runs/{id}/timeline:
+    get:
+      summary: Decision timeline
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Timeline with phases
+
+  /v1/bench/runs/{id}/scorecard:
+    get:
+      summary: Run scorecard data
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Scorecard JSON
+
+  /v1/bench/stats:
+    get:
+      summary: Aggregate statistics
+      tags: [Bench]
+      responses:
+        '200':
+          description: Stats
+
+  /v1/bench/catalog:
+    get:
+      summary: Distinct models and providers
+      tags: [Bench]
+      responses:
+        '200':
+          description: Catalog
 
   /v1/hooks/argocd:
     post:
@@ -1341,4 +1487,3 @@ components:
         status:
           type: string
           example: accepted
-

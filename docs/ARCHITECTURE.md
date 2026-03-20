@@ -57,11 +57,25 @@ System design and implementation mapping:
 Infrastructure agent benchmark results and analytics.
 
 **Public types:** `pkg/bench/` — RunRecord, RunFilters, timeline parser
-**Private implementation:** `internal/benchsvc/` — Service (request-scoped) over PgStore repository, HTTP handlers, JSONL import
+**Private implementation:** `internal/benchsvc/` — request-scoped `Service`, internal `Repository` contract, `PgStore`, HTTP handlers, JSONL import
 **Database:** `bench_runs`, `bench_artifacts`, `bench_scenarios` tables (migration 006)
 **UI:** `ui/src/pages/bench/` — Leaderboard, Dashboard, Runs, RunDetail
 
-The bench layer uses a `Service -> Repository` seam: `benchsvc.Service` accepts a tenant ID per call, and the underlying `PgStore` repository handles persistence without tenant assumptions.
+The bench layer uses an internal `Service -> Repository` seam: `benchsvc.Service`
+accepts a tenant ID per call, and the underlying `PgStore` repository handles
+persistence without tenant assumptions. The repository contract is intentionally
+kept inside `internal/benchsvc/`; `pkg/bench/` only carries data types shared by
+the API, UI, and import/export paths.
+
+Run ingestion is transactional at the service boundary. `POST /v1/bench/runs`
+commits the run and any attached artifacts atomically, and
+`POST /v1/bench/runs/batch` is idempotent by `run.id`: duplicate IDs are treated
+as no-ops and do not mutate artifacts for existing runs.
+
+The supported HTTP contract for the bench surface is `/v1/bench/*`. The checked-in
+OpenAPI specs in `cmd/evidra-api/static/openapi.yaml` and `ui/public/openapi.yaml`
+must describe the same live bench routes so fallback builds and UI builds expose
+the same API contract.
 
 Operational references:
 - [CLI Reference](integrations/cli-reference.md)

@@ -170,6 +170,9 @@ func (s *Service) IngestRunBatch(ctx context.Context, tenantID string, runs []In
 		if err != nil {
 			return 0, fmt.Errorf("benchsvc.IngestRunBatch: insert run %s: %w", run.ID, err)
 		}
+		if ct.RowsAffected() == 0 {
+			continue
+		}
 		inserted += int(ct.RowsAffected())
 
 		if run.Transcript != "" {

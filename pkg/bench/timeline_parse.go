@@ -51,7 +51,7 @@ func Parse(calls []ToolCall) *Timeline {
 		}
 
 		switch call.Tool {
-		case "evidra_prescribe_smart", "evidra_prescribe_full", "evidra_prescribe":
+		case "evidra_prescribe_smart", "evidra_prescribe_full":
 			step.Phase = PhaseDecide
 			step.Operation = call.Tool
 			step.Summary = "Prescribed action via Evidra"
@@ -73,7 +73,7 @@ func Parse(calls []ToolCall) *Timeline {
 			step.ExitCode = extractExitCode(call.Result)
 
 			if isMutationCmd(infraTool, subcommand, cmd) {
-				// Explicit decide phase only comes from evidra_prescribe calls.
+				// Explicit decide phase only comes from current Evidra prescribe calls.
 				// Mutations without prescribe are classified as act directly.
 				step.Phase = PhaseAct
 				seenMutation = true

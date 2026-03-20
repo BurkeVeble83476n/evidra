@@ -138,11 +138,12 @@ Report records the terminal result after execution or an intentional refusal to 
 
 ### MCP Input Contract
 
-The MCP tools `prescribe` and `report` accept caller-provided
-input. Not all stored fields are caller-provided — many are
-computed by Evidra. This table defines the wire contract.
+The MCP server exposes `prescribe_full`, `prescribe_smart`, and
+`report`. The CLI exposes `evidra prescribe` and `evidra report`.
+Not all stored fields are caller-provided; many are computed by
+Evidra. This section defines the wire contract.
 
-#### prescribe tool input
+#### prescribe_full tool input
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -174,6 +175,17 @@ prescription_id, session_id (if not caller-provided), trace_id (defaults to sess
 canonical_action (if not pre-provided), intent_digest,
 artifact_digest, risk_inputs, effective_risk, ttl_ms,
 canon_source, timestamp.
+
+`prescribe_smart` is the reduced MCP contract for cases where raw artifact
+bytes are not available. It uses the same actor and tracing envelope, but
+replaces `raw_artifact` and `canonical_action` with:
+
+- `resource` (MUST): lightweight target identifier (resource name, address, or equivalent)
+- `namespace` (MAY): optional namespace or comparable scope hint
+
+Smart prescribe computes matrix risk from target context only. Raw artifact
+digesting and artifact drift detection are unavailable for that
+prescribe/report pair.
 
 #### report tool input
 
@@ -534,7 +546,7 @@ Ingress alias normalization and validation requirements are defined in
 
 | Context | trace_id lifecycle | Generation |
 |---------|-------------------|------------|
-| evidra-mcp prescribe | Session-scoped by default | Defaults to `session_id` if omitted |
+| evidra-mcp prescribe_full / prescribe_smart | Session-scoped by default | Defaults to `session_id` if omitted |
 | evidra CLI prescribe | Session-scoped by default | Defaults to `session_id` if omitted |
 | report (CLI/MCP) | Derived from referenced prescribe when present | Inherited from prescription; generated only when no source exists |
 | evidra-api (planned) | Service-defined | Generated server-side or accepted from trusted caller |
