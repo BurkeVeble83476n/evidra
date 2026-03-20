@@ -172,6 +172,7 @@ export function Designer() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templatesMode, setTemplatesMode] = useState<"run" | "new">("run");
   const [draftSaved, setDraftSaved] = useState(false);
   const tour = useTourState();
 
@@ -316,11 +317,18 @@ export function Designer() {
               {minimapOpen ? "Hide Map" : "Map"}
             </button>
             <button
-              onClick={() => setTemplatesOpen(true)}
+              onClick={() => { setTemplatesOpen(true); setTemplatesMode("run"); }}
               className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
               title="Browse scenarios and configure benchmark runs"
             >
               Scenarios
+            </button>
+            <button
+              onClick={() => { setTemplatesOpen(true); setTemplatesMode("new"); }}
+              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              title="Create a new puzzle"
+            >
+              New Puzzle
             </button>
             <button
               onClick={handleClear}
@@ -409,6 +417,7 @@ export function Designer() {
         open={templatesOpen}
         onClose={() => setTemplatesOpen(false)}
         onSelect={handleTemplateSelect}
+        initialMode={templatesMode}
       />
     </div>
   );

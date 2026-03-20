@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { Node, Edge } from "@xyflow/react";
 import type { PuzzleMetadata } from "./yaml-generator";
 
@@ -175,10 +175,12 @@ interface TemplatesModalProps {
   open: boolean;
   onClose: () => void;
   onSelect: (template: Template) => void;
+  initialMode?: ModalMode;
 }
 
-export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps) {
-  const [modalMode, setModalMode] = useState<ModalMode>("run");
+export function TemplatesModal({ open, onClose, onSelect, initialMode = "run" }: TemplatesModalProps) {
+  const [modalMode, setModalMode] = useState<ModalMode>(initialMode);
+  useEffect(() => { setModalMode(initialMode); }, [initialMode]);
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("all");
   const [search, setSearch] = useState("");
