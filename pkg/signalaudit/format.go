@@ -10,15 +10,14 @@ import (
 func FormatSummary(result Result) string {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("audited runs: %d\n", result.RunCount))
-	b.WriteString(fmt.Sprintf("audited scenarios: %d\n", result.AuditedScenarioCount))
-	b.WriteString(fmt.Sprintf(
-		"findings: missing_expected=%d forbidden_signals=%d unexpected_extras=%d unstable_groups=%d\n",
+	fmt.Fprintf(&b, "audited runs: %d\n", result.RunCount)
+	fmt.Fprintf(&b, "audited scenarios: %d\n", result.AuditedScenarioCount)
+	fmt.Fprintf(&b, "findings: missing_expected=%d forbidden_signals=%d unexpected_extras=%d unstable_groups=%d\n",
 		result.FindingTotals.MissingExpected,
 		result.FindingTotals.ForbiddenSignals,
 		result.FindingTotals.UnexpectedExtras,
 		result.FindingTotals.UnstableGroups,
-	))
+	)
 
 	scenarios := append([]ScenarioFinding(nil), result.ScenarioFindings...)
 	sort.Slice(scenarios, func(i, j int) bool {
