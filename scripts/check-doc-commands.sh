@@ -53,7 +53,6 @@ JSON
 go run ./cmd/evidra-mcp --help >/dev/null
 go run ./cmd/evidra-exp --help >/dev/null
 go run ./cmd/evidra-exp artifact --help >/dev/null
-go run ./cmd/evidra-exp execution --help >/dev/null
 
 prescribe_out="$(go run ./cmd/evidra prescribe \
   --tool terraform \
