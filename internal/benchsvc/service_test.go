@@ -46,6 +46,9 @@ func (f *fakeRepo) StoreArtifact(_ context.Context, _, _, _ string, _ []byte) er
 func (f *fakeRepo) GetArtifact(_ context.Context, _, _, _ string) ([]byte, string, error) {
 	return nil, "", nil
 }
+func (f *fakeRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+	return nil, nil
+}
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr

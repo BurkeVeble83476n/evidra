@@ -29,6 +29,7 @@ type Repository interface {
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
 	GetArtifact(ctx context.Context, tenantID string, runID, artifactType string) ([]byte, string, error)
+	CompareModels(ctx context.Context, tenantID, modelA, modelB, evidenceMode string) ([]ScenarioModelComparison, error)
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
 

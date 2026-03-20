@@ -77,6 +77,9 @@ func (r *handlerRepo) GetArtifact(_ context.Context, tenant, runID, artType stri
 	r.lastTenant = tenant
 	return r.artifact, r.artCT, r.artErr
 }
+func (r *handlerRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+	return nil, nil
+}
 func (r *handlerRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	return nil, fmt.Errorf("handlerRepo: no real tx")
 }
@@ -597,4 +600,96 @@ func (r *ingestRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 
 func (r *ingestRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
 	return r.batchCount, nil
+}
+
+// ---------- Compare ----------
+
+func TestHandleCompareRuns_ReturnsDelta(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		run: &bench.RunRecord{
+			ID:               "run-1",
+			ScenarioID:       "s1",
+			Model:            "sonnet",
+			Passed:           true,
+			Duration:         30.0,
+			Turns:            5,
+			EstimatedCost:    0.10,
+			PromptTokens:     1000,
+			CompletionTokens: 500,
+			ChecksPassed:     3,
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/compare/runs?a=run-1&b=run-1", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var cmp RunComparison
+	if err := json.Unmarshal(rec.Body.Bytes(), &cmp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cmp.RunA.ID != "run-1" {
+		t.Fatalf("RunA.ID = %q, want run-1", cmp.RunA.ID)
+	}
+	if cmp.Delta.PassedChanged {
+		t.Fatal("PassedChanged = true, want false (same run)")
+	}
+	if cmp.Delta.DurationDiff != 0 {
+		t.Fatalf("DurationDiff = %f, want 0", cmp.Delta.DurationDiff)
+	}
+}
+
+func TestHandleCompareModels_ReturnsComparison(t *testing.T) {
+	t.Parallel()
+
+	repo := &compareModelsRepo{
+		scenarios: []ScenarioModelComparison{
+			{ScenarioID: "broken-deployment", APassRate: 100, BPassRate: 80, ACost: 0.10, BCost: 0.20},
+		},
+	}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("tenant-a"))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/compare/models?a=sonnet&b=opus", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var cmp ModelComparison
+	if err := json.Unmarshal(rec.Body.Bytes(), &cmp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cmp.ModelA != "sonnet" {
+		t.Fatalf("ModelA = %q, want sonnet", cmp.ModelA)
+	}
+	if cmp.ModelB != "opus" {
+		t.Fatalf("ModelB = %q, want opus", cmp.ModelB)
+	}
+	if len(cmp.Scenarios) != 1 {
+		t.Fatalf("len(Scenarios) = %d, want 1", len(cmp.Scenarios))
+	}
+	if cmp.Summary.SharedScenarios != 1 {
+		t.Fatalf("SharedScenarios = %d, want 1", cmp.Summary.SharedScenarios)
+	}
+}
+
+// compareModelsRepo is a fake that returns canned CompareModels data.
+type compareModelsRepo struct {
+	handlerRepo
+	scenarios []ScenarioModelComparison
+}
+
+func (r *compareModelsRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+	return r.scenarios, nil
 }

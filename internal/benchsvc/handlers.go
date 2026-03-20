@@ -35,6 +35,8 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(svc))))
 	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(svc))))
 	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(svc))))
+	mux.Handle("GET /v1/bench/compare/runs", authMw(http.HandlerFunc(handleCompareRuns(svc))))
+	mux.Handle("GET /v1/bench/compare/models", authMw(http.HandlerFunc(handleCompareModels(svc))))
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
@@ -317,5 +319,42 @@ func handleListScenarios(svc *Service) http.HandlerFunc {
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"scenarios": scenarios,
 		})
+	}
+}
+
+func handleCompareRuns(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		a := r.URL.Query().Get("a")
+		b := r.URL.Query().Get("b")
+		if a == "" || b == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "query params 'a' and 'b' (run IDs) are required")
+			return
+		}
+		result, err := svc.CompareRuns(r.Context(), tenantID, a, b)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleCompareModels(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		modelA := r.URL.Query().Get("a")
+		modelB := r.URL.Query().Get("b")
+		if modelA == "" || modelB == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "query params 'a' and 'b' (model names) are required")
+			return
+		}
+		mode := r.URL.Query().Get("evidence_mode")
+		result, err := svc.CompareModels(r.Context(), tenantID, modelA, modelB, mode)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, result)
 	}
 }
