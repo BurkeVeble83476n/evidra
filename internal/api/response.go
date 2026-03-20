@@ -2,16 +2,15 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
+
+	"samebits.com/evidra/internal/apiutil"
 )
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	apiutil.WriteJSON(w, status, v)
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	apiutil.WriteError(w, status, msg)
 }

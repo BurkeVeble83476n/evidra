@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"samebits.com/evidra/internal/apiutil"
 	bench "samebits.com/evidra/pkg/bench"
 )
 
@@ -37,6 +39,22 @@ func RegisterRoutes(mux *http.ServeMux, s *PgStore, authMw func(http.Handler) ht
 	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(s))))
 }
 
+// parseSince parses a "since" query parameter as RFC3339 or date string.
+// Returns nil if the string is empty or unparseable.
+func parseSince(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t, err = time.Parse("2006-01-02", s)
+	}
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
 func handleLeaderboard(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mode := r.URL.Query().Get("evidence_mode")
@@ -45,10 +63,10 @@ func handleLeaderboard(s *PgStore) http.HandlerFunc {
 		}
 		entries, err := s.Leaderboard(r.Context(), mode)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		respondJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"models":        entries,
 			"evidence_mode": mode,
 		})
@@ -66,23 +84,23 @@ func handleIngestRun(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req ingestRunRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
 		if req.ID == "" || req.ScenarioID == "" || req.Model == "" {
-			respondError(w, http.StatusBadRequest, "id, scenario_id, and model are required")
+			apiutil.WriteError(w, http.StatusBadRequest, "id, scenario_id, and model are required")
 			return
 		}
 		req.TenantID = s.tenantID
 		if err := s.InsertRun(r.Context(), req.RunRecord); err != nil {
-			respondError(w, http.StatusInternalServerError, "insert: "+err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, "insert: "+err.Error())
 			return
 		}
 		if err := storeIngestArtifacts(r.Context(), s, req); err != nil {
-			respondError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
 			return
 		}
-		respondJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": req.ID})
+		apiutil.WriteJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": req.ID})
 	}
 }
 
@@ -92,11 +110,11 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 			Runs []ingestRunRequest `json:"runs"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
 		if len(req.Runs) == 0 {
-			respondError(w, http.StatusBadRequest, "runs array is empty")
+			apiutil.WriteError(w, http.StatusBadRequest, "runs array is empty")
 			return
 		}
 		records := make([]bench.RunRecord, len(req.Runs))
@@ -106,17 +124,17 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 		}
 		count, err := s.InsertRunBatch(r.Context(), records)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
 			return
 		}
 		// Store artifacts for each run.
 		for _, run := range req.Runs {
 			if err := storeIngestArtifacts(r.Context(), s, run); err != nil {
-				respondError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
+				apiutil.WriteError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
 				return
 			}
 		}
-		respondJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":       true,
 			"imported": count,
 			"total":    len(req.Runs),
@@ -138,7 +156,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 			Model:        q.Get("model"),
 			Provider:     q.Get("provider"),
 			EvidenceMode: q.Get("evidence_mode"),
-			Since:        q.Get("since"),
+			Since:        parseSince(q.Get("since")),
 			Limit:        limit,
 			Offset:       offset,
 			SortBy:       q.Get("sort_by"),
@@ -153,13 +171,13 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 
 		runs, total, err := s.ListRuns(r.Context(), f)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		if runs == nil {
 			runs = []bench.RunRecord{}
 		}
-		respondJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"items":  runs,
 			"total":  total,
 			"limit":  limit,
@@ -174,13 +192,13 @@ func handleGetRun(s *PgStore) http.HandlerFunc {
 		run, err := s.GetRun(r.Context(), id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, http.StatusNotFound, "run not found")
+				apiutil.WriteError(w, http.StatusNotFound, "run not found")
 			} else {
-				respondError(w, http.StatusInternalServerError, err.Error())
+				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			}
 			return
 		}
-		respondJSON(w, http.StatusOK, run)
+		apiutil.WriteJSON(w, http.StatusOK, run)
 	}
 }
 
@@ -192,14 +210,14 @@ func handleStats(s *PgStore) http.HandlerFunc {
 			Model:        q.Get("model"),
 			Provider:     q.Get("provider"),
 			EvidenceMode: q.Get("evidence_mode"),
-			Since:        q.Get("since"),
+			Since:        parseSince(q.Get("since")),
 		}
 		st, err := s.FilteredStats(r.Context(), f)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		respondJSON(w, http.StatusOK, st)
+		apiutil.WriteJSON(w, http.StatusOK, st)
 	}
 }
 
@@ -209,10 +227,10 @@ func handleGetTranscript(s *PgStore) http.HandlerFunc {
 		data, contentType, err := s.GetArtifact(r.Context(), id, "transcript")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, http.StatusNotFound, "transcript not found")
+				apiutil.WriteError(w, http.StatusNotFound, "transcript not found")
 				return
 			}
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		w.Header().Set("Content-Type", contentType)
@@ -227,10 +245,10 @@ func handleGetToolCalls(s *PgStore) http.HandlerFunc {
 		data, contentType, err := s.GetArtifact(r.Context(), id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, http.StatusNotFound, "tool calls not found")
+				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found")
 				return
 			}
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		w.Header().Set("Content-Type", contentType)
@@ -245,21 +263,21 @@ func handleGetTimeline(s *PgStore) http.HandlerFunc {
 		data, _, err := s.GetArtifact(r.Context(), id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
+				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
 				return
 			}
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		var calls []bench.ToolCall
 		if err := json.Unmarshal(data, &calls); err != nil {
-			respondError(w, http.StatusInternalServerError, "parse tool calls: "+err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, "parse tool calls: "+err.Error())
 			return
 		}
 
 		tl := bench.Parse(calls)
-		respondJSON(w, http.StatusOK, tl)
+		apiutil.WriteJSON(w, http.StatusOK, tl)
 	}
 }
 
@@ -267,16 +285,16 @@ func handleCatalog(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cat, err := s.Catalog(r.Context())
 		if err != nil {
-			respondJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
+			apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
 			return
 		}
-		respondJSON(w, http.StatusOK, cat)
+		apiutil.WriteJSON(w, http.StatusOK, cat)
 	}
 }
 
 func handleSignals(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		respondJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"total_runs":          0,
 			"runs_with_scorecard": 0,
 			"signals":             map[string]any{},
@@ -291,10 +309,10 @@ func handleGetScorecard(s *PgStore) http.HandlerFunc {
 		data, contentType, err := s.GetArtifact(r.Context(), id, "scorecard")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, http.StatusNotFound, "scorecard not found")
+				apiutil.WriteError(w, http.StatusNotFound, "scorecard not found")
 				return
 			}
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		w.Header().Set("Content-Type", contentType)
@@ -318,29 +336,17 @@ func storeIngestArtifacts(ctx context.Context, s *PgStore, req ingestRunRequest)
 	return nil
 }
 
-func respondJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		fmt.Fprintf(w, `{"error":"encode: %s"}`, err)
-	}
-}
-
-func respondError(w http.ResponseWriter, status int, msg string) {
-	respondJSON(w, status, map[string]string{"error": msg})
-}
-
 func handleListScenarios(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		scenarios, err := s.ListScenarios(r.Context())
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, err.Error())
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		if scenarios == nil {
 			scenarios = []bench.ScenarioSummary{}
 		}
-		respondJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"scenarios": scenarios,
 		})
 	}

@@ -67,7 +67,7 @@ type RunFilters struct {
 	EvidenceMode string // proxy, direct, smart, none -- empty means all
 	PassedOnly   bool
 	FailedOnly   bool
-	Since        string // RFC3339 or date string
+	Since        *time.Time // cutoff time — handler parses, store just uses
 	Limit        int
 	Offset       int
 	SortBy       string // column to sort by

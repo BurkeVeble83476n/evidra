@@ -333,15 +333,9 @@ func (s *PgStore) buildWhere(f bench.RunFilters) (string, []any) {
 	if f.FailedOnly {
 		clauses = append(clauses, "passed = FALSE")
 	}
-	if f.Since != "" {
-		t, err := time.Parse(time.RFC3339, f.Since)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", f.Since)
-		}
-		if err == nil {
-			args = append(args, t)
-			clauses = append(clauses, fmt.Sprintf("created_at >= $%d", len(args)))
-		}
+	if f.Since != nil {
+		args = append(args, *f.Since)
+		clauses = append(clauses, fmt.Sprintf("created_at >= $%d", len(args)))
 	}
 
 	return " WHERE " + strings.Join(clauses, " AND "), args
