@@ -52,7 +52,7 @@ export function RunButton({ metadata, nodes, edges }: RunButtonProps) {
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent text-white text-[0.75rem] font-semibold rounded-md hover:bg-accent/80 transition-all"
+        className="inline-flex items-center gap-1 text-[0.72rem] font-medium text-accent hover:text-fg transition-colors"
       >
         <svg
           className="w-3.5 h-3.5"
