@@ -125,14 +125,11 @@ func TestArtifactHelpIncludesExtendedFlags(t *testing.T) {
 	}
 }
 
-func TestExecutionCommandShowsMigrationNotice(t *testing.T) {
+func TestUnknownCommand_ReturnsError(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	code := run([]string{"execution"}, &out, &errBuf)
-	if code != 0 {
-		t.Fatalf("exit code=%d stderr=%s", code, errBuf.String())
-	}
-	if !strings.Contains(out.String(), "evidra-infra-bench") {
-		t.Fatalf("missing migration notice: %s", out.String())
+	if code != 2 {
+		t.Fatalf("expected exit code 2 for unknown command, got %d", code)
 	}
 }
 
