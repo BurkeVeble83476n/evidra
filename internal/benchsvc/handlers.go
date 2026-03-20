@@ -1,10 +1,12 @@
-package bench
+package benchsvc
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+
+	bench "samebits.com/evidra/pkg/bench"
 )
 
 // RegisterRoutes adds bench intelligence routes to the given mux.
@@ -44,7 +46,7 @@ func handleLeaderboard(s *PgStore) http.HandlerFunc {
 
 func handleIngestRun(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var rec RunRecord
+		var rec bench.RunRecord
 		if err := json.NewDecoder(r.Body).Decode(&rec); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
@@ -65,7 +67,7 @@ func handleIngestRun(s *PgStore) http.HandlerFunc {
 func handleIngestBatch(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Runs []RunRecord `json:"runs"`
+			Runs []bench.RunRecord `json:"runs"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -100,7 +102,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 		}
 		offset, _ := strconv.Atoi(q.Get("offset"))
 
-		f := RunFilters{
+		f := bench.RunFilters{
 			ScenarioID:   q.Get("scenario"),
 			Model:        q.Get("model"),
 			Provider:     q.Get("provider"),
@@ -124,7 +126,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 			return
 		}
 		if runs == nil {
-			runs = []RunRecord{}
+			runs = []bench.RunRecord{}
 		}
 		respondJSON(w, http.StatusOK, map[string]any{
 			"items":  runs,
@@ -150,7 +152,7 @@ func handleGetRun(s *PgStore) http.HandlerFunc {
 func handleStats(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		f := RunFilters{
+		f := bench.RunFilters{
 			ScenarioID:   q.Get("scenario"),
 			Model:        q.Get("model"),
 			Provider:     q.Get("provider"),

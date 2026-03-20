@@ -1,4 +1,4 @@
-package bench
+package benchsvc
 
 import (
 	"bufio"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	bench "samebits.com/evidra/pkg/bench"
 )
 
 // jsonlRecord matches the JSONL format from evidra-stand results.jsonl.
@@ -40,7 +42,7 @@ func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error
 	}
 	defer f.Close()
 
-	var records []RunRecord
+	var records []bench.RunRecord
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // 1MB lines
 
@@ -79,7 +81,7 @@ func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error
 			}
 		}
 
-		records = append(records, RunRecord{
+		records = append(records, bench.RunRecord{
 			ID:               jr.ID,
 			TenantID:         s.tenantID,
 			ScenarioID:       jr.ScenarioID,

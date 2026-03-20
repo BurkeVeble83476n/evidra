@@ -2,7 +2,38 @@
 // infrastructure agent benchmark runs (PostgreSQL / pgx).
 package bench
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+// BenchStore defines the query interface for bench API handlers.
+type BenchStore interface {
+	ListRuns(ctx context.Context, f RunFilters) ([]RunRecord, int, error)
+	GetRun(ctx context.Context, id string) (*RunRecord, error)
+	InsertRun(ctx context.Context, r RunRecord) error
+	InsertRunBatch(ctx context.Context, runs []RunRecord) (int, error)
+	Catalog(ctx context.Context) (*RunCatalog, error)
+	CompareRuns(ctx context.Context, idA, idB string) (*RunComparison, error)
+	ModelMatrix(ctx context.Context, models, scenarios []string) (*ModelMatrix, error)
+	FilteredStats(ctx context.Context, f RunFilters) (*StatsResult, error)
+	ListScenarios(ctx context.Context) ([]ScenarioSummary, error)
+	SignalSummary(ctx context.Context, f RunFilters) (*SignalAggregation, error)
+	Regressions(ctx context.Context) ([]Regression, error)
+	FailureAnalysis(ctx context.Context, scenarioID string) (*FailureInsights, error)
+	Leaderboard(ctx context.Context, evidenceMode string) ([]LeaderboardEntry, error)
+}
+
+// LeaderboardEntry represents one model's aggregate benchmark performance.
+type LeaderboardEntry struct {
+	Model       string  `json:"model"`
+	Scenarios   int     `json:"scenarios"`
+	Runs        int     `json:"runs"`
+	PassRate    float64 `json:"pass_rate"`
+	AvgDuration float64 `json:"avg_duration"`
+	AvgCost     float64 `json:"avg_cost"`
+	TotalCost   float64 `json:"total_cost"`
+}
 
 // RunRecord represents a single benchmark run stored in bench_runs.
 type RunRecord struct {

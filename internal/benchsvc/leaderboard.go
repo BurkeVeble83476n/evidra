@@ -1,25 +1,16 @@
-package bench
+package benchsvc
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	bench "samebits.com/evidra/pkg/bench"
 )
 
-// LeaderboardEntry represents one model's aggregate benchmark performance.
-type LeaderboardEntry struct {
-	Model       string  `json:"model"`
-	Scenarios   int     `json:"scenarios"`
-	Runs        int     `json:"runs"`
-	PassRate    float64 `json:"pass_rate"`
-	AvgDuration float64 `json:"avg_duration"`
-	AvgCost     float64 `json:"avg_cost"`
-	TotalCost   float64 `json:"total_cost"`
-}
-
 // Leaderboard returns aggregate stats per model, optionally filtered by evidence mode.
-func (s *PgStore) Leaderboard(ctx context.Context, evidenceMode string) ([]LeaderboardEntry, error) {
+func (s *PgStore) Leaderboard(ctx context.Context, evidenceMode string) ([]bench.LeaderboardEntry, error) {
 	query := `
 		SELECT model,
 			COUNT(DISTINCT scenario_id) AS scenarios,
@@ -48,8 +39,8 @@ func (s *PgStore) Leaderboard(ctx context.Context, evidenceMode string) ([]Leade
 	}
 	defer rows.Close()
 
-	entries, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (LeaderboardEntry, error) {
-		var e LeaderboardEntry
+	entries, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bench.LeaderboardEntry, error) {
+		var e bench.LeaderboardEntry
 		err := row.Scan(&e.Model, &e.Scenarios, &e.Runs, &e.PassRate,
 			&e.AvgDuration, &e.AvgCost, &e.TotalCost)
 		return e, err

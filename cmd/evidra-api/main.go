@@ -16,7 +16,7 @@ import (
 
 	evidrabenchmark "samebits.com/evidra"
 	"samebits.com/evidra/internal/api"
-	"samebits.com/evidra/internal/bench"
+	"samebits.com/evidra/internal/benchsvc"
 	"samebits.com/evidra/internal/db"
 	ievsigner "samebits.com/evidra/internal/evidence"
 	argocdgitops "samebits.com/evidra/internal/gitops/argocd"
@@ -50,7 +50,7 @@ type persistenceResources struct {
 	EntryStore     *store.EntryStore
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
-	BenchStore     *bench.PgStore
+	BenchStore     *benchsvc.PgStore
 }
 
 type runDeps struct {
@@ -326,7 +326,7 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 			EntryStore:     es,
 			KeyStore:       store.NewKeyStore(pool),
 			BenchmarkStore: store.NewBenchmarkStore(pool),
-			BenchStore:     bench.NewPgStore(pool, defaultTenant),
+			BenchStore:     benchsvc.NewPgStore(pool, defaultTenant),
 		}, func() {
 			pool.Close()
 		}, nil

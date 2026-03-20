@@ -1,4 +1,4 @@
-package bench
+package benchsvc
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	bench "samebits.com/evidra/pkg/bench"
 )
 
 // runRecordColumns is the SELECT column list for RunRecord scans.
@@ -15,9 +17,9 @@ const runRecordColumns = `id, tenant_id, scenario_id, model, provider, adapter, 
 	prompt_tokens, completion_tokens, estimated_cost_usd,
 	checks_passed, checks_total, checks_json, metadata_json, created_at`
 
-// scanRunRecord scans a row into a RunRecord.
-func scanRunRecord(row pgx.CollectableRow) (RunRecord, error) {
-	var r RunRecord
+// scanRunRecord scans a row into a bench.RunRecord.
+func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
+	var r bench.RunRecord
 	var checksJSON, metadataJSON *string
 	err := row.Scan(
 		&r.ID, &r.TenantID, &r.ScenarioID, &r.Model, &r.Provider, &r.Adapter, &r.EvidenceMode,
@@ -38,7 +40,7 @@ func scanRunRecord(row pgx.CollectableRow) (RunRecord, error) {
 }
 
 // ListRuns returns runs matching filters with pagination (total count + page).
-func (s *PgStore) ListRuns(ctx context.Context, f RunFilters) ([]RunRecord, int, error) {
+func (s *PgStore) ListRuns(ctx context.Context, f bench.RunFilters) ([]bench.RunRecord, int, error) {
 	where, args := s.buildWhere(f)
 
 	// Count total.
@@ -88,7 +90,7 @@ func (s *PgStore) ListRuns(ctx context.Context, f RunFilters) ([]RunRecord, int,
 }
 
 // GetRun returns a single run by ID, scoped to the store's tenant.
-func (s *PgStore) GetRun(ctx context.Context, id string) (*RunRecord, error) {
+func (s *PgStore) GetRun(ctx context.Context, id string) (*bench.RunRecord, error) {
 	query := "SELECT " + runRecordColumns + " FROM bench_runs WHERE tenant_id = $1 AND id = $2"
 	rows, err := s.db.Query(ctx, query, s.tenantID, id)
 	if err != nil {
@@ -104,7 +106,7 @@ func (s *PgStore) GetRun(ctx context.Context, id string) (*RunRecord, error) {
 }
 
 // InsertRun inserts a single benchmark run record.
-func (s *PgStore) InsertRun(ctx context.Context, r RunRecord) error {
+func (s *PgStore) InsertRun(ctx context.Context, r bench.RunRecord) error {
 	query := `INSERT INTO bench_runs (
 		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
 		passed, duration_seconds, exit_code, turns, memory_window,
@@ -132,7 +134,7 @@ func (s *PgStore) InsertRun(ctx context.Context, r RunRecord) error {
 }
 
 // InsertRunBatch inserts multiple runs, skipping duplicates. Returns the number inserted.
-func (s *PgStore) InsertRunBatch(ctx context.Context, runs []RunRecord) (int, error) {
+func (s *PgStore) InsertRunBatch(ctx context.Context, runs []bench.RunRecord) (int, error) {
 	if len(runs) == 0 {
 		return 0, nil
 	}
@@ -176,10 +178,10 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, runs []RunRecord) (int, er
 }
 
 // FilteredStats returns aggregate statistics matching the given filters.
-func (s *PgStore) FilteredStats(ctx context.Context, f RunFilters) (*StatsResult, error) {
+func (s *PgStore) FilteredStats(ctx context.Context, f bench.RunFilters) (*bench.StatsResult, error) {
 	where, args := s.buildWhere(f)
 
-	var st StatsResult
+	var st bench.StatsResult
 	err := s.db.QueryRow(ctx,
 		"SELECT COUNT(*), COALESCE(SUM(CASE WHEN passed THEN 1 ELSE 0 END),0), COALESCE(SUM(CASE WHEN NOT passed THEN 1 ELSE 0 END),0) FROM bench_runs"+where,
 		args...,
@@ -198,7 +200,7 @@ func (s *PgStore) FilteredStats(ctx context.Context, f RunFilters) (*StatsResult
 	defer rows.Close()
 
 	for rows.Next() {
-		var ss ScenarioStat
+		var ss bench.ScenarioStat
 		if err := rows.Scan(&ss.ScenarioID, &ss.Runs, &ss.Passed); err != nil {
 			return nil, fmt.Errorf("bench.FilteredStats: scan: %w", err)
 		}
@@ -211,43 +213,43 @@ func (s *PgStore) FilteredStats(ctx context.Context, f RunFilters) (*StatsResult
 }
 
 // Catalog returns distinct models and providers (not implemented).
-func (s *PgStore) Catalog(_ context.Context) (*RunCatalog, error) {
+func (s *PgStore) Catalog(_ context.Context) (*bench.RunCatalog, error) {
 	return nil, fmt.Errorf("bench.Catalog: not implemented")
 }
 
 // CompareRuns compares two runs (not implemented).
-func (s *PgStore) CompareRuns(_ context.Context, _, _ string) (*RunComparison, error) {
+func (s *PgStore) CompareRuns(_ context.Context, _, _ string) (*bench.RunComparison, error) {
 	return nil, fmt.Errorf("bench.CompareRuns: not implemented")
 }
 
 // ModelMatrix builds a model/scenario comparison grid (not implemented).
-func (s *PgStore) ModelMatrix(_ context.Context, _, _ []string) (*ModelMatrix, error) {
+func (s *PgStore) ModelMatrix(_ context.Context, _, _ []string) (*bench.ModelMatrix, error) {
 	return nil, fmt.Errorf("bench.ModelMatrix: not implemented")
 }
 
 // ListScenarios returns distinct scenarios (not implemented).
-func (s *PgStore) ListScenarios(_ context.Context) ([]ScenarioSummary, error) {
+func (s *PgStore) ListScenarios(_ context.Context) ([]bench.ScenarioSummary, error) {
 	return nil, fmt.Errorf("bench.ListScenarios: not implemented")
 }
 
 // SignalSummary aggregates signal counts (not implemented).
-func (s *PgStore) SignalSummary(_ context.Context, _ RunFilters) (*SignalAggregation, error) {
+func (s *PgStore) SignalSummary(_ context.Context, _ bench.RunFilters) (*bench.SignalAggregation, error) {
 	return nil, fmt.Errorf("bench.SignalSummary: not implemented")
 }
 
 // Regressions finds scenario/model regressions (not implemented).
-func (s *PgStore) Regressions(_ context.Context) ([]Regression, error) {
+func (s *PgStore) Regressions(_ context.Context) ([]bench.Regression, error) {
 	return nil, fmt.Errorf("bench.Regressions: not implemented")
 }
 
 // FailureAnalysis computes failure patterns (not implemented).
-func (s *PgStore) FailureAnalysis(_ context.Context, _ string) (*FailureInsights, error) {
+func (s *PgStore) FailureAnalysis(_ context.Context, _ string) (*bench.FailureInsights, error) {
 	return nil, fmt.Errorf("bench.FailureAnalysis: not implemented")
 }
 
 // buildWhere constructs a WHERE clause with numbered PostgreSQL placeholders.
 // The tenant_id filter is always applied.
-func (s *PgStore) buildWhere(f RunFilters) (string, []any) {
+func (s *PgStore) buildWhere(f bench.RunFilters) (string, []any) {
 	clauses := []string{"tenant_id = $1"}
 	args := []any{s.tenantID}
 

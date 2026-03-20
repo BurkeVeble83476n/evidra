@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	iauth "samebits.com/evidra/internal/auth"
-	"samebits.com/evidra/internal/bench"
+	"samebits.com/evidra/internal/benchsvc"
 	"samebits.com/evidra/internal/ingest"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
@@ -23,7 +23,7 @@ type RouterConfig struct {
 	Ingest         IngestPort
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
-	BenchStore     *bench.PgStore
+	BenchStore     *benchsvc.PgStore
 	RawStore       RawEntryStore
 	Scorecard      ScorecardComputer
 	Explain        ExplainComputer
@@ -121,7 +121,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Bench intelligence layer.
 	if cfg.BenchStore != nil {
-		bench.RegisterRoutes(mux, cfg.BenchStore, authMw)
+		benchsvc.RegisterRoutes(mux, cfg.BenchStore, authMw)
 	}
 
 	// Embedded landing page.
