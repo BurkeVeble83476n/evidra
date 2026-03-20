@@ -55,7 +55,7 @@ export function RunButton({ metadata, nodes, edges }: RunButtonProps) {
         className="inline-flex items-center gap-1 text-[0.72rem] font-medium text-accent hover:text-fg transition-colors"
       >
         <svg
-          className="w-3.5 h-3.5"
+          className="w-3 h-3"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

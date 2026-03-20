@@ -52,7 +52,7 @@ export function ExportButton({ nodes, edges, metadata }: ExportButtonProps) {
         className="inline-flex items-center gap-1 text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
       >
         <svg
-          className="w-4 h-4"
+          className="w-3 h-3"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
