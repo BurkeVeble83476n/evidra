@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -295,6 +296,7 @@ func (es *EntryStore) LastHash(ctx context.Context, tenantID string) (string, er
 // ClaimWebhookEvent records an idempotency key. Returns duplicate=true when the
 // key was already observed for the same tenant and source.
 func (es *EntryStore) ClaimWebhookEvent(ctx context.Context, tenantID, source, key string, payload json.RawMessage) (bool, error) {
+	payload = normalizeWebhookPayload(payload)
 	tag, err := es.pool.Exec(ctx,
 		`INSERT INTO webhook_events (tenant_id, source, idempotency_key, payload, result_entry_id, result_effective_risk)
 		 VALUES ($1,$2,$3,$4,NULL,NULL)
@@ -400,6 +402,7 @@ func (t pgxIngestTx) GetEntry(ctx context.Context, tenantID, entryID string) (St
 }
 
 func (t pgxIngestTx) ClaimWebhookEvent(ctx context.Context, tenantID, source, key string, payload json.RawMessage) (bool, error) {
+	payload = normalizeWebhookPayload(payload)
 	tag, err := t.tx.Exec(ctx,
 		`INSERT INTO webhook_events (tenant_id, source, idempotency_key, payload, result_entry_id, result_effective_risk)
 		 VALUES ($1,$2,$3,$4,NULL,NULL)
@@ -451,6 +454,13 @@ func (t pgxIngestTx) Commit(ctx context.Context) error {
 
 func (t pgxIngestTx) Rollback(ctx context.Context) error {
 	return t.tx.Rollback(ctx)
+}
+
+func normalizeWebhookPayload(payload json.RawMessage) json.RawMessage {
+	if len(bytes.TrimSpace(payload)) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	return payload
 }
 
 // ComputeScorecard reads stored entries and runs them through the signal+score engine.
