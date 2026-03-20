@@ -488,11 +488,35 @@ export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps)
         {/* Footer: different per mode */}
         {modalMode === "run" ? (
           <div className="border-t border-border-subtle shrink-0">
-            {/* Selected count */}
-            <div className="px-5 pt-3 pb-2">
+            {/* Selected count + presets */}
+            <div className="px-5 pt-3 pb-2 flex items-center gap-3 flex-wrap">
               <span className="text-[0.72rem] font-medium text-fg">
                 {selectedIds.size} of {ALL_SCENARIOS.length} selected
               </span>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={() => {
+                    const name = window.prompt("Preset name:", `${selectedIds.size}-scenarios`);
+                    if (!name) return;
+                    const presets = JSON.parse(localStorage.getItem("bench-presets") || "[]");
+                    presets.push({ name, ids: [...selectedIds] });
+                    localStorage.setItem("bench-presets", JSON.stringify(presets));
+                  }}
+                  className="text-[0.68rem] text-accent hover:text-fg transition-colors"
+                >
+                  Save preset
+                </button>
+              )}
+              {(JSON.parse(localStorage.getItem("bench-presets") || "[]") as { name: string; ids: string[] }[]).map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedIds(new Set(p.ids))}
+                  className="text-[0.65rem] px-2 py-0.5 rounded-full border border-border text-fg-muted hover:border-accent hover:text-fg transition-colors"
+                  title={`${p.ids.length} scenarios`}
+                >
+                  {p.name}
+                </button>
+              ))}
             </div>
 
             {selectedIds.size > 0 && (
