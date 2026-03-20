@@ -1,10 +1,14 @@
 package benchsvc
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/jackc/pgx/v5"
 
 	bench "samebits.com/evidra/pkg/bench"
 )
@@ -23,6 +27,9 @@ func RegisterRoutes(mux *http.ServeMux, s *PgStore, authMw func(http.Handler) ht
 	// Authenticated — queries.
 	mux.Handle("GET /v1/bench/runs", authMw(http.HandlerFunc(handleListRuns(s))))
 	mux.Handle("GET /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleGetRun(s))))
+	mux.Handle("GET /v1/bench/runs/{id}/transcript", authMw(http.HandlerFunc(handleGetTranscript(s))))
+	mux.Handle("GET /v1/bench/runs/{id}/tool-calls", authMw(http.HandlerFunc(handleGetToolCalls(s))))
+	mux.Handle("GET /v1/bench/runs/{id}/timeline", authMw(http.HandlerFunc(handleGetTimeline(s))))
 	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(s))))
 }
 
@@ -44,30 +51,41 @@ func handleLeaderboard(s *PgStore) http.HandlerFunc {
 	}
 }
 
+// ingestRunRequest extends RunRecord with optional artifact fields.
+type ingestRunRequest struct {
+	bench.RunRecord
+	Transcript string          `json:"transcript,omitempty"`
+	ToolCalls  json.RawMessage `json:"tool_calls,omitempty"`
+}
+
 func handleIngestRun(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var rec bench.RunRecord
-		if err := json.NewDecoder(r.Body).Decode(&rec); err != nil {
+		var req ingestRunRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
-		if rec.ID == "" || rec.ScenarioID == "" || rec.Model == "" {
+		if req.ID == "" || req.ScenarioID == "" || req.Model == "" {
 			respondError(w, http.StatusBadRequest, "id, scenario_id, and model are required")
 			return
 		}
-		rec.TenantID = s.tenantID
-		if err := s.InsertRun(r.Context(), rec); err != nil {
+		req.TenantID = s.tenantID
+		if err := s.InsertRun(r.Context(), req.RunRecord); err != nil {
 			respondError(w, http.StatusInternalServerError, "insert: "+err.Error())
 			return
 		}
-		respondJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": rec.ID})
+		if err := storeIngestArtifacts(r.Context(), s, req); err != nil {
+			respondError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
+			return
+		}
+		respondJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": req.ID})
 	}
 }
 
 func handleIngestBatch(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Runs []bench.RunRecord `json:"runs"`
+			Runs []ingestRunRequest `json:"runs"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -77,13 +95,22 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 			respondError(w, http.StatusBadRequest, "runs array is empty")
 			return
 		}
+		records := make([]bench.RunRecord, len(req.Runs))
 		for i := range req.Runs {
 			req.Runs[i].TenantID = s.tenantID
+			records[i] = req.Runs[i].RunRecord
 		}
-		count, err := s.InsertRunBatch(r.Context(), req.Runs)
+		count, err := s.InsertRunBatch(r.Context(), records)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
 			return
+		}
+		// Store artifacts for each run.
+		for _, run := range req.Runs {
+			if err := storeIngestArtifacts(r.Context(), s, run); err != nil {
+				respondError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
+				return
+			}
 		}
 		respondJSON(w, http.StatusOK, map[string]any{
 			"ok":       true,
@@ -166,6 +193,81 @@ func handleStats(s *PgStore) http.HandlerFunc {
 		}
 		respondJSON(w, http.StatusOK, st)
 	}
+}
+
+func handleGetTranscript(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		data, contentType, err := s.GetArtifact(r.Context(), id, "transcript")
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, http.StatusNotFound, "transcript not found")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+	}
+}
+
+func handleGetToolCalls(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		data, contentType, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, http.StatusNotFound, "tool calls not found")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+	}
+}
+
+func handleGetTimeline(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		data, _, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		var calls []bench.ToolCall
+		if err := json.Unmarshal(data, &calls); err != nil {
+			respondError(w, http.StatusInternalServerError, "parse tool calls: "+err.Error())
+			return
+		}
+
+		tl := bench.Parse(calls)
+		respondJSON(w, http.StatusOK, tl)
+	}
+}
+
+// storeIngestArtifacts stores transcript and tool_calls artifacts from an ingest request.
+func storeIngestArtifacts(ctx context.Context, s *PgStore, req ingestRunRequest) error {
+	if req.Transcript != "" {
+		if err := s.StoreArtifact(ctx, req.ID, "transcript", "text/plain", []byte(req.Transcript)); err != nil {
+			return fmt.Errorf("transcript: %w", err)
+		}
+	}
+	if len(req.ToolCalls) > 0 {
+		if err := s.StoreArtifact(ctx, req.ID, "tool_calls", "application/json", req.ToolCalls); err != nil {
+			return fmt.Errorf("tool_calls: %w", err)
+		}
+	}
+	return nil
 }
 
 func respondJSON(w http.ResponseWriter, status int, v any) {
