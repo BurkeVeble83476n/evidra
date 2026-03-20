@@ -9,6 +9,7 @@ import { BenchLeaderboard } from "./pages/bench/BenchLeaderboard";
 import { BenchDashboard } from "./pages/bench/BenchDashboard";
 import { BenchRuns } from "./pages/bench/BenchRuns";
 import { BenchRunDetail } from "./pages/bench/BenchRunDetail";
+import { Designer } from "./pages/Designer";
 
 export function App() {
   return (
@@ -24,6 +25,7 @@ export function App() {
               <Route path="/bench/dashboard" element={<BenchDashboard />} />
               <Route path="/bench/runs" element={<BenchRuns />} />
               <Route path="/bench/runs/:id" element={<BenchRunDetail />} />
+              <Route path="/designer" element={<Designer />} />
             </Routes>
           </Layout>
         </BrowserRouter>

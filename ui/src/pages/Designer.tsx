@@ -1,0 +1,283 @@
+import {
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  type DragEvent,
+} from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  addEdge,
+  useNodesState,
+  useEdgesState,
+  type Connection,
+  type Node,
+  type NodeTypes,
+  BackgroundVariant,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import { Palette } from "../components/designer/Palette";
+import { ConfigPanel } from "../components/designer/ConfigPanel";
+import { ExportButton } from "../components/designer/ExportButton";
+import { StackNode, type StackData } from "../components/designer/nodes/StackNode";
+import { BreakNode, type BreakData } from "../components/designer/nodes/BreakNode";
+import { VerifyNode, type VerifyData } from "../components/designer/nodes/VerifyNode";
+import { TrapNode, type TrapData } from "../components/designer/nodes/TrapNode";
+import type { PuzzleMetadata, NodeData } from "../components/designer/yaml-generator";
+
+const nodeTypes: NodeTypes = {
+  stack: StackNode,
+  break: BreakNode,
+  verify: VerifyNode,
+  trap: TrapNode,
+};
+
+function makeDefaultData(kind: string): NodeData {
+  switch (kind) {
+    case "stack":
+      return { kind: "stack", stackType: "web-app", namespace: "bench" } as StackData;
+    case "break":
+      return {
+        kind: "break",
+        method: "kubectl-apply",
+        action: "wrong-image",
+        target: "deployment/web",
+        customManifest: "",
+      } as BreakData;
+    case "verify":
+      return {
+        kind: "verify",
+        checkType: "deployment-ready",
+        namespace: "bench",
+        resourceName: "web",
+      } as VerifyData;
+    case "trap":
+      return {
+        kind: "trap",
+        trapName: "",
+        detection: "resource-deleted",
+        target: "",
+      } as TrapData;
+    default:
+      return { kind: "stack", stackType: "web-app", namespace: "bench" } as StackData;
+  }
+}
+
+// Pre-populated example: Stack -> Break -> Verify
+const INITIAL_NODES: Node[] = [
+  {
+    id: "stack-1",
+    type: "stack",
+    position: { x: 50, y: 120 },
+    data: { kind: "stack", stackType: "web-app", namespace: "bench" },
+  },
+  {
+    id: "break-1",
+    type: "break",
+    position: { x: 320, y: 120 },
+    data: {
+      kind: "break",
+      method: "kubectl-apply",
+      action: "wrong-image",
+      target: "deployment/web",
+      customManifest: "",
+    },
+  },
+  {
+    id: "verify-1",
+    type: "verify",
+    position: { x: 590, y: 120 },
+    data: {
+      kind: "verify",
+      checkType: "deployment-ready",
+      namespace: "bench",
+      resourceName: "web",
+    },
+  },
+];
+
+const INITIAL_EDGES = [
+  {
+    id: "e-stack-break",
+    source: "stack-1",
+    target: "break-1",
+    animated: true,
+    style: { stroke: "var(--color-border)" },
+  },
+  {
+    id: "e-break-verify",
+    source: "break-1",
+    target: "verify-1",
+    animated: true,
+    style: { stroke: "var(--color-border)" },
+  },
+];
+
+let nodeIdCounter = 10;
+function nextId(type: string): string {
+  nodeIdCounter += 1;
+  return `${type}-${nodeIdCounter}`;
+}
+
+const DEFAULT_METADATA: PuzzleMetadata = {
+  name: "my-puzzle",
+  title: "Fix a broken deployment with bad image",
+  description:
+    "The deployment uses image tag nginx:99.99-nonexistent which doesn't exist.\nPods are stuck in ErrImagePull/ImagePullBackOff.",
+  difficulty: "easy",
+  timeLimit: "5m",
+  category: "kubernetes",
+};
+
+export function Designer() {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<PuzzleMetadata>(DEFAULT_METADATA);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+
+  const selectedNode = useMemo(
+    () => nodes.find((n) => n.id === selectedNodeId) ?? null,
+    [nodes, selectedNodeId],
+  );
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...connection,
+            animated: true,
+            style: { stroke: "var(--color-border)" },
+          },
+          eds,
+        ),
+      );
+    },
+    [setEdges],
+  );
+
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type || !reactFlowWrapper.current) return;
+
+      const bounds = reactFlowWrapper.current.getBoundingClientRect();
+      const position = {
+        x: event.clientX - bounds.left - 90,
+        y: event.clientY - bounds.top - 30,
+      };
+
+      const newNode: Node = {
+        id: nextId(type),
+        type,
+        position,
+        data: makeDefaultData(type),
+      };
+
+      setNodes((nds) => [...nds, newNode]);
+    },
+    [setNodes],
+  );
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+      if (panelCollapsed) setPanelCollapsed(false);
+    },
+    [panelCollapsed],
+  );
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  const onNodeDataChange = useCallback(
+    (nodeId: string, partial: Partial<NodeData>) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== nodeId) return n;
+          return { ...n, data: { ...n.data, ...partial } };
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  return (
+    <div className="flex" style={{ height: "calc(100vh - 110px)" }}>
+      <Palette />
+
+      <div ref={reactFlowWrapper} className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          fitView
+          snapToGrid
+          snapGrid={[15, 15]}
+          connectionLineStyle={{ stroke: "var(--color-accent)" }}
+          defaultEdgeOptions={{
+            animated: true,
+            style: { stroke: "var(--color-border)" },
+          }}
+          deleteKeyCode="Backspace"
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="var(--color-border)"
+          />
+          <Controls
+            className="!bg-bg-elevated !border-border !shadow-[var(--shadow-card)]"
+          />
+          <MiniMap
+            className="!bg-bg-alt !border-border"
+            nodeColor={() => "var(--color-accent)"}
+            maskColor="rgba(0,0,0,0.15)"
+          />
+        </ReactFlow>
+
+        <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+
+        {panelCollapsed && (
+          <button
+            onClick={() => setPanelCollapsed(false)}
+            className="absolute top-4 right-4 z-10 px-2.5 py-1.5 text-[0.78rem] font-medium bg-bg-elevated border border-border rounded-md text-fg-muted hover:text-fg hover:border-accent transition-colors shadow-sm"
+            title="Show config panel"
+          >
+            Config
+          </button>
+        )}
+      </div>
+
+      <ConfigPanel
+        selectedNode={selectedNode}
+        metadata={metadata}
+        onMetadataChange={setMetadata}
+        onNodeDataChange={onNodeDataChange}
+        collapsed={panelCollapsed}
+        onToggle={() => setPanelCollapsed(!panelCollapsed)}
+      />
+    </div>
+  );
+}
