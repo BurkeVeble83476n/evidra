@@ -23,7 +23,7 @@ type RouterConfig struct {
 	Ingest         IngestPort
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
-	BenchStore     *benchsvc.PgStore
+	BenchService   *benchsvc.Service
 	RawStore       RawEntryStore
 	Scorecard      ScorecardComputer
 	Explain        ExplainComputer
@@ -120,8 +120,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	// Bench intelligence layer.
-	if cfg.BenchStore != nil {
-		benchsvc.RegisterRoutes(mux, cfg.BenchStore, authMw)
+	if cfg.BenchService != nil {
+		benchsvc.RegisterRoutes(mux, cfg.BenchService, authMw)
 	}
 
 	// Embedded landing page.
