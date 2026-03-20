@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import { Palette } from "../components/designer/Palette";
 import { ConfigPanel } from "../components/designer/ConfigPanel";
 import { ExportButton } from "../components/designer/ExportButton";
+import { GuidedTour, useTourState } from "../components/designer/GuidedTour";
 import { StackNode, type StackData } from "../components/designer/nodes/StackNode";
 import { BreakNode, type BreakData } from "../components/designer/nodes/BreakNode";
 import { VerifyNode, type VerifyData } from "../components/designer/nodes/VerifyNode";
@@ -142,6 +143,7 @@ export function Designer() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<PuzzleMetadata>(DEFAULT_METADATA);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const tour = useTourState();
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) ?? null,
@@ -219,9 +221,15 @@ export function Designer() {
 
   return (
     <div className="flex relative" style={{ height: "calc(100vh - 110px)" }}>
+      <GuidedTour
+        nodes={nodes}
+        edges={edges}
+        active={tour.active}
+        onComplete={tour.complete}
+      />
       <Palette />
 
-      <div ref={reactFlowWrapper} className="flex-1 relative">
+      <div ref={reactFlowWrapper} className="flex-1 relative" data-tour="canvas">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -259,7 +267,20 @@ export function Designer() {
           />
         </ReactFlow>
 
-        <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+        <div data-tour="export-button">
+          <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+        </div>
+
+        {/* Tour restart button */}
+        {!tour.active && (
+          <button
+            onClick={tour.restart}
+            className="absolute top-4 left-4 z-10 px-2.5 py-1.5 text-[0.75rem] font-medium bg-bg-elevated border border-border rounded-md text-fg-muted hover:text-fg hover:border-accent transition-colors shadow-sm"
+            title="Restart guided tour"
+          >
+            ? Tour
+          </button>
+        )}
 
         {panelCollapsed && (
           <button
@@ -272,14 +293,16 @@ export function Designer() {
         )}
       </div>
 
-      <ConfigPanel
-        selectedNode={selectedNode}
-        metadata={metadata}
-        onMetadataChange={setMetadata}
-        onNodeDataChange={onNodeDataChange}
-        collapsed={panelCollapsed}
-        onToggle={() => setPanelCollapsed(!panelCollapsed)}
-      />
+      <div data-tour="config-panel">
+        <ConfigPanel
+          selectedNode={selectedNode}
+          metadata={metadata}
+          onMetadataChange={setMetadata}
+          onNodeDataChange={onNodeDataChange}
+          collapsed={panelCollapsed}
+          onToggle={() => setPanelCollapsed(!panelCollapsed)}
+        />
+      </div>
     </div>
   );
 }

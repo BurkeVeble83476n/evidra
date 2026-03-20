@@ -62,6 +62,7 @@ export function Palette() {
         </button>
       )}
       <div
+        data-tour="palette"
         className={`shrink-0 border-r border-border-subtle bg-bg-alt overflow-y-auto transition-all ${
           collapsed ? "w-0 overflow-hidden" : "w-[200px] max-md:w-[160px]"
         }`}
@@ -85,6 +86,7 @@ export function Palette() {
                 key={item.type}
                 draggable
                 onDragStart={(e) => onDragStart(e, item.type)}
+                data-tour={`palette-${item.type}`}
                 className={`border-l-4 ${item.color} rounded-md bg-bg-elevated px-3 py-2 cursor-grab active:cursor-grabbing border border-border-subtle hover:border-border hover:shadow-[var(--shadow-card)] transition-all select-none`}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">

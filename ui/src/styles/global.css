@@ -77,6 +77,15 @@
   75% { transform: translateX(4px); }
 }
 
+@keyframes tour-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-tour-in {
+  animation: tour-in 0.25s ease-out;
+}
+
 /* ── React Flow dark-mode overrides ── */
 .react-flow__background {
   background-color: var(--color-bg) !important;
