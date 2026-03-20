@@ -71,14 +71,14 @@ function Header() {
                 >
                   Dashboard
                 </Link>
-                <a
-                  href="https://bench.evidra.cc"
-                  target="_blank"
-                  rel="noopener"
-                  className="text-[0.82rem] font-medium text-fg-muted tracking-wide hover:text-fg no-underline transition-colors"
+                <Link
+                  to="/bench"
+                  className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
+                    pathname.startsWith("/bench") ? "text-accent" : "text-fg-muted hover:text-fg"
+                  }`}
                 >
                   Bench
-                </a>
+                </Link>
               </>
             )}
           </nav>
