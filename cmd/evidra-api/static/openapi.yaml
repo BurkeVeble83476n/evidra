@@ -2,10 +2,9 @@ openapi: 3.0.3
 info:
   title: Evidra API
   description: |
-    REST API for the Evidra flight recorder for AI infrastructure agents.
+    REST API for the Evidra reliability scoring platform.
     Receives evidence entries from CLI, MCP server, and CI pipelines.
-    Stores append-only evidence for intent, decisions, and outcomes.
-    Exposes tenant-wide scorecard and explain analytics over stored evidence.
+    Computes behavioral signals and reliability scorecards.
   version: 1.0.0
   license:
     name: Apache 2.0
@@ -25,8 +24,6 @@ tags:
     description: Liveness and readiness probes
   - name: Evidence
     description: Evidence entry ingestion and queries
-  - name: Webhooks
-    description: Secret-gated mapped evidence ingestion
   - name: Analytics
     description: Scorecard computation and signal analysis
   - name: Auth
@@ -109,6 +106,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: [label]
               properties:
                 label:
                   type: string
@@ -135,12 +133,6 @@ paths:
                   created_at:
                     type: string
                     format: date-time
-        '400':
-          description: Invalid JSON or label too long
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '403':
           description: Invalid invite secret
           content:
@@ -149,18 +141,6 @@ paths:
                 $ref: '#/components/schemas/Error'
         '429':
           description: Rate limit exceeded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '501':
-          description: Key management not available
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Key issuance disabled because invite secret is not configured
           content:
             application/json:
               schema:
@@ -195,29 +175,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    head:
-      tags: [Auth]
-      summary: Verify authentication token without a response body
-      description: Returns 200 with `X-Evidra-Tenant` for valid tokens. Used as a forwardAuth target when only headers matter.
-      responses:
-        '200':
-          description: Token is valid
-          headers:
-            X-Evidra-Tenant:
-              schema:
-                type: string
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /v1/evidence/forward:
     post:
       tags: [Evidence]
       summary: Forward a single evidence entry
-      description: Receives a JSON evidence entry, stores it, and returns a receipt ID. Use this raw transport path for direct single-entry evidence; typed external lifecycle ingest should use `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`.
+      description: Receives a JSON evidence entry, stores it, and returns a receipt ID.
       requestBody:
         required: true
         content:
@@ -248,7 +211,6 @@ paths:
     post:
       tags: [Evidence]
       summary: Batch forward multiple entries
-      description: Bulk raw evidence transport for multiple entries. Use this path when forwarding untyped evidence in volume; typed external lifecycle ingest should use `/v1/evidence/ingest/prescribe` and `/v1/evidence/ingest/report`.
       requestBody:
         required: true
         content:
@@ -278,232 +240,6 @@ paths:
                     items:
                       type: string
 
-  /v1/evidence/ingest/prescribe:
-    post:
-      tags: [Evidence]
-      summary: Ingest an external prescribe entry
-      description: |
-        Typed shared external lifecycle ingest route for prescribe entries.
-        Request contract fields are `contract_version`, actor/correlation
-        metadata, request taxonomy (`flavor`, `evidence.kind`,
-        `source.system`), and either `canonical_action` or `smart_target`.
-        `prescription_id` is an optional explicit override and
-        `artifact_digest` remains a top-level field. `payload_override` is
-        the alternate raw-body form when a caller wants to submit an
-        already-shaped external ingest payload.
-
-        `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
-        transport paths for untyped entry forwarding.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestPrescribeRequest'
-            examples:
-              typed:
-                summary: Typed prescribe request
-                value:
-                  contract_version: v1
-                  claim:
-                    source: agentgateway
-                    key: deployment:payments
-                  actor:
-                    type: controller
-                    id: payments-controller
-                    provenance: agentgateway
-                  session_id: sess-123
-                  operation_id: op-123
-                  trace_id: trace-123
-                  flavor: workflow
-                  evidence:
-                    kind: observed
-                  source:
-                    system: agentgateway
-                  prescription_id: presc-123
-                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-                  canonical_action:
-                    tool: kubectl
-                    operation: apply
-              override:
-                summary: Override-only prescribe request
-                value:
-                  contract_version: v1
-                  claim:
-                    source: agentgateway
-                    key: deployment:payments
-                  actor:
-                    type: controller
-                    id: payments-controller
-                    provenance: agentgateway
-                  session_id: sess-123
-                  operation_id: op-123
-                  trace_id: trace-123
-                  flavor: workflow
-                  evidence:
-                    kind: observed
-                  source:
-                    system: agentgateway
-                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-                  payload_override:
-                    prescription_id: presc-override
-                    canonical_action:
-                      tool: kubectl
-                      operation: apply
-      responses:
-        '200':
-          description: Entry accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IngestPrescribeResponse'
-        '202':
-          description: Entry accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IngestPrescribeResponse'
-        '400':
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Ingest failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Ingest not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /v1/evidence/ingest/report:
-    post:
-      tags: [Evidence]
-      summary: Ingest an external report entry
-      description: |
-        Typed shared external lifecycle ingest route for report entries.
-        Request contract fields are `contract_version`, actor/correlation
-        metadata, request taxonomy (`flavor`, `evidence.kind`,
-        `source.system`), `prescription_id`, and `verdict`. Typed
-        non-declined reports require `exit_code`; typed declined reports
-        require `decision_context`. Override requests split into matching
-        non-declined and declined forms inside `payload_override` when a
-        caller wants to submit an already-shaped external ingest payload.
-        `artifact_digest` remains a top-level field and is not accepted in
-        override bodies.
-
-        `/v1/evidence/forward` and `/v1/evidence/batch` remain the raw evidence
-        transport paths for untyped entry forwarding.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestReportRequest'
-            examples:
-              typed:
-                summary: Typed report request
-                value:
-                  contract_version: v1
-                  claim:
-                    source: agentgateway
-                    key: deployment:payments:complete
-                  actor:
-                    type: controller
-                    id: payments-controller
-                    provenance: agentgateway
-                  session_id: sess-123
-                  operation_id: op-123
-                  trace_id: trace-123
-                  flavor: workflow
-                  evidence:
-                    kind: translated
-                  source:
-                    system: agentgateway
-                  prescription_id: presc-123
-                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-                  verdict: success
-                  exit_code: 0
-              override:
-                summary: Override-only report request
-                value:
-                  contract_version: v1
-                  claim:
-                    source: agentgateway
-                    key: deployment:payments:complete
-                  actor:
-                    type: controller
-                    id: payments-controller
-                    provenance: agentgateway
-                  session_id: sess-123
-                  operation_id: op-123
-                  trace_id: trace-123
-                  flavor: workflow
-                  evidence:
-                    kind: translated
-                  source:
-                    system: agentgateway
-                  artifact_digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-                  payload_override:
-                    prescription_id: presc-override
-                    verdict: success
-                    exit_code: 0
-      responses:
-        '200':
-          description: Entry accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IngestReportResponse'
-        '202':
-          description: Entry accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IngestReportResponse'
-        '400':
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Prescription not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Ingest failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Ingest not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /v1/evidence/findings:
     post:
       tags: [Evidence]
@@ -524,6 +260,164 @@ paths:
                 $ref: '#/components/schemas/ForwardResponse'
         '400':
           description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/entries:
+    get:
+      tags: [Evidence]
+      summary: List evidence entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      type: object
+
+  /v1/evidence/entries/{id}:
+    get:
+      tags: [Evidence]
+      summary: Get a single entry by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entry found
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/scorecard:
+    get:
+      tags: [Analytics]
+      summary: Compute tenant-wide reliability scorecard
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            default: 30d
+          description: Time period (e.g. 30d, 7d)
+        - name: actor
+          in: query
+          schema:
+            type: string
+          description: Narrow to a single actor ID
+        - name: tool
+          in: query
+          schema:
+            type: string
+          description: Filter by tool name
+        - name: scope
+          in: query
+          schema:
+            type: string
+          description: Filter by scope class
+        - name: session_id
+          in: query
+          schema:
+            type: string
+          description: Narrow to a single session ID
+        - name: min_operations
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Override the minimum operation threshold for sufficiency
+      responses:
+        '200':
+          description: Scorecard computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScorecardResponse'
+        '400':
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/explain:
+    get:
+      tags: [Analytics]
+      summary: Explain tenant-wide analytics signals
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            default: 30d
+        - name: actor
+          in: query
+          schema:
+            type: string
+        - name: tool
+          in: query
+          schema:
+            type: string
+        - name: scope
+          in: query
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          schema:
+            type: string
+        - name: min_operations
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Override the minimum operation threshold for sufficiency
+      responses:
+        '200':
+          description: Explain output computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+        '400':
+          description: Invalid query parameter
           content:
             application/json:
               schema:
@@ -673,297 +567,49 @@ paths:
         '200':
           description: Catalog
 
-  /v1/hooks/argocd:
-    post:
-      tags: [Webhooks]
-      summary: Ingest ArgoCD sync lifecycle events
-      description: Compatibility wrapper over the shared lifecycle ingest service. Maps Argo CD webhook payloads into translated reconcile evidence using the shared `prescribe` / `report` path.
-      security: []
-      parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Bearer webhook secret configured via `EVIDRA_WEBHOOK_SECRET_ARGOCD`
-        - name: X-Evidra-API-Key
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Tenant API key used to resolve which tenant receives the mapped evidence
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ArgoCDWebhookRequest'
-            example:
-              event: sync_started
-              app_name: payments
-              app_namespace: prod
-              revision: abc123
-              initiated_by: argocd-bot
-              operation_id: op-1
-      responses:
-        '202':
-          description: Webhook accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AcceptedResponse'
-        '200':
-          description: Duplicate webhook ignored
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AcceptedResponse'
-        '400':
-          description: Invalid payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Invalid webhook secret or tenant API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Server signing not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /v1/hooks/generic:
-    post:
-      tags: [Webhooks]
-      summary: Ingest generic controller lifecycle events
-      description: Compatibility wrapper over the shared lifecycle ingest service. Maps generic webhook payloads into translated lifecycle evidence using the shared `prescribe` / `report` path.
-      security: []
-      parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Bearer webhook secret configured via `EVIDRA_WEBHOOK_SECRET_GENERIC`
-        - name: X-Evidra-API-Key
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Tenant API key used to resolve which tenant receives the mapped evidence
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenericWebhookRequest'
-            example:
-              event_type: operation_started
-              tool: mycontroller
-              operation: reconcile
-              operation_id: op-1
-              environment: production
-              actor: my-operator
-              session_id: sess-1
-              idempotency_key: evt-1
-      responses:
-        '202':
-          description: Webhook accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AcceptedResponse'
-        '200':
-          description: Duplicate webhook ignored
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AcceptedResponse'
-        '400':
-          description: Invalid payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Invalid webhook secret or tenant API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '503':
-          description: Server signing not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /v1/evidence/entries:
+  /v1/bench/compare/runs:
     get:
-      tags: [Evidence]
-      summary: List evidence entries
+      summary: Compare two runs with computed delta
+      tags: [Bench]
       parameters:
-        - name: limit
+        - name: a
           in: query
-          schema:
-            type: integer
-            default: 100
-            maximum: 1000
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: type
-          in: query
-          schema:
-            type: string
-        - name: period
-          in: query
-          schema:
-            type: string
-        - name: session_id
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of entries
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  entries:
-                    type: array
-                    items:
-                      type: object
-
-  /v1/evidence/entries/{id}:
-    get:
-      tags: [Evidence]
-      summary: Get a single entry by ID
-      parameters:
-        - name: id
-          in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
+          description: First run ID
+        - name: b
+          in: query
+          required: true
+          schema: { type: string }
+          description: Second run ID
       responses:
         '200':
-          description: Entry found
-          content:
-            application/json:
-              schema:
-                type: object
-        '404':
-          description: Entry not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: Run comparison with delta
 
-  /v1/evidence/scorecard:
+  /v1/bench/compare/models:
     get:
-      tags: [Analytics]
-      summary: Compute tenant-wide reliability scorecard
+      summary: Compare two models across shared scenarios
+      tags: [Bench]
       parameters:
-        - name: period
+        - name: a
+          in: query
+          required: true
+          schema: { type: string }
+          description: First model name
+        - name: b
+          in: query
+          required: true
+          schema: { type: string }
+          description: Second model name
+        - name: evidence_mode
           in: query
           schema:
             type: string
-            default: 30d
-          description: Time period (e.g. 30d, 7d)
-        - name: actor
-          in: query
-          schema:
-            type: string
-          description: Narrow to a single actor ID
-        - name: tool
-          in: query
-          schema:
-            type: string
-          description: Filter by tool name
-        - name: scope
-          in: query
-          schema:
-            type: string
-          description: Filter by scope class
-        - name: session_id
-          in: query
-          schema:
-            type: string
-          description: Narrow to a single session ID
-        - name: min_operations
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-          description: Override the minimum operation threshold for sufficiency
+            enum: [proxy, smart]
+            default: proxy
       responses:
         '200':
-          description: Scorecard computed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScorecardResponse'
-        '400':
-          description: Invalid query parameter
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /v1/evidence/explain:
-    get:
-      tags: [Analytics]
-      summary: Explain tenant-wide analytics signals
-      parameters:
-        - name: period
-          in: query
-          schema:
-            type: string
-            default: 30d
-        - name: actor
-          in: query
-          schema:
-            type: string
-        - name: tool
-          in: query
-          schema:
-            type: string
-        - name: scope
-          in: query
-          schema:
-            type: string
-        - name: session_id
-          in: query
-          schema:
-            type: string
-        - name: min_operations
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-          description: Override the minimum operation threshold for sufficiency
-      responses:
-        '200':
-          description: Explain output computed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExplainResponse'
-        '400':
-          description: Invalid query parameter
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: Per-scenario model comparison with summary
 
 components:
   securitySchemes:
@@ -980,505 +626,6 @@ components:
           type: string
       required: [error]
 
-    ScorecardResponse:
-      type: object
-      properties:
-        actor_id:
-          type: string
-        session_id:
-          type: string
-        period:
-          type: string
-        days_observed:
-          type: integer
-        total_operations:
-          type: integer
-        signals:
-          type: object
-          additionalProperties:
-            type: integer
-        rates:
-          type: object
-          additionalProperties:
-            type: number
-        penalty:
-          type: number
-        score:
-          type: number
-        band:
-          type: string
-        sufficient:
-          type: boolean
-        confidence:
-          $ref: '#/components/schemas/Confidence'
-        scoring_profile_id:
-          type: string
-        scoring_version:
-          type: string
-        spec_version:
-          type: string
-        evidra_version:
-          type: string
-        generated_at:
-          type: string
-          format: date-time
-
-    ExplainResponse:
-      type: object
-      properties:
-        score:
-          type: number
-        band:
-          type: string
-        total_operations:
-          type: integer
-        scoring_profile_id:
-          type: string
-        signals:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExplainSignalDetail'
-        evidra_version:
-          type: string
-        generated_at:
-          type: string
-          format: date-time
-
-    ExplainSignalDetail:
-      type: object
-      properties:
-        signal:
-          type: string
-        count:
-          type: integer
-        weight:
-          type: number
-        rate:
-          type: number
-        entry_ids:
-          type: array
-          items:
-            type: string
-        sub_signals:
-          type: object
-          additionalProperties:
-            type: integer
-
-    Confidence:
-      type: object
-      properties:
-        level:
-          type: string
-        score_ceiling:
-          type: number
-
-    AcceptedResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: accepted
-
-    IngestClaim:
-      type: object
-      properties:
-        source:
-          type: string
-        key:
-          type: string
-        payload:
-          type: object
-          additionalProperties: true
-      required: [source, key]
-
-    IngestActor:
-      type: object
-      properties:
-        type:
-          type: string
-        id:
-          type: string
-        provenance:
-          type: string
-        instance_id:
-          type: string
-        version:
-          type: string
-        skill_version:
-          type: string
-      required: [type, id, provenance]
-
-    IngestEvidenceMetadata:
-      type: object
-      properties:
-        kind:
-          type: string
-          enum: [declared, observed, translated]
-      required: [kind]
-
-    IngestSourceMetadata:
-      type: object
-      properties:
-        system:
-          type: string
-      required: [system]
-
-    IngestCanonicalAction:
-      type: object
-      properties:
-        tool:
-          type: string
-        operation:
-          type: string
-        operation_class:
-          type: string
-        scope_class:
-          type: string
-        resource_count:
-          type: integer
-        resource_shape_hash:
-          type: string
-        resource_identity:
-          type: array
-          items:
-            type: object
-      required: [tool, operation]
-
-    IngestSmartTarget:
-      type: object
-      properties:
-        tool:
-          type: string
-        operation:
-          type: string
-        resource:
-          type: string
-        namespace:
-          type: string
-      required: [tool, operation, resource]
-
-    IngestDecisionContext:
-      type: object
-      properties:
-        trigger:
-          type: string
-        reason:
-          type: string
-      required: [trigger, reason]
-
-    IngestEnvelope:
-      type: object
-      properties:
-        contract_version:
-          type: string
-          enum: [v1]
-        claim:
-          $ref: '#/components/schemas/IngestClaim'
-        actor:
-          $ref: '#/components/schemas/IngestActor'
-        session_id:
-          type: string
-        operation_id:
-          type: string
-        trace_id:
-          type: string
-        span_id:
-          type: string
-        parent_span_id:
-          type: string
-        scope_dimensions:
-          type: object
-          additionalProperties:
-            type: string
-        flavor:
-          type: string
-          enum: [imperative, reconcile, workflow]
-        evidence:
-          $ref: '#/components/schemas/IngestEvidenceMetadata'
-        source:
-          $ref: '#/components/schemas/IngestSourceMetadata'
-      required:
-        - contract_version
-        - actor
-        - session_id
-        - operation_id
-        - trace_id
-        - flavor
-        - evidence
-        - source
-
-    IngestPrescribeRequest:
-      oneOf:
-        - $ref: '#/components/schemas/IngestPrescribeTypedRequest'
-        - $ref: '#/components/schemas/IngestPrescribeOverrideRequest'
-
-    IngestPrescribeTypedRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          properties:
-            prescription_id:
-              type: string
-            artifact_digest:
-              type: string
-            canonical_action:
-              $ref: '#/components/schemas/IngestCanonicalAction'
-            smart_target:
-              $ref: '#/components/schemas/IngestSmartTarget'
-          oneOf:
-            - required: [canonical_action]
-            - required: [smart_target]
-          not:
-            required: [payload_override]
-
-    IngestPrescribeOverrideRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          required: [payload_override]
-          properties:
-            artifact_digest:
-              type: string
-            payload_override:
-              description: Raw override body for an already-shaped external ingest payload.
-              type: object
-              required: [canonical_action]
-              properties:
-                prescription_id:
-                  type: string
-                canonical_action:
-                  $ref: '#/components/schemas/IngestCanonicalAction'
-              additionalProperties: true
-          not:
-            anyOf:
-              - required: [prescription_id]
-              - required: [canonical_action]
-              - required: [smart_target]
-
-    IngestExternalRef:
-      type: object
-      properties:
-        type:
-          type: string
-        id:
-          type: string
-      required: [type, id]
-
-    IngestReportRequest:
-      oneOf:
-        - $ref: '#/components/schemas/IngestReportNonDeclinedRequest'
-        - $ref: '#/components/schemas/IngestReportDeclinedRequest'
-        - $ref: '#/components/schemas/IngestReportOverrideRequest'
-
-    IngestReportNonDeclinedRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          properties:
-            prescription_id:
-              type: string
-            artifact_digest:
-              type: string
-            verdict:
-              type: string
-              enum: [success, failure, error]
-            exit_code:
-              type: integer
-            external_refs:
-              type: array
-              items:
-                $ref: '#/components/schemas/IngestExternalRef'
-          required: [prescription_id, verdict, exit_code]
-          not:
-            anyOf:
-              - required: [payload_override]
-              - required: [decision_context]
-
-    IngestReportDeclinedRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          properties:
-            prescription_id:
-              type: string
-            artifact_digest:
-              type: string
-            verdict:
-              type: string
-              enum: [declined]
-            decision_context:
-              $ref: '#/components/schemas/IngestDecisionContext'
-            external_refs:
-              type: array
-              items:
-                $ref: '#/components/schemas/IngestExternalRef'
-          required: [prescription_id, verdict, decision_context]
-          not:
-            anyOf:
-              - required: [payload_override]
-              - required: [exit_code]
-
-    IngestReportOverrideRequest:
-      oneOf:
-        - $ref: '#/components/schemas/IngestReportNonDeclinedOverrideRequest'
-        - $ref: '#/components/schemas/IngestReportDeclinedOverrideRequest'
-
-    IngestReportNonDeclinedOverrideRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          required: [payload_override]
-          properties:
-            artifact_digest:
-              type: string
-            payload_override:
-              description: Raw override body for an already-shaped external ingest payload.
-              type: object
-              required: [prescription_id, verdict, exit_code]
-              properties:
-                prescription_id:
-                  type: string
-                verdict:
-                  type: string
-                  enum: [success, failure, error]
-                exit_code:
-                  type: integer
-                decision_context:
-                  $ref: '#/components/schemas/IngestDecisionContext'
-                external_refs:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/IngestExternalRef'
-              not:
-                required: [decision_context]
-              additionalProperties: true
-          not:
-            anyOf:
-              - required: [prescription_id]
-              - required: [verdict]
-              - required: [exit_code]
-              - required: [decision_context]
-              - required: [external_refs]
-
-    IngestReportDeclinedOverrideRequest:
-      allOf:
-        - $ref: '#/components/schemas/IngestEnvelope'
-        - type: object
-          required: [payload_override]
-          properties:
-            artifact_digest:
-              type: string
-            payload_override:
-              description: Raw override body for an already-shaped external ingest payload.
-              type: object
-              required: [prescription_id, verdict, decision_context]
-              properties:
-                prescription_id:
-                  type: string
-                verdict:
-                  type: string
-                  enum: [declined]
-                exit_code:
-                  type: integer
-                decision_context:
-                  $ref: '#/components/schemas/IngestDecisionContext'
-                external_refs:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/IngestExternalRef'
-              not:
-                required: [exit_code]
-              additionalProperties: true
-          not:
-            anyOf:
-              - required: [prescription_id]
-              - required: [verdict]
-              - required: [exit_code]
-              - required: [decision_context]
-              - required: [external_refs]
-
-    IngestPrescribeResponse:
-      type: object
-      properties:
-        duplicate:
-          type: boolean
-        entry_id:
-          type: string
-        effective_risk:
-          type: string
-        prescription_id:
-          type: string
-      required: [duplicate, entry_id, effective_risk, prescription_id]
-
-    IngestReportResponse:
-      type: object
-      properties:
-        duplicate:
-          type: boolean
-        entry_id:
-          type: string
-        effective_risk:
-          type: string
-      required: [duplicate, entry_id, effective_risk]
-
-    ArgoCDWebhookRequest:
-      type: object
-      properties:
-        event:
-          type: string
-          enum: [sync_started, sync_completed]
-        app_name:
-          type: string
-        app_namespace:
-          type: string
-        revision:
-          type: string
-        initiated_by:
-          type: string
-        operation_id:
-          type: string
-        phase:
-          type: string
-        message:
-          type: string
-      required:
-        - event
-        - app_name
-        - operation_id
-
-    GenericWebhookRequest:
-      type: object
-      properties:
-        event_type:
-          type: string
-          enum: [operation_started, operation_completed]
-        tool:
-          type: string
-        operation:
-          type: string
-        operation_id:
-          type: string
-        environment:
-          type: string
-        actor:
-          type: string
-        session_id:
-          type: string
-        verdict:
-          type: string
-          enum: [succeeded, failed, declined]
-        exit_code:
-          type: integer
-          nullable: true
-        idempotency_key:
-          type: string
-          description: Required for `operation_completed`; used only for duplicate suppression.
-      required:
-        - event_type
-        - tool
-        - operation
-        - operation_id
-
     ForwardResponse:
       type: object
       properties:
@@ -1487,3 +634,4 @@ components:
         status:
           type: string
           example: accepted
+

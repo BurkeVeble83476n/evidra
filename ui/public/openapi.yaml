@@ -567,6 +567,50 @@ paths:
         '200':
           description: Catalog
 
+  /v1/bench/compare/runs:
+    get:
+      summary: Compare two runs with computed delta
+      tags: [Bench]
+      parameters:
+        - name: a
+          in: query
+          required: true
+          schema: { type: string }
+          description: First run ID
+        - name: b
+          in: query
+          required: true
+          schema: { type: string }
+          description: Second run ID
+      responses:
+        '200':
+          description: Run comparison with delta
+
+  /v1/bench/compare/models:
+    get:
+      summary: Compare two models across shared scenarios
+      tags: [Bench]
+      parameters:
+        - name: a
+          in: query
+          required: true
+          schema: { type: string }
+          description: First model name
+        - name: b
+          in: query
+          required: true
+          schema: { type: string }
+          description: Second model name
+        - name: evidence_mode
+          in: query
+          schema:
+            type: string
+            enum: [proxy, smart]
+            default: proxy
+      responses:
+        '200':
+          description: Per-scenario model comparison with summary
+
 components:
   securitySchemes:
     bearerAuth:

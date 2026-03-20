@@ -404,6 +404,50 @@ Aggregate statistics. Same filters as runs list.
 
 Distinct models and providers.
 
+#### GET /v1/bench/compare/runs
+
+Compare two runs side-by-side with computed delta.
+
+Query params: `a` (run ID), `b` (run ID) — both required.
+
+Response:
+```json
+{
+  "run_a": { "id": "...", "model": "sonnet", "passed": true, ... },
+  "run_b": { "id": "...", "model": "gpt-5.2", "passed": true, ... },
+  "delta": {
+    "passed_changed": false,
+    "duration_diff_seconds": -12.5,
+    "turns_diff": -3,
+    "cost_diff_usd": -0.15,
+    "tokens_diff": -2400,
+    "checks_passed_diff": 0
+  }
+}
+```
+
+#### GET /v1/bench/compare/models
+
+Compare two models across all shared scenarios. Single SQL query.
+
+Query params: `a` (model name), `b` (model name) — both required. `evidence_mode` (default: proxy).
+
+Response:
+```json
+{
+  "model_a": "claude-sonnet-4",
+  "model_b": "gpt-5.2",
+  "scenarios": [
+    { "scenario_id": "broken-deployment", "a_pass_rate": 100, "b_pass_rate": 100, "a_avg_duration": 72, "b_avg_duration": 36 }
+  ],
+  "summary": {
+    "a_overall_pass_rate": 97.5,
+    "b_overall_pass_rate": 100,
+    "shared_scenarios": 32
+  }
+}
+```
+
 ---
 
 ## Error Format
