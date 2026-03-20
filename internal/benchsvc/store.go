@@ -1,24 +1,25 @@
 package benchsvc
 
 import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PgStore is a tenant-agnostic PostgreSQL repository for benchmark data.
 // All query methods accept tenantID as a parameter rather than capturing
 // it at construction time.
-//
-// The tenantID field is retained temporarily for backward compatibility
-// with handlers that have not yet been migrated to the Service layer.
-// It will be removed in a follow-up task.
 type PgStore struct {
-	db       *pgxpool.Pool
-	tenantID string // Deprecated: use per-call tenantID parameters via Service.
+	db *pgxpool.Pool
 }
 
-// NewPgStore creates a new PgStore. The tenantID parameter is retained for
-// backward compatibility with code that has not yet migrated to the Service
-// layer. Pass "" when using PgStore exclusively through Service.
-func NewPgStore(db *pgxpool.Pool, tenantID string) *PgStore {
-	return &PgStore{db: db, tenantID: tenantID}
+// NewPgStore creates a new PgStore backed by the given connection pool.
+func NewPgStore(db *pgxpool.Pool) *PgStore {
+	return &PgStore{db: db}
+}
+
+// BeginTx starts a new database transaction.
+func (s *PgStore) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return s.db.Begin(ctx)
 }

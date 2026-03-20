@@ -4,52 +4,58 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	bench "samebits.com/evidra/pkg/bench"
 )
 
-// fakeRepo is an in-memory fake that records which tenant was passed to each call.
-// It implements the same method signatures as PgStore so the Service can call through.
+// fakeRepo is an in-memory fake implementing Repository for unit tests.
 type fakeRepo struct {
-	lastTenant        string
-	insertedRun       bool
-	storedArtifacts   []storedArtifact
-	failStoreArtifact bool
-	failInsertRun     bool
-
-	// Leaderboard tracking.
 	leaderboardTenant string
+	leaderboardMode   string
+	beginTxErr        error
 }
 
-type storedArtifact struct {
-	RunID        string
-	ArtifactType string
-	ContentType  string
-	Data         []byte
+func (f *fakeRepo) ListRuns(_ context.Context, _ string, _ bench.RunFilters) ([]bench.RunRecord, int, error) {
+	return nil, 0, nil
 }
-
-// To make the Service work with fakeRepo, we introduce a thin Repository interface
-// that both PgStore and fakeRepo satisfy. However, Service currently uses *PgStore
-// directly. For testability we embed fakeRepo's data in a PgStore-compatible wrapper.
-//
-// Instead, we test the Service indirectly by using a real PgStore with a nil pool
-// and overriding at the Service level. But since Service uses repo.db directly for
-// transactions, we need a different approach for unit tests.
-//
-// The pragmatic solution: test Service behavior through the public API using a
-// fakeBenchService that mirrors the Service interface, or test the tenant-passing
-// logic by verifying PgStore method signatures accept tenantID.
-//
-// For now, we use a lightweight approach: test that the Service correctly passes
-// tenantID by constructing scenarios that exercise the code paths.
+func (f *fakeRepo) GetRun(_ context.Context, _ string, _ string) (*bench.RunRecord, error) {
+	return nil, nil
+}
+func (f *fakeRepo) InsertRun(_ context.Context, _ string, _ bench.RunRecord) error { return nil }
+func (f *fakeRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
+	return 0, nil
+}
+func (f *fakeRepo) FilteredStats(_ context.Context, _ string, _ bench.RunFilters) (*bench.StatsResult, error) {
+	return nil, nil
+}
+func (f *fakeRepo) Catalog(_ context.Context, _ string) (*bench.RunCatalog, error) { return nil, nil }
+func (f *fakeRepo) Leaderboard(_ context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error) {
+	f.leaderboardTenant = tenantID
+	f.leaderboardMode = evidenceMode
+	return nil, nil
+}
+func (f *fakeRepo) ListScenarios(_ context.Context) ([]bench.ScenarioSummary, error) {
+	return nil, nil
+}
+func (f *fakeRepo) StoreArtifact(_ context.Context, _, _, _ string, _ []byte) error { return nil }
+func (f *fakeRepo) GetArtifact(_ context.Context, _, _, _ string) ([]byte, string, error) {
+	return nil, "", nil
+}
+func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
+	if f.beginTxErr != nil {
+		return nil, f.beginTxErr
+	}
+	return nil, fmt.Errorf("fakeRepo: no real tx available")
+}
 
 func TestServiceListRuns_UsesProvidedTenant(t *testing.T) {
 	t.Parallel()
 
-	// Verify that Service.ListRuns passes tenantID to the repository.
-	// We can't easily fake PgStore (it uses *pgxpool.Pool), so we test
-	// the buildWhere function which is the core tenant-scoping logic.
+	// Verify that buildWhere passes tenantID correctly.
 	where, args := buildWhere("tenant-b", bench.RunFilters{})
 	if len(args) == 0 || args[0] != "tenant-b" {
 		t.Fatalf("buildWhere args[0] = %v, want tenant-b", args)
@@ -59,7 +65,7 @@ func TestServiceListRuns_UsesProvidedTenant(t *testing.T) {
 	}
 
 	// Verify Service construction and that it stores the config.
-	svc := NewService(&PgStore{}, ServiceConfig{PublicTenant: "bench-public"})
+	svc := NewService(&fakeRepo{}, ServiceConfig{PublicTenant: "bench-public"})
 	if svc.cfg.PublicTenant != "bench-public" {
 		t.Fatalf("PublicTenant = %q, want bench-public", svc.cfg.PublicTenant)
 	}
@@ -69,41 +75,35 @@ func TestServiceLeaderboard_UsesPublicTenant(t *testing.T) {
 	t.Parallel()
 
 	// When PublicTenant is empty, Leaderboard must return ErrPublicTenantUnavailable.
-	svc := NewService(&PgStore{}, ServiceConfig{})
+	svc := NewService(&fakeRepo{}, ServiceConfig{})
 	_, err := svc.Leaderboard(context.Background(), "proxy")
 	if !errors.Is(err, ErrPublicTenantUnavailable) {
 		t.Fatalf("Leaderboard err = %v, want ErrPublicTenantUnavailable", err)
 	}
 
-	// When PublicTenant is set, the Service should attempt to call the repo
-	// (not short-circuit with ErrPublicTenantUnavailable). We verify this
-	// by checking that the configured public tenant is used.
-	svc2 := NewService(&PgStore{}, ServiceConfig{PublicTenant: "bench-public"})
-	if svc2.cfg.PublicTenant != "bench-public" {
-		t.Fatalf("PublicTenant = %q, want bench-public", svc2.cfg.PublicTenant)
+	// When PublicTenant is set, the repo's Leaderboard should be called
+	// with the configured public tenant.
+	repo := &fakeRepo{}
+	svc2 := NewService(repo, ServiceConfig{PublicTenant: "bench-public"})
+	_, _ = svc2.Leaderboard(context.Background(), "proxy")
+	if repo.leaderboardTenant != "bench-public" {
+		t.Fatalf("leaderboardTenant = %q, want bench-public", repo.leaderboardTenant)
 	}
 }
 
 func TestServiceIngestRun_RequiresTransaction(t *testing.T) {
 	t.Parallel()
 
-	// IngestRun uses a pgx transaction for atomicity. Verify the Service
-	// attempts to begin a transaction (panics on nil pool). This confirms
-	// the atomic path is wired correctly.
-	svc := NewService(&PgStore{}, ServiceConfig{})
+	// IngestRun must call BeginTx. With fakeRepo it returns an error.
+	svc := NewService(&fakeRepo{}, ServiceConfig{})
 
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected panic from nil pool, got none")
-		}
-	}()
-
-	_ = svc.IngestRun(context.Background(), "tenant-a", IngestRunRequest{
+	err := svc.IngestRun(context.Background(), "tenant-a", IngestRunRequest{
 		RunRecord:  bench.RunRecord{ID: "run-1", ScenarioID: "s1", Model: "m1"},
 		Transcript: "hello",
 	})
-	t.Fatal("should not reach here — IngestRun should panic on nil pool")
+	if err == nil {
+		t.Fatal("expected error from fakeRepo BeginTx, got nil")
+	}
 }
 
 func TestBuildWhere_TenantAlwaysFirst(t *testing.T) {
@@ -194,17 +194,4 @@ func TestServiceConfig_Defaults(t *testing.T) {
 	if cfg.PublicTenant != "" {
 		t.Errorf("default PublicTenant = %q, want empty", cfg.PublicTenant)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

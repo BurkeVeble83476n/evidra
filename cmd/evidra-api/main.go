@@ -321,7 +321,7 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 	if defaultTenant == "" {
 		defaultTenant = "default"
 	}
-	repo := benchsvc.NewPgStore(pool, "")
+	repo := benchsvc.NewPgStore(pool)
 	benchService := benchsvc.NewService(repo, benchsvc.ServiceConfig{
 		PublicTenant: envOr("EVIDRA_BENCH_PUBLIC_TENANT", defaultTenant),
 	})

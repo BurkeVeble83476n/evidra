@@ -3,21 +3,8 @@
 package bench
 
 import (
-	"context"
 	"time"
 )
-
-// BenchStore defines the query interface for bench API handlers.
-type BenchStore interface {
-	ListRuns(ctx context.Context, f RunFilters) ([]RunRecord, int, error)
-	GetRun(ctx context.Context, id string) (*RunRecord, error)
-	InsertRun(ctx context.Context, r RunRecord) error
-	InsertRunBatch(ctx context.Context, runs []RunRecord) (int, error)
-	Catalog(ctx context.Context) (*RunCatalog, error)
-	FilteredStats(ctx context.Context, f RunFilters) (*StatsResult, error)
-	ListScenarios(ctx context.Context) ([]ScenarioSummary, error)
-	Leaderboard(ctx context.Context, evidenceMode string) ([]LeaderboardEntry, error)
-}
 
 // LeaderboardEntry represents one model's aggregate benchmark performance.
 type LeaderboardEntry struct {

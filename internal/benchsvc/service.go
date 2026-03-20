@@ -7,12 +7,30 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	bench "samebits.com/evidra/pkg/bench"
 )
 
 // ErrPublicTenantUnavailable is returned when a public endpoint is called
 // but no PublicTenant has been configured.
 var ErrPublicTenantUnavailable = errors.New("benchsvc: public tenant not configured")
+
+// Repository defines the data-access contract the Service depends on.
+// PgStore satisfies this interface; test fakes can implement it too.
+type Repository interface {
+	ListRuns(ctx context.Context, tenantID string, f bench.RunFilters) ([]bench.RunRecord, int, error)
+	GetRun(ctx context.Context, tenantID string, id string) (*bench.RunRecord, error)
+	InsertRun(ctx context.Context, tenantID string, r bench.RunRecord) error
+	InsertRunBatch(ctx context.Context, tenantID string, runs []bench.RunRecord) (int, error)
+	FilteredStats(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.StatsResult, error)
+	Catalog(ctx context.Context, tenantID string) (*bench.RunCatalog, error)
+	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
+	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
+	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
+	GetArtifact(ctx context.Context, tenantID string, runID, artifactType string) ([]byte, string, error)
+	BeginTx(ctx context.Context) (pgx.Tx, error)
+}
 
 // ServiceConfig holds configuration for the bench service.
 type ServiceConfig struct {
@@ -21,12 +39,12 @@ type ServiceConfig struct {
 
 // Service provides request-scoped bench operations over a tenant-agnostic repository.
 type Service struct {
-	repo *PgStore
+	repo Repository
 	cfg  ServiceConfig
 }
 
 // NewService creates a new Service backed by the given repository.
-func NewService(repo *PgStore, cfg ServiceConfig) *Service {
+func NewService(repo Repository, cfg ServiceConfig) *Service {
 	return &Service{repo: repo, cfg: cfg}
 }
 
@@ -53,7 +71,7 @@ func (s *Service) GetRun(ctx context.Context, tenantID string, id string) (*benc
 // IngestRun atomically inserts a run and its artifacts using a database transaction.
 // If any step fails, the entire operation is rolled back.
 func (s *Service) IngestRun(ctx context.Context, tenantID string, req IngestRunRequest) error {
-	tx, err := s.repo.db.Begin(ctx)
+	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("benchsvc.IngestRun: begin tx: %w", err)
 	}
@@ -108,30 +126,68 @@ func (s *Service) IngestRun(ctx context.Context, tenantID string, req IngestRunR
 	return nil
 }
 
-// IngestRunBatch inserts multiple runs, skipping duplicates. Returns the count inserted.
+// IngestRunBatch atomically inserts multiple runs and their artifacts.
+// If any artifact fails, all runs in the batch are rolled back.
+// Returns the count of runs inserted.
 func (s *Service) IngestRunBatch(ctx context.Context, tenantID string, runs []IngestRunRequest) (int, error) {
-	records := make([]bench.RunRecord, len(runs))
-	for i := range runs {
-		records[i] = runs[i].RunRecord
+	if len(runs) == 0 {
+		return 0, nil
 	}
-	count, err := s.repo.InsertRunBatch(ctx, tenantID, records)
+
+	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("benchsvc.IngestRunBatch: begin tx: %w", err)
 	}
-	// Store artifacts for each run (best-effort after batch insert).
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	insertQ := `INSERT INTO bench_runs (
+		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
+		passed, duration_seconds, exit_code, turns, memory_window,
+		prompt_tokens, completion_tokens, estimated_cost_usd,
+		checks_passed, checks_total, checks_json, metadata_json, created_at
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+	ON CONFLICT (id) DO NOTHING`
+
+	artifactQ := `INSERT INTO bench_artifacts (run_id, artifact_type, content_type, data)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (run_id, artifact_type) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type`
+
+	inserted := 0
 	for _, run := range runs {
+		checksJSON := nullableJSONB(run.ChecksJSON)
+		metadataJSON := nullableJSONB(run.MetadataJSON)
+		createdAt := run.CreatedAt
+		if createdAt.IsZero() {
+			createdAt = time.Now()
+		}
+
+		ct, err := tx.Exec(ctx, insertQ,
+			run.ID, tenantID, run.ScenarioID, run.Model, run.Provider, run.Adapter, run.EvidenceMode,
+			run.Passed, run.Duration, run.ExitCode, run.Turns, run.MemoryWindow,
+			run.PromptTokens, run.CompletionTokens, run.EstimatedCost,
+			run.ChecksPassed, run.ChecksTotal, checksJSON, metadataJSON, createdAt,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("benchsvc.IngestRunBatch: insert run %s: %w", run.ID, err)
+		}
+		inserted += int(ct.RowsAffected())
+
 		if run.Transcript != "" {
-			if err := s.repo.StoreArtifact(ctx, run.ID, "transcript", "text/plain", []byte(run.Transcript)); err != nil {
-				return count, fmt.Errorf("benchsvc.IngestRunBatch: transcript for %s: %w", run.ID, err)
+			if _, err := tx.Exec(ctx, artifactQ, run.ID, "transcript", "text/plain", []byte(run.Transcript)); err != nil {
+				return 0, fmt.Errorf("benchsvc.IngestRunBatch: transcript for %s: %w", run.ID, err)
 			}
 		}
 		if len(run.ToolCalls) > 0 {
-			if err := s.repo.StoreArtifact(ctx, run.ID, "tool_calls", "application/json", []byte(run.ToolCalls)); err != nil {
-				return count, fmt.Errorf("benchsvc.IngestRunBatch: tool_calls for %s: %w", run.ID, err)
+			if _, err := tx.Exec(ctx, artifactQ, run.ID, "tool_calls", "application/json", []byte(run.ToolCalls)); err != nil {
+				return 0, fmt.Errorf("benchsvc.IngestRunBatch: tool_calls for %s: %w", run.ID, err)
 			}
 		}
 	}
-	return count, nil
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("benchsvc.IngestRunBatch: commit: %w", err)
+	}
+	return inserted, nil
 }
 
 // FilteredStats returns aggregate statistics matching the given filters.
