@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import { Palette } from "../components/designer/Palette";
 import { ConfigPanel } from "../components/designer/ConfigPanel";
 import { ExportButton } from "../components/designer/ExportButton";
+import { RunButton } from "../components/designer/RunButton";
 import { GuidedTour, useTourState } from "../components/designer/GuidedTour";
 import { StackNode, type StackData } from "../components/designer/nodes/StackNode";
 import { BreakNode, type BreakData } from "../components/designer/nodes/BreakNode";
@@ -232,18 +233,22 @@ export function Designer() {
       <div ref={reactFlowWrapper} className="flex-1 flex flex-col relative" data-tour="canvas">
         {/* Toolbar */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-subtle bg-bg-elevated/50">
-          {!tour.active && (
-            <button
-              onClick={tour.restart}
-              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
-              title="Restart guided tour"
-            >
-              ? Tour
-            </button>
-          )}
-          {tour.active && <div />}
-          <div data-tour="export-button">
-            <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+          <div className="flex items-center gap-3">
+            {!tour.active && (
+              <button
+                onClick={tour.restart}
+                className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+                title="Restart guided tour"
+              >
+                ? Tour
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div data-tour="export-button">
+              <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+            </div>
+            <RunButton metadata={metadata} nodes={nodes} edges={edges} />
           </div>
         </div>
 
