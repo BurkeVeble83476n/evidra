@@ -3,12 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"samebits.com/evidra/internal/auth"
 	"samebits.com/evidra/internal/ingest"
-	"samebits.com/evidra/pkg/evidence"
 )
 
 type IngestPort interface {
@@ -62,13 +60,8 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 				EntryID:       result.EntryID,
 				EffectiveRisk: result.EffectiveRisk,
 			},
+			PrescriptionID: result.PrescriptionID,
 		}
-		prescriptionID, err := prescriptionIDFromEntry(result.Entry.Payload)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "marshal response")
-			return
-		}
-		resp.PrescriptionID = prescriptionID
 
 		status := http.StatusAccepted
 		if result.Duplicate {
@@ -76,21 +69,6 @@ func handleIngestPrescribe(svc IngestPort) http.HandlerFunc {
 		}
 		writeJSON(w, status, resp)
 	}
-}
-
-func prescriptionIDFromEntry(raw json.RawMessage) (string, error) {
-	if len(raw) == 0 {
-		return "", fmt.Errorf("missing evidence entry payload")
-	}
-	var payload evidence.PrescriptionPayload
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return "", err
-	}
-	id := payload.PrescriptionID
-	if id == "" {
-		return "", fmt.Errorf("missing prescription_id")
-	}
-	return id, nil
 }
 
 func handleIngestReport(svc IngestPort) http.HandlerFunc {

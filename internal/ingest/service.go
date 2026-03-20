@@ -28,10 +28,11 @@ type Store interface {
 
 // Result captures the stable ingest response shape.
 type Result struct {
-	Duplicate     bool
-	EntryID       string
-	EffectiveRisk string
-	Entry         evidence.EvidenceEntry
+	Duplicate      bool
+	EntryID        string
+	EffectiveRisk  string
+	PrescriptionID string
+	Entry          evidence.EvidenceEntry
 }
 
 // Service owns server-side external lifecycle ingest.
@@ -121,9 +122,10 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 	}
 	committed = true
 	return Result{
-		EntryID:       entry.EntryID,
-		EffectiveRisk: effectiveRisk,
-		Entry:         entry,
+		EntryID:        entry.EntryID,
+		EffectiveRisk:  effectiveRisk,
+		PrescriptionID: entry.EntryID,
+		Entry:          entry,
 	}, nil
 }
 
@@ -627,10 +629,11 @@ func (s *Service) loadDuplicatePrescribeResult(ctx context.Context, tx store.Ing
 		}
 		effectiveRisk := ""
 		return Result{
-			Duplicate:     true,
-			EntryID:       decoded.EntryID,
-			EffectiveRisk: effectiveRisk,
-			Entry:         decoded,
+			Duplicate:      true,
+			EntryID:        decoded.EntryID,
+			EffectiveRisk:  effectiveRisk,
+			PrescriptionID: decoded.EntryID,
+			Entry:          decoded,
 		}, nil
 	})
 }

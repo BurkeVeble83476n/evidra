@@ -15,6 +15,7 @@ import (
 	"time"
 
 	evidrabenchmark "samebits.com/evidra"
+	"samebits.com/evidra/internal/analyticsvc"
 	"samebits.com/evidra/internal/api"
 	"samebits.com/evidra/internal/benchsvc"
 	"samebits.com/evidra/internal/db"
@@ -290,8 +291,9 @@ func configurePersistence(deps runDeps, databaseURL string, signer pkevidence.Si
 	cfg.BenchmarkStore = resources.BenchmarkStore
 	cfg.BenchStore = resources.BenchStore
 	cfg.InviteSecret = os.Getenv("EVIDRA_INVITE_SECRET")
-	cfg.Scorecard = resources.EntryStore
-	cfg.Explain = resources.EntryStore
+	analyticsSvc := analyticsvc.NewService(resources.EntryStore)
+	cfg.Scorecard = analyticsSvc
+	cfg.Explain = analyticsSvc
 	cfg.WebhookStore = resources.EntryStore
 	cfg.WebhookSigner = signer
 	cfg.ArgoCDSecret = os.Getenv("EVIDRA_WEBHOOK_SECRET_ARGOCD")

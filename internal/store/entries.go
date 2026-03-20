@@ -98,8 +98,6 @@ type pgxIngestTx struct {
 	tx ingestTx
 }
 
-const analyticsReplayPageSize = 1000
-
 // NewEntryStore creates an EntryStore with the given connection pool.
 func NewEntryStore(pool *pgxpool.Pool) *EntryStore {
 	return &EntryStore{pool: pool}
@@ -463,33 +461,6 @@ func normalizeWebhookPayload(payload json.RawMessage) json.RawMessage {
 	return payload
 }
 
-// ComputeScorecard reads stored entries and runs them through the signal+score engine.
-// Phase 0: reads entries from DB, converts to []evidence.EvidenceEntry, delegates to
-// existing internal/signal and internal/score packages (same engine used by CLI scorecard).
-func (es *EntryStore) ComputeScorecard(ctx context.Context, tenantID string, filters analytics.Filters) (interface{}, error) {
-	entries, err := collectAnalyticsReplayEntries(ctx, tenantID, ListOptions{
-		Period:    filters.Period,
-		SessionID: filters.SessionID,
-	}, analyticsReplayPageSize, es.ListEntries)
-	if err != nil {
-		return nil, fmt.Errorf("ComputeScorecard: %w", err)
-	}
-	return computeScorecardFromStoredEntries(entries, filters)
-}
-
-// ComputeExplain reads stored entries and runs signal detection.
-// Same conversion pattern as ComputeScorecard -- delegates to internal/signal.
-func (es *EntryStore) ComputeExplain(ctx context.Context, tenantID string, filters analytics.Filters) (interface{}, error) {
-	entries, err := collectAnalyticsReplayEntries(ctx, tenantID, ListOptions{
-		Period:    filters.Period,
-		SessionID: filters.SessionID,
-	}, analyticsReplayPageSize, es.ListEntries)
-	if err != nil {
-		return nil, fmt.Errorf("ComputeExplain: %w", err)
-	}
-	return computeExplainFromStoredEntries(entries, filters)
-}
-
 func storedEntriesToEvidenceEntries(entries []StoredEntry) ([]evidence.EvidenceEntry, error) {
 	return analyticsdb.EvidenceEntriesFromStoredRows(storedRows(entries))
 }
@@ -521,7 +492,7 @@ func collectAnalyticsReplayEntries(
 	list func(context.Context, string, ListOptions) ([]StoredEntry, int, error),
 ) ([]StoredEntry, error) {
 	if pageSize <= 0 {
-		pageSize = analyticsReplayPageSize
+		pageSize = 1000
 	}
 
 	opts := baseOpts

@@ -7,7 +7,6 @@ import (
 
 	"samebits.com/evidra/internal/analytics"
 	"samebits.com/evidra/internal/auth"
-	"samebits.com/evidra/internal/score"
 )
 
 type AnalyticsFilters = analytics.Filters
@@ -46,14 +45,6 @@ func handleScorecard(sc ScorecardComputer) http.HandlerFunc {
 			return
 		}
 
-		// Transform to documented API shape if possible.
-		if out, ok := result.(analytics.ScorecardOutput); ok {
-			profile, err := score.ResolveProfile("")
-			if err == nil {
-				writeJSON(w, http.StatusOK, toScorecardAPIResponse(out, profile))
-				return
-			}
-		}
 		writeJSON(w, http.StatusOK, result)
 	}
 }

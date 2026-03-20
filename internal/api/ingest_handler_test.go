@@ -722,8 +722,9 @@ func TestIngestRouter_PrescribeAcceptsAuthenticatedRequest(t *testing.T) {
 
 	fakeSvc := &fakeIngestService{
 		prescribeResult: ingest.Result{
-			EntryID:       "entry-123",
-			EffectiveRisk: "medium",
+			EntryID:        "entry-123",
+			EffectiveRisk:  "medium",
+			PrescriptionID: "presc-override",
 			Entry: evidence.EvidenceEntry{
 				EntryID: "entry-123",
 				Payload: json.RawMessage(`{"prescription_id":"presc-override"}`),
@@ -841,7 +842,8 @@ func TestIngestRouter_RequiresAuth(t *testing.T) {
 		DefaultTenant: "tenant-1",
 		Ingest: &fakeIngestService{
 			prescribeResult: ingest.Result{
-				EntryID: "presc-1",
+				EntryID:        "presc-1",
+				PrescriptionID: "presc-1",
 				Entry: evidence.EvidenceEntry{
 					EntryID: "presc-1",
 					Payload: json.RawMessage(`{"prescription_id":"presc-1"}`),
