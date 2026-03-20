@@ -205,6 +205,25 @@ With centralized evidence, platform teams can compare reliability across agents,
 
 References: [Self-hosted setup](docs/guides/self-hosted-setup.md) · [Argo CD GitOps integration](docs/guides/argocd-gitops-integration.md) · [API reference](docs/api-reference.md) · [Setup Evidra Action](docs/guides/setup-evidra-action.md) · [Terraform CI quickstart](docs/guides/terraform-ci-quickstart.md)
 
+## For Agent Benchmarking
+
+Evidra includes a benchmark intelligence layer for testing infrastructure AI agents against real Kubernetes scenarios.
+
+```bash
+# Run a scenario and report to evidra
+infra-bench run --scenario kubernetes/broken-deployment \
+  --model gemini-2.5-flash --provider bifrost \
+  --evidra-url http://localhost:8080 --evidra-api-key your-key
+```
+
+The bench CLI runs scenarios on real Kind clusters and reports results to evidra. The dashboard at `/bench` shows:
+
+- **Leaderboard** — model pass rates across 36 scenarios
+- **Run detail** — decision timeline showing how the agent diagnosed and fixed each problem
+- **Proxy vs Smart comparison** — bare infrastructure fix rate vs protocol-aware fix rate
+
+Bench repo: [evidra-infra-bench](https://github.com/vitas/evidra-infra-bench)
+
 ## Supported Tools
 
 Built-in adapters canonicalize artifacts across infrastructure tools into a normalized `CanonicalAction` model, enabling cross-tool comparison in a single evidence chain:

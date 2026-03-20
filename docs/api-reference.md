@@ -354,6 +354,80 @@ Validate a Bearer token. `GET` returns `200` with tenant metadata if valid, `401
 
 ---
 
+## Bench Endpoints
+
+Infrastructure agent benchmark results and analytics.
+
+### Public Endpoints (No Auth)
+
+#### GET /v1/bench/leaderboard
+
+Model ranking by pass rate.
+
+Query params: `evidence_mode` (proxy|smart, default: proxy)
+
+Response:
+```json
+{
+  "models": [
+    {"model": "claude-sonnet-4", "scenarios": 33, "runs": 40, "pass_rate": 97.5, "avg_duration": 72.0, "avg_cost": 0.24, "total_cost": 8.07}
+  ],
+  "evidence_mode": "proxy"
+}
+```
+
+#### GET /v1/bench/scenarios
+
+Scenario catalog.
+
+### Authenticated Endpoints
+
+#### POST /v1/bench/runs
+
+Submit a single benchmark run.
+
+#### POST /v1/bench/runs/batch
+
+Batch submit runs. Body: `{"runs": [...]}`. Idempotent (ON CONFLICT DO NOTHING).
+
+#### GET /v1/bench/runs
+
+List runs with filters: `model`, `scenario`, `evidence_mode`, `since`, `passed`, `limit`, `offset`, `sort_by`, `sort_order`.
+
+#### GET /v1/bench/runs/{id}
+
+Get single run detail.
+
+#### GET /v1/bench/runs/{id}/transcript
+
+Run transcript (text/plain).
+
+#### GET /v1/bench/runs/{id}/tool-calls
+
+Tool call log (JSON array).
+
+#### GET /v1/bench/runs/{id}/timeline
+
+Decision timeline — phases: discover, diagnose, decide, act, verify.
+
+#### GET /v1/bench/runs/{id}/scorecard
+
+Scorecard data (JSON).
+
+#### GET /v1/bench/stats
+
+Aggregate statistics. Same filters as runs list.
+
+#### GET /v1/bench/catalog
+
+Distinct models and providers.
+
+#### GET /v1/bench/signals
+
+Signal aggregation (stub — returns empty data).
+
+---
+
 ## Error Format
 
 All errors return JSON:
