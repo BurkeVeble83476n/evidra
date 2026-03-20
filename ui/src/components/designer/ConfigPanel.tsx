@@ -179,7 +179,7 @@ function BreakConfig({
         />
       </Field>
       {data.action === "custom" && (
-        <Field label="Custom Manifest">
+        <Field label="Paste K8s Manifest">
           <TextArea
             value={data.customManifest}
             onChange={(v) =>
@@ -187,8 +187,8 @@ function BreakConfig({
                 customManifest: v,
               } as Partial<BreakData>)
             }
-            placeholder="apiVersion: apps/v1..."
-            rows={6}
+            placeholder={"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: bench\nspec:\n  replicas: 1\n  ..."}
+            rows={12}
           />
         </Field>
       )}

@@ -3,6 +3,7 @@ import {
   useCallback,
   useRef,
   useMemo,
+  useEffect,
   type DragEvent,
 } from "react";
 import {
@@ -15,6 +16,7 @@ import {
   useEdgesState,
   type Connection,
   type Node,
+  type Edge,
   type NodeTypes,
   BackgroundVariant,
 } from "@xyflow/react";
@@ -25,6 +27,7 @@ import { ConfigPanel } from "../components/designer/ConfigPanel";
 import { ExportButton } from "../components/designer/ExportButton";
 import { RunButton } from "../components/designer/RunButton";
 import { GuidedTour, useTourState } from "../components/designer/GuidedTour";
+import { TemplatesModal } from "../components/designer/TemplatesModal";
 import { StackNode, type StackData } from "../components/designer/nodes/StackNode";
 import { BreakNode, type BreakData } from "../components/designer/nodes/BreakNode";
 import { VerifyNode, type VerifyData } from "../components/designer/nodes/VerifyNode";
@@ -70,7 +73,7 @@ function makeDefaultData(kind: string): NodeData {
 }
 
 // Pre-populated example: Stack -> Break -> Verify
-const INITIAL_NODES: Node[] = [
+const EXAMPLE_NODES: Node[] = [
   {
     id: "stack-1",
     type: "stack",
@@ -104,7 +107,7 @@ const INITIAL_NODES: Node[] = [
 
 const EDGE_STYLE = { stroke: "var(--color-accent)", strokeWidth: 2, opacity: 0.7 };
 
-const INITIAL_EDGES = [
+const EXAMPLE_EDGES: Edge[] = [
   {
     id: "e-stack-break",
     source: "stack-1",
@@ -121,12 +124,6 @@ const INITIAL_EDGES = [
   },
 ];
 
-let nodeIdCounter = 10;
-function nextId(type: string): string {
-  nodeIdCounter += 1;
-  return `${type}-${nodeIdCounter}`;
-}
-
 const DEFAULT_METADATA: PuzzleMetadata = {
   name: "my-puzzle",
   title: "Fix a broken deployment with bad image",
@@ -137,15 +134,57 @@ const DEFAULT_METADATA: PuzzleMetadata = {
   category: "kubernetes",
 };
 
+const DRAFT_KEY = "designer-draft";
+
+interface DraftState {
+  nodes: Node[];
+  edges: Edge[];
+  metadata: PuzzleMetadata;
+}
+
+function loadDraft(): DraftState | null {
+  try {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved) {
+      return JSON.parse(saved) as DraftState;
+    }
+  } catch {
+    // Ignore corrupt data
+  }
+  return null;
+}
+
+let nodeIdCounter = 10;
+function nextId(type: string): string {
+  nodeIdCounter += 1;
+  return `${type}-${nodeIdCounter}`;
+}
+
 export function Designer() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+
+  const draft = useMemo(() => loadDraft(), []);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(draft?.nodes ?? EXAMPLE_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(draft?.edges ?? EXAMPLE_EDGES);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<PuzzleMetadata>(DEFAULT_METADATA);
+  const [metadata, setMetadata] = useState<PuzzleMetadata>(draft?.metadata ?? DEFAULT_METADATA);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
   const tour = useTourState();
+
+  // Autosave to localStorage (debounced 300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ nodes, edges, metadata }));
+      setDraftSaved(true);
+      const fadeTimer = setTimeout(() => setDraftSaved(false), 1500);
+      return () => clearTimeout(fadeTimer);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [nodes, edges, metadata]);
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) ?? null,
@@ -221,6 +260,31 @@ export function Designer() {
     [setNodes],
   );
 
+  const handleClear = useCallback(() => {
+    if (nodes.length > 0 && !window.confirm("Clear the canvas? This will remove all blocks.")) {
+      return;
+    }
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+    setMetadata(DEFAULT_METADATA);
+    localStorage.removeItem(DRAFT_KEY);
+  }, [nodes.length, setNodes, setEdges]);
+
+  const handleTemplateSelect = useCallback(
+    (template: { nodes: Node[]; edges: Edge[]; metadata: PuzzleMetadata }) => {
+      if (nodes.length > 0 && !window.confirm("Load this template? It will replace your current canvas.")) {
+        return;
+      }
+      setNodes(template.nodes);
+      setEdges(template.edges);
+      setMetadata(template.metadata);
+      setSelectedNodeId(null);
+      setTemplatesOpen(false);
+    },
+    [nodes.length, setNodes, setEdges],
+  );
+
   return (
     <div className="flex relative" style={{ height: "calc(100vh - 110px)" }}>
       <GuidedTour
@@ -251,6 +315,27 @@ export function Designer() {
             >
               {minimapOpen ? "Hide Map" : "Map"}
             </button>
+            <button
+              onClick={() => setTemplatesOpen(true)}
+              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              title="Load a scenario template"
+            >
+              Templates
+            </button>
+            <button
+              onClick={handleClear}
+              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              title="Clear canvas"
+            >
+              Clear
+            </button>
+            <span
+              className={`text-[0.65rem] text-fg-muted/60 transition-opacity duration-700 ${
+                draftSaved ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              Draft saved
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <div data-tour="export-button">
@@ -319,6 +404,12 @@ export function Designer() {
           onToggle={() => setPanelCollapsed(!panelCollapsed)}
         />
       </div>
+
+      <TemplatesModal
+        open={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        onSelect={handleTemplateSelect}
+      />
     </div>
   );
 }
