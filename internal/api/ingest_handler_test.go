@@ -875,6 +875,316 @@ func TestIngestRouter_RequiresAuth(t *testing.T) {
 	}
 }
 
+func TestHandleIngestPrescribe_ValidPayload(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		prescribeResult: ingest.Result{
+			EntryID:        "entry-1",
+			EffectiveRisk:  "high",
+			PrescriptionID: "presc-1",
+		},
+	}
+	handler := handleIngestPrescribe(fakeSvc)
+
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bench-bot","provenance":"infra-bench"},
+		"session_id":"sess-1",
+		"operation_id":"op-1",
+		"trace_id":"trace-1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"bench"},
+		"smart_target":{"tool":"kubectl","operation":"apply","resource":"deployment/nginx"}
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "t-valid"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if fakeSvc.prescribeTenant != "t-valid" {
+		t.Fatalf("tenant = %q, want t-valid", fakeSvc.prescribeTenant)
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entry_id"] != "entry-1" {
+		t.Fatalf("entry_id = %v, want entry-1", resp["entry_id"])
+	}
+	if resp["effective_risk"] != "high" {
+		t.Fatalf("effective_risk = %v, want high", resp["effective_risk"])
+	}
+	if resp["duplicate"] != false {
+		t.Fatalf("duplicate = %v, want false", resp["duplicate"])
+	}
+}
+
+func TestHandleIngestPrescribe_ReturnsPrescriptionID(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		prescribeResult: ingest.Result{
+			EntryID:        "entry-42",
+			EffectiveRisk:  "low",
+			PrescriptionID: "presc-42",
+		},
+	}
+	handler := handleIngestPrescribe(fakeSvc)
+
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bot","provenance":"ci"},
+		"session_id":"s1",
+		"operation_id":"o1",
+		"trace_id":"t1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"smart_target":{"tool":"helm","operation":"upgrade","resource":"release/app"}
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "tenant-1"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		PrescriptionID string `json:"prescription_id"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.PrescriptionID != "presc-42" {
+		t.Fatalf("prescription_id = %q, want presc-42", resp.PrescriptionID)
+	}
+}
+
+func TestHandleIngestPrescribe_RejectsMissingActor(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{}
+	handler := handleIngestPrescribe(fakeSvc)
+
+	// Envelope with empty actor fields — validation should reject it.
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"","id":"","provenance":""},
+		"session_id":"s1",
+		"operation_id":"o1",
+		"trace_id":"t1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"smart_target":{"tool":"kubectl","operation":"apply","resource":"deploy/x"}
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "tenant-1"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleIngestPrescribe_DuplicateReturns200(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		prescribeResult: ingest.Result{
+			Duplicate:      true,
+			EntryID:        "entry-dup",
+			EffectiveRisk:  "medium",
+			PrescriptionID: "presc-dup",
+		},
+	}
+	handler := handleIngestPrescribe(fakeSvc)
+
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bot","provenance":"ci"},
+		"session_id":"s1",
+		"operation_id":"o1",
+		"trace_id":"t1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"smart_target":{"tool":"kubectl","operation":"apply","resource":"deploy/x"}
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/prescribe", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "tenant-1"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for duplicate, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Duplicate bool `json:"duplicate"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !resp.Duplicate {
+		t.Fatal("expected duplicate=true")
+	}
+}
+
+func TestHandleIngestReport_ValidPayload(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{
+		reportResult: ingest.Result{
+			EntryID: "report-1",
+		},
+	}
+	handler := handleIngestReport(fakeSvc)
+
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bot","provenance":"ci"},
+		"session_id":"s1",
+		"operation_id":"o1",
+		"trace_id":"t1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"prescription_id":"presc-1",
+		"verdict":"success",
+		"exit_code":0
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/report", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "t-report"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if fakeSvc.reportTenant != "t-report" {
+		t.Fatalf("tenant = %q, want t-report", fakeSvc.reportTenant)
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["entry_id"] != "report-1" {
+		t.Fatalf("entry_id = %v, want report-1", resp["entry_id"])
+	}
+}
+
+func TestHandleIngestReport_RejectsEmptyVerdict(t *testing.T) {
+	t.Parallel()
+
+	fakeSvc := &fakeIngestService{}
+	handler := handleIngestReport(fakeSvc)
+
+	// Valid envelope but missing verdict — validation rejects.
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bot","provenance":"ci"},
+		"session_id":"s1",
+		"operation_id":"o1",
+		"trace_id":"t1",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"prescription_id":"presc-1",
+		"verdict":"",
+		"exit_code":0
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/report", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "tenant-1"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleIngestReport_LinksToExistingPrescription(t *testing.T) {
+	t.Parallel()
+
+	// Use the real service with a fakeIngestStore that has a pre-existing prescription.
+	fakeStore := &fakeIngestStore{
+		lastHash: "sha256:previous",
+		entries: map[string]store.StoredEntry{
+			"presc-link": {
+				ID:        "presc-link",
+				TenantID:  "tenant-1",
+				EntryType: string(evidence.EntryTypePrescribe),
+				SessionID: "session-link",
+			},
+		},
+	}
+	svc := ingest.NewService(fakeStore, testutil.TestSigner(t))
+	handler := handleIngestReport(svc)
+
+	body := `{
+		"contract_version":"v1",
+		"actor":{"type":"agent","id":"bot","provenance":"ci"},
+		"session_id":"session-link",
+		"operation_id":"op-link",
+		"trace_id":"trace-link",
+		"flavor":"imperative",
+		"evidence":{"kind":"declared"},
+		"source":{"system":"test"},
+		"prescription_id":"presc-link",
+		"verdict":"success",
+		"exit_code":0
+	}`
+	req := httptest.NewRequest("POST", "/v1/evidence/ingest/report", strings.NewReader(body))
+	req = req.WithContext(auth.WithTenantID(req.Context(), "tenant-1"))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	// The service should have looked up the prescription.
+	if fakeStore.getEntryCalls != 1 {
+		t.Fatalf("get entry calls = %d, want 1 (prescription lookup)", fakeStore.getEntryCalls)
+	}
+	// Verify the report was saved and links to the prescription.
+	if len(fakeStore.savedRaw) != 1 {
+		t.Fatalf("saved entries = %d, want 1", len(fakeStore.savedRaw))
+	}
+	// The saved raw is a full EvidenceEntry; the prescription_id lives
+	// inside the nested payload object.
+	var saved struct {
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(fakeStore.savedRaw[0], &saved); err != nil {
+		t.Fatalf("unmarshal saved entry: %v", err)
+	}
+	if saved.Type != string(evidence.EntryTypeReport) {
+		t.Fatalf("saved type = %q, want report", saved.Type)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(saved.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if payload["prescription_id"] != "presc-link" {
+		t.Fatalf("payload prescription_id = %v, want presc-link", payload["prescription_id"])
+	}
+}
+
 func mustJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)

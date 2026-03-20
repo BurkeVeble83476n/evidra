@@ -1,0 +1,600 @@
+package benchsvc
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"samebits.com/evidra/internal/auth"
+	bench "samebits.com/evidra/pkg/bench"
+)
+
+// handlerRepo is an in-memory fake implementing Repository for handler tests.
+// Each field holds canned return values; tests set them before making requests.
+type handlerRepo struct {
+	runs       []bench.RunRecord
+	runsTotal  int
+	runsErr    error
+	run        *bench.RunRecord
+	runErr     error
+	stats      *bench.StatsResult
+	statsErr   error
+	catalog    *bench.RunCatalog
+	catalogErr error
+	leaders    []bench.LeaderboardEntry
+	leadersErr error
+	scenarios  []bench.ScenarioSummary
+	scenErr    error
+	artifact   []byte
+	artCT      string
+	artErr     error
+
+	// capture
+	lastTenant string
+	lastFilter bench.RunFilters
+	lastMode   string
+}
+
+func (r *handlerRepo) ListRuns(_ context.Context, tenant string, f bench.RunFilters) ([]bench.RunRecord, int, error) {
+	r.lastTenant = tenant
+	r.lastFilter = f
+	return r.runs, r.runsTotal, r.runsErr
+}
+func (r *handlerRepo) GetRun(_ context.Context, tenant, id string) (*bench.RunRecord, error) {
+	r.lastTenant = tenant
+	return r.run, r.runErr
+}
+func (r *handlerRepo) InsertRun(_ context.Context, _ string, _ bench.RunRecord) error { return nil }
+func (r *handlerRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
+	return 0, nil
+}
+func (r *handlerRepo) FilteredStats(_ context.Context, tenant string, f bench.RunFilters) (*bench.StatsResult, error) {
+	r.lastTenant = tenant
+	r.lastFilter = f
+	return r.stats, r.statsErr
+}
+func (r *handlerRepo) Catalog(_ context.Context, tenant string) (*bench.RunCatalog, error) {
+	r.lastTenant = tenant
+	return r.catalog, r.catalogErr
+}
+func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
+	r.lastTenant = tenant
+	r.lastMode = mode
+	return r.leaders, r.leadersErr
+}
+func (r *handlerRepo) ListScenarios(_ context.Context) ([]bench.ScenarioSummary, error) {
+	return r.scenarios, r.scenErr
+}
+func (r *handlerRepo) StoreArtifact(_ context.Context, _, _, _ string, _ []byte) error { return nil }
+func (r *handlerRepo) GetArtifact(_ context.Context, tenant, runID, artType string) ([]byte, string, error) {
+	r.lastTenant = tenant
+	return r.artifact, r.artCT, r.artErr
+}
+func (r *handlerRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
+	return nil, fmt.Errorf("handlerRepo: no real tx")
+}
+
+// passthroughAuth sets the given tenant on the request context without checking tokens.
+func passthroughAuth(tenantID string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := auth.WithTenantID(r.Context(), tenantID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// setupMux creates a mux with RegisterRoutes using the given repo and config.
+func setupMux(repo *handlerRepo, cfg ServiceConfig, tenantID string) *http.ServeMux {
+	svc := NewService(repo, cfg)
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth(tenantID))
+	return mux
+}
+
+// ---------- Leaderboard ----------
+
+func TestHandleLeaderboard_ReturnsModels(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		leaders: []bench.LeaderboardEntry{
+			{Model: "sonnet", Runs: 10, PassRate: 0.9},
+			{Model: "opus", Runs: 5, PassRate: 1.0},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/leaderboard", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if _, ok := body["models"]; !ok {
+		t.Fatal("response missing 'models' key")
+	}
+	var models []bench.LeaderboardEntry
+	if err := json.Unmarshal(body["models"], &models); err != nil {
+		t.Fatalf("decode models: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("len(models) = %d, want 2", len(models))
+	}
+}
+
+func TestHandleLeaderboard_DefaultsToProxy(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/leaderboard", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if repo.lastMode != "proxy" {
+		t.Fatalf("evidence_mode = %q, want proxy", repo.lastMode)
+	}
+
+	var body map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["evidence_mode"] != "proxy" {
+		t.Fatalf("response evidence_mode = %q, want proxy", body["evidence_mode"])
+	}
+}
+
+func TestHandleLeaderboard_503WhenNoPublicTenant(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: ""}, "t1")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/leaderboard", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+}
+
+// ---------- List Runs ----------
+
+func TestHandleListRuns_ReturnsItems(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		runs: []bench.RunRecord{
+			{ID: "r1", ScenarioID: "s1", Model: "sonnet"},
+			{ID: "r2", ScenarioID: "s2", Model: "opus"},
+		},
+		runsTotal: 2,
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var body struct {
+		Items  []bench.RunRecord `json:"items"`
+		Total  int               `json:"total"`
+		Limit  int               `json:"limit"`
+		Offset int               `json:"offset"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Items) != 2 {
+		t.Fatalf("len(items) = %d, want 2", len(body.Items))
+	}
+	if body.Total != 2 {
+		t.Fatalf("total = %d, want 2", body.Total)
+	}
+	if body.Limit != 50 {
+		t.Fatalf("limit = %d, want 50 (default)", body.Limit)
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+}
+
+func TestHandleListRuns_ParsesFilters(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{runsTotal: 0}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-b")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs?model=sonnet&scenario=broken-deployment&evidence_mode=direct&limit=10&offset=5", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	f := repo.lastFilter
+	if f.Model != "sonnet" {
+		t.Errorf("Model = %q, want sonnet", f.Model)
+	}
+	if f.ScenarioID != "broken-deployment" {
+		t.Errorf("ScenarioID = %q, want broken-deployment", f.ScenarioID)
+	}
+	if f.EvidenceMode != "direct" {
+		t.Errorf("EvidenceMode = %q, want direct", f.EvidenceMode)
+	}
+	if f.Limit != 10 {
+		t.Errorf("Limit = %d, want 10", f.Limit)
+	}
+	if f.Offset != 5 {
+		t.Errorf("Offset = %d, want 5", f.Offset)
+	}
+}
+
+// ---------- Get Run ----------
+
+func TestHandleGetRun_ReturnsRecord(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		run: &bench.RunRecord{ID: "run-42", ScenarioID: "s1", Model: "sonnet", Passed: true},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/run-42", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var run bench.RunRecord
+	if err := json.Unmarshal(rec.Body.Bytes(), &run); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if run.ID != "run-42" {
+		t.Fatalf("ID = %q, want run-42", run.ID)
+	}
+}
+
+func TestHandleGetRun_404ForMissing(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{runErr: pgx.ErrNoRows}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/nonexistent", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// ---------- Ingest ----------
+
+func TestHandleIngestRun_ValidPayload(t *testing.T) {
+	t.Parallel()
+
+	// IngestRun calls BeginTx which our handlerRepo doesn't support,
+	// so we use a dedicated repo that returns a fakeTx.
+	repo := &ingestRepo{}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("tenant-a"))
+
+	payload := `{"id":"r1","scenario_id":"s1","model":"sonnet"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["ok"] != true {
+		t.Fatalf("ok = %v, want true", body["ok"])
+	}
+}
+
+func TestHandleIngestRun_RejectsMissingFields(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	tests := []struct {
+		name    string
+		payload string
+	}{
+		{"missing id", `{"scenario_id":"s1","model":"m1"}`},
+		{"missing scenario_id", `{"id":"r1","model":"m1"}`},
+		{"missing model", `{"id":"r1","scenario_id":"s1"}`},
+		{"empty body", `{}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/bench/runs", strings.NewReader(tt.payload))
+			req.Header.Set("Content-Type", "application/json")
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandleIngestBatch_ImportsRuns(t *testing.T) {
+	t.Parallel()
+
+	repo := &ingestRepo{batchCount: 3}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("tenant-a"))
+
+	payload := `{"runs":[
+		{"id":"r1","scenario_id":"s1","model":"m1"},
+		{"id":"r2","scenario_id":"s1","model":"m1"},
+		{"id":"r3","scenario_id":"s2","model":"m2"}
+	]}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs/batch", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["ok"] != true {
+		t.Fatalf("ok = %v, want true", body["ok"])
+	}
+	if int(body["imported"].(float64)) != 3 {
+		t.Fatalf("imported = %v, want 3", body["imported"])
+	}
+}
+
+// ---------- Artifacts ----------
+
+func TestHandleGetTranscript_ReturnsText(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		artifact: []byte("step 1\nstep 2\nstep 3"),
+		artCT:    "text/plain",
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/r1/transcript", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/plain" {
+		t.Fatalf("Content-Type = %q, want text/plain", ct)
+	}
+	if rec.Body.String() != "step 1\nstep 2\nstep 3" {
+		t.Fatalf("body = %q, want transcript text", rec.Body.String())
+	}
+}
+
+func TestHandleGetTranscript_404WhenMissing(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{artErr: pgx.ErrNoRows}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/r1/transcript", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestHandleGetTimeline_ComputesPhases(t *testing.T) {
+	t.Parallel()
+
+	toolCalls := []bench.ToolCall{
+		{Tool: "run_command", Args: json.RawMessage(`{"command":"kubectl get pods -n default"}`)},
+		{Tool: "run_command", Args: json.RawMessage(`{"command":"kubectl describe pod/web -n default"}`)},
+		{Tool: "run_command", Args: json.RawMessage(`{"command":"kubectl apply -f fix.yaml -n default"}`)},
+		{Tool: "run_command", Args: json.RawMessage(`{"command":"kubectl get pods -n default"}`)},
+	}
+	data, _ := json.Marshal(toolCalls)
+
+	repo := &handlerRepo{
+		artifact: data,
+		artCT:    "application/json",
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/r1/timeline", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var tl bench.Timeline
+	if err := json.Unmarshal(rec.Body.Bytes(), &tl); err != nil {
+		t.Fatalf("decode timeline: %v", err)
+	}
+	if tl.TotalSteps != 4 {
+		t.Fatalf("TotalSteps = %d, want 4", tl.TotalSteps)
+	}
+	if tl.MutationCount != 1 {
+		t.Fatalf("MutationCount = %d, want 1", tl.MutationCount)
+	}
+	// First call is discover, second is diagnose, third is act, fourth is verify.
+	wantPhases := []bench.Phase{bench.PhaseDiscover, bench.PhaseDiagnose, bench.PhaseAct, bench.PhaseVerify}
+	for i, want := range wantPhases {
+		if tl.Steps[i].Phase != want {
+			t.Errorf("step[%d].Phase = %q, want %q", i, tl.Steps[i].Phase, want)
+		}
+	}
+}
+
+func TestHandleGetTimeline_404WhenNoToolCalls(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{artErr: pgx.ErrNoRows}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/runs/r1/timeline", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// ---------- Stats / Catalog / Scenarios ----------
+
+func TestHandleStats_ReturnsAggregates(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		stats: &bench.StatsResult{
+			TotalRuns: 42,
+			PassCount: 38,
+			FailCount: 4,
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/stats", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var body bench.StatsResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.TotalRuns != 42 {
+		t.Fatalf("TotalRuns = %d, want 42", body.TotalRuns)
+	}
+}
+
+func TestHandleCatalog_ReturnsModelsAndProviders(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		catalog: &bench.RunCatalog{
+			Models:    []string{"sonnet", "opus"},
+			Providers: []string{"anthropic", "bifrost"},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/catalog", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var body bench.RunCatalog
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Models) != 2 {
+		t.Fatalf("len(Models) = %d, want 2", len(body.Models))
+	}
+	if len(body.Providers) != 2 {
+		t.Fatalf("len(Providers) = %d, want 2", len(body.Providers))
+	}
+}
+
+func TestHandleListScenarios_ReturnsArray(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		scenarios: []bench.ScenarioSummary{
+			{ID: "broken-deployment", Title: "Broken Deployment", Category: "kubectl"},
+			{ID: "helm-rollback", Title: "Helm Rollback", Category: "helm"},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/scenarios", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var body struct {
+		Scenarios []bench.ScenarioSummary `json:"scenarios"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Scenarios) != 2 {
+		t.Fatalf("len(scenarios) = %d, want 2", len(body.Scenarios))
+	}
+}
+
+// ---------- Ingest support: fake that supports transactions ----------
+
+// ingestRepo wraps handlerRepo with a fake transaction that accepts Exec and Commit.
+type ingestRepo struct {
+	handlerRepo
+	batchCount int
+}
+
+func (r *ingestRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
+	// Reuse fakeTx from service_batch_test.go (same package).
+	// Supply enough "INSERT 0 1" tags so IngestRunBatch counts rows as inserted.
+	tags := make([]pgconn.CommandTag, 20)
+	for i := range tags {
+		tags[i] = pgconn.NewCommandTag("INSERT 0 1")
+	}
+	return &fakeTx{execTags: tags}, nil
+}
+
+func (r *ingestRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
+	return r.batchCount, nil
+}
