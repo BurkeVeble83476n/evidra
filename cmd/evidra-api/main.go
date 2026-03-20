@@ -16,6 +16,7 @@ import (
 
 	evidrabenchmark "samebits.com/evidra"
 	"samebits.com/evidra/internal/api"
+	"samebits.com/evidra/internal/bench"
 	"samebits.com/evidra/internal/db"
 	ievsigner "samebits.com/evidra/internal/evidence"
 	argocdgitops "samebits.com/evidra/internal/gitops/argocd"
@@ -49,6 +50,7 @@ type persistenceResources struct {
 	EntryStore     *store.EntryStore
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
+	BenchStore     *bench.PgStore
 }
 
 type runDeps struct {
@@ -286,6 +288,7 @@ func configurePersistence(deps runDeps, databaseURL string, signer pkevidence.Si
 	cfg.RawStore = resources.EntryStore
 	cfg.KeyStore = resources.KeyStore
 	cfg.BenchmarkStore = resources.BenchmarkStore
+	cfg.BenchStore = resources.BenchStore
 	cfg.InviteSecret = os.Getenv("EVIDRA_INVITE_SECRET")
 	cfg.Scorecard = resources.EntryStore
 	cfg.Explain = resources.EntryStore
@@ -314,11 +317,16 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 	}
 
 	es := store.NewEntryStore(pool)
+	defaultTenant := os.Getenv("EVIDRA_DEFAULT_TENANT")
+	if defaultTenant == "" {
+		defaultTenant = "default"
+	}
 	return persistenceResources{
 			Pinger:         pool,
 			EntryStore:     es,
 			KeyStore:       store.NewKeyStore(pool),
 			BenchmarkStore: store.NewBenchmarkStore(pool),
+			BenchStore:     bench.NewPgStore(pool, defaultTenant),
 		}, func() {
 			pool.Close()
 		}, nil

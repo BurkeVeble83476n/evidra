@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	iauth "samebits.com/evidra/internal/auth"
+	"samebits.com/evidra/internal/bench"
 	"samebits.com/evidra/internal/ingest"
 	"samebits.com/evidra/internal/store"
 	pkevidence "samebits.com/evidra/pkg/evidence"
@@ -22,6 +23,7 @@ type RouterConfig struct {
 	Ingest         IngestPort
 	KeyStore       *store.KeyStore
 	BenchmarkStore *store.BenchmarkStore
+	BenchStore     *bench.PgStore
 	RawStore       RawEntryStore
 	Scorecard      ScorecardComputer
 	Explain        ExplainComputer
@@ -115,6 +117,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		mux.Handle("POST /v1/benchmark/run", authMw(handleBenchmarkRun(cfg.BenchmarkStore)))
 		mux.Handle("GET /v1/benchmark/runs", authMw(handleBenchmarkRuns(cfg.BenchmarkStore)))
 		mux.Handle("GET /v1/benchmark/compare", authMw(handleBenchmarkCompare(cfg.BenchmarkStore)))
+	}
+
+	// Bench intelligence layer.
+	if cfg.BenchStore != nil {
+		bench.RegisterRoutes(mux, cfg.BenchStore, authMw)
 	}
 
 	// Embedded landing page.
