@@ -61,7 +61,7 @@ func handleLeaderboard(s *PgStore) http.HandlerFunc {
 		if mode == "" {
 			mode = "proxy"
 		}
-		entries, err := s.Leaderboard(r.Context(), mode)
+		entries, err := s.Leaderboard(r.Context(), s.tenantID, mode)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -92,7 +92,7 @@ func handleIngestRun(s *PgStore) http.HandlerFunc {
 			return
 		}
 		req.TenantID = s.tenantID
-		if err := s.InsertRun(r.Context(), req.RunRecord); err != nil {
+		if err := s.InsertRun(r.Context(), s.tenantID, req.RunRecord); err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, "insert: "+err.Error())
 			return
 		}
@@ -122,7 +122,7 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 			req.Runs[i].TenantID = s.tenantID
 			records[i] = req.Runs[i].RunRecord
 		}
-		count, err := s.InsertRunBatch(r.Context(), records)
+		count, err := s.InsertRunBatch(r.Context(), s.tenantID, records)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
 			return
@@ -169,7 +169,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 			f.FailedOnly = true
 		}
 
-		runs, total, err := s.ListRuns(r.Context(), f)
+		runs, total, err := s.ListRuns(r.Context(), s.tenantID, f)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -189,7 +189,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 func handleGetRun(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		run, err := s.GetRun(r.Context(), id)
+		run, err := s.GetRun(r.Context(), s.tenantID, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "run not found")
@@ -212,7 +212,7 @@ func handleStats(s *PgStore) http.HandlerFunc {
 			EvidenceMode: q.Get("evidence_mode"),
 			Since:        parseSince(q.Get("since")),
 		}
-		st, err := s.FilteredStats(r.Context(), f)
+		st, err := s.FilteredStats(r.Context(), s.tenantID, f)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -224,7 +224,7 @@ func handleStats(s *PgStore) http.HandlerFunc {
 func handleGetTranscript(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "transcript")
+		data, contentType, err := s.GetArtifact(r.Context(), s.tenantID, id, "transcript")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "transcript not found")
@@ -242,7 +242,7 @@ func handleGetTranscript(s *PgStore) http.HandlerFunc {
 func handleGetToolCalls(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		data, contentType, err := s.GetArtifact(r.Context(), s.tenantID, id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found")
@@ -260,7 +260,7 @@ func handleGetToolCalls(s *PgStore) http.HandlerFunc {
 func handleGetTimeline(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		data, _, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		data, _, err := s.GetArtifact(r.Context(), s.tenantID, id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
@@ -283,7 +283,7 @@ func handleGetTimeline(s *PgStore) http.HandlerFunc {
 
 func handleCatalog(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cat, err := s.Catalog(r.Context())
+		cat, err := s.Catalog(r.Context(), s.tenantID)
 		if err != nil {
 			apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
 			return
@@ -306,7 +306,7 @@ func handleSignals(s *PgStore) http.HandlerFunc {
 func handleGetScorecard(s *PgStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "scorecard")
+		data, contentType, err := s.GetArtifact(r.Context(), s.tenantID, id, "scorecard")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "scorecard not found")
