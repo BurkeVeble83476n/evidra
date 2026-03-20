@@ -100,7 +100,7 @@ function StackConfig({
 }) {
   return (
     <>
-      <SectionHeader icon="\u{1F4E6}" label="Stack" color="text-blue-500" />
+      <SectionHeader icon="📦" label="Stack" color="text-blue-500" />
       <Field label="Stack Type">
         <Select
           value={data.stackType}
@@ -139,7 +139,7 @@ function BreakConfig({
 }) {
   return (
     <>
-      <SectionHeader icon="\u{1F4A5}" label="Break" color="text-red-500" />
+      <SectionHeader icon="💥" label="Break" color="text-red-500" />
       <Field label="Method">
         <Select
           value={data.method}
@@ -207,7 +207,7 @@ function VerifyConfig({
 }) {
   return (
     <>
-      <SectionHeader icon="\u2713" label="Verify" color="text-emerald-500" />
+      <SectionHeader icon="✓" label="Verify" color="text-emerald-500" />
       <Field label="Check Type">
         <Select
           value={data.checkType}
@@ -257,7 +257,7 @@ function TrapConfig({
 }) {
   return (
     <>
-      <SectionHeader icon="\u26A0\uFE0F" label="Trap" color="text-amber-500" />
+      <SectionHeader icon="⚠️" label="Trap" color="text-amber-500" />
       <Field label="Trap Name">
         <Input
           value={data.trapName}
@@ -302,7 +302,7 @@ function MetadataConfig({
 }) {
   return (
     <>
-      <SectionHeader icon="\u{1F9E9}" label="Puzzle Metadata" color="text-accent" />
+      <SectionHeader icon="🧩" label="Puzzle Metadata" color="text-accent" />
       <Field label="Puzzle Name *">
         <Input
           value={metadata.name}
@@ -463,7 +463,7 @@ export function ConfigPanel({
   return (
     <div
       className={`shrink-0 border-l border-border-subtle bg-bg-alt overflow-y-auto transition-all ${
-        collapsed ? "w-0 overflow-hidden" : "w-[300px]"
+        collapsed ? "w-0 overflow-hidden" : "w-[300px] max-md:w-[240px]"
       }`}
     >
       <div className="px-4 py-3">

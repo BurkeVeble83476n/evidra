@@ -100,20 +100,22 @@ const INITIAL_NODES: Node[] = [
   },
 ];
 
+const EDGE_STYLE = { stroke: "var(--color-accent)", strokeWidth: 2, opacity: 0.7 };
+
 const INITIAL_EDGES = [
   {
     id: "e-stack-break",
     source: "stack-1",
     target: "break-1",
     animated: true,
-    style: { stroke: "var(--color-border)" },
+    style: EDGE_STYLE,
   },
   {
     id: "e-break-verify",
     source: "break-1",
     target: "verify-1",
     animated: true,
-    style: { stroke: "var(--color-border)" },
+    style: EDGE_STYLE,
   },
 ];
 
@@ -153,7 +155,7 @@ export function Designer() {
           {
             ...connection,
             animated: true,
-            style: { stroke: "var(--color-border)" },
+            style: EDGE_STYLE,
           },
           eds,
         ),
@@ -216,7 +218,7 @@ export function Designer() {
   );
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 110px)" }}>
+    <div className="flex relative" style={{ height: "calc(100vh - 110px)" }}>
       <Palette />
 
       <div ref={reactFlowWrapper} className="flex-1 relative">
@@ -237,7 +239,7 @@ export function Designer() {
           connectionLineStyle={{ stroke: "var(--color-accent)" }}
           defaultEdgeOptions={{
             animated: true,
-            style: { stroke: "var(--color-border)" },
+            style: EDGE_STYLE,
           }}
           deleteKeyCode="Backspace"
         >

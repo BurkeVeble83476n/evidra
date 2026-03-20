@@ -76,3 +76,26 @@
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }
+
+/* ── React Flow dark-mode overrides ── */
+.react-flow__background {
+  background-color: var(--color-bg) !important;
+}
+.react-flow__minimap {
+  background-color: var(--color-bg-elevated) !important;
+}
+.react-flow__controls button {
+  background-color: var(--color-bg-elevated) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-fg) !important;
+  fill: var(--color-fg) !important;
+}
+.react-flow__controls button:hover {
+  background-color: var(--color-bg-alt) !important;
+}
+.react-flow__controls button svg {
+  fill: var(--color-fg) !important;
+}
+.react-flow__panel {
+  background: transparent !important;
+}
