@@ -510,14 +510,28 @@ export function TemplatesModal({ open, onClose, onSelect, initialMode = "run" }:
                 </button>
               )}
               {(JSON.parse(localStorage.getItem("bench-presets") || "[]") as { name: string; ids: string[] }[]).map((p, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedIds(new Set(p.ids))}
-                  className="text-[0.65rem] px-2 py-0.5 rounded-full border border-border text-fg-muted hover:border-accent hover:text-fg transition-colors"
-                  title={`${p.ids.length} scenarios`}
-                >
-                  {p.name}
-                </button>
+                <span key={i} className="inline-flex items-center gap-0.5 text-[0.65rem] pl-2 pr-1 py-0.5 rounded-full border border-border text-fg-muted hover:border-accent transition-colors">
+                  <button
+                    onClick={() => setSelectedIds(new Set(p.ids))}
+                    className="hover:text-fg transition-colors"
+                    title={`Load ${p.ids.length} scenarios`}
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const presets = JSON.parse(localStorage.getItem("bench-presets") || "[]") as { name: string; ids: string[] }[];
+                      presets.splice(i, 1);
+                      localStorage.setItem("bench-presets", JSON.stringify(presets));
+                      setSelectedIds(new Set(selectedIds)); // force re-render
+                    }}
+                    className="text-fg-muted/50 hover:text-red-400 transition-colors ml-0.5"
+                    title="Delete preset"
+                  >
+                    ✕
+                  </button>
+                </span>
               ))}
             </div>
 
