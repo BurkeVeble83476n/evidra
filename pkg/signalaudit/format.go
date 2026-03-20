@@ -36,8 +36,7 @@ func FormatSummary(result Result) string {
 
 	b.WriteString("worst scenarios:\n")
 	for _, scenario := range scenarios {
-		b.WriteString(fmt.Sprintf(
-			"  %s primary=%s runs=%d missing=%d forbidden=%d extra=%d unstable=%d\n",
+		fmt.Fprintf(&b, "  %s primary=%s runs=%d missing=%d forbidden=%d extra=%d unstable=%d\n",
 			scenario.ScenarioID,
 			scenario.PrimarySignal,
 			scenario.RunCount,
@@ -45,7 +44,7 @@ func FormatSummary(result Result) string {
 			scenario.ForbiddenSignalCount,
 			scenario.UnexpectedExtraCount,
 			scenario.UnstableGroupCount,
-		))
+		)
 	}
 
 	return b.String()
