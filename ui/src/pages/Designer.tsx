@@ -318,9 +318,9 @@ export function Designer() {
             <button
               onClick={() => setTemplatesOpen(true)}
               className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
-              title="Load a scenario template"
+              title="Browse scenarios and configure benchmark runs"
             >
-              Templates
+              Scenarios
             </button>
             <button
               onClick={handleClear}
