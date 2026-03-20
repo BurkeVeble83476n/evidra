@@ -144,6 +144,7 @@ export function Designer() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<PuzzleMetadata>(DEFAULT_METADATA);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [minimapOpen, setMinimapOpen] = useState(false);
   const tour = useTourState();
 
   const selectedNode = useMemo(
@@ -243,6 +244,13 @@ export function Designer() {
                 ? Tour
               </button>
             )}
+            <button
+              onClick={() => setMinimapOpen(!minimapOpen)}
+              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              title={minimapOpen ? "Hide minimap" : "Show minimap"}
+            >
+              {minimapOpen ? "Hide Map" : "Map"}
+            </button>
           </div>
           <div className="flex items-center gap-3">
             <div data-tour="export-button">
@@ -282,11 +290,13 @@ export function Designer() {
           <Controls
             className="!bg-bg-elevated !border-border !shadow-[var(--shadow-card)]"
           />
-          <MiniMap
-            className="!bg-bg-alt !border-border"
-            nodeColor={() => "var(--color-accent)"}
-            maskColor="rgba(0,0,0,0.15)"
-          />
+          {minimapOpen && (
+            <MiniMap
+              className="!bg-bg-alt !border-border"
+              nodeColor={() => "var(--color-accent)"}
+              maskColor="rgba(0,0,0,0.15)"
+            />
+          )}
         </ReactFlow>
 
         {panelCollapsed && (
