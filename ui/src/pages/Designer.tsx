@@ -303,7 +303,7 @@ export function Designer() {
             {!tour.active && (
               <button
                 onClick={tour.restart}
-                className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+                className="text-[0.72rem] font-medium text-fg-muted/60 hover:text-fg transition-colors"
                 title="Restart guided tour"
               >
                 ? Tour
@@ -311,11 +311,12 @@ export function Designer() {
             )}
             <button
               onClick={() => setMinimapOpen(!minimapOpen)}
-              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              className="text-[0.72rem] font-medium text-fg-muted/60 hover:text-fg transition-colors"
               title={minimapOpen ? "Hide minimap" : "Show minimap"}
             >
               {minimapOpen ? "Hide Map" : "Map"}
             </button>
+            <span className="text-border">|</span>
             <button
               onClick={() => { setTemplatesOpen(true); setTemplatesMode("run"); }}
               className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
