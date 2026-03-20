@@ -32,6 +32,9 @@ func RegisterRoutes(mux *http.ServeMux, s *PgStore, authMw func(http.Handler) ht
 	mux.Handle("GET /v1/bench/runs/{id}/tool-calls", authMw(http.HandlerFunc(handleGetToolCalls(s))))
 	mux.Handle("GET /v1/bench/runs/{id}/timeline", authMw(http.HandlerFunc(handleGetTimeline(s))))
 	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(s))))
+	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(s))))
+	mux.Handle("GET /v1/bench/signals", authMw(http.HandlerFunc(handleSignals(s))))
+	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(s))))
 }
 
 func handleLeaderboard(s *PgStore) http.HandlerFunc {
@@ -170,7 +173,11 @@ func handleGetRun(s *PgStore) http.HandlerFunc {
 		id := r.PathValue("id")
 		run, err := s.GetRun(r.Context(), id)
 		if err != nil {
-			respondError(w, http.StatusNotFound, "run not found")
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, http.StatusNotFound, "run not found")
+			} else {
+				respondError(w, http.StatusInternalServerError, err.Error())
+			}
 			return
 		}
 		respondJSON(w, http.StatusOK, run)
@@ -253,6 +260,46 @@ func handleGetTimeline(s *PgStore) http.HandlerFunc {
 
 		tl := bench.Parse(calls)
 		respondJSON(w, http.StatusOK, tl)
+	}
+}
+
+func handleCatalog(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cat, err := s.Catalog(r.Context())
+		if err != nil {
+			respondJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
+			return
+		}
+		respondJSON(w, http.StatusOK, cat)
+	}
+}
+
+func handleSignals(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		respondJSON(w, http.StatusOK, map[string]any{
+			"total_runs":          0,
+			"runs_with_scorecard": 0,
+			"signals":             map[string]any{},
+			"avg_score":           0,
+		})
+	}
+}
+
+func handleGetScorecard(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		data, contentType, err := s.GetArtifact(r.Context(), id, "scorecard")
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, http.StatusNotFound, "scorecard not found")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
 	}
 }
 

@@ -6,49 +6,19 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
 /* ── Types ── */
 
-interface Run {
-  id: string;
-  scenario_id: string;
+interface LeaderboardEntry {
   model: string;
-  provider: string;
-  passed: boolean;
-  duration_seconds: number;
-  prompt_tokens: number;
-  completion_tokens: number;
-  estimated_cost_usd: number;
-  checks_json: string;
+  scenarios: number;
+  runs: number;
+  pass_rate: number;
+  avg_duration: number;
+  avg_cost: number;
+  total_cost: number;
 }
 
-interface RunsResponse {
-  items: Run[];
-  total: number;
-}
-
-interface CheckEntry {
-  name: string;
-  type: string;
-  verdict: string;
-}
-
-interface ChecksPayload {
-  checks: CheckEntry[];
-}
-
-function parseProtocolCompliance(checksJson: string): { hasProtocol: boolean; infraPass: boolean; protocolPass: boolean } {
-  if (!checksJson) return { hasProtocol: false, infraPass: false, protocolPass: false };
-  try {
-    const parsed: ChecksPayload = JSON.parse(checksJson);
-    const checks = parsed.checks ?? [];
-    const infra = checks.filter((c) => c.type !== "evidra-protocol");
-    const protocol = checks.filter((c) => c.type === "evidra-protocol");
-    return {
-      hasProtocol: protocol.length > 0,
-      infraPass: infra.length === 0 || infra.every((c) => c.verdict === "pass"),
-      protocolPass: protocol.length > 0 && protocol.every((c) => c.verdict === "pass"),
-    };
-  } catch {
-    return { hasProtocol: false, infraPass: false, protocolPass: false };
-  }
+interface LeaderboardResponse {
+  models: LeaderboardEntry[];
+  evidence_mode: string;
 }
 
 interface ModelStats {
@@ -57,30 +27,24 @@ interface ModelStats {
   passed: number;
   failed: number;
   rate: number;
-  infraRate: number;
-  protocolRate: number | null; // null = no protocol data
-  protocolRuns: number;
   scenarios: number;
   avgDuration: number;
   totalCost: number;
   costPerRun: number;
   costPerPass: number;
-  avgTokens: number;
-  totalTokens: number;
 }
 
 type SortKey = keyof Pick<
   ModelStats,
-  "rate" | "infraRate" | "protocolRate" | "runs" | "avgDuration" | "costPerRun" | "costPerPass" | "avgTokens" | "scenarios"
+  "rate" | "runs" | "avgDuration" | "costPerRun" | "costPerPass" | "scenarios"
 >;
 
 const SORT_OPTIONS: { key: SortKey; label: string; desc: boolean }[] = [
-  { key: "rate", label: "Overall", desc: true },
-  { key: "infraRate", label: "Infra Fix", desc: true },
-  { key: "protocolRate", label: "Protocol", desc: true },
+  { key: "rate", label: "Pass Rate", desc: true },
   { key: "costPerPass", label: "Cost/Pass", desc: false },
   { key: "avgDuration", label: "Duration", desc: false },
   { key: "runs", label: "Runs", desc: true },
+  { key: "scenarios", label: "Scenarios", desc: true },
 ];
 
 function formatDuration(s: number): string {
@@ -122,94 +86,35 @@ function medalEmoji(rank: number): string {
 export function BenchLeaderboard() {
   const { request } = useApi();
   const { mode } = useEvidenceMode();
-  const [runs, setRuns] = useState<Run[]>([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("rate");
   const [sortDesc, setSortDesc] = useState(true);
 
   useEffect(() => {
-    request<RunsResponse>(`/v1/bench/runs?limit=1000${evidenceModeParam("&", mode)}`)
-      .then((res) => setRuns(res.items ?? []))
-      .catch(() => setRuns([]))
+    request<LeaderboardResponse>(`/v1/bench/leaderboard${evidenceModeParam("?", mode)}`)
+      .then((res) => setEntries(res.models ?? []))
+      .catch(() => setEntries([]))
       .finally(() => setLoading(false));
   }, [request, mode]);
 
   const models = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        runs: number;
-        passed: number;
-        infraPassed: number;
-        protocolPassed: number;
-        protocolRuns: number;
-        scenarios: Set<string>;
-        durations: number[];
-        cost: number;
-        tokens: number;
-      }
-    >();
-
-    for (const r of runs) {
-      if (!r.model) continue;
-      const entry = map.get(r.model) ?? {
-        runs: 0,
-        passed: 0,
-        infraPassed: 0,
-        protocolPassed: 0,
-        protocolRuns: 0,
-        scenarios: new Set(),
-        durations: [],
-        cost: 0,
-        tokens: 0,
-      };
-      entry.runs += 1;
-      if (r.passed) entry.passed += 1;
-
-      const compliance = parseProtocolCompliance(r.checks_json);
-      if (compliance.infraPass) entry.infraPassed += 1;
-      if (compliance.hasProtocol) {
-        entry.protocolRuns += 1;
-        if (compliance.protocolPass) entry.protocolPassed += 1;
-      }
-
-      entry.scenarios.add(r.scenario_id);
-      entry.durations.push(r.duration_seconds);
-      entry.cost += r.estimated_cost_usd || 0;
-      entry.tokens += (r.prompt_tokens || 0) + (r.completion_tokens || 0);
-      map.set(r.model, entry);
-    }
-
-    const stats: ModelStats[] = [];
-    for (const [model, e] of map) {
-      const rate = e.runs > 0 ? (e.passed / e.runs) * 100 : 0;
-      const infraRate = e.runs > 0 ? (e.infraPassed / e.runs) * 100 : 0;
-      const protocolRate = e.protocolRuns > 0 ? (e.protocolPassed / e.protocolRuns) * 100 : null;
-      const avgDuration =
-        e.durations.length > 0
-          ? e.durations.reduce((a, b) => a + b, 0) / e.durations.length
-          : 0;
-      stats.push({
-        model,
+    return entries.map((e): ModelStats => {
+      const passed = Math.round((e.pass_rate / 100) * e.runs);
+      return {
+        model: e.model,
         runs: e.runs,
-        passed: e.passed,
-        failed: e.runs - e.passed,
-        rate,
-        infraRate,
-        protocolRate,
-        protocolRuns: e.protocolRuns,
-        scenarios: e.scenarios.size,
-        avgDuration,
-        totalCost: e.cost,
-        costPerRun: e.runs > 0 ? e.cost / e.runs : 0,
-        costPerPass: e.passed > 0 ? e.cost / e.passed : Infinity,
-        avgTokens: e.runs > 0 ? e.tokens / e.runs : 0,
-        totalTokens: e.tokens,
-      });
-    }
-
-    return stats;
-  }, [runs]);
+        passed,
+        failed: e.runs - passed,
+        rate: e.pass_rate,
+        scenarios: e.scenarios,
+        avgDuration: e.avg_duration,
+        totalCost: e.total_cost,
+        costPerRun: e.avg_cost,
+        costPerPass: passed > 0 ? e.total_cost / passed : Infinity,
+      };
+    });
+  }, [entries]);
 
   const sorted = useMemo(() => {
     const arr = [...models];
@@ -224,9 +129,9 @@ export function BenchLeaderboard() {
     return arr;
   }, [models, sortKey, sortDesc]);
 
-  const totalRuns = runs.length;
-  const totalPassed = runs.filter((r) => r.passed).length;
-  const totalCost = runs.reduce((s, r) => s + (r.estimated_cost_usd || 0), 0);
+  const totalRuns = models.reduce((s, m) => s + m.runs, 0);
+  const totalPassed = models.reduce((s, m) => s + m.passed, 0);
+  const totalCost = models.reduce((s, m) => s + m.totalCost, 0);
   const totalModels = models.length;
 
   const handleSort = (key: SortKey) => {
@@ -334,33 +239,11 @@ export function BenchLeaderboard() {
                   </div>
                 </td>
 
-                {/* Overall Rate */}
+                {/* Pass Rate */}
                 <td className="px-4 py-3 text-right">
                   <span className={`font-mono text-[0.85rem] font-bold ${rateColor(m.rate)}`}>
                     {m.rate.toFixed(1)}%
                   </span>
-                </td>
-
-                {/* Infra Fix Rate */}
-                <td className="px-4 py-3 text-right">
-                  <span className={`font-mono text-[0.82rem] font-semibold ${rateColor(m.infraRate)}`}>
-                    {m.infraRate.toFixed(0)}%
-                  </span>
-                </td>
-
-                {/* Protocol Compliance */}
-                <td className="px-4 py-3 text-right">
-                  {m.protocolRate !== null ? (
-                    <div>
-                      <span className={`font-mono text-[0.82rem] font-semibold ${rateColor(m.protocolRate)}`}>
-                        {m.protocolRate.toFixed(0)}%
-                      </span>
-                      <br />
-                      <span className="text-[0.65rem] text-fg-muted">{m.protocolRuns} runs</span>
-                    </div>
-                  ) : (
-                    <span className="text-fg-muted text-[0.76rem]">{"\u2014"}</span>
-                  )}
                 </td>
 
                 {/* Cost per Pass */}
@@ -376,6 +259,11 @@ export function BenchLeaderboard() {
                 {/* Total Runs */}
                 <td className="px-4 py-3 text-right font-mono text-[0.78rem] text-fg-muted">
                   {m.runs}
+                </td>
+
+                {/* Scenarios */}
+                <td className="px-4 py-3 text-right font-mono text-[0.78rem] text-fg-muted">
+                  {m.scenarios}
                 </td>
               </tr>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import { useApi } from "../../hooks/useApi";
+import { useAuth } from "../../context/AuthContext";
 import { evidenceModeParam } from "../../lib/catalogData.mts";
 import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
@@ -135,6 +136,7 @@ function highlightTranscript(text: string): (React.ReactElement | string)[] {
 export function BenchRunDetail() {
   const { id } = useParams<{ id: string }>();
   const { request } = useApi();
+  const { apiKey } = useAuth();
   const { mode } = useEvidenceMode();
 
   const [run, setRun] = useState<RunRecord | null>(null);
@@ -172,7 +174,9 @@ export function BenchRunDetail() {
   useEffect(() => {
     if (activeTab !== "transcript" || transcript !== null || transcriptLoading || !id) return;
     setTranscriptLoading(true);
-    fetch(`/v1/bench/runs/${id}/transcript${evidenceModeParam("?", mode)}`)
+    const headers: Record<string, string> = {};
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+    fetch(`/v1/bench/runs/${id}/transcript${evidenceModeParam("?", mode)}`, { headers })
       .then((res) => {
         if (!res.ok) throw new Error(res.statusText);
         return res.text();
@@ -180,33 +184,21 @@ export function BenchRunDetail() {
       .then(setTranscript)
       .catch((err) => setTranscriptError(err.message))
       .finally(() => setTranscriptLoading(false));
-  }, [activeTab, transcript, transcriptLoading, id, mode]);
+  }, [activeTab, transcript, transcriptLoading, id, mode, apiKey]);
 
   // Fetch tool calls on tab switch
   useEffect(() => {
     if (activeTab !== "tool-calls" || toolCalls !== null || toolCallsLoading || !id) return;
     setToolCallsLoading(true);
-    fetch(`/v1/bench/runs/${id}/tool-calls${evidenceModeParam("?", mode)}`)
-      .then((res) => {
-        if (!res.ok) {
-          if (res.status === 404) return null;
-          throw new Error(res.statusText);
-        }
-        return res.text();
-      })
-      .then((text) => {
-        if (text === null) {
+    request<ToolCall[]>(`/v1/bench/runs/${id}/tool-calls${evidenceModeParam("?", mode)}`)
+      .then((data) => setToolCalls(data ?? []))
+      .catch((err) => {
+        if (err.status === 404) {
           setToolCalls([]);
-          return;
-        }
-        try {
-          setToolCalls(JSON.parse(text) as ToolCall[]);
-        } catch {
-          setToolCalls([]);
-          setToolCallsError("Failed to parse tool calls");
+        } else {
+          setToolCallsError(err.message);
         }
       })
-      .catch((err) => setToolCallsError(err.message))
       .finally(() => setToolCallsLoading(false));
   }, [activeTab, toolCalls, toolCallsLoading, id, mode]);
 
@@ -214,19 +206,15 @@ export function BenchRunDetail() {
   useEffect(() => {
     if (activeTab !== "scorecard" || scorecard !== null || scorecardError !== null || scorecardLoading || !id) return;
     setScorecardLoading(true);
-    fetch(`/v1/bench/runs/${id}/scorecard${evidenceModeParam("?", mode)}`)
-      .then((res) => {
-        if (res.status === 404) {
+    request<Scorecard>(`/v1/bench/runs/${id}/scorecard${evidenceModeParam("?", mode)}`)
+      .then((data) => setScorecard(data))
+      .catch((err) => {
+        if (err.status === 404) {
           setScorecardError("not-found");
-          return;
+        } else {
+          setScorecardError(err.message);
         }
-        if (!res.ok) throw new Error(res.statusText);
-        return res.json();
       })
-      .then((data) => {
-        if (data) setScorecard(data as Scorecard);
-      })
-      .catch((err) => setScorecardError(err.message))
       .finally(() => setScorecardLoading(false));
   }, [activeTab, scorecard, scorecardError, scorecardLoading, id, mode]);
 
@@ -234,19 +222,15 @@ export function BenchRunDetail() {
   useEffect(() => {
     if (activeTab !== "timeline" || timeline !== null || timelineError !== null || timelineLoading || !id) return;
     setTimelineLoading(true);
-    fetch(`/v1/bench/runs/${id}/timeline${evidenceModeParam("?", mode)}`)
-      .then((res) => {
-        if (res.status === 404) {
+    request<TimelineData>(`/v1/bench/runs/${id}/timeline${evidenceModeParam("?", mode)}`)
+      .then((data) => setTimeline(data))
+      .catch((err) => {
+        if (err.status === 404) {
           setTimelineError("not-found");
-          return;
+        } else {
+          setTimelineError(err.message);
         }
-        if (!res.ok) throw new Error(res.statusText);
-        return res.json();
       })
-      .then((data) => {
-        if (data) setTimeline(data as TimelineData);
-      })
-      .catch((err) => setTimelineError(err.message))
       .finally(() => setTimelineLoading(false));
   }, [activeTab, timeline, timelineError, timelineLoading, id, mode]);
 

@@ -2,6 +2,7 @@ package benchsvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -100,6 +101,9 @@ func (s *PgStore) GetRun(ctx context.Context, id string) (*bench.RunRecord, erro
 
 	r, err := pgx.CollectExactlyOneRow(rows, scanRunRecord)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pgx.ErrNoRows
+		}
 		return nil, fmt.Errorf("bench.GetRun: %w", err)
 	}
 	return &r, nil
@@ -212,9 +216,45 @@ func (s *PgStore) FilteredStats(ctx context.Context, f bench.RunFilters) (*bench
 	return &st, nil
 }
 
-// Catalog returns distinct models and providers (not implemented).
-func (s *PgStore) Catalog(_ context.Context) (*bench.RunCatalog, error) {
-	return nil, fmt.Errorf("bench.Catalog: not implemented")
+// Catalog returns distinct models and providers from bench_runs.
+func (s *PgStore) Catalog(ctx context.Context) (*bench.RunCatalog, error) {
+	var models, providers []string
+
+	rows, err := s.db.Query(ctx,
+		"SELECT DISTINCT model FROM bench_runs WHERE tenant_id = $1 ORDER BY model", s.tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("bench.Catalog: models: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var m string
+		if err := rows.Scan(&m); err != nil {
+			return nil, fmt.Errorf("bench.Catalog: scan model: %w", err)
+		}
+		models = append(models, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bench.Catalog: models rows: %w", err)
+	}
+
+	rows2, err := s.db.Query(ctx,
+		"SELECT DISTINCT provider FROM bench_runs WHERE tenant_id = $1 AND provider != '' ORDER BY provider", s.tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("bench.Catalog: providers: %w", err)
+	}
+	defer rows2.Close()
+	for rows2.Next() {
+		var p string
+		if err := rows2.Scan(&p); err != nil {
+			return nil, fmt.Errorf("bench.Catalog: scan provider: %w", err)
+		}
+		providers = append(providers, p)
+	}
+	if err := rows2.Err(); err != nil {
+		return nil, fmt.Errorf("bench.Catalog: providers rows: %w", err)
+	}
+
+	return &bench.RunCatalog{Models: models, Providers: providers}, nil
 }
 
 // CompareRuns compares two runs (not implemented).
