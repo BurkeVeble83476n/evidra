@@ -256,6 +256,14 @@ export function Designer() {
             <div data-tour="export-button">
               <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
             </div>
+            {panelCollapsed && (
+              <button
+                onClick={() => setPanelCollapsed(false)}
+                className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              >
+                Config
+              </button>
+            )}
             <RunButton metadata={metadata} nodes={nodes} edges={edges} />
           </div>
         </div>
@@ -299,15 +307,6 @@ export function Designer() {
           )}
         </ReactFlow>
 
-        {panelCollapsed && (
-          <button
-            onClick={() => setPanelCollapsed(false)}
-            className="absolute top-4 right-4 z-10 px-2.5 py-1.5 text-[0.78rem] font-medium bg-bg-elevated border border-border rounded-md text-fg-muted hover:text-fg hover:border-accent transition-colors shadow-sm"
-            title="Show config panel"
-          >
-            Config
-          </button>
-        )}
       </div>
 
       <div data-tour="config-panel">
