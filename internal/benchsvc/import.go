@@ -40,7 +40,7 @@ func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error
 	if err != nil {
 		return 0, 0, fmt.Errorf("bench.ImportJSONL: open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var records []bench.RunRecord
 	scanner := bufio.NewScanner(f)

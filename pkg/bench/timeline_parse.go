@@ -50,18 +50,18 @@ func Parse(calls []ToolCall) *Timeline {
 			Tool:  call.Tool,
 		}
 
-		switch {
-		case call.Tool == "evidra_prescribe_smart" || call.Tool == "evidra_prescribe_full" || call.Tool == "evidra_prescribe":
+		switch call.Tool {
+		case "evidra_prescribe_smart", "evidra_prescribe_full", "evidra_prescribe":
 			step.Phase = PhaseDecide
 			step.Operation = call.Tool
 			step.Summary = "Prescribed action via Evidra"
 
-		case call.Tool == "evidra_report":
+		case "evidra_report":
 			step.Phase = PhaseAct
 			step.Operation = call.Tool
 			step.Summary = "Reported outcome to Evidra"
 
-		case call.Tool == "run_command":
+		case "run_command":
 			cmd := extractCommand(call.Args)
 			step.Command = cmd
 			infraTool, subcommand, rest := parseCommand(cmd)

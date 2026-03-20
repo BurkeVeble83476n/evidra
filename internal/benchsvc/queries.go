@@ -165,7 +165,7 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, runs []bench.RunRecord) (i
 	}
 
 	br := s.db.SendBatch(ctx, batch)
-	defer br.Close()
+	defer func() { _ = br.Close() }()
 
 	for range runs {
 		ct, err := br.Exec()
