@@ -47,11 +47,10 @@ type argocdControllerConfig struct {
 }
 
 type persistenceResources struct {
-	Pinger         api.Pinger
-	EntryStore     *store.EntryStore
-	KeyStore       *store.KeyStore
-	BenchmarkStore *store.BenchmarkStore
-	BenchService   *benchsvc.Service
+	Pinger       api.Pinger
+	EntryStore   *store.EntryStore
+	KeyStore     *store.KeyStore
+	BenchService *benchsvc.Service
 }
 
 type runDeps struct {
@@ -288,7 +287,6 @@ func configurePersistence(deps runDeps, databaseURL string, signer pkevidence.Si
 	cfg.EntryStore = resources.EntryStore
 	cfg.RawStore = resources.EntryStore
 	cfg.KeyStore = resources.KeyStore
-	cfg.BenchmarkStore = resources.BenchmarkStore
 	cfg.BenchService = resources.BenchService
 	cfg.InviteSecret = os.Getenv("EVIDRA_INVITE_SECRET")
 	analyticsSvc := analyticsvc.NewService(resources.EntryStore)
@@ -328,11 +326,10 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 		PublicTenant: envOr("EVIDRA_BENCH_PUBLIC_TENANT", defaultTenant),
 	})
 	return persistenceResources{
-			Pinger:         pool,
-			EntryStore:     es,
-			KeyStore:       store.NewKeyStore(pool),
-			BenchmarkStore: store.NewBenchmarkStore(pool),
-			BenchService:   benchService,
+			Pinger:       pool,
+			EntryStore:   es,
+			KeyStore:     store.NewKeyStore(pool),
+			BenchService: benchService,
 		}, func() {
 			pool.Close()
 		}, nil
