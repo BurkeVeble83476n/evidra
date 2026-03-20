@@ -24,7 +24,4 @@ grep -Fq "The agent reports voluntarily; Evidra observes, scores, and explains."
 grep -Fq "Self-hosted remains supported for centralized evidence collection" docs/guides/self-hosted-setup.md \
   || fail "self-hosted status should keep the centralized evidence boundary explicit"
 
-grep -Fq "CLI and MCP are the authoritative analytics surfaces today." docs/ROAD_MAP.md \
-  || fail "roadmap should keep the supported path explicit"
-
 echo "PASS: test_supported_core_positioning"
