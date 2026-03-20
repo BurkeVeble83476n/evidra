@@ -41,8 +41,8 @@ func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 }
 
 // ListRuns returns runs matching filters with pagination (total count + page).
-func (s *PgStore) ListRuns(ctx context.Context, f bench.RunFilters) ([]bench.RunRecord, int, error) {
-	where, args := s.buildWhere(f)
+func (s *PgStore) ListRuns(ctx context.Context, tenantID string, f bench.RunFilters) ([]bench.RunRecord, int, error) {
+	where, args := buildWhere(tenantID, f)
 
 	// Count total.
 	var total int
@@ -90,10 +90,10 @@ func (s *PgStore) ListRuns(ctx context.Context, f bench.RunFilters) ([]bench.Run
 	return records, total, nil
 }
 
-// GetRun returns a single run by ID, scoped to the store's tenant.
-func (s *PgStore) GetRun(ctx context.Context, id string) (*bench.RunRecord, error) {
+// GetRun returns a single run by ID, scoped to the given tenant.
+func (s *PgStore) GetRun(ctx context.Context, tenantID string, id string) (*bench.RunRecord, error) {
 	query := "SELECT " + runRecordColumns + " FROM bench_runs WHERE tenant_id = $1 AND id = $2"
-	rows, err := s.db.Query(ctx, query, s.tenantID, id)
+	rows, err := s.db.Query(ctx, query, tenantID, id)
 	if err != nil {
 		return nil, fmt.Errorf("bench.GetRun: %w", err)
 	}
@@ -110,7 +110,7 @@ func (s *PgStore) GetRun(ctx context.Context, id string) (*bench.RunRecord, erro
 }
 
 // InsertRun inserts a single benchmark run record.
-func (s *PgStore) InsertRun(ctx context.Context, r bench.RunRecord) error {
+func (s *PgStore) InsertRun(ctx context.Context, tenantID string, r bench.RunRecord) error {
 	query := `INSERT INTO bench_runs (
 		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
 		passed, duration_seconds, exit_code, turns, memory_window,
@@ -126,7 +126,7 @@ func (s *PgStore) InsertRun(ctx context.Context, r bench.RunRecord) error {
 	}
 
 	_, err := s.db.Exec(ctx, query,
-		r.ID, s.tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
+		r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
 		r.Passed, r.Duration, r.ExitCode, r.Turns, r.MemoryWindow,
 		r.PromptTokens, r.CompletionTokens, r.EstimatedCost,
 		r.ChecksPassed, r.ChecksTotal, checksJSON, metadataJSON, createdAt,
@@ -138,7 +138,7 @@ func (s *PgStore) InsertRun(ctx context.Context, r bench.RunRecord) error {
 }
 
 // InsertRunBatch inserts multiple runs, skipping duplicates. Returns the number inserted.
-func (s *PgStore) InsertRunBatch(ctx context.Context, runs []bench.RunRecord) (int, error) {
+func (s *PgStore) InsertRunBatch(ctx context.Context, tenantID string, runs []bench.RunRecord) (int, error) {
 	if len(runs) == 0 {
 		return 0, nil
 	}
@@ -161,7 +161,7 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, runs []bench.RunRecord) (i
 			createdAt = time.Now()
 		}
 		batch.Queue(query,
-			r.ID, s.tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
+			r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
 			r.Passed, r.Duration, r.ExitCode, r.Turns, r.MemoryWindow,
 			r.PromptTokens, r.CompletionTokens, r.EstimatedCost,
 			r.ChecksPassed, r.ChecksTotal, checksJSON, metadataJSON, createdAt,
@@ -182,8 +182,8 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, runs []bench.RunRecord) (i
 }
 
 // FilteredStats returns aggregate statistics matching the given filters.
-func (s *PgStore) FilteredStats(ctx context.Context, f bench.RunFilters) (*bench.StatsResult, error) {
-	where, args := s.buildWhere(f)
+func (s *PgStore) FilteredStats(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.StatsResult, error) {
+	where, args := buildWhere(tenantID, f)
 
 	var st bench.StatsResult
 	err := s.db.QueryRow(ctx,
@@ -217,11 +217,11 @@ func (s *PgStore) FilteredStats(ctx context.Context, f bench.RunFilters) (*bench
 }
 
 // Catalog returns distinct models and providers from bench_runs.
-func (s *PgStore) Catalog(ctx context.Context) (*bench.RunCatalog, error) {
+func (s *PgStore) Catalog(ctx context.Context, tenantID string) (*bench.RunCatalog, error) {
 	var models, providers []string
 
 	rows, err := s.db.Query(ctx,
-		"SELECT DISTINCT model FROM bench_runs WHERE tenant_id = $1 ORDER BY model", s.tenantID)
+		"SELECT DISTINCT model FROM bench_runs WHERE tenant_id = $1 ORDER BY model", tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("bench.Catalog: models: %w", err)
 	}
@@ -238,7 +238,7 @@ func (s *PgStore) Catalog(ctx context.Context) (*bench.RunCatalog, error) {
 	}
 
 	rows2, err := s.db.Query(ctx,
-		"SELECT DISTINCT provider FROM bench_runs WHERE tenant_id = $1 AND provider != '' ORDER BY provider", s.tenantID)
+		"SELECT DISTINCT provider FROM bench_runs WHERE tenant_id = $1 AND provider != '' ORDER BY provider", tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("bench.Catalog: providers: %w", err)
 	}
@@ -255,16 +255,6 @@ func (s *PgStore) Catalog(ctx context.Context) (*bench.RunCatalog, error) {
 	}
 
 	return &bench.RunCatalog{Models: models, Providers: providers}, nil
-}
-
-// CompareRuns compares two runs (not implemented).
-func (s *PgStore) CompareRuns(_ context.Context, _, _ string) (*bench.RunComparison, error) {
-	return nil, fmt.Errorf("bench.CompareRuns: not implemented")
-}
-
-// ModelMatrix builds a model/scenario comparison grid (not implemented).
-func (s *PgStore) ModelMatrix(_ context.Context, _, _ []string) (*bench.ModelMatrix, error) {
-	return nil, fmt.Errorf("bench.ModelMatrix: not implemented")
 }
 
 // ListScenarios returns all scenarios from the global catalog.
@@ -290,26 +280,40 @@ func (s *PgStore) ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, e
 	return scenarios, rows.Err()
 }
 
-// SignalSummary aggregates signal counts (not implemented).
-func (s *PgStore) SignalSummary(_ context.Context, _ bench.RunFilters) (*bench.SignalAggregation, error) {
-	return nil, fmt.Errorf("bench.SignalSummary: not implemented")
+// StoreArtifact upserts an artifact for a given run.
+// If the artifact already exists, the data is replaced.
+func (s *PgStore) StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error {
+	query := `INSERT INTO bench_artifacts (run_id, artifact_type, content_type, data)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (run_id, artifact_type) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type`
+	_, err := s.db.Exec(ctx, query, runID, artifactType, contentType, data)
+	if err != nil {
+		return fmt.Errorf("bench.StoreArtifact: %w", err)
+	}
+	return nil
 }
 
-// Regressions finds scenario/model regressions (not implemented).
-func (s *PgStore) Regressions(_ context.Context) ([]bench.Regression, error) {
-	return nil, fmt.Errorf("bench.Regressions: not implemented")
-}
-
-// FailureAnalysis computes failure patterns (not implemented).
-func (s *PgStore) FailureAnalysis(_ context.Context, _ string) (*bench.FailureInsights, error) {
-	return nil, fmt.Errorf("bench.FailureAnalysis: not implemented")
+// GetArtifact retrieves an artifact by run ID and type.
+// It verifies the run belongs to the given tenant before returning data.
+// Returns data, contentType, error.
+func (s *PgStore) GetArtifact(ctx context.Context, tenantID string, runID, artifactType string) ([]byte, string, error) {
+	query := `SELECT a.data, a.content_type FROM bench_artifacts a
+		JOIN bench_runs r ON r.id = a.run_id
+		WHERE r.tenant_id = $1 AND a.run_id = $2 AND a.artifact_type = $3`
+	var data []byte
+	var ct string
+	err := s.db.QueryRow(ctx, query, tenantID, runID, artifactType).Scan(&data, &ct)
+	if err != nil {
+		return nil, "", fmt.Errorf("bench.GetArtifact: %w", err)
+	}
+	return data, ct, nil
 }
 
 // buildWhere constructs a WHERE clause with numbered PostgreSQL placeholders.
 // The tenant_id filter is always applied.
-func (s *PgStore) buildWhere(f bench.RunFilters) (string, []any) {
+func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
 	clauses := []string{"tenant_id = $1"}
-	args := []any{s.tenantID}
+	args := []any{tenantID}
 
 	if f.ScenarioID != "" {
 		args = append(args, f.ScenarioID)
@@ -339,35 +343,6 @@ func (s *PgStore) buildWhere(f bench.RunFilters) (string, []any) {
 	}
 
 	return " WHERE " + strings.Join(clauses, " AND "), args
-}
-
-// StoreArtifact upserts an artifact for a given run.
-// If the artifact already exists, the data is replaced.
-func (s *PgStore) StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error {
-	query := `INSERT INTO bench_artifacts (run_id, artifact_type, content_type, data)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (run_id, artifact_type) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type`
-	_, err := s.db.Exec(ctx, query, runID, artifactType, contentType, data)
-	if err != nil {
-		return fmt.Errorf("bench.StoreArtifact: %w", err)
-	}
-	return nil
-}
-
-// GetArtifact retrieves an artifact by run ID and type.
-// It verifies the run belongs to the store's tenant before returning data.
-// Returns data, contentType, error.
-func (s *PgStore) GetArtifact(ctx context.Context, runID, artifactType string) ([]byte, string, error) {
-	query := `SELECT a.data, a.content_type FROM bench_artifacts a
-		JOIN bench_runs r ON r.id = a.run_id
-		WHERE r.tenant_id = $1 AND a.run_id = $2 AND a.artifact_type = $3`
-	var data []byte
-	var contentType string
-	err := s.db.QueryRow(ctx, query, s.tenantID, runID, artifactType).Scan(&data, &contentType)
-	if err != nil {
-		return nil, "", fmt.Errorf("bench.GetArtifact: %w", err)
-	}
-	return data, contentType, nil
 }
 
 // nullableJSONB returns nil for empty strings (maps to SQL NULL for JSONB columns),

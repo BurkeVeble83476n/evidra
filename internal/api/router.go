@@ -16,24 +16,23 @@ import (
 
 // RouterConfig holds dependencies for the API router.
 type RouterConfig struct {
-	APIKey         string
-	DefaultTenant  string
-	PublicKey      ed25519.PublicKey
-	EntryStore     *store.EntryStore
-	Ingest         IngestPort
-	KeyStore       *store.KeyStore
-	BenchmarkStore *store.BenchmarkStore
-	BenchStore     *benchsvc.PgStore
-	RawStore       RawEntryStore
-	Scorecard      ScorecardComputer
-	Explain        ExplainComputer
-	InviteSecret   string
-	Pinger         Pinger
-	UIFS           fs.FS // Embedded landing page filesystem
-	WebhookStore   WebhookStore
-	WebhookSigner  pkevidence.Signer
-	ArgoCDSecret   string
-	GenericSecret  string
+	APIKey        string
+	DefaultTenant string
+	PublicKey     ed25519.PublicKey
+	EntryStore    *store.EntryStore
+	Ingest        IngestPort
+	KeyStore      *store.KeyStore
+	BenchService  *benchsvc.Service
+	RawStore      RawEntryStore
+	Scorecard     ScorecardComputer
+	Explain       ExplainComputer
+	InviteSecret  string
+	Pinger        Pinger
+	UIFS          fs.FS // Embedded landing page filesystem
+	WebhookStore  WebhookStore
+	WebhookSigner pkevidence.Signer
+	ArgoCDSecret  string
+	GenericSecret string
 }
 
 // NewRouter creates the HTTP handler with all routes and middleware.
@@ -112,16 +111,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		mux.Handle("GET /v1/evidence/explain", authMw(handleExplain(cfg.Explain)))
 	}
 
-	// Benchmark.
-	if cfg.BenchmarkStore != nil {
-		mux.Handle("POST /v1/benchmark/run", authMw(handleBenchmarkRun(cfg.BenchmarkStore)))
-		mux.Handle("GET /v1/benchmark/runs", authMw(handleBenchmarkRuns(cfg.BenchmarkStore)))
-		mux.Handle("GET /v1/benchmark/compare", authMw(handleBenchmarkCompare(cfg.BenchmarkStore)))
-	}
-
 	// Bench intelligence layer.
-	if cfg.BenchStore != nil {
-		benchsvc.RegisterRoutes(mux, cfg.BenchStore, authMw)
+	if cfg.BenchService != nil {
+		benchsvc.RegisterRoutes(mux, cfg.BenchService, authMw)
 	}
 
 	// Embedded landing page.

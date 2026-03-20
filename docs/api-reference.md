@@ -326,24 +326,6 @@ Contract:
 
 ---
 
-## Benchmark
-
-All benchmark endpoints require Bearer auth.
-
-### `POST /v1/benchmark/run`
-
-Submit a benchmark run.
-
-### `GET /v1/benchmark/runs`
-
-List benchmark runs.
-
-### `GET /v1/benchmark/compare`
-
-Compare actor reliability across benchmark runs.
-
----
-
 ## Auth Check
 
 ### `GET /auth/check`
@@ -421,10 +403,6 @@ Aggregate statistics. Same filters as runs list.
 #### GET /v1/bench/catalog
 
 Distinct models and providers.
-
-#### GET /v1/bench/signals
-
-Signal aggregation (stub — returns empty data).
 
 ---
 

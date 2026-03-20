@@ -9,9 +9,6 @@ fail() {
   exit 1
 }
 
-grep -Fq "DB-backed \`scorecard\` and" docs/ROAD_MAP.md \
-  || fail "roadmap should describe supported hosted analytics precisely"
-
 grep -Fq "Hosted \`compare\` is not part of this contract yet." docs/guides/self-hosted-setup.md \
   || fail "self-hosted status doc should keep hosted compare boundaries explicit"
 

@@ -10,7 +10,7 @@ import (
 )
 
 // Leaderboard returns aggregate stats per model, optionally filtered by evidence mode.
-func (s *PgStore) Leaderboard(ctx context.Context, evidenceMode string) ([]bench.LeaderboardEntry, error) {
+func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error) {
 	query := `
 		SELECT model,
 			COUNT(DISTINCT scenario_id) AS scenarios,
@@ -22,7 +22,7 @@ func (s *PgStore) Leaderboard(ctx context.Context, evidenceMode string) ([]bench
 		FROM bench_runs
 		WHERE tenant_id = $1`
 
-	args := []any{s.tenantID}
+	args := []any{tenantID}
 
 	if evidenceMode != "" {
 		query += ` AND evidence_mode = $2`

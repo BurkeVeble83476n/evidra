@@ -1,10 +1,8 @@
 package benchsvc
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,31 +10,31 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"samebits.com/evidra/internal/apiutil"
+	"samebits.com/evidra/internal/auth"
 	bench "samebits.com/evidra/pkg/bench"
 )
 
 // RegisterRoutes adds bench intelligence routes to the given mux.
 // Public routes (leaderboard, scenarios) are registered directly.
-// Authenticated routes (ingest) go through authMw.
-func RegisterRoutes(mux *http.ServeMux, s *PgStore, authMw func(http.Handler) http.Handler) {
+// Authenticated routes go through authMw and extract tenant from context.
+func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) http.Handler) {
 	// Public — no auth.
-	mux.HandleFunc("GET /v1/bench/leaderboard", handleLeaderboard(s))
-	mux.HandleFunc("GET /v1/bench/scenarios", handleListScenarios(s))
+	mux.HandleFunc("GET /v1/bench/leaderboard", handleLeaderboard(svc))
+	mux.HandleFunc("GET /v1/bench/scenarios", handleListScenarios(svc))
 
 	// Authenticated — ingest.
-	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(s))))
-	mux.Handle("POST /v1/bench/runs/batch", authMw(http.HandlerFunc(handleIngestBatch(s))))
+	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(svc))))
+	mux.Handle("POST /v1/bench/runs/batch", authMw(http.HandlerFunc(handleIngestBatch(svc))))
 
 	// Authenticated — queries.
-	mux.Handle("GET /v1/bench/runs", authMw(http.HandlerFunc(handleListRuns(s))))
-	mux.Handle("GET /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleGetRun(s))))
-	mux.Handle("GET /v1/bench/runs/{id}/transcript", authMw(http.HandlerFunc(handleGetTranscript(s))))
-	mux.Handle("GET /v1/bench/runs/{id}/tool-calls", authMw(http.HandlerFunc(handleGetToolCalls(s))))
-	mux.Handle("GET /v1/bench/runs/{id}/timeline", authMw(http.HandlerFunc(handleGetTimeline(s))))
-	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(s))))
-	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(s))))
-	mux.Handle("GET /v1/bench/signals", authMw(http.HandlerFunc(handleSignals(s))))
-	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(s))))
+	mux.Handle("GET /v1/bench/runs", authMw(http.HandlerFunc(handleListRuns(svc))))
+	mux.Handle("GET /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleGetRun(svc))))
+	mux.Handle("GET /v1/bench/runs/{id}/transcript", authMw(http.HandlerFunc(handleGetTranscript(svc))))
+	mux.Handle("GET /v1/bench/runs/{id}/tool-calls", authMw(http.HandlerFunc(handleGetToolCalls(svc))))
+	mux.Handle("GET /v1/bench/runs/{id}/timeline", authMw(http.HandlerFunc(handleGetTimeline(svc))))
+	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(svc))))
+	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(svc))))
+	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(svc))))
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
@@ -55,14 +53,18 @@ func parseSince(s string) *time.Time {
 	return &t
 }
 
-func handleLeaderboard(s *PgStore) http.HandlerFunc {
+func handleLeaderboard(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mode := r.URL.Query().Get("evidence_mode")
 		if mode == "" {
 			mode = "proxy"
 		}
-		entries, err := s.Leaderboard(r.Context(), mode)
+		entries, err := svc.Leaderboard(r.Context(), mode)
 		if err != nil {
+			if errors.Is(err, ErrPublicTenantUnavailable) {
+				apiutil.WriteError(w, http.StatusServiceUnavailable, err.Error())
+				return
+			}
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -73,16 +75,11 @@ func handleLeaderboard(s *PgStore) http.HandlerFunc {
 	}
 }
 
-// ingestRunRequest extends RunRecord with optional artifact fields.
-type ingestRunRequest struct {
-	bench.RunRecord
-	Transcript string          `json:"transcript,omitempty"`
-	ToolCalls  json.RawMessage `json:"tool_calls,omitempty"`
-}
-
-func handleIngestRun(s *PgStore) http.HandlerFunc {
+func handleIngestRun(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req ingestRunRequest
+		tenantID := auth.TenantID(r.Context())
+
+		var req IngestRunRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
@@ -91,23 +88,21 @@ func handleIngestRun(s *PgStore) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusBadRequest, "id, scenario_id, and model are required")
 			return
 		}
-		req.TenantID = s.tenantID
-		if err := s.InsertRun(r.Context(), req.RunRecord); err != nil {
+		req.TenantID = tenantID
+		if err := svc.IngestRun(r.Context(), tenantID, req); err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, "insert: "+err.Error())
-			return
-		}
-		if err := storeIngestArtifacts(r.Context(), s, req); err != nil {
-			apiutil.WriteError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
 			return
 		}
 		apiutil.WriteJSON(w, http.StatusCreated, map[string]any{"ok": true, "id": req.ID})
 	}
 }
 
-func handleIngestBatch(s *PgStore) http.HandlerFunc {
+func handleIngestBatch(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+
 		var req struct {
-			Runs []ingestRunRequest `json:"runs"`
+			Runs []IngestRunRequest `json:"runs"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
@@ -117,22 +112,13 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusBadRequest, "runs array is empty")
 			return
 		}
-		records := make([]bench.RunRecord, len(req.Runs))
 		for i := range req.Runs {
-			req.Runs[i].TenantID = s.tenantID
-			records[i] = req.Runs[i].RunRecord
+			req.Runs[i].TenantID = tenantID
 		}
-		count, err := s.InsertRunBatch(r.Context(), records)
+		count, err := svc.IngestRunBatch(r.Context(), tenantID, req.Runs)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
 			return
-		}
-		// Store artifacts for each run.
-		for _, run := range req.Runs {
-			if err := storeIngestArtifacts(r.Context(), s, run); err != nil {
-				apiutil.WriteError(w, http.StatusInternalServerError, "artifacts: "+err.Error())
-				return
-			}
 		}
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":       true,
@@ -142,8 +128,9 @@ func handleIngestBatch(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleListRuns(s *PgStore) http.HandlerFunc {
+func handleListRuns(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		q := r.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		if limit <= 0 {
@@ -169,7 +156,7 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 			f.FailedOnly = true
 		}
 
-		runs, total, err := s.ListRuns(r.Context(), f)
+		runs, total, err := svc.ListRuns(r.Context(), tenantID, f)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -186,10 +173,11 @@ func handleListRuns(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleGetRun(s *PgStore) http.HandlerFunc {
+func handleGetRun(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		id := r.PathValue("id")
-		run, err := s.GetRun(r.Context(), id)
+		run, err := svc.GetRun(r.Context(), tenantID, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "run not found")
@@ -202,8 +190,9 @@ func handleGetRun(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleStats(s *PgStore) http.HandlerFunc {
+func handleStats(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		q := r.URL.Query()
 		f := bench.RunFilters{
 			ScenarioID:   q.Get("scenario"),
@@ -212,7 +201,7 @@ func handleStats(s *PgStore) http.HandlerFunc {
 			EvidenceMode: q.Get("evidence_mode"),
 			Since:        parseSince(q.Get("since")),
 		}
-		st, err := s.FilteredStats(r.Context(), f)
+		st, err := svc.FilteredStats(r.Context(), tenantID, f)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -221,10 +210,11 @@ func handleStats(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleGetTranscript(s *PgStore) http.HandlerFunc {
+func handleGetTranscript(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "transcript")
+		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "transcript")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "transcript not found")
@@ -239,10 +229,11 @@ func handleGetTranscript(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleGetToolCalls(s *PgStore) http.HandlerFunc {
+func handleGetToolCalls(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found")
@@ -257,10 +248,11 @@ func handleGetToolCalls(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleGetTimeline(s *PgStore) http.HandlerFunc {
+func handleGetTimeline(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		id := r.PathValue("id")
-		data, _, err := s.GetArtifact(r.Context(), id, "tool_calls")
+		data, _, err := svc.GetArtifact(r.Context(), tenantID, id, "tool_calls")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
@@ -281,9 +273,10 @@ func handleGetTimeline(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleCatalog(s *PgStore) http.HandlerFunc {
+func handleCatalog(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cat, err := s.Catalog(r.Context())
+		tenantID := auth.TenantID(r.Context())
+		cat, err := svc.Catalog(r.Context(), tenantID)
 		if err != nil {
 			apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
 			return
@@ -292,21 +285,11 @@ func handleCatalog(s *PgStore) http.HandlerFunc {
 	}
 }
 
-func handleSignals(s *PgStore) http.HandlerFunc {
+func handleGetScorecard(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
-			"total_runs":          0,
-			"runs_with_scorecard": 0,
-			"signals":             map[string]any{},
-			"avg_score":           0,
-		})
-	}
-}
-
-func handleGetScorecard(s *PgStore) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
 		id := r.PathValue("id")
-		data, contentType, err := s.GetArtifact(r.Context(), id, "scorecard")
+		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "scorecard")
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				apiutil.WriteError(w, http.StatusNotFound, "scorecard not found")
@@ -321,24 +304,9 @@ func handleGetScorecard(s *PgStore) http.HandlerFunc {
 	}
 }
 
-// storeIngestArtifacts stores transcript and tool_calls artifacts from an ingest request.
-func storeIngestArtifacts(ctx context.Context, s *PgStore, req ingestRunRequest) error {
-	if req.Transcript != "" {
-		if err := s.StoreArtifact(ctx, req.ID, "transcript", "text/plain", []byte(req.Transcript)); err != nil {
-			return fmt.Errorf("transcript: %w", err)
-		}
-	}
-	if len(req.ToolCalls) > 0 {
-		if err := s.StoreArtifact(ctx, req.ID, "tool_calls", "application/json", req.ToolCalls); err != nil {
-			return fmt.Errorf("tool_calls: %w", err)
-		}
-	}
-	return nil
-}
-
-func handleListScenarios(s *PgStore) http.HandlerFunc {
+func handleListScenarios(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		scenarios, err := s.ListScenarios(r.Context())
+		scenarios, err := svc.ListScenarios(r.Context())
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return

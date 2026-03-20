@@ -35,7 +35,7 @@ type jsonlRecord struct {
 
 // ImportJSONL reads a results.jsonl file and inserts all records into PostgreSQL.
 // Returns (imported, skipped, error).
-func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error) {
+func (s *PgStore) ImportJSONL(ctx context.Context, tenantID string, path string) (int, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return 0, 0, fmt.Errorf("bench.ImportJSONL: open %s: %w", path, err)
@@ -83,7 +83,7 @@ func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error
 
 		records = append(records, bench.RunRecord{
 			ID:               jr.ID,
-			TenantID:         s.tenantID,
+			TenantID:         tenantID,
 			ScenarioID:       jr.ScenarioID,
 			Model:            jr.Model,
 			Provider:         jr.Provider,
@@ -114,7 +114,7 @@ func (s *PgStore) ImportJSONL(ctx context.Context, path string) (int, int, error
 	}
 
 	// Batch insert with ON CONFLICT DO NOTHING.
-	count, err := s.InsertRunBatch(ctx, records)
+	count, err := s.InsertRunBatch(ctx, tenantID, records)
 	if err != nil {
 		return 0, 0, fmt.Errorf("bench.ImportJSONL: batch insert: %w", err)
 	}

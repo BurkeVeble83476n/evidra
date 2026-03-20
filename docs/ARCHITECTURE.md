@@ -56,12 +56,12 @@ System design and implementation mapping:
 
 Infrastructure agent benchmark results and analytics.
 
-**Public types:** `pkg/bench/` — RunRecord, RunFilters, BenchStore interface, timeline parser
-**Private implementation:** `internal/benchsvc/` — pgx store, HTTP handlers, JSONL import
+**Public types:** `pkg/bench/` — RunRecord, RunFilters, timeline parser
+**Private implementation:** `internal/benchsvc/` — Service (request-scoped) over PgStore repository, HTTP handlers, JSONL import
 **Database:** `bench_runs`, `bench_artifacts`, `bench_scenarios` tables (migration 006)
 **UI:** `ui/src/pages/bench/` — Leaderboard, Dashboard, Runs, RunDetail
 
-The bench layer is self-contained — extractable to its own microservice via `cmd/bench-api/`.
+The bench layer uses a `Service -> Repository` seam: `benchsvc.Service` accepts a tenant ID per call, and the underlying `PgStore` repository handles persistence without tenant assumptions.
 
 Operational references:
 - [CLI Reference](integrations/cli-reference.md)

@@ -110,7 +110,7 @@ evidra scorecard --period 30d
 evidra explain --period 30d
 ```
 
-Security boundary: `evidra record` executes the wrapped local command directly. Evidra does not sandbox the command. Treat it with the same trust model as direct shell execution — Evidra records evidence around the command, not contain it.
+Security boundary: `evidra record` executes the wrapped local command directly. Evidra does not sandbox the wrapped command. Treat it with the same trust model as direct shell execution — Evidra records evidence around the command, not contain it.
 
 ## For AI Agents (MCP)
 
@@ -270,6 +270,7 @@ Integration and operations:
 - [Observability Quickstart](docs/guides/observability-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/scanner-sarif-quickstart.md)
 - [Self-Hosted Setup Guide](docs/guides/self-hosted-setup.md)
+- [MCP Registry Publication Guide](docs/guides/mcp-registry-publication.md)
 
 Developer references:
 
