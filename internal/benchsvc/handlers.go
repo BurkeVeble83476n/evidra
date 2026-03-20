@@ -19,6 +19,7 @@ import (
 func RegisterRoutes(mux *http.ServeMux, s *PgStore, authMw func(http.Handler) http.Handler) {
 	// Public — no auth.
 	mux.HandleFunc("GET /v1/bench/leaderboard", handleLeaderboard(s))
+	mux.HandleFunc("GET /v1/bench/scenarios", handleListScenarios(s))
 
 	// Authenticated — ingest.
 	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(s))))
@@ -280,4 +281,20 @@ func respondJSON(w http.ResponseWriter, status int, v any) {
 
 func respondError(w http.ResponseWriter, status int, msg string) {
 	respondJSON(w, status, map[string]string{"error": msg})
+}
+
+func handleListScenarios(s *PgStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		scenarios, err := s.ListScenarios(r.Context())
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if scenarios == nil {
+			scenarios = []bench.ScenarioSummary{}
+		}
+		respondJSON(w, http.StatusOK, map[string]any{
+			"scenarios": scenarios,
+		})
+	}
 }

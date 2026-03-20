@@ -227,9 +227,27 @@ func (s *PgStore) ModelMatrix(_ context.Context, _, _ []string) (*bench.ModelMat
 	return nil, fmt.Errorf("bench.ModelMatrix: not implemented")
 }
 
-// ListScenarios returns distinct scenarios (not implemented).
-func (s *PgStore) ListScenarios(_ context.Context) ([]bench.ScenarioSummary, error) {
-	return nil, fmt.Errorf("bench.ListScenarios: not implemented")
+// ListScenarios returns all scenarios from the global catalog.
+func (s *PgStore) ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT id, category, title, tools, chaos, evidra_enabled
+		 FROM bench_scenarios ORDER BY category, id`)
+	if err != nil {
+		return nil, fmt.Errorf("bench.ListScenarios: %w", err)
+	}
+	defer rows.Close()
+
+	var scenarios []bench.ScenarioSummary
+	for rows.Next() {
+		var sc bench.ScenarioSummary
+		var tools []string
+		if err := rows.Scan(&sc.ID, &sc.Category, &sc.Title, &tools, &sc.Chaos, &sc.Evidra); err != nil {
+			return nil, fmt.Errorf("bench.ListScenarios: scan: %w", err)
+		}
+		sc.Tags = tools
+		scenarios = append(scenarios, sc)
+	}
+	return scenarios, rows.Err()
 }
 
 // SignalSummary aggregates signal counts (not implemented).
