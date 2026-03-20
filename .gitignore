@@ -60,3 +60,6 @@ experiments/results/
 
 # Screenshots from dev/testing
 *.png
+
+# obsidian
+.obsidian/

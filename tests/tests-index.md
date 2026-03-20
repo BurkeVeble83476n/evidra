@@ -6,7 +6,7 @@
 - Audience: public
 
 Short map of the main test folders in Evidra. Use this first, then go to
-[E2E_TESTING.md](E2E_TESTING.md) for the detailed suite breakdown.
+[E2E_TESTING.md](../docs/E2E_TESTING.md) for the detailed suite breakdown.
 
 | Path | Purpose | Primary Data | Notes |
 | --- | --- | --- | --- |
@@ -22,5 +22,5 @@ Short map of the main test folders in Evidra. Use this first, then go to
 
 Related docs:
 - [E2E Testing Map](E2E_TESTING.md)
-- [Acceptance Fixture Status](guides/acceptance-fixture-status.md)
-- [Shared Artifact Fixtures](../tests/artifacts/fixtures/README.md)
+- [Acceptance Fixture Status](../docs/guides/acceptance-fixture-status.md)
+- [Shared Artifact Fixtures](artifacts/fixtures/README.md)

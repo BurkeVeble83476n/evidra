@@ -255,8 +255,8 @@ Integration and operations:
 Developer references:
 
 - [Architecture Overview](docs/ARCHITECTURE.md)
-- [E2E Testing Map](docs/E2E_TESTING.md)
-- [Tests Index](docs/tests-index.md)
+- [E2E Testing Map](tests/E2E_TESTING.md)
+- [Tests Index](tests/tests-index.md)
 - [Shared Artifact Fixtures](tests/artifacts/fixtures/README.md)
 
 ## Development

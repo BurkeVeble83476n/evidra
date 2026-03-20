@@ -134,7 +134,7 @@ Current reality:
   fixtures directly from that root through the acceptance catalog
 - the exact split between promoted OSS fixtures and remaining curated
   acceptance-only artifacts is documented in
-  [Acceptance Fixture Status](guides/acceptance-fixture-status.md)
+  [Acceptance Fixture Status](../docs/guides/acceptance-fixture-status.md)
 - benchmark source manifests must carry exact upstream refs instead of local
   snapshot placeholders
 - some real fixtures are still curated local slices with partial provenance

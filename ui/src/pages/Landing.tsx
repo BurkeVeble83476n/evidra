@@ -57,7 +57,7 @@ export const SEQUENCE_CHART = `sequenceDiagram
   participant Signal as Signal Detectors
   participant Score as Scoring Engine
 
-  Note over Initiator,CLI: payload.flavor = imperative | reconcile | workflow; payload.evidence.kind + payload.source.system capture how evidence arrived
+  Note over Initiator,CLI: flavor (imperative / reconcile / workflow), evidence.kind and source.system capture how evidence arrived
 
   Initiator->>CLI: prescribe_full(artifact) / prescribe_smart(target context)
   CLI->>Canon: SelectAdapter → Normalize

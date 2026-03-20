@@ -79,6 +79,6 @@ case. The rule is simpler:
 
 ## Related Docs
 
-- [`docs/E2E_TESTING.md`](../E2E_TESTING.md)
+- [`tests/E2E_TESTING.md`](../../tests/E2E_TESTING.md)
 - [`tests/artifacts/fixtures/README.md`](../../tests/artifacts/fixtures/README.md)
 - [`docs/ROAD_MAP.md`](../ROAD_MAP.md)
