@@ -554,3 +554,16 @@ Self-hosted `/v1/evidence/scorecard` and `/v1/evidence/explain` are available fo
 **Scorecard shows insufficient data:**
 - Minimum 100 operations required for scoring
 - Check with: `evidra scorecard --evidence-dir ~/.evidra/evidence`
+
+---
+
+## Testing Protocol Compliance
+
+Use [evidra-infra-bench](https://github.com/vitas/evidra-infra-bench) to benchmark your agent's protocol compliance across 36 real infrastructure scenarios:
+
+```bash
+infra-bench bench --model your-model --provider bifrost --smart-prescribe \
+  --evidra-url http://localhost:8080 --evidra-api-key your-key
+```
+
+Results appear at `/bench` on your evidra dashboard.
