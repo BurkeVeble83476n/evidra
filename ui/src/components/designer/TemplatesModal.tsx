@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import type { Node, Edge } from "@xyflow/react";
 import type { PuzzleMetadata } from "./yaml-generator";
 
@@ -20,6 +20,7 @@ interface ScenarioEntry {
 
 type CategoryFilter = "all" | "kubernetes" | "helm" | "argocd" | "terraform";
 type DifficultyFilter = "all" | "easy" | "medium" | "hard";
+type ModalMode = "run" | "new";
 
 const ALL_SCENARIOS: ScenarioEntry[] = [
   // Kubernetes (25)
@@ -95,6 +96,15 @@ const CHECK_TYPE_FOR_CATEGORY: Record<string, string> = {
   terraform: "deployment-ready",
 };
 
+const MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", costPerRun: 0.001 },
+  { id: "gpt-4.1", label: "GPT-4.1", costPerRun: 0.08 },
+  { id: "gpt-4o", label: "GPT-4o", costPerRun: 0.03 },
+  { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", costPerRun: 0.24 },
+  { id: "gpt-5.2", label: "GPT-5.2", costPerRun: 0.10 },
+  { id: "qwen-plus", label: "Qwen Plus", costPerRun: 0.02 },
+];
+
 function scenarioToTemplate(s: ScenarioEntry): Template {
   const resourceName = s.target.split("/")[1] || "web";
   const checkType = CHECK_TYPE_FOR_CATEGORY[s.category] || "deployment-ready";
@@ -121,6 +131,41 @@ function scenarioToTemplate(s: ScenarioEntry): Template {
   };
 }
 
+function scenarioPath(s: ScenarioEntry): string {
+  return `${s.category}/${s.id}`;
+}
+
+function formatCost(amount: number): string {
+  if (amount < 0.01) return `<$0.01`;
+  return `$${amount.toFixed(2)}`;
+}
+
+function todayRunName(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `run-${y}-${m}-${day}`;
+}
+
+function generateBenchCommand(
+  scenarios: string[],
+  model: string,
+  mode: "proxy" | "smart",
+): string {
+  const lines = ["infra-bench bench"];
+  for (const s of scenarios) {
+    lines.push(`  --scenario ${s}`);
+  }
+  lines.push(`  --model ${model}`);
+  lines.push("  --provider bifrost");
+  lines.push(mode === "smart" ? "  --smart-prescribe" : "  --proxy-mode");
+  lines.push("  --reuse-cluster");
+  lines.push("  --evidra-url $EVIDRA_URL");
+  lines.push("  --evidra-api-key $EVIDRA_API_KEY");
+  return lines.join(" \\\n");
+}
+
 const CATEGORY_COUNTS = ALL_SCENARIOS.reduce<Record<string, number>>((acc, s) => {
   acc[s.category] = (acc[s.category] || 0) + 1;
   return acc;
@@ -133,9 +178,18 @@ interface TemplatesModalProps {
 }
 
 export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps) {
+  const [modalMode, setModalMode] = useState<ModalMode>("run");
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("all");
   const [search, setSearch] = useState("");
+
+  // Run mode state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
+  const [evidenceMode, setEvidenceMode] = useState<"proxy" | "smart">("proxy");
+  const [runName, setRunName] = useState(todayRunName);
+  const [generatedCommand, setGeneratedCommand] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -146,6 +200,49 @@ export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps)
       return true;
     });
   }, [category, difficulty, search]);
+
+  const toggleScenario = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setGeneratedCommand(null);
+    setCopied(false);
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filtered.map((s) => s.id)));
+    setGeneratedCommand(null);
+    setCopied(false);
+  }, [filtered]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setGeneratedCommand(null);
+    setCopied(false);
+  }, []);
+
+  const handleGenerate = useCallback(() => {
+    const scenarios = ALL_SCENARIOS
+      .filter((s) => selectedIds.has(s.id))
+      .map(scenarioPath);
+    const cmd = generateBenchCommand(scenarios, selectedModel, evidenceMode);
+    setGeneratedCommand(cmd);
+    setCopied(false);
+  }, [selectedIds, selectedModel, evidenceMode]);
+
+  const handleCopy = useCallback(() => {
+    if (generatedCommand) {
+      navigator.clipboard.writeText(generatedCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [generatedCommand]);
+
+  const selectedModelInfo = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
+  const estimatedCost = selectedIds.size * selectedModelInfo.costPerRun;
 
   if (!open) return null;
 
@@ -158,12 +255,35 @@ export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps)
       onClick={onClose}
     >
       <div
-        className="bg-bg-elevated border border-border rounded-xl shadow-2xl w-[720px] max-w-[90vw] max-h-[85vh] overflow-hidden flex flex-col"
+        className="bg-bg-elevated border border-border rounded-xl shadow-2xl w-[780px] max-w-[90vw] max-h-[85vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header with mode toggle */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle shrink-0">
-          <h2 className="text-[0.92rem] font-bold text-fg">Scenario Templates</h2>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-bg rounded-lg p-0.5 border border-border-subtle">
+              <button
+                onClick={() => setModalMode("run")}
+                className={`text-[0.75rem] font-semibold px-3 py-1 rounded-md transition-all ${
+                  modalMode === "run"
+                    ? "bg-accent/15 text-accent shadow-sm"
+                    : "text-fg-muted hover:text-fg"
+                }`}
+              >
+                Run Benchmark
+              </button>
+              <button
+                onClick={() => setModalMode("new")}
+                className={`text-[0.75rem] font-medium px-3 py-1 rounded-md transition-all ${
+                  modalMode === "new"
+                    ? "bg-accent/15 text-accent shadow-sm"
+                    : "text-fg-muted hover:text-fg"
+                }`}
+              >
+                New Puzzle
+              </button>
+            </div>
+          </div>
           <button
             onClick={onClose}
             className="text-fg-muted hover:text-fg text-lg transition-colors leading-none"
@@ -204,75 +324,288 @@ export function TemplatesModal({ open, onClose, onSelect }: TemplatesModalProps)
             })}
           </div>
 
-          {/* Difficulty pills */}
-          <div className="flex gap-1.5">
-            {difficulties.map((d) => {
-              const active = difficulty === d;
-              const colors = d === "all"
-                ? (active ? "bg-fg/10 text-fg" : "text-fg-muted hover:text-fg")
-                : (active ? DIFFICULTY_COLORS[d] : "text-fg-muted hover:text-fg");
-              return (
+          {/* Difficulty pills + Select All/Clear for run mode */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1.5">
+              {difficulties.map((d) => {
+                const active = difficulty === d;
+                const colors = d === "all"
+                  ? (active ? "bg-fg/10 text-fg" : "text-fg-muted hover:text-fg")
+                  : (active ? DIFFICULTY_COLORS[d] : "text-fg-muted hover:text-fg");
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setDifficulty(d)}
+                    className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full transition-colors ${colors}`}
+                  >
+                    {d === "all" ? "All" : d}
+                  </button>
+                );
+              })}
+            </div>
+
+            {modalMode === "run" && (
+              <div className="flex items-center gap-2">
                 <button
-                  key={d}
-                  onClick={() => setDifficulty(d)}
-                  className={`text-[0.65rem] font-medium px-2 py-0.5 rounded-full transition-colors ${colors}`}
+                  onClick={selectAll}
+                  className="text-[0.65rem] font-medium text-accent hover:text-accent/80 transition-colors"
                 >
-                  {d === "all" ? "All" : d}
+                  Select All
                 </button>
-              );
-            })}
+                <span className="text-fg-muted/30 text-[0.6rem]">|</span>
+                <button
+                  onClick={clearSelection}
+                  className="text-[0.65rem] font-medium text-fg-muted hover:text-fg transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Scenario list */}
         <div className="overflow-y-auto flex-1 min-h-0">
+          {modalMode === "new" && (
+            <button
+              onClick={() => {
+                onSelect({
+                  nodes: [],
+                  edges: [],
+                  metadata: {
+                    name: "my-puzzle",
+                    title: "New Puzzle",
+                    description: "",
+                    difficulty: "medium",
+                    timeLimit: "8m",
+                    category: "kubernetes",
+                  },
+                });
+              }}
+              className="w-full text-left px-5 py-2.5 hover:bg-bg-alt transition-colors group flex items-center gap-3 border-b border-border-subtle"
+            >
+              <span className="text-[0.6rem] font-semibold uppercase px-1.5 py-0.5 rounded shrink-0 w-[3.2rem] text-center bg-fg/10 text-fg-muted">
+                ---
+              </span>
+              <span className="text-[0.8rem] text-fg-muted group-hover:text-accent transition-colors flex-1 min-w-0 truncate italic">
+                Blank Canvas
+              </span>
+            </button>
+          )}
+
           {filtered.length === 0 ? (
             <div className="px-5 py-8 text-center text-[0.8rem] text-fg-muted">
               No scenarios match the current filters.
             </div>
           ) : (
             <div className="divide-y divide-border-subtle">
-              {filtered.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => onSelect(scenarioToTemplate(s))}
-                  className="w-full text-left px-5 py-2.5 hover:bg-bg-alt transition-colors group flex items-center gap-3"
-                >
-                  {/* Difficulty badge */}
-                  <span
-                    className={`text-[0.6rem] font-semibold uppercase px-1.5 py-0.5 rounded shrink-0 w-[3.2rem] text-center ${DIFFICULTY_COLORS[s.difficulty]}`}
-                  >
-                    {s.difficulty}
-                  </span>
+              {filtered.map((s) => {
+                const isSelected = selectedIds.has(s.id);
 
-                  {/* Title */}
-                  <span className="text-[0.8rem] text-fg group-hover:text-accent transition-colors flex-1 min-w-0 truncate">
-                    {s.title}
-                  </span>
-
-                  {/* Tags */}
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[s.category]}`}>
-                      {s.category}
-                    </span>
-                    {s.chaos && (
-                      <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
-                        chaos
+                if (modalMode === "new") {
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => onSelect(scenarioToTemplate(s))}
+                      className="w-full text-left px-5 py-2.5 hover:bg-bg-alt transition-colors group flex items-center gap-3"
+                    >
+                      <span
+                        className={`text-[0.6rem] font-semibold uppercase px-1.5 py-0.5 rounded shrink-0 w-[3.2rem] text-center ${DIFFICULTY_COLORS[s.difficulty]}`}
+                      >
+                        {s.difficulty}
                       </span>
-                    )}
-                  </span>
-                </button>
-              ))}
+                      <span className="text-[0.8rem] text-fg group-hover:text-accent transition-colors flex-1 min-w-0 truncate">
+                        {s.title}
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[s.category]}`}>
+                          {s.category}
+                        </span>
+                        {s.chaos && (
+                          <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                            chaos
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                }
+
+                // Run mode: checkbox rows
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => toggleScenario(s.id)}
+                    className={`w-full text-left px-5 py-2.5 transition-colors group flex items-center gap-3 ${
+                      isSelected ? "bg-accent/5" : "hover:bg-bg-alt"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <span
+                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                        isSelected
+                          ? "bg-accent border-accent text-white"
+                          : "border-border-subtle group-hover:border-accent/50"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                          <polyline points="2 6 5 9 10 3" />
+                        </svg>
+                      )}
+                    </span>
+
+                    {/* Difficulty badge */}
+                    <span
+                      className={`text-[0.6rem] font-semibold uppercase px-1.5 py-0.5 rounded shrink-0 w-[3.2rem] text-center ${DIFFICULTY_COLORS[s.difficulty]}`}
+                    >
+                      {s.difficulty}
+                    </span>
+
+                    {/* Title */}
+                    <span className="text-[0.8rem] text-fg group-hover:text-accent transition-colors flex-1 min-w-0 truncate">
+                      {s.title}
+                    </span>
+
+                    {/* Tags */}
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[s.category]}`}>
+                        {s.category}
+                      </span>
+                      {s.chaos && (
+                        <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                          chaos
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Footer count */}
-        <div className="px-5 py-2 border-t border-border-subtle shrink-0">
-          <span className="text-[0.68rem] text-fg-muted">
-            {filtered.length} of {ALL_SCENARIOS.length} scenarios
-          </span>
-        </div>
+        {/* Footer: different per mode */}
+        {modalMode === "run" ? (
+          <div className="border-t border-border-subtle shrink-0">
+            {/* Selected count */}
+            <div className="px-5 pt-3 pb-2">
+              <span className="text-[0.72rem] font-medium text-fg">
+                {selectedIds.size} of {ALL_SCENARIOS.length} selected
+              </span>
+            </div>
+
+            {selectedIds.size > 0 && (
+              <div className="px-5 pb-4 space-y-3">
+                {/* Run name */}
+                <div>
+                  <label className="text-[0.68rem] font-semibold uppercase tracking-wider text-fg-muted mb-1 block">
+                    Run Name
+                  </label>
+                  <input
+                    type="text"
+                    value={runName}
+                    onChange={(e) => { setRunName(e.target.value); setGeneratedCommand(null); }}
+                    className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-[0.78rem] text-fg placeholder:text-fg-muted/50 focus:outline-none focus:border-accent transition-colors font-mono"
+                  />
+                </div>
+
+                {/* Model + Evidence mode row */}
+                <div className="flex gap-3">
+                  {/* Model dropdown */}
+                  <div className="flex-1">
+                    <label className="text-[0.68rem] font-semibold uppercase tracking-wider text-fg-muted mb-1 block">
+                      Model
+                    </label>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => { setSelectedModel(e.target.value); setGeneratedCommand(null); }}
+                      className="w-full bg-bg border border-border rounded-md px-3 py-1.5 text-[0.78rem] text-fg focus:outline-none focus:border-accent transition-colors appearance-none cursor-pointer"
+                    >
+                      {MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label} (${m.costPerRun}/run)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Evidence mode toggle */}
+                  <div className="w-[180px]">
+                    <label className="text-[0.68rem] font-semibold uppercase tracking-wider text-fg-muted mb-1 block">
+                      Evidence
+                    </label>
+                    <div className="flex rounded-md border border-border overflow-hidden">
+                      <button
+                        onClick={() => { setEvidenceMode("proxy"); setGeneratedCommand(null); }}
+                        className={`flex-1 px-2 py-1.5 text-[0.72rem] font-medium transition-all ${
+                          evidenceMode === "proxy"
+                            ? "bg-accent/15 text-accent"
+                            : "text-fg-muted hover:text-fg bg-bg"
+                        }`}
+                      >
+                        Proxy
+                      </button>
+                      <button
+                        onClick={() => { setEvidenceMode("smart"); setGeneratedCommand(null); }}
+                        className={`flex-1 px-2 py-1.5 text-[0.72rem] font-medium transition-all border-l border-border ${
+                          evidenceMode === "smart"
+                            ? "bg-accent/15 text-accent"
+                            : "text-fg-muted hover:text-fg bg-bg"
+                        }`}
+                      >
+                        Smart
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cost estimate */}
+                <div className="text-[0.68rem] text-fg-muted">
+                  Estimated cost: <span className="text-fg font-medium">{formatCost(estimatedCost)}</span>
+                  {" "}({selectedIds.size} scenarios x ${selectedModelInfo.costPerRun}/run)
+                </div>
+
+                {/* Generated command */}
+                {generatedCommand ? (
+                  <div>
+                    <pre className="bg-bg text-[0.7rem] text-fg-muted p-3 rounded-md border border-border overflow-x-auto font-mono leading-relaxed max-h-[160px] overflow-y-auto">
+                      {generatedCommand}
+                    </pre>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-[0.65rem] text-fg-muted">
+                        Copy and run locally. Remote execution coming soon.
+                      </span>
+                      <button
+                        onClick={handleCopy}
+                        className="px-3 py-1 bg-accent text-white text-[0.72rem] font-semibold rounded-md hover:bg-accent/80 transition-all"
+                      >
+                        {copied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerate}
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-accent text-white text-[0.78rem] font-semibold rounded-md hover:bg-accent/80 transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                      <polyline points="4 17 10 11 4 5" />
+                      <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                    Generate Run Command
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-5 py-2 border-t border-border-subtle shrink-0">
+            <span className="text-[0.68rem] text-fg-muted">
+              {filtered.length} of {ALL_SCENARIOS.length} scenarios
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
