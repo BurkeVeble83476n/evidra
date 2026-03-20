@@ -38,6 +38,7 @@ type RunRecord struct {
 	ChecksTotal      int       `json:"checks_total"`
 	ChecksJSON       string    `json:"checks_json,omitempty"`
 	MetadataJSON     string    `json:"metadata_json,omitempty"`
+	ArtifactDir      string    `json:"artifact_dir,omitempty"` // local filesystem path (bench runner only)
 	CreatedAt        time.Time `json:"created_at"`
 }
 
