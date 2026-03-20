@@ -43,6 +43,16 @@ jobs:
 
           missing=0
           for sha in ${commits}; do
+            # Skip merge commits (e.g., dependabot PR merges).
+            parents="$(git rev-list --parents -1 "${sha}" | wc -w)"
+            if [[ "${parents}" -gt 2 ]]; then
+              continue
+            fi
+            # Skip bot commits (dependabot, github-actions).
+            author="$(git show -s --format='%ae' "${sha}")"
+            if [[ "${author}" == *"[bot]"* || "${author}" == *"dependabot"* || "${author}" == *"github-actions"* ]]; then
+              continue
+            fi
             trailers="$(git show -s --format=%B "${sha}" | git interpret-trailers --parse)"
             if ! grep -iq '^Signed-off-by:' <<<"${trailers}"; then
               echo "::error::Commit ${sha} is missing a Signed-off-by trailer."
