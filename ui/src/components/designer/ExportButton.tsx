@@ -49,7 +49,7 @@ export function ExportButton({ nodes, edges, metadata }: ExportButtonProps) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent/90 text-white text-[0.75rem] font-medium rounded-md shadow-md hover:bg-accent transition-all"
+        className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent/90 text-white text-[0.72rem] font-medium rounded-md hover:bg-accent transition-all"
       >
         <svg
           className="w-4 h-4"

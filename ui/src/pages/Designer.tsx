@@ -229,7 +229,24 @@ export function Designer() {
       />
       <Palette />
 
-      <div ref={reactFlowWrapper} className="flex-1 relative" data-tour="canvas">
+      <div ref={reactFlowWrapper} className="flex-1 flex flex-col relative" data-tour="canvas">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-subtle bg-bg-elevated/50">
+          {!tour.active && (
+            <button
+              onClick={tour.restart}
+              className="text-[0.72rem] font-medium text-fg-muted hover:text-fg transition-colors"
+              title="Restart guided tour"
+            >
+              ? Tour
+            </button>
+          )}
+          {tour.active && <div />}
+          <div data-tour="export-button">
+            <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
+          </div>
+        </div>
+
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -266,21 +283,6 @@ export function Designer() {
             maskColor="rgba(0,0,0,0.15)"
           />
         </ReactFlow>
-
-        <div data-tour="export-button">
-          <ExportButton nodes={nodes} edges={edges} metadata={metadata} />
-        </div>
-
-        {/* Tour restart button */}
-        {!tour.active && (
-          <button
-            onClick={tour.restart}
-            className="absolute top-4 left-4 z-10 px-2.5 py-1.5 text-[0.75rem] font-medium bg-bg-elevated border border-border rounded-md text-fg-muted hover:text-fg hover:border-accent transition-colors shadow-sm"
-            title="Restart guided tour"
-          >
-            ? Tour
-          </button>
-        )}
 
         {panelCollapsed && (
           <button
