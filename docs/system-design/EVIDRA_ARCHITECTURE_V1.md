@@ -74,13 +74,20 @@ Phase 1 terminology note:
         │           │                                │                            │
         │           │                native tags + canonical_action               │
         │           │                                │                            │
-        │           │                         ┌──────▼──────┐                     │
-        │           │                         │ Risk Matrix │                     │
-        │           │                         │             │                     │
-        │           │                         │ base_sev    │                     │
-        │           │                         │ × op_class  │──▸ effective_risk   │
-        │           │                         │ × scope     │                     │
-        │           │                         └─────────────┘                     │
+        │           │                    ┌───────────▼───────────┐               │
+        │           │                    │ assess.Pipeline       │               │
+        │           │                    │  ┌─────────────────┐  │               │
+        │           │                    │  │ MatrixAssessor  │  │               │
+        │           │                    │  │ op_class×scope  │──│──▸ risk_input │
+        │           │                    │  ├─────────────────┤  │               │
+        │           │                    │  │ DetectorAssessor│  │               │
+        │           │                    │  │ native tags     │──│──▸ risk_input │
+        │           │                    │  ├─────────────────┤  │               │
+        │           │                    │  │ SARIFAssessor   │  │               │
+        │           │                    │  │ scanner finding │──│──▸ risk_input │
+        │           │                    │  └─────────────────┘  │               │
+        │           │                    │  max-severity ──▸ effective_risk      │
+        │           │                    └───────────────────────┘               │
         │           │                                                             │
         ▼           │                                                             │
    ┌─────────┐      │                                                             │
@@ -171,7 +178,7 @@ Phase 1 terminology note:
 |---|-------|-------|--------|-------------|
 | 1 | **Adapters** | Raw artifact + tool name | CanonicalAction + digests | Normalizes YAML/JSON/HCL into structured representation |
 | 2 | **Detectors** | CanonicalAction + raw bytes | native detector tags[] | Pattern-matches misconfigs. One file, one tag, self-registering |
-| 3 | **Risk Assembly** | native tags + op_class + scope + external findings | risk_inputs[] + effective_risk | Computes per-source prescribe-time inputs and the rolled-up severity |
+| 3 | **Assessment Pipeline** (`internal/assess/`) | CanonicalAction + raw artifact + external findings | risk_inputs[] + effective_risk | Pluggable `Pipeline` runs registered `Assessor` implementations (MatrixAssessor, DetectorAssessor, SARIFAssessor) and aggregates via max-severity |
 | 4 | **Evidence Chain** | prescribe + report entries | Signed JSONL segments | Tamper-evident append-only log of all operations |
 | 5 | **Signals Engine** | Evidence entries (sequence) | signal counts + rates | Detects behavioral patterns across operation sequences |
 | 6 | **Scorecard** | Signal counts + rates | score (0-100) + band | Weighted penalty model → reliability metric |
@@ -222,12 +229,12 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
      k8s.privileged_container → fires (privileged: true)
      k8s.run_as_root → fires (runAsNonRoot absent)
 
-4. Risk assembly:
-     base_severity = max(critical, medium) = critical
-     context = mutate × staging → no elevation
-     risk_inputs = [{source=evidra/native, risk_level=critical,
-                     risk_tags=[k8s.privileged_container, k8s.run_as_root]}]
-     effective_risk = critical
+4. Assessment pipeline (assess.Pipeline.Run):
+     MatrixAssessor: mutate × staging → risk_input(source=evidra/matrix, risk_level=high)
+     DetectorAssessor: native tags → risk_input(source=evidra/native, risk_level=critical,
+                       risk_tags=[k8s.privileged_container, k8s.run_as_root])
+     SARIFAssessor: no scanner findings → no risk_input
+     Pipeline aggregates: effective_risk = max(high, critical) = critical
 
 5. Evidence entry written:
      type=prescribe, risk_inputs=[...],
@@ -270,6 +277,7 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 | Generic adapter | `internal/canon/generic.go` | Stable |
 | 20 risk detectors | `internal/detectors/` | Stable |
 | Risk matrix | `internal/risk/matrix.go` | Stable |
+| Assessment pipeline | `internal/assess/` | Stable |
 | Evidence chain | `pkg/evidence/` | Stable |
 | 8 signal detectors | `internal/signal/` | Stable |
 | Scorecard + explain | `internal/score/` | Stable |
@@ -424,7 +432,7 @@ Score comparison between scenarios is meaningful only when operation count reach
 
 - Hosted LLM-generated explanation or analysis layers are not part of the
   delivered v1 surface in this repo.
-- External scanner mappings are scaffolded via `TagProducer` and SARIF producer, but need production mapping/config lifecycle.
+- External scanner mappings are scaffolded via `TagProducer`, SARIF producer, and `SARIFAssessor` in the `internal/assess/` pipeline, but need production mapping/config lifecycle.
 - Intent graph is not required for the currently delivered signal set.
 
 ---
@@ -466,6 +474,17 @@ type TagProducer interface {
 // Implementations:
 //   NativeProducer  — wraps all registered Detector instances
 //   SARIFProducer   — maps scanner ruleId → Evidra tag via YAML config
+```
+
+### Assessor Interface
+
+```go
+// Assessor produces risk inputs from a canonical action and raw artifact.
+// Implementations: MatrixAssessor, DetectorAssessor, SARIFAssessor.
+type Assessor interface {
+    Name() string
+    Assess(action canon.CanonicalAction, raw []byte) ([]RiskInput, error)
+}
 ```
 
 ### Signal Detector Interface
