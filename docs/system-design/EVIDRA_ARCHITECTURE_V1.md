@@ -39,136 +39,70 @@ AI agent, a workflow runner, or a controller such as Argo CD.
 
 ## Pipeline
 
-Phase 1 terminology note:
-- detector output still starts as native detector tags
-- the stored prescribe contract is `risk_inputs[] + effective_risk`
-- `risk_tags` in the detector lane below refers to native tags inside `risk_inputs[source=evidra/native]`
+```
+  ┌──────────────────────────── RECORDER (write path) ──────────────────────────┐
+  │                                                                             │
+  │   OBSERVATION                  ASSESSMENT                                   │
+  │                                                                             │
+  │   MCP direct ────┐             ┌─────────────────────────────────────┐      │
+  │   MCP proxy ─────┤             │ 1. Canonicalize                     │      │
+  │   OTLP bridge ───┤   intent    │    Adapters: K8s, Terraform,        │      │
+  │   CLI ───────────┼──────────▸  │    Docker, Generic                  │      │
+  │   Webhooks ──────┤             │    → CanonicalAction + digests      │      │
+  │   Ext-authz ─────┘             │                                     │      │
+  │   (future)                     │ 2. assess.Pipeline                  │      │
+  │                                │    ┌───────────────────────────┐    │      │
+  │                                │    │ Assessor 1 ──▸ risk_input │    │      │
+  │                                │    │ Assessor 2 ──▸ risk_input │    │      │
+  │                                │    │ Assessor N ──▸ risk_input │    │      │
+  │                                │    └───────────────────────────┘    │      │
+  │                                │    max-severity ──▸ effective_risk  │      │
+  │                                └─────────────────────────────────────┘      │
+  │                                             │                               │
+  │                                             ▼                               │
+  │   ┌──────────────────┐          ┌───────────────────────┐                  │
+  │   │ report           │          │ prescribe entry       │                  │
+  │   │ verdict          │          │ risk_inputs[]         │                  │
+  │   │ exit_code        │──────▸   │ effective_risk        │                  │
+  │   │ decision_context │          │ digests               │                  │
+  │   └──────────────────┘          └───────────┬───────────┘                  │
+  │                                             │                               │
+  │                                     sign → chain → store                    │
+  │                                             │                               │
+  └─────────────────────────────────────────────┼───────────────────────────────┘
+                                                │
+                                                ▼
+  ┌──────────────────────── INTELLIGENCE (read path) ───────────────────────────┐
+  │                                                                             │
+  │   SIGNALS ENGINE                          SCORING                           │
+  │                                                                             │
+  │   evidence    ┌─ retry_loop           signal counts    ┌─────────────┐     │
+  │   sequence    ├─ protocol_violation   + rates           │ SCORECARD   │     │
+  │   ──────────▸ ├─ artifact_drift       ──────────────▸  │ weighted    │     │
+  │               ├─ blast_radius                          │ penalty     │     │
+  │               ├─ new_scope                             │ ──▸ 0-100   │     │
+  │               ├─ repair_loop                           │ ──▸ band    │     │
+  │               ├─ thrashing                             └─────────────┘     │
+  │               └─ risk_escalation                                           │
+  │                                                                             │
+  └─────────────────────────────────────────────────────────────────────────────┘
+                                                │
+                             ┌──────────────────┼──────────────────┐
+                             ▼                  ▼                  ▼
+                     ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐
+                     │ CLI          │   │ MCP Server   │   │ Self-hosted API  │
+                     │ scorecard    │   │ prescribe    │   │ /v1/evidence/    │
+                     │ explain      │   │ report       │   │   scorecard      │
+                     │ record       │   │ get_event    │   │   explain        │
+                     │ compare      │   │              │   │ /v1/bench/*      │
+                     └──────────────┘   └──────────────┘   └──────────────────┘
+```
 
-```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                                                             │
-   Artifact         │   ADAPTERS              DETECTORS           SIGNALS ENGINE  │
-   (YAML/JSON/HCL)  │                                                             │
-        │           │   ┌──────────┐          ┌──────────────┐                    │
-        ▼           │   │ K8s      │    ┌────▸│ k8s/         │                    │
-   ┌──────────┐     │   │ Terraform│    │     │  privileged  │                    │
-   │ prescribe│────▸│   │ Docker   │────┘     │  hostpath    │──▸ native tags     │
-   │          │     │   │ Generic  │          │  docker_sock │                    │
-   └──────────┘     │   └──────────┘          │  run_as_root │                    │
-        │           │        │                │  ...         │                    │
-        │           │        ▼                ├──────────────┤                    │
-        │           │   CanonicalAction       │ terraform/   │                    │
-        │           │   + ArtifactDigest      │  aws/        │                    │
-        │           │   + IntentDigest        │    s3_public │──▸ native tags     │
-        │           │                         │    iam_wild  │                    │
-        │           │                         │  gcp/        │                    │
-        │           │                         │  azure/      │                    │
-        │           │                         ├──────────────┤                    │
-        │           │                         │ ops/         │                    │
-        │           │                         │  mass_delete │──▸ native tags     │
-        │           │                         │  kube_system │                    │
-        │           │                         ├──────────────┤                    │
-        │           │                         │ docker/      │                    │
-        │           │                         │  privileged  │──▸ native tags     │
-        │           │                         └──────────────┘                    │
-        │           │                                │                            │
-        │           │                native tags + canonical_action               │
-        │           │                                │                            │
-        │           │                    ┌───────────▼───────────┐               │
-        │           │                    │ assess.Pipeline       │               │
-        │           │                    │  ┌─────────────────┐  │               │
-        │           │                    │  │ MatrixAssessor  │  │               │
-        │           │                    │  │ op_class×scope  │──│──▸ risk_input │
-        │           │                    │  ├─────────────────┤  │               │
-        │           │                    │  │ DetectorAssessor│  │               │
-        │           │                    │  │ native tags     │──│──▸ risk_input │
-        │           │                    │  ├─────────────────┤  │               │
-        │           │                    │  │ SARIFAssessor   │  │               │
-        │           │                    │  │ scanner finding │──│──▸ risk_input │
-        │           │                    │  └─────────────────┘  │               │
-        │           │                    │  max-severity ──▸ effective_risk      │
-        │           │                    └───────────────────────┘               │
-        │           │                                                             │
-        ▼           │                                                             │
-   ┌─────────┐      │                                                             │
-   │ EVIDENCE│◀─────│── prescribe entry (risk_inputs, effective_risk, digests)    │
-   │ CHAIN   │      │                                                             │
-   │ (JSONL) │      │                                                             │
-   │         │◀─────│── report entry (verdict, exit_code?, decision_context?, artifact_digest) │
-   └─────────┘      │                                                             │
-        │           │                                                             │
-        │           │         ┌────────────────────────────────────┐              │
-        ▼           │         │ SIGNALS ENGINE                     │              │
-   evidence         │         │                                    │              │
-   entries ────────▸│         │  ┌──────────────────┐              │              │
-                    │         │  │ retry_loop       │  same intent │              │
-                    │         │  │                  │  repeated    │              │
-                    │         │  │                  │  after fail  │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ protocol_violat  │  prescribe   │              │
-                    │         │  │                  │  without     │              │
-                    │         │  │                  │  report      │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ artifact_drift   │  digest at   │              │
-                    │         │  │                  │  report ≠    │              │
-                    │         │  │                  │  prescribe   │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ blast_radius     │  destroy     │              │
-                    │         │  │                  │  many        │              │
-                    │         │  │                  │  resources   │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ new_scope        │  new tool/   │              │
-                    │         │  │                  │  env combo   │              │
-                    │         │  │                  │  first seen  │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ repair_loop      │  delete then │              │
-                    │         │  │                  │  recreate    │              │
-                    │         │  │                  │ same resource│──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ thrashing        │  rapid apply │              │
-                    │         │  │                  │  /delete     │              │
-                    │         │  │                  │  cycles      │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         │  ┌──────────────────┐              │              │
-                    │         │  │ risk_escalation  │  risk level  │              │
-                    │         │  │                  │  exceeds     │              │
-                    │         │  │                  │  baseline    │──▸ signal    │
-                    │         │  └──────────────────┘              │              │
-                    │         └────────────────────────────────────┘              │
-                    │                        │                                    │
-                    │              signal counts + rates                          │
-                    │                        │                                    │
-                    │                 ┌──────▼──────┐                             │
-                    │                 │ SCORECARD   │                             │
-                    │                 │             │                             │
-                    │                 │ weighted    │                             │
-                    │                 │ penalty     │──▸ score (0-100)            │
-                    │                 │ model       │──▸ band (excellent/good/    │
-                    │                 │             │         fair/poor)          │
-                    │                 └─────────────┘                             │
-                    │                                                             │
-                    └─────────────────────────────────────────────────────────────┘
-                                             │
-                              ┌──────────────┼──────────────┐
-                              ▼              ▼              ▼
-                      ┌────────────────┐ ┌──────────────────┐ ┌────────────────────┐
-                      │ CLI            │ │ MCP Server       │ │ Self-hosted API    │
-                      │ record         │ │ prescribe_full   │ │ /v1/evidence/      │
-                      │ scorecard      │ │ prescribe_smart  │ │   scorecard        │
-                      │ explain        │ │ report           │ │ /v1/evidence/      │
-                      │ validate       │ │ get_event        │ │   explain          │
-                      └────────────────┘ └──────────────────┘ └────────────────────┘
-                                             │                    │
-                                        AI Agents          Hosted analytics
-                                        (Claude Code,      consumers
-                                         Cursor, etc)
-```
+The assessment pipeline is the pluggable abstraction. Built-in assessors
+include matrix risk lookup, native tag detectors, and SARIF scanner
+findings. External assessors (gateway ext-authz, OPA, custom webhooks)
+plug into the same interface. The pipeline output is always
+`risk_inputs[] + effective_risk` regardless of which assessors run.
 
 ---
 
