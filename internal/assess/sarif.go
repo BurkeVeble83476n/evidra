@@ -1,14 +1,44 @@
-package lifecycle
+package assess
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"samebits.com/evidra/internal/canon"
 	"samebits.com/evidra/internal/risk"
 	"samebits.com/evidra/pkg/evidence"
 )
 
-func buildSARIFRiskInput(src ExternalFindingsSource) evidence.RiskInput {
+// FindingsSource represents external security scanner findings.
+type FindingsSource struct {
+	Source   string
+	Findings []evidence.FindingPayload
+}
+
+// SARIFAssessor converts external security findings into risk inputs.
+type SARIFAssessor struct {
+	Sources []FindingsSource
+}
+
+// Name returns the assessor name.
+func (SARIFAssessor) Name() string { return "sarif" }
+
+// Assess converts each findings source into a risk input. Returns nil if no
+// sources are configured.
+func (a SARIFAssessor) Assess(_ context.Context, _ canon.CanonicalAction, _ []byte) ([]evidence.RiskInput, error) {
+	if len(a.Sources) == 0 {
+		return nil, nil
+	}
+
+	var inputs []evidence.RiskInput
+	for _, src := range a.Sources {
+		inputs = append(inputs, buildFindingsRiskInput(src))
+	}
+	return inputs, nil
+}
+
+func buildFindingsRiskInput(src FindingsSource) evidence.RiskInput {
 	var tags []string
 	maxLevel := "low"
 	seen := make(map[string]bool)
@@ -59,14 +89,4 @@ func buildFindingsSummary(total int, counts map[string]int) string {
 	}
 
 	return fmt.Sprintf("%d findings (%s)", total, strings.Join(parts, ", "))
-}
-
-func computeEffectiveRisk(inputs []evidence.RiskInput) string {
-	best := "low"
-	for _, ri := range inputs {
-		if risk.SeverityHigherThan(ri.RiskLevel, best) {
-			best = ri.RiskLevel
-		}
-	}
-	return best
 }

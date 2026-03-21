@@ -9,8 +9,8 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
+	"samebits.com/evidra/internal/assess"
 	"samebits.com/evidra/internal/canon"
-	"samebits.com/evidra/internal/risk"
 	"samebits.com/evidra/internal/store"
 	"samebits.com/evidra/pkg/evidence"
 	"samebits.com/evidra/pkg/version"
@@ -39,8 +39,15 @@ type Result struct {
 type Service struct {
 	store                        Store
 	signer                       evidence.Signer
+	pipeline                     *assess.Pipeline
 	claimNamespacePrefix         string
 	allowLegacyDuplicateFallback bool
+}
+
+// SetPipeline configures the assessment pipeline. If not set, a default
+// matrix-only pipeline is used.
+func (s *Service) SetPipeline(p *assess.Pipeline) {
+	s.pipeline = p
 }
 
 // NewService creates an ingest service.
@@ -107,7 +114,7 @@ func (s *Service) Prescribe(ctx context.Context, tenantID string, in PrescribeRe
 	)
 	entry, err = s.saveEntry(ctx, tx, tenantID, func(lastHash string) (evidence.EvidenceEntry, error) {
 		var buildErr error
-		entry, effectiveRisk, buildErr = buildPrescribeEntry(lastHash, s.signer, in)
+		entry, effectiveRisk, buildErr = buildPrescribeEntry(lastHash, s.signer, in, s.pipeline)
 		return entry, buildErr
 	})
 	if err != nil {
@@ -232,8 +239,8 @@ func (s *Service) resolvePrescriptionForReport(ctx context.Context, tenantID, pr
 	return entry, nil
 }
 
-func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRequest) (evidence.EvidenceEntry, string, error) {
-	payload, entryID, action, canonVersion, effectiveRisk, err := buildPrescribePayload(in)
+func buildPrescribeEntry(lastHash string, signer evidence.Signer, in PrescribeRequest, pipeline *assess.Pipeline) (evidence.EvidenceEntry, string, error) {
+	payload, entryID, action, canonVersion, effectiveRisk, err := buildPrescribePayload(in, pipeline)
 	if err != nil {
 		return evidence.EvidenceEntry{}, "", err
 	}
@@ -346,7 +353,7 @@ func buildReportEntry(lastHash string, signer evidence.Signer, in ReportRequest,
 	return entry, nil
 }
 
-func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.CanonicalAction, string, string, error) {
+func buildPrescribePayload(in PrescribeRequest, pipeline *assess.Pipeline) (json.RawMessage, string, canon.CanonicalAction, string, string, error) {
 	var (
 		payload      evidence.PrescriptionPayload
 		action       canon.CanonicalAction
@@ -399,7 +406,16 @@ func buildPrescribePayload(in PrescribeRequest) (json.RawMessage, string, canon.
 		entryID = ulid.Make().String()
 	}
 	payload.PrescriptionID = entryID
-	riskInputs, effectiveRiskValue := buildPrescribeRiskInputs(action)
+	assessPipeline := pipeline
+	if assessPipeline == nil {
+		assessPipeline = assess.NewPipeline(assess.MatrixAssessor{})
+	}
+	assessResult, err := assessPipeline.Run(context.Background(), action, nil)
+	if err != nil {
+		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "assessment pipeline failed", err)
+	}
+	riskInputs := assessResult.RiskInputs
+	effectiveRiskValue := assessResult.EffectiveRisk
 	rawAction, err := json.Marshal(action)
 	if err != nil {
 		return nil, "", canon.CanonicalAction{}, "", "", wrapError(ErrCodeInternal, "failed to marshal canonical action", err)
@@ -497,17 +513,6 @@ func validateReportPayloadBody(payload evidence.ReportPayload) error {
 		return wrapError(ErrCodeInvalidInput, fmt.Sprintf("report verdict %s does not match exit_code %d", payload.Verdict, *payload.ExitCode), nil)
 	}
 	return nil
-}
-
-func buildPrescribeRiskInputs(action canon.CanonicalAction) ([]evidence.RiskInput, string) {
-	matrixLevel := risk.RiskLevel(action.OperationClass, action.ScopeClass)
-	riskInputs := []evidence.RiskInput{
-		{
-			Source:    "evidra/matrix",
-			RiskLevel: matrixLevel,
-		},
-	}
-	return riskInputs, risk.ElevateRiskLevel(matrixLevel, nil)
 }
 
 func buildSmartTargetCanonicalAction(target SmartTarget) canon.CanonicalAction {

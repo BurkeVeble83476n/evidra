@@ -106,7 +106,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [label]
+              # label is optional
               properties:
                 label:
                   type: string
@@ -171,6 +171,171 @@ paths:
                     example: default
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    head:
+      tags: [Auth]
+      summary: Verify authentication token (HEAD)
+      description: Returns 200 with X-Evidra-Tenant header for valid tokens. No response body.
+      responses:
+        '200':
+          description: Token is valid
+          headers:
+            X-Evidra-Tenant:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+
+  /v1/evidence/ingest/prescribe:
+    post:
+      tags: [Evidence]
+      summary: Ingest a prescribe evidence entry
+      description: |
+        Accepts a typed or override prescribe request, runs risk assessment,
+        and returns a prescription with risk level and detections.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestPrescribeRequest'
+            examples:
+              typed:
+                summary: Typed prescribe request
+                value:
+                  contract_version: v1
+                  actor: agent-1
+                  session_id: sess-001
+                  operation_id: op-001
+                  trace_id: trace-001
+                  flavor: k8s
+                  evidence: apply
+                  source: cli
+                  canonical_action:
+                    tool: kubectl
+                    verb: apply
+                    resource_kind: Deployment
+                    resource_name: nginx
+                    namespace: default
+              override:
+                summary: Override prescribe request
+                value:
+                  artifact_digest: sha256:abc123
+                  payload_override:
+                    canonical_action:
+                      tool: kubectl
+                      verb: apply
+                      resource_kind: Deployment
+                      resource_name: nginx
+                      namespace: default
+      responses:
+        '200':
+          description: Duplicate entry already exists
+          content:
+            application/json:
+              schema:
+                type: object
+        '202':
+          description: Prescribe accepted
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/evidence/ingest/report:
+    post:
+      tags: [Evidence]
+      summary: Ingest a report evidence entry
+      description: |
+        Accepts a typed or override report request, records the outcome
+        of a previously prescribed operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestReportRequest'
+            examples:
+              typed:
+                summary: Typed report request
+                value:
+                  prescription_id: rx-001
+                  verdict: success
+                  exit_code: 0
+              override:
+                summary: Override report request
+                value:
+                  artifact_digest: sha256:def456
+                  payload_override:
+                    prescription_id: rx-001
+                    verdict: success
+                    exit_code: 0
+      responses:
+        '200':
+          description: Duplicate entry already exists
+          content:
+            application/json:
+              schema:
+                type: object
+        '202':
+          description: Report accepted
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Prescription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable
           content:
             application/json:
               schema:
@@ -274,8 +439,8 @@ paths:
           in: query
           schema:
             type: integer
-            default: 50
-            maximum: 200
+            default: 100
+            maximum: 1000
         - name: offset
           in: query
           schema:
@@ -289,6 +454,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+          description: Time period filter (e.g. 30d, 7d)
       responses:
         '200':
           description: List of entries
@@ -634,4 +804,175 @@ components:
         status:
           type: string
           example: accepted
+
+    IngestPrescribeRequest:
+      oneOf:
+        - $ref: '#/components/schemas/IngestPrescribeTypedRequest'
+        - $ref: '#/components/schemas/IngestPrescribeOverrideRequest'
+
+    IngestPrescribeTypedRequest:
+      type: object
+      required:
+        - contract_version
+        - actor
+        - session_id
+        - operation_id
+        - trace_id
+        - flavor
+        - evidence
+        - source
+        - canonical_action
+      properties:
+        contract_version:
+          type: string
+        actor:
+          type: string
+        session_id:
+          type: string
+        operation_id:
+          type: string
+        trace_id:
+          type: string
+        flavor:
+          type: string
+        evidence:
+          type: string
+        source:
+          type: string
+        canonical_action:
+          type: object
+        smart_target:
+          type: string
+
+    IngestPrescribeOverrideRequest:
+      type: object
+      required:
+        - payload_override
+      properties:
+        payload_override:
+          type: object
+          properties:
+            canonical_action:
+              type: object
+        artifact_digest:
+          type: string
+
+    IngestReportRequest:
+      oneOf:
+        - $ref: '#/components/schemas/IngestReportNonDeclinedRequest'
+        - $ref: '#/components/schemas/IngestReportDeclinedRequest'
+        - $ref: '#/components/schemas/IngestReportOverrideRequest'
+
+    IngestReportNonDeclinedRequest:
+      type: object
+      required:
+        - prescription_id
+        - verdict
+        - exit_code
+      not:
+        anyOf:
+          - required: [payload_override]
+          - required: [decision_context]
+      properties:
+        prescription_id:
+          type: string
+        verdict:
+          type: string
+          enum: [success, failure, error]
+        exit_code:
+          type: integer
+        external_refs:
+          type: array
+          items:
+            type: string
+
+    IngestReportDeclinedRequest:
+      type: object
+      required:
+        - prescription_id
+        - verdict
+        - decision_context
+      not:
+        anyOf:
+          - required: [payload_override]
+          - required: [exit_code]
+      properties:
+        prescription_id:
+          type: string
+        verdict:
+          type: string
+          enum: [declined]
+        decision_context:
+          type: object
+        external_refs:
+          type: array
+          items:
+            type: string
+
+    IngestReportOverrideRequest:
+      oneOf:
+        - $ref: '#/components/schemas/IngestReportNonDeclinedOverrideRequest'
+        - $ref: '#/components/schemas/IngestReportDeclinedOverrideRequest'
+
+    IngestReportNonDeclinedOverrideRequest:
+      type: object
+      required:
+        - payload_override
+      not:
+        anyOf:
+          - required: [prescription_id]
+          - required: [verdict]
+          - required: [exit_code]
+          - required: [decision_context]
+          - required: [external_refs]
+      properties:
+        payload_override:
+          type: object
+          required:
+            - prescription_id
+            - verdict
+            - exit_code
+          not:
+            required: [decision_context]
+          properties:
+            prescription_id:
+              type: string
+            verdict:
+              type: string
+              enum: [success, failure, error]
+            exit_code:
+              type: integer
+        artifact_digest:
+          type: string
+
+    IngestReportDeclinedOverrideRequest:
+      type: object
+      required:
+        - payload_override
+      not:
+        anyOf:
+          - required: [prescription_id]
+          - required: [verdict]
+          - required: [exit_code]
+          - required: [decision_context]
+          - required: [external_refs]
+      properties:
+        payload_override:
+          type: object
+          required:
+            - prescription_id
+            - verdict
+            - decision_context
+          not:
+            required: [exit_code]
+          properties:
+            prescription_id:
+              type: string
+            verdict:
+              type: string
+              enum: [declined]
+            decision_context:
+              type: object
+        artifact_digest:
+          type: string
 

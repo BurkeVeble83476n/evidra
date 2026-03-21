@@ -16,6 +16,20 @@ All three modes feed the same evidence chain.
 - Smart Prescribe: MCP agent calls `prescribe_smart` with lightweight target context, then `report`
 - Proxy Observed: evidra records mutations around an upstream MCP server without agent participation
 
+## Assessment Pipeline
+
+At prescribe time, risk assessment runs through the pluggable `internal/assess/` pipeline. Both `lifecycle` (CLI/MCP) and `ingest` (API) prescribe paths call `assess.Pipeline.Run()`:
+
+1. Pipeline receives a `CanonicalAction` and raw artifact bytes
+2. Registered `Assessor` implementations run in order:
+   - `MatrixAssessor` — static risk matrix lookup (`operationClass x scopeClass`)
+   - `DetectorAssessor` — native tag detectors (privileged containers, wildcard RBAC, etc.)
+   - `SARIFAssessor` — external scanner findings from SARIF reports
+3. Each assessor returns `[]RiskInput` with source, risk level, and tags
+4. Pipeline aggregates via max-severity into `effective_risk`
+
+The pipeline replaces the former monolithic risk computation that was duplicated across lifecycle and ingest services.
+
 ## Hosted Mode
 
 Hosted mode changes where evidence is collected and replayed, not what evidence means.
