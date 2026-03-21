@@ -483,7 +483,7 @@ type TagProducer interface {
 // Implementations: MatrixAssessor, DetectorAssessor, SARIFAssessor.
 type Assessor interface {
     Name() string
-    Assess(action canon.CanonicalAction, raw []byte) ([]RiskInput, error)
+    Assess(ctx context.Context, action canon.CanonicalAction, raw []byte) ([]RiskInput, error)
 }
 ```
 
@@ -540,6 +540,42 @@ type SignalDetector interface {
 
 ---
 
+## Architecture Principle: Recorder + Intelligence
+
+Evidra separates two concerns:
+
+**Recorder** (write path, real-time):
+- Ingest evidence entries from any source
+- Run the assessment pipeline (canonicalize → assess → aggregate risk)
+- Sign entries with Ed25519, chain via previous_hash
+- Store in JSONL (local) or Postgres (self-hosted)
+
+**Intelligence** (read path, post-hoc):
+- Signal detection across evidence sequences
+- Scoring (weighted penalty → 0-100 reliability metric)
+- Benchmarking (run comparison, leaderboards)
+- Analytics (scorecards, explain, trends)
+
+The recorder is on the hot path — it must be fast. The intelligence layer
+operates on stored evidence and can be async.
+
+## Observation Modes
+
+Evidra connects to infrastructure automation through three patterns. All
+produce the same evidence entries and feed the same intelligence pipeline.
+
+| Mode | How Evidra connects | Prescribe? | Assessment? |
+|------|-------------------|-----------|------------|
+| **MCP direct** | Agent calls `prescribe_full`/`prescribe_smart` + `report` via MCP tools | Yes | Full pipeline |
+| **MCP proxy** | `evidra-mcp --proxy` wraps upstream MCP server on stdio, intercepts `tools/call` | Implicit | Observed only |
+| **OTLP bridge** | Reads AgentGateway OTLP traces, translates to prescribe/report ingest | Implicit | Observed only |
+| **Ext-authz** (future) | Gateway calls Evidra assessment endpoint before forwarding tool call | Yes | Full pipeline |
+
+MCP direct gives the richest evidence (intent + artifact + risk assessment
+before execution). Proxy and bridge are passive taps — they record what
+happened without the agent knowing. Ext-authz combines both: the gateway
+consults Evidra, gets risk back, and the agent never changes.
+
 ## Access Points
 
 | Interface | Consumer | Protocol |
@@ -547,8 +583,9 @@ type SignalDetector interface {
 | **CLI** (`evidra record/import/scorecard/explain`) | CI pipelines, bash scripts, human operators | Shell + JSONL evidence files |
 | **MCP Server** (`evidra-mcp`) | AI agents (Claude Code, Cursor, custom) | JSON-RPC over stdio (`prescribe_full`, `prescribe_smart`, `report`, `get_event`) |
 | **Self-hosted API** | Forwarded evidence, webhook sources, self-hosted analytics consumers | HTTP + JSON |
+| **OTLP bridge** (separate repo) | AgentGateway telemetry | gRPC/HTTP OTLP → Evidra ingest |
 
-All three share the same evidence model and analytics path. Same detectors, same signals, same scorecard. Different entry points and storage boundaries.
+All share the same evidence model and analytics path. Same detectors, same signals, same scorecard. Different entry points and storage boundaries.
 
 ---
 
