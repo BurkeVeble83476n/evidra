@@ -66,6 +66,31 @@ func TestListOptions_MaxLimit(t *testing.T) {
 	}
 }
 
+func TestNormalizeWebhookPayload(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   json.RawMessage
+		wantRaw string
+	}{
+		{name: "nil", input: nil, wantRaw: "{}"},
+		{name: "empty", input: json.RawMessage(""), wantRaw: "{}"},
+		{name: "whitespace", input: json.RawMessage("  "), wantRaw: "{}"},
+		{name: "valid", input: json.RawMessage(`{"key":"val"}`), wantRaw: `{"key":"val"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := normalizeWebhookPayload(tt.input)
+			if string(got) != tt.wantRaw {
+				t.Errorf("normalizeWebhookPayload(%q) = %q, want %q", tt.input, got, tt.wantRaw)
+			}
+		})
+	}
+}
+
 func TestParsePeriod(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
