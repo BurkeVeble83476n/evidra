@@ -39,12 +39,12 @@ In one scenario, GPT-5.2 retried a broken manifest 3 times in smart mode (6 turn
 Every infrastructure mutation follows the same lifecycle:
 
 ```text
-prescribe  →  record intent, risk assessment, canonical form
+prescribe  →  canonicalize artifact → assess risk (pluggable) → record intent
 execute    →  run the command (or decline to act)
 report     →  record verdict, exit code, or refusal reason
 ```
 
-`prescribe_full` and `prescribe_smart` capture intent **before** the command runs. `prescribe_full` records the artifact, its canonical form, digests, the per-source `risk_inputs` panel, and the rolled-up `effective_risk`. `prescribe_smart` records lightweight target context when artifact bytes are not available. `report` captures what **actually happened** — success, failure, or an explicit decision not to act, with structured context for each.
+`prescribe_full` and `prescribe_smart` capture intent **before** the command runs. The raw artifact is canonicalized (adapter) into Evidra's protocol language, then the pluggable assessment pipeline evaluates risk — each assessor contributes `risk_inputs`, aggregated into `effective_risk`. `prescribe_smart` records lightweight target context when artifact bytes are not available. `report` captures what **actually happened** — success, failure, or an explicit decision not to act, with structured context for each.
 
 The evidence chain links prescriptions to reports through signed entries with hash chaining. Every entry is timestamped, actor-attributed, and cryptographically verifiable. Evidence cannot be modified after the fact.
 
@@ -62,7 +62,7 @@ Evidra is one platform with three operating surfaces:
 
 From the evidence chain, Evidra computes:
 
-- **Risk classification** at operation time — `risk_inputs`, `effective_risk`, canonical action digest
+- **Risk assessment** via pluggable pipeline — canonicalization, `risk_inputs` from multiple assessors, `effective_risk`
 - **Behavioral signals** — protocol violations, retry loops, blast radius detection
 - **Reliability scorecards** — score, band, and confidence for comparing agents, sessions, and time windows
 
