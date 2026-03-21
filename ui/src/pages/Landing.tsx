@@ -4,88 +4,93 @@ import { CodeBlock } from "../components/CodeBlock";
 import { MermaidDiagram } from "../components/MermaidDiagram";
 
 const PIPELINE_CHART = `flowchart LR
-  A["Raw Artifact"] --> B{"Adapter<br/>Selection"}
+  A["Raw Artifact<br/>or Smart Target"] --> B{"Adapter<br/>Selection"}
   B -->|K8s| C1["K8s Adapter"]
   B -->|Terraform| C2["TF Adapter"]
   B -->|Docker| C3["Docker Adapter"]
   B -->|Other| C4["Generic Adapter"]
   C1 & C2 & C3 & C4 --> D["CanonicalAction"]
-  D --> E["Risk Assembly<br/>native or matrix + findings"]
-  E --> F["Prescription<br/>risk inputs + effective risk"]
+  D --> E{"assess.Pipeline"}
+  E --> E1["MatrixAssessor<br/>op × scope → risk"]
+  E --> E2["DetectorAssessor<br/>native tags → risk"]
+  E --> E3["SARIFAssessor<br/>scanner findings → risk"]
+  E1 & E2 & E3 --> F["Prescription<br/>risk_inputs[] + effective_risk"]
   F --> G[("Evidence<br/>Chain")]
   H1["Execution outcome<br/>verdict + exit_code"] --> I["Report"]
   H2["Deliberate refusal<br/>verdict=declined + decision_context"] --> I
   I --> G
-  G --> J["Signal Detectors<br/>8 signals"]
+  G --> J["Signal Detectors<br/>8 behavioral signals"]
   J --> K["Scoring Engine"]
-  K --> L["Scorecard<br/>+ Band"]`;
+  K --> L["Scorecard<br/>0-100 + Band"]`;
 
 const SYSTEM_CHART = `flowchart TB
-  subgraph Clients ["Client Layer"]
-    CI["CI / AI Agents<br/>GitHub Actions · Codex · Claude"]
-    CLI["evidra CLI<br/>record · import · scorecard"]
-    MCP["evidra-mcp<br/>MCP Server for AI Agents"]
-    Controllers["ArgoCD / generic webhooks<br/>Argo CD controller · notifications"]
+  subgraph Sources ["Observation Modes"]
+    MCP["MCP Direct<br/>prescribe_full · prescribe_smart · report"]
+    Proxy["MCP Proxy<br/>wraps upstream MCP server<br/>intercepts tools/call"]
+    Bridge["OTLP Bridge<br/>taps AgentGateway traces<br/>translates to prescribe/report"]
+    CLI["CLI<br/>record · import"]
+    Webhooks["Webhooks<br/>ArgoCD · generic"]
   end
-  subgraph Local ["Local Path"]
-    LS[("Local Evidence<br/>append-only JSONL")]
+  subgraph Recorder ["Recorder Layer"]
+    Pipeline["assess.Pipeline<br/>canonicalize · assess risk · aggregate"]
+    Store[("Evidence Store<br/>sign · chain · persist")]
+    Pipeline --> Store
   end
-  subgraph Backend ["evidra-api<br/>Self-Hosted"]
-    API["REST API<br/>ingest · browse · scorecard · explain"]
-    DB[("PostgreSQL<br/>tenant evidence store")]
-    API --> DB
+  subgraph Intelligence ["Intelligence Layer"]
+    Signals["Signal Detectors<br/>8 behavioral patterns"]
+    Scoring["Scoring Engine<br/>weighted penalty → 0-100"]
+    Bench["Benchmarking<br/>run comparison · leaderboards"]
   end
-  subgraph Analytics ["Reliability Analytics"]
-    Engine["Shared Signal +<br/>Scoring Engine"]
+  subgraph Storage ["Storage"]
+    LS[("Local JSONL")]
+    DB[("PostgreSQL")]
   end
-  CI --> CLI
-  CI --> MCP
-  CLI -->|"append evidence"| LS
-  MCP -->|"append evidence"| LS
-  CLI -->|"forward"| API
-  MCP -->|"forward"| API
-  Controllers -->|"controller / webhook evidence"| API
-  LS --> Engine
-  DB --> Engine`;
+  MCP --> Pipeline
+  Proxy --> Pipeline
+  Bridge --> Pipeline
+  CLI --> Pipeline
+  Webhooks --> Pipeline
+  Store --> LS
+  Store --> DB
+  LS --> Signals
+  DB --> Signals
+  Signals --> Scoring
+  Scoring --> Bench`;
 
 export const SEQUENCE_CHART = `sequenceDiagram
-  participant Initiator as Agent / CI / Controller
-  participant CLI as evidra CLI / MCP
-  participant Canon as Canonicalize
-  participant Risk as Risk Engine
+  participant Agent as Agent / CI
+  participant Gateway as Gateway / MCP
+  participant Evidra as Evidra
+  participant Pipeline as assess.Pipeline
   participant Chain as Evidence Chain
-  participant Signal as Signal Detectors
-  participant Score as Scoring Engine
+  participant Signals as Intelligence
 
-  Note over Initiator,CLI: flavor (imperative / reconcile / workflow), evidence.kind and source.system capture how evidence arrived
+  Note over Agent,Gateway: Observation happens via MCP direct, proxy, OTLP bridge, or webhooks
 
-  Initiator->>CLI: prescribe_full(artifact) / prescribe_smart(target context)
-  CLI->>Canon: SelectAdapter → Normalize
-  Canon-->>CLI: CanonicalAction + digests
-  CLI->>Risk: build risk inputs
-  Risk-->>CLI: risk inputs + effective risk
-  CLI->>Chain: append(prescription entry)
-  CLI-->>Initiator: prescription id + effective risk
+  Agent->>Gateway: tools/call (infrastructure mutation)
+  Gateway->>Evidra: prescribe (intent + artifact or smart target)
+  Evidra->>Pipeline: canonicalize → assess risk
+  Pipeline-->>Evidra: risk_inputs[] + effective_risk
+  Evidra->>Chain: append(prescription entry, signed)
+  Evidra-->>Gateway: prescription_id + effective_risk
+  Gateway-->>Agent: tool result
 
-  alt Imperative execution
-    Note over Initiator: Execute infrastructure mutation
-    Initiator->>CLI: report(prescription id, verdict, exit code)
-  else Declarative reconciliation
-    Note over Initiator: Controller records reconcile outcome
-    Initiator->>CLI: report(prescription id, verdict, reconcile metadata)
+  Note over Agent: Agent executes or declines
+
+  alt Success / Failure
+    Agent->>Gateway: execution complete
+    Gateway->>Evidra: report(prescription_id, verdict, exit_code)
   else Deliberate refusal
-    Note over Initiator: Record the deny decision explicitly
-    Initiator->>CLI: report(prescription id, declined, decision context)
+    Agent->>Evidra: report(prescription_id, declined, decision_context)
   end
-  CLI->>Chain: append(report entry, linked)
-  CLI->>Signal: detect patterns
-  Signal-->>CLI: signal_summary + confidence
-  CLI-->>Initiator: report id + score band
+  Evidra->>Chain: append(report entry, linked)
 
-  Initiator->>CLI: scorecard(filters)
-  CLI->>Score: compute(entries, scoring profile)
-  Score-->>CLI: score, band, confidence
-  CLI-->>Initiator: scorecard + band`;
+  Note over Signals: Post-hoc intelligence (read path)
+
+  Signals->>Chain: read evidence sequence
+  Signals->>Signals: detect: retry_loop, blast_radius, repair_loop, ...
+  Signals->>Signals: score: 100 × (1 - weighted penalties)
+  Signals-->>Agent: scorecard (0-100) + band + signal summary`;
 
 const INSTALL_BINARY = `# Download latest release (Linux/macOS)
 curl -fsSL https://github.com/samebits/evidra/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \\
