@@ -15,11 +15,11 @@ func TestPipeline_EmptyAssessors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.EffectiveRisk != "medium" {
-		t.Errorf("expected medium default, got %s", result.EffectiveRisk)
+	if result.EffectiveRisk != "low" {
+		t.Errorf("expected low (no inputs), got %s", result.EffectiveRisk)
 	}
-	if len(result.RiskInputs) != 1 {
-		t.Errorf("expected 1 default input, got %d", len(result.RiskInputs))
+	if len(result.RiskInputs) != 0 {
+		t.Errorf("expected 0 inputs, got %d", len(result.RiskInputs))
 	}
 }
 

@@ -51,13 +51,6 @@ func (p *Pipeline) Run(ctx context.Context, action canon.CanonicalAction, raw []
 		}
 	}
 
-	if len(allInputs) == 0 {
-		allInputs = []evidence.RiskInput{{
-			Source:    "evidra/matrix",
-			RiskLevel: "medium",
-		}}
-	}
-
 	return Result{
 		RiskInputs:    allInputs,
 		EffectiveRisk: computeEffectiveRisk(allInputs),

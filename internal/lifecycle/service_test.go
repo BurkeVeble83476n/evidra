@@ -145,11 +145,18 @@ func TestServicePrescribe_PopulatesRiskInputsAndEffectiveRisk(t *testing.T) {
 	if out.EffectiveRisk == "" {
 		t.Fatal("expected effective_risk")
 	}
-	if len(out.RiskInputs) != 1 {
-		t.Fatalf("risk_inputs len = %d, want 1", len(out.RiskInputs))
+	if len(out.RiskInputs) < 1 {
+		t.Fatalf("risk_inputs len = %d, want >= 1", len(out.RiskInputs))
 	}
-	if out.RiskInputs[0].Source != "evidra/native" {
-		t.Fatalf("risk_inputs[0].source = %q, want evidra/native", out.RiskInputs[0].Source)
+	sources := map[string]bool{}
+	for _, ri := range out.RiskInputs {
+		sources[ri.Source] = true
+	}
+	if !sources["evidra/matrix"] {
+		t.Fatal("risk_inputs missing evidra/matrix source")
+	}
+	if !sources["evidra/native"] {
+		t.Fatal("risk_inputs missing evidra/native source")
 	}
 
 	var payload evidence.PrescriptionPayload
@@ -159,11 +166,18 @@ func TestServicePrescribe_PopulatesRiskInputsAndEffectiveRisk(t *testing.T) {
 	if payload.EffectiveRisk != out.EffectiveRisk {
 		t.Fatalf("payload effective_risk = %q, want %q", payload.EffectiveRisk, out.EffectiveRisk)
 	}
-	if len(payload.RiskInputs) != 1 {
-		t.Fatalf("payload risk_inputs len = %d, want 1", len(payload.RiskInputs))
+	if len(payload.RiskInputs) < 1 {
+		t.Fatalf("payload risk_inputs len = %d, want >= 1", len(payload.RiskInputs))
 	}
-	if payload.RiskInputs[0].Source != "evidra/native" {
-		t.Fatalf("payload risk_inputs[0].source = %q, want evidra/native", payload.RiskInputs[0].Source)
+	payloadSources := map[string]bool{}
+	for _, ri := range payload.RiskInputs {
+		payloadSources[ri.Source] = true
+	}
+	if !payloadSources["evidra/matrix"] {
+		t.Fatal("payload risk_inputs missing evidra/matrix source")
+	}
+	if !payloadSources["evidra/native"] {
+		t.Fatal("payload risk_inputs missing evidra/native source")
 	}
 
 	var rawPayload map[string]any

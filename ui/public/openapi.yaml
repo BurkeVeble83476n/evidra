@@ -204,33 +204,51 @@ paths:
               $ref: '#/components/schemas/IngestPrescribeRequest'
             examples:
               typed:
-                summary: Typed prescribe request
+                summary: Typed prescribe with canonical action
                 value:
                   contract_version: v1
-                  actor: agent-1
+                  actor:
+                    type: agent
+                    id: agent-1
+                    provenance: mcp
                   session_id: sess-001
                   operation_id: op-001
                   trace_id: trace-001
-                  flavor: k8s
-                  evidence: apply
-                  source: cli
+                  flavor: imperative
+                  evidence:
+                    kind: declared
+                  source:
+                    system: cli
                   canonical_action:
                     tool: kubectl
-                    verb: apply
-                    resource_kind: Deployment
-                    resource_name: nginx
-                    namespace: default
+                    operation: apply
+                    operation_class: mutate
+                    scope_class: staging
+                    resource_identity:
+                      - kind: Deployment
+                        name: nginx
+                        namespace: default
+                    resource_count: 1
               override:
-                summary: Override prescribe request
+                summary: Override prescribe with raw payload
                 value:
-                  artifact_digest: sha256:abc123
+                  artifact_digest: sha256:abc123def456
                   payload_override:
+                    prescription_id: presc-001
                     canonical_action:
                       tool: kubectl
-                      verb: apply
-                      resource_kind: Deployment
-                      resource_name: nginx
-                      namespace: default
+                      operation: apply
+                      operation_class: mutate
+                      scope_class: staging
+                      resource_identity:
+                        - kind: Deployment
+                          name: nginx
+                          namespace: default
+                      resource_count: 1
+                    risk_inputs:
+                      - source: evidra/matrix
+                        risk_level: medium
+                    effective_risk: medium
       responses:
         '200':
           description: Duplicate entry already exists
@@ -284,17 +302,31 @@ paths:
               $ref: '#/components/schemas/IngestReportRequest'
             examples:
               typed:
-                summary: Typed report request
+                summary: Typed report with verdict
                 value:
-                  prescription_id: rx-001
+                  contract_version: v1
+                  actor:
+                    type: agent
+                    id: agent-1
+                    provenance: mcp
+                  session_id: sess-001
+                  operation_id: op-001
+                  trace_id: trace-001
+                  flavor: imperative
+                  evidence:
+                    kind: declared
+                  source:
+                    system: cli
+                  prescription_id: presc-001
                   verdict: success
                   exit_code: 0
               override:
-                summary: Override report request
+                summary: Override report with raw payload
                 value:
-                  artifact_digest: sha256:def456
+                  artifact_digest: sha256:abc123def456
                   payload_override:
-                    prescription_id: rx-001
+                    prescription_id: presc-001
+                    report_id: rpt-001
                     verdict: success
                     exit_code: 0
       responses:
@@ -821,28 +853,45 @@ components:
         - flavor
         - evidence
         - source
-        - canonical_action
       properties:
         contract_version:
           type: string
+          enum: [v1]
         actor:
-          type: string
+          $ref: '#/components/schemas/Actor'
         session_id:
           type: string
         operation_id:
           type: string
         trace_id:
           type: string
+        span_id:
+          type: string
+        parent_span_id:
+          type: string
         flavor:
           type: string
+          enum: [imperative, reconcile, workflow]
         evidence:
-          type: string
+          $ref: '#/components/schemas/EvidenceMetadata'
         source:
+          $ref: '#/components/schemas/SourceMetadata'
+        scope_dimensions:
+          type: object
+          additionalProperties:
+            type: string
+        claim:
+          $ref: '#/components/schemas/Claim'
+        prescription_id:
+          type: string
+        artifact_digest:
           type: string
         canonical_action:
-          type: object
+          $ref: '#/components/schemas/CanonicalAction'
         smart_target:
-          type: string
+          $ref: '#/components/schemas/SmartTarget'
+        payload_override:
+          type: object
 
     IngestPrescribeOverrideRequest:
       type: object
@@ -874,7 +923,37 @@ components:
           - required: [payload_override]
           - required: [decision_context]
       properties:
+        contract_version:
+          type: string
+          enum: [v1]
+        actor:
+          $ref: '#/components/schemas/Actor'
+        session_id:
+          type: string
+        operation_id:
+          type: string
+        trace_id:
+          type: string
+        span_id:
+          type: string
+        parent_span_id:
+          type: string
+        flavor:
+          type: string
+          enum: [imperative, reconcile, workflow]
+        evidence:
+          $ref: '#/components/schemas/EvidenceMetadata'
+        source:
+          $ref: '#/components/schemas/SourceMetadata'
+        scope_dimensions:
+          type: object
+          additionalProperties:
+            type: string
+        claim:
+          $ref: '#/components/schemas/Claim'
         prescription_id:
+          type: string
+        artifact_digest:
           type: string
         verdict:
           type: string
@@ -884,7 +963,7 @@ components:
         external_refs:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/ExternalRef'
 
     IngestReportDeclinedRequest:
       type: object
@@ -897,17 +976,47 @@ components:
           - required: [payload_override]
           - required: [exit_code]
       properties:
+        contract_version:
+          type: string
+          enum: [v1]
+        actor:
+          $ref: '#/components/schemas/Actor'
+        session_id:
+          type: string
+        operation_id:
+          type: string
+        trace_id:
+          type: string
+        span_id:
+          type: string
+        parent_span_id:
+          type: string
+        flavor:
+          type: string
+          enum: [imperative, reconcile, workflow]
+        evidence:
+          $ref: '#/components/schemas/EvidenceMetadata'
+        source:
+          $ref: '#/components/schemas/SourceMetadata'
+        scope_dimensions:
+          type: object
+          additionalProperties:
+            type: string
+        claim:
+          $ref: '#/components/schemas/Claim'
         prescription_id:
+          type: string
+        artifact_digest:
           type: string
         verdict:
           type: string
           enum: [declined]
         decision_context:
-          type: object
+          $ref: '#/components/schemas/DecisionContext'
         external_refs:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/ExternalRef'
 
     IngestReportOverrideRequest:
       oneOf:
@@ -972,7 +1081,129 @@ components:
               type: string
               enum: [declined]
             decision_context:
-              type: object
+              $ref: '#/components/schemas/DecisionContext'
         artifact_digest:
+          type: string
+
+    Actor:
+      type: object
+      required: [type, id, provenance]
+      properties:
+        type:
+          type: string
+          description: Actor category (e.g. agent, human, pipeline)
+        id:
+          type: string
+          description: Unique actor identifier
+        provenance:
+          type: string
+          description: How the actor was authenticated (e.g. mcp, api-key)
+        instance_id:
+          type: string
+        version:
+          type: string
+        skill_version:
+          type: string
+
+    EvidenceMetadata:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [declared, observed, translated]
+          description: How Evidra obtained the lifecycle evidence
+
+    SourceMetadata:
+      type: object
+      required: [system]
+      properties:
+        system:
+          type: string
+          description: The system that produced the lifecycle evidence (e.g. cli, mcp, ci)
+
+    Claim:
+      type: object
+      required: [source, key]
+      properties:
+        source:
+          type: string
+        key:
+          type: string
+        payload:
+          type: object
+
+    CanonicalAction:
+      type: object
+      properties:
+        tool:
+          type: string
+          description: Tool name (e.g. kubectl, terraform, helm)
+        operation:
+          type: string
+          description: Operation name (e.g. apply, delete, plan)
+        operation_class:
+          type: string
+          description: Operation classification (mutate, destroy, read, plan, unknown)
+        scope_class:
+          type: string
+          description: Environment scope (production, staging, development, unknown)
+        resource_identity:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceID'
+        resource_count:
+          type: integer
+        resource_shape_hash:
+          type: string
+
+    ResourceID:
+      type: object
+      properties:
+        api_version:
+          type: string
+        kind:
+          type: string
+        namespace:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        actions:
+          type: string
+
+    SmartTarget:
+      type: object
+      required: [tool, operation, resource]
+      properties:
+        tool:
+          type: string
+        operation:
+          type: string
+        resource:
+          type: string
+        namespace:
+          type: string
+
+    DecisionContext:
+      type: object
+      required: [trigger, reason]
+      properties:
+        trigger:
+          type: string
+          description: What triggered the decline decision
+        reason:
+          type: string
+          description: Operational reason for declining (max 512 chars)
+          maxLength: 512
+
+    ExternalRef:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+        id:
           type: string
 

@@ -91,8 +91,8 @@ func TestRunPrescribe_FindingsInfluenceRiskInputsAndWriteEvidence(t *testing.T) 
 		t.Fatalf("decode output: %v", err)
 	}
 	riskInputs, ok := result["risk_inputs"].([]interface{})
-	if !ok || len(riskInputs) != 2 {
-		t.Fatalf("risk_inputs = %#v, want 2 entries", result["risk_inputs"])
+	if !ok || len(riskInputs) < 2 {
+		t.Fatalf("risk_inputs = %#v, want >= 2 entries (matrix + native + findings)", result["risk_inputs"])
 	}
 	if _, ok := result["effective_risk"].(string); !ok {
 		t.Fatalf("effective_risk missing or non-string: %#v", result["effective_risk"])

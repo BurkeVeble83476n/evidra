@@ -49,7 +49,7 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 
 	assessPipeline := s.pipeline
 	if assessPipeline == nil {
-		assessPipeline = assess.NewPipeline(assess.DetectorAssessor{})
+		assessPipeline = assess.NewPipeline(assess.MatrixAssessor{}, assess.DetectorAssessor{})
 	}
 	if len(input.ExternalFindings) > 0 {
 		var sources []assess.FindingsSource
