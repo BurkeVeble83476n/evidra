@@ -42,17 +42,21 @@ AI agent, a workflow runner, or a controller such as Argo CD.
 ```
   ┌──────────────────────────── RECORDER (write path) ──────────────────────────┐
   │                                                                             │
-  │   OBSERVATION                  ASSESSMENT (assess.Pipeline)                  │
-  │                                                                             │
-  │   MCP direct ────┐             ┌─────────────────────────────────────┐      │
-  │   MCP proxy ─────┤             │                                     │      │
-  │   OTLP bridge ───┤   intent    │  Assessor 1 ──▸ risk_input          │      │
-  │   CLI ───────────┼──────────▸  │  Assessor 2 ──▸ risk_input          │      │
-  │   Webhooks ──────┤             │  Assessor N ──▸ risk_input          │      │
-  │   Ext-authz ─────┘             │                                     │      │
-  │   (future)                     │  max-severity ──▸ effective_risk    │      │
-  │                                │                                     │      │
-  │                                └─────────────────────────────────────┘      │
+  │   OBSERVATION          CANONICALIZE        ASSESSMENT                       │
+  │                        (adapter)          (assess.Pipeline)                 │
+  │   MCP direct ────┐                                                         │
+  │   MCP proxy ─────┤     ┌───────────┐     ┌──────────────────────────┐      │
+  │   OTLP bridge ───┤     │ raw       │     │                          │      │
+  │   CLI ───────────┼──▸  │ artifact  │──▸  │ Assessor 1 ──▸ risk_input│      │
+  │   Webhooks ──────┤     │ → Canonical│     │ Assessor 2 ──▸ risk_input│      │
+  │   Ext-authz ─────┘     │   Action  │     │ Assessor N ──▸ risk_input│      │
+  │   (future)             │ + digests │     │                          │      │
+  │                        └─────┬─────┘     │ max-severity             │      │
+  │                              │           │  ──▸ effective_risk      │      │
+  │                              │           └──────────────────────────┘      │
+  │                              │                      │                      │
+  │                     used by both: ──────────────────┘                      │
+  │                     evidence entry + assessment                            │
   │                                             │                               │
   │                                             ▼                               │
   │   ┌──────────────────┐          ┌───────────────────────┐                  │
@@ -93,18 +97,20 @@ AI agent, a workflow runner, or a controller such as Argo CD.
                      └──────────────┘   └──────────────┘   └──────────────────┘
 ```
 
-The assessment pipeline is the pluggable abstraction. Each assessor
-receives the raw intent and decides internally how to evaluate it:
+Canonicalization is an **adapter** — it translates raw artifacts into
+Evidra's protocol language (`CanonicalAction`). It happens before
+assessment because two things consume its output: the assessment pipeline
+and the evidence entry builder (digests, scope, operation class).
 
-- Native assessors canonicalize the artifact (K8s/Terraform/Docker
-  adapters), run the risk matrix, and fire tag detectors — all
-  internal implementation details invisible to the pipeline
-- SARIF assessors read external scanner findings directly
+The assessment pipeline is a pluggable abstraction. Each assessor receives
+the canonicalized action and returns risk inputs:
+
+- Native assessors use the canonical action for matrix lookup and
+  tag detection
+- SARIF assessors read external scanner findings
 - External assessors (gateway ext-authz, OPA) use their own logic
 
-Canonicalization is not a pipeline phase — it's how the native assessors
-understand artifacts. The pipeline only knows the `Assessor` interface.
-Its output is always `risk_inputs[] + effective_risk`.
+The pipeline output is always `risk_inputs[] + effective_risk`.
 
 ---
 
@@ -112,14 +118,15 @@ Its output is always `risk_inputs[] + effective_risk`.
 
 | # | Layer | Input | Output | What It Does |
 |---|-------|-------|--------|-------------|
-| 1 | **Assessment Pipeline** (`internal/assess/`) | Raw intent (artifact, smart target, or external context) | risk_inputs[] + effective_risk | Runs pluggable `Assessor` implementations and aggregates via max-severity. Adapters, detectors, and risk matrix are internal to native assessors — not visible at this level. |
-| 2 | **Evidence Chain** | prescribe + report entries | Signed JSONL segments | Tamper-evident append-only log of all operations |
-| 3 | **Signals Engine** | Evidence entries (sequence) | signal counts + rates | Detects behavioral patterns across operation sequences |
-| 6 | **Scorecard** | Signal counts + rates | score (0-100) + band | Weighted penalty model → reliability metric |
+| 1 | **Canonicalize** (`internal/canon/`) | Raw artifact + tool name | CanonicalAction + digests | Adapter translates raw artifact into Evidra's protocol language. Output consumed by both assessment and evidence entry construction. |
+| 2 | **Assessment Pipeline** (`internal/assess/`) | CanonicalAction + raw bytes | risk_inputs[] + effective_risk | Pluggable `Assessor` implementations evaluate risk and aggregate via max-severity. |
+| 3 | **Evidence Chain** | prescribe + report entries | Signed JSONL segments | Tamper-evident append-only log of all operations |
+| 4 | **Signals Engine** | Evidence entries (sequence) | signal counts + rates | Detects behavioral patterns across operation sequences |
+| 5 | **Scorecard** | Signal counts + rates | score (0-100) + band | Weighted penalty model → reliability metric |
 
-**Layer 1** fires at prescribe time (per operation, instant).
-**Layer 2** accumulates over a session (append-only).
-**Layers 3-4** evaluate at scorecard time (post-hoc).
+**Layers 1-2** fire at prescribe time (per operation, instant).
+**Layer 3** accumulates over a session (append-only).
+**Layers 4-5** evaluate at scorecard time (post-hoc).
 
 ---
 

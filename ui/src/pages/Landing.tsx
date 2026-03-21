@@ -4,18 +4,21 @@ import { CodeBlock } from "../components/CodeBlock";
 import { MermaidDiagram } from "../components/MermaidDiagram";
 
 const PIPELINE_CHART = `flowchart LR
-  A["Intent<br/>artifact · smart target · external"] --> B{"assess.Pipeline"}
-  B --> B1["Assessor 1<br/>→ risk_input"]
-  B --> B2["Assessor 2<br/>→ risk_input"]
-  B --> B3["Assessor N<br/>→ risk_input"]
-  B1 & B2 & B3 --> C["Prescription<br/>risk_inputs[] · effective_risk"]
-  C --> D[("Evidence<br/>Chain")]
-  E1["Execution outcome<br/>verdict + exit_code"] --> F["Report"]
-  E2["Deliberate refusal<br/>verdict=declined + decision_context"] --> F
-  F --> D
-  D --> G["Signal Detectors<br/>8 behavioral signals"]
-  G --> H["Scoring Engine"]
-  H --> I["Scorecard<br/>0-100 + Band"]`;
+  A["Raw Artifact"] --> B["Canonicalize<br/>(adapter)"]
+  B --> C["CanonicalAction<br/>+ digests"]
+  C --> D{"assess.Pipeline"}
+  D --> D1["Assessor 1<br/>→ risk_input"]
+  D --> D2["Assessor 2<br/>→ risk_input"]
+  D --> D3["Assessor N<br/>→ risk_input"]
+  D1 & D2 & D3 --> E["Prescription<br/>risk_inputs[] · effective_risk"]
+  C --> E
+  E --> F[("Evidence<br/>Chain")]
+  G1["Execution outcome<br/>verdict + exit_code"] --> H["Report"]
+  G2["Deliberate refusal<br/>verdict=declined + decision_context"] --> H
+  H --> F
+  F --> I["Signal Detectors<br/>8 behavioral signals"]
+  I --> J["Scoring Engine"]
+  J --> K["Scorecard<br/>0-100 + Band"]`;
 
 const SYSTEM_CHART = `flowchart TB
   subgraph Sources ["Observation Modes"]

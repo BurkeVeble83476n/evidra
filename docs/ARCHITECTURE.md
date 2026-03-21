@@ -25,6 +25,7 @@ execution. Passive recording (bridge/proxy mode) works without it.
 
 **Recorder** (write path, real-time):
 - Ingest evidence from any source
+- Canonicalize: adapter translates raw artifact into CanonicalAction
 - Assessment pipeline: pluggable assessors → risk_inputs[] → effective_risk
 - Sign with Ed25519, chain via previous_hash, store
 
