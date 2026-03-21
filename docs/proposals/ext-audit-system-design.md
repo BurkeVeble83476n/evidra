@@ -1,291 +1,183 @@
 # ext-audit System Design
 
-How `ext-audit` integrates with MCP infrastructure and replaces
-current workarounds.
+How `ext-audit` fits the MCP ecosystem and what it means for Evidra.
 
-## Current State (Without ext-audit)
+## The Extension
 
-```
-                    Three separate capture mechanisms
-                    ─────────────────────────────────
+`ext-audit` is a minimal, neutral audit event for MCP tool calls:
 
-  Agent ──→ MCP Server                    Agent ──→ Gateway ──→ MCP Server
-       ↑                                                ↓
-  Evidra MCP Proxy                              OTLP Collector
-  (stdio interception)                          (span translation)
-       ↓                                                ↓
-  Prescribe + Report                            Bridge ──→ Evidra
-       ↓
-     Evidra
-
-
-  Agent ──→ MCP Server                    Each mechanism:
-       ↓                                  - different wire format
-  Agent-side SDK                          - different integration
-  (framework-specific)                    - different data shape
-       ↓                                  - different blind spots
-     Vendor logger
+```json
+{
+  "method": "audit/toolCall",
+  "params": {
+    "timestamp": "...",
+    "sessionId": "...",
+    "sequence": 7,
+    "tool": "apply_yaml",
+    "argumentsDigest": "sha256:...",
+    "status": "success",
+    "durationMs": 1250,
+    "actor": { "type": "agent", "id": "claude-code" },
+    "trace": { "traceId": "...", "spanId": "..." },
+    "metadata": {}
+  }
+}
 ```
 
-**Problems:**
-- Proxy mode: transport-dependent, adds latency, extra process
-- OTLP bridge: requires gateway + collector + bridge + translation
-- Agent-side: fragmented per framework, not interoperable
-- No standard: audit consumers must support all three
+Facts only. No classification, no risk, no scoring. Any audit consumer
+can ingest it.
 
-## Target State (With ext-audit)
+## What the Standard Provides
 
 ```
-                    One protocol-native mechanism
-                    ────────────────────────────
-
-  Agent ──→ MCP Server (with ext-audit capability)
-                ↓
-         audit/event notifications on the same transport
-                ↓
-     ┌──────────┼──────────┐
-     ↓          ↓          ↓
-  Evidra    Compliance   SIEM/OTLP
-  (signals  (SOC2 log)  (Datadog,
-   + score)              Splunk)
+MCP Server
+    │
+    │ audit/toolCall notification (on MCP transport)
+    │
+    ▼
+Any consumer:
+    ├── Compliance logger (SOC2, immutable log)
+    ├── SIEM (Datadog, Splunk, via metadata + trace correlation)
+    ├── Reliability scorer (Evidra)
+    └── Cost tracker (token counts in metadata)
 ```
 
-**Benefits:**
-- One event format, any consumer
-- No proxy, no bridge, no collector needed
-- Capability negotiated at init — zero config for the agent
-- Privacy by default (argument digests, not raw args)
-- Behavioral analysis enabled by session + sequence
+One event format. No proxies, no bridges, no collectors needed for
+basic audit trail. The MCP transport carries it.
 
-## Integration Patterns
+## What Evidra Adds on Top
 
-### Pattern 1: Direct Consumption
-
-MCP server emits `ext-audit` events. Evidra subscribes as a client
-or receives forwarded notifications.
+The standard gives facts. Evidra gives judgment.
 
 ```
-Agent ──→ MCP Server
-              │
-              ├─→ tool result (to agent)
-              └─→ audit/event (to audit consumer)
-                       │
-                    Evidra API
-                    POST /v1/evidence/ingest/audit
+ext-audit event (facts)
+    │
+    ▼
+Evidra consumes via POST /v1/evidence/ingest/audit
+    │
+    ├── Canonicalize: infer operation_class, scope_class from tool name
+    ├── Assess: run pluggable assessment pipeline
+    ├── Chain: cryptographically linked evidence entries
+    │
+    ▼
+Evidence store
+    │
+    ├── Signal detection: retry_loop, blast_radius, protocol_violation...
+    ├── Scoring: weighted penalty → 0-100 reliability metric
+    ├── Benchmarking: run comparison, leaderboards
+    └── Analytics: scorecards, explain, trends
 ```
 
-New Evidra endpoint: `POST /v1/evidence/ingest/audit` accepts
-`ext-audit` event payloads directly. Maps to internal prescribe +
-report entries:
+### Mapping
 
-| ext-audit field | Evidra evidence field |
-|----------------|----------------------|
-| `intent.tool` | `canonical_action.tool` |
-| `intent.operation` | `canonical_action.operation` |
-| `intent.operation_class` | `canonical_action.operation_class` |
-| `intent.scope_class` | `canonical_action.scope_class` |
-| `intent.arguments_digest` | `artifact_digest` |
-| `outcome.verdict` | `report.verdict` |
-| `outcome.exit_code` | `report.exit_code` |
-| `session_id` | `session_id` |
-| `sequence` | `operation_id` (derived) |
+| ext-audit field | Evidra derives |
+|----------------|----------------|
+| `tool` | `canonical_action.tool` + inferred `operation_class` |
+| `argumentsDigest` | `artifact_digest` |
+| `status` | `report.verdict` (success/failure/error) |
+| `durationMs` | stored in scope_dimensions |
+| `sessionId` | `session_id` |
+| `sequence` | ordering for signal detection |
 | `actor` | `actor` |
-| `risk.level` | `effective_risk` |
-| `trace.*` | `trace_id`, `span_id` |
+| `trace` | `trace_id`, `span_id` |
+| `metadata.operationClass` | `canonical_action.operation_class` (if provided) |
+| `metadata.scopeClass` | `canonical_action.scope_class` (if provided) |
+| `metadata.riskLevel` | `effective_risk` (if provided) |
 
-One `ext-audit` event maps to one prescribe + one report entry in
-Evidra's evidence chain. The signal detectors and scoring pipeline
-work unchanged.
+When `metadata` contains classification fields, Evidra uses them
+directly. When absent, Evidra infers from the tool name using its
+own canonicalization.
 
-### Pattern 2: Gateway Forwarding
+## What Evidra Drops
 
-Gateway negotiates `ext-audit` with the upstream MCP server and
-forwards audit events to Evidra.
+If `ext-audit` is adopted:
 
-```
-Agent ──→ Gateway ──→ MCP Server
-              │              │
-              │         audit/event
-              │              │
-              ├──────────────┘
-              │
-              ↓
-         Evidra API
-```
+| Component | Status |
+|-----------|--------|
+| **OTLP bridge** (evidra-agentgateway-bridge) | Deprecated — events come on MCP transport |
+| **OTel Collector** (gRPC→HTTP converter) | Deprecated — no OTLP path needed |
+| **MCP proxy interception** | Fallback only — for servers without ext-audit |
+| **Custom OTLP span mapping** | Deprecated — standard event format |
 
-This replaces the current OTLP bridge path entirely. The gateway
-forwards the protocol-native audit event instead of translating
-OTLP spans.
-
-### Pattern 3: Proxy Injection
-
-For MCP servers that don't support `ext-audit`, a proxy can generate
-audit events from observed traffic:
-
-```
-Agent ──→ Evidra Proxy ──→ MCP Server
-              │
-              ├─→ synthesize audit/event from tools/call
-              └─→ forward to Evidra
-```
-
-This is the current Evidra MCP proxy mode, but producing `ext-audit`
-format events instead of the proprietary prescribe/report format.
-The proxy becomes a compatibility shim, not the primary path.
-
-### Pattern 4: SDK Emission
-
-Agent frameworks (LangGraph, ADK, Claude Code) implement `ext-audit`
-natively. Every MCP tool call automatically generates an audit event.
-
-```
-Agent (with ext-audit SDK) ──→ MCP Server
-         │
-    audit/event
-         │
-      Evidra
-```
-
-This is the long-term goal. Framework authors add one integration
-(ext-audit), not per-tool audit code.
-
-## What Evidra Gains
-
-### Eliminates
-- OTLP bridge (`evidra-agentgateway-bridge` repo)
-- OTel Collector as a protocol converter
-- Transport-specific proxy interception logic
-- Custom OTLP span attribute mapping
-
-### Simplifies
-- One ingest path for all MCP audit data
-- One event format to validate and store
-- One set of field names for signal detection
-
-### Enables
-- Any MCP server can emit evidence without Evidra-specific code
-- Any audit consumer can ingest MCP audit events
-- Interoperability between Evidra and other audit tools
-- Standardized behavioral signal definitions
+Evidra becomes a pure consumer + intelligence layer. Fewer components,
+fewer repos, simpler deployment.
 
 ## What Evidra Keeps
 
-The ext-audit extension standardizes **capture**. Evidra's value is
-in what happens after capture:
+| Capability | Why ext-audit doesn't replace it |
+|-----------|--------------------------------|
+| **Cryptographic evidence chain** | ext-audit events are ephemeral notifications; Evidra chains them with hashes and signatures |
+| **Behavioral signal detection** | ext-audit provides facts; pattern detection requires an engine |
+| **Reliability scoring** | No standard score — that's the intelligence layer |
+| **Benchmarking / comparison** | ext-audit doesn't define run comparison or leaderboards |
+| **Pluggable assessment pipeline** | Risk assessment is consumer logic, not audit format |
+| **Prescribe (pre-flight assessment)** | ext-audit is post-execution; Evidra's MCP tools offer pre-flight |
 
-| Layer | ext-audit provides | Evidra provides |
-|-------|-------------------|-----------------|
-| Capture | Structured audit events | — (consumes events) |
-| Storage | — | Cryptographically chained evidence |
-| Detection | — | 8 behavioral signal detectors |
-| Scoring | — | Weighted reliability scoring |
-| Benchmarking | — | Run comparison, leaderboards |
-| Assessment | Risk level field (from server) | Pluggable assessment pipeline |
+## How Evidra's MCP Tools Coexist with ext-audit
+
+Evidra offers two modes that serve different needs:
+
+**ext-audit (passive):** Server emits events. Evidra consumes them.
+Agent doesn't know Evidra exists. Post-execution only.
+
+**Evidra MCP tools (active):** Agent calls `prescribe_smart` or
+`prescribe_full` before execution, gets risk assessment back, then
+calls `report` after. Pre-flight + post-flight. Richer evidence but
+requires agent awareness.
+
+Both feed the same evidence chain and scoring pipeline. Teams choose
+based on how much agent integration they want:
+
+```
+Zero integration:   ext-audit events → Evidra (passive)
+Light integration:  ext-audit + metadata hints → Evidra (enriched passive)
+Full integration:   Evidra MCP tools → Evidra (active prescribe/report)
+```
 
 ## Migration Path
 
-### Phase 1: Evidra as Reference Consumer
+### Phase 1: Propose ext-audit
 
-- Implement `POST /v1/evidence/ingest/audit` endpoint
-- Map ext-audit events to existing evidence format
-- Keep bridge/proxy as fallback for non-ext-audit servers
+- Submit SEP to MCP community
+- Build prototype emitter as MCP SDK middleware
+- Evidra consumes ext-audit events alongside existing paths
 
-### Phase 2: MCP Proxy Emits ext-audit
+### Phase 2: Adoption
 
-- Evidra's MCP proxy generates ext-audit notifications
-- Downstream audit consumers can subscribe
-- Proxy becomes a compatibility adapter
+- Major MCP servers add ext-audit capability
+- AgentGateway forwards ext-audit events natively
+- Evidra implements `POST /v1/evidence/ingest/audit`
 
-### Phase 3: Native Server Support
+### Phase 3: Simplify
 
-- Contribute ext-audit support to major MCP server SDKs
-- Servers emit audit events natively
-- Bridge and proxy become optional, not required
+- Deprecate OTLP bridge (events come on MCP transport)
+- Deprecate OTel Collector requirement
+- MCP proxy becomes fallback-only for legacy servers
 
-### Phase 4: Deprecate Bridge
+### Phase 4: Evidra as Metadata Convention
 
-- Once major servers support ext-audit, the bridge is obsolete
-- Evidra consumes ext-audit events directly
-- One fewer component, one fewer repo
+- Publish recommended `metadata` fields for reliability tools:
+  `operationClass`, `scopeClass`, `resourceIdentity`
+- Servers that want richer Evidra analysis include these in metadata
+- Servers that don't care omit them — base audit still works
 
-## Event Flow Example
+## Open Questions for MCP Community
 
-Agent calls `kubectl apply` through an MCP server with `ext-audit`:
+1. **Notification method name:** `audit/toolCall` follows MCP's
+   namespace convention. Alternative: `notifications/audit`.
 
-```
-1. Agent sends tools/call:
-   {"method": "tools/call", "params": {"name": "apply_yaml", ...}}
+2. **Should there be an `audit/session` event?** Session start/end
+   boundaries would help consumers that process batches. Or is
+   `sessionId` on each event sufficient?
 
-2. MCP server executes the tool call.
+3. **Should `argumentsDigest` be required or optional?** Required
+   enables duplicate detection universally. Optional keeps the event
+   even simpler.
 
-3. MCP server emits audit/event notification:
-   {
-     "method": "audit/event",
-     "params": {
-       "type": "tool_call",
-       "timestamp": "2026-03-21T14:30:00.123Z",
-       "session_id": "sess_abc",
-       "sequence": 3,
-       "intent": {
-         "tool": "apply_yaml",
-         "operation": "apply",
-         "resource": "deployment/web",
-         "operation_class": "mutate",
-         "scope_class": "production",
-         "arguments_digest": "sha256:def456..."
-       },
-       "outcome": {
-         "verdict": "success",
-         "exit_code": 0,
-         "duration_ms": 1200
-       },
-       "actor": {
-         "type": "agent",
-         "id": "claude-code"
-       },
-       "risk": {
-         "level": "high"
-       }
-     }
-   }
+4. **Should servers include `tools/call` result summary in the event?**
+   Current proposal omits tool output (privacy). A `resultDigest`
+   field could enable drift detection without exposing content.
 
-4. MCP server returns tool result to agent (normal flow).
-
-5. Evidra receives the audit/event (via transport or forwarding):
-   - Creates prescribe entry: tool=apply_yaml, op_class=mutate,
-     scope=production, risk=high
-   - Creates report entry: verdict=success, exit_code=0
-   - Links them: same session_id + sequence
-
-6. After the session, Evidra computes:
-   - Signal detection: no retry_loop, no protocol_violation
-   - Scorecard: score=95, band=excellent
-```
-
-## Alignment with MCP Roadmap
-
-| Roadmap Item | ext-audit Addresses |
-|-------------|-------------------|
-| "Audit trails and observability" | Directly — this IS the audit trail format |
-| "Gateway and proxy patterns" | Defines how audit events flow through intermediaries |
-| "Configuration portability" | Audit events work across any MCP transport |
-| OTel MCP semantic conventions | Trace fields align with W3C Trace Context |
-
-## Open Questions
-
-1. **Should audit events be opt-in per tool call, or always-on when
-   negotiated?** Current proposal: always-on. Selective auditing adds
-   complexity and creates gaps.
-
-2. **Should the server compute `operation_class` and `risk.level`, or
-   should that be the consumer's job?** Current proposal: server MAY
-   include them; consumer computes if absent. Keeps the server simple.
-
-3. **Should there be a separate `audit/subscribe` method, or use the
-   existing notification channel?** Current proposal: existing
-   notification channel. Simpler, no new lifecycle to manage.
-
-4. **Should session_id be a new concept or reuse the MCP session ID?**
-   Current proposal: new field. MCP session ID is a transport concern;
-   audit session_id groups logical operations (one agent task may span
-   multiple MCP sessions).
+5. **How does this interact with the proposed Triggers extension?**
+   If MCP adds server-to-client event delivery, audit events could
+   use that mechanism instead of bare notifications.
