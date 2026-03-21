@@ -9,10 +9,8 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
+	"samebits.com/evidra/internal/assess"
 	"samebits.com/evidra/internal/canon"
-	"samebits.com/evidra/internal/detectors"
-	_ "samebits.com/evidra/internal/detectors/all"
-	"samebits.com/evidra/internal/risk"
 	"samebits.com/evidra/pkg/evidence"
 	"samebits.com/evidra/pkg/version"
 )
@@ -49,7 +47,27 @@ func (s *Service) Prescribe(_ context.Context, input PrescribeInput) (PrescribeO
 		return PrescribeOutput{}, err
 	}
 
-	riskInputs, effectiveRisk, nativeTags := buildPrescribeRiskState(cr, input.RawArtifact, input.ExternalFindings)
+	assessPipeline := s.pipeline
+	if assessPipeline == nil {
+		assessPipeline = assess.NewPipeline(assess.DetectorAssessor{})
+	}
+	if len(input.ExternalFindings) > 0 {
+		var sources []assess.FindingsSource
+		for _, ef := range input.ExternalFindings {
+			sources = append(sources, assess.FindingsSource{
+				Source:   ef.Source,
+				Findings: ef.Findings,
+			})
+		}
+		assessPipeline = assess.NewPipeline(append(assessPipeline.Assessors(), assess.SARIFAssessor{Sources: sources})...)
+	}
+	assessResult, err := assessPipeline.Run(context.Background(), cr.CanonicalAction, input.RawArtifact)
+	if err != nil {
+		return PrescribeOutput{}, wrapError(ErrCodeInternal, "assessment pipeline failed", err)
+	}
+	riskInputs := assessResult.RiskInputs
+	effectiveRisk := assessResult.EffectiveRisk
+	nativeTags := assessResult.NativeTags
 
 	retryCount := 0
 	if s.retryTracker != nil {
@@ -275,29 +293,6 @@ func (s *Service) canonicalizePrescribeInput(input PrescribeInput, ctx prescribe
 		return canon.CanonResult{}, "", wrapError(ErrCodeParseError, cr.ParseError.Error(), cr.ParseError)
 	}
 	return cr, "adapter", nil
-}
-
-func buildPrescribeRiskState(cr canon.CanonResult, rawArtifact []byte, externalFindings []ExternalFindingsSource) ([]evidence.RiskInput, string, []string) {
-	matrixLevel := risk.RiskLevel(cr.CanonicalAction.OperationClass, cr.CanonicalAction.ScopeClass)
-	riskInputs := make([]evidence.RiskInput, 0, 1+len(externalFindings))
-	nativeTags := []string(nil)
-	if len(rawArtifact) > 0 {
-		nativeTags = detectors.ProduceAll(cr.CanonicalAction, rawArtifact)
-		riskInputs = append(riskInputs, evidence.RiskInput{
-			Source:    "evidra/native",
-			RiskLevel: risk.ElevateRiskLevel(matrixLevel, nativeTags),
-			RiskTags:  nativeTags,
-		})
-	} else {
-		riskInputs = append(riskInputs, evidence.RiskInput{
-			Source:    "evidra/matrix",
-			RiskLevel: matrixLevel,
-		})
-	}
-	for _, src := range externalFindings {
-		riskInputs = append(riskInputs, buildSARIFRiskInput(src))
-	}
-	return riskInputs, computeEffectiveRisk(riskInputs), nativeTags
 }
 
 func payloadEvidenceMetadata(kind evidence.EvidenceKind) *evidence.EvidenceMetadata {

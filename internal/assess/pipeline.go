@@ -27,6 +27,11 @@ func NewPipeline(assessors ...Assessor) *Pipeline {
 	return &Pipeline{assessors: assessors}
 }
 
+// Assessors returns the current assessor list. Used to build derived pipelines.
+func (p *Pipeline) Assessors() []Assessor {
+	return p.assessors
+}
+
 // Run executes all assessors against the canonical action and raw artifact,
 // then aggregates risk inputs into an effective risk level.
 func (p *Pipeline) Run(ctx context.Context, action canon.CanonicalAction, raw []byte) (Result, error) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"samebits.com/evidra/internal/assess"
 	"samebits.com/evidra/internal/canon"
 	"samebits.com/evidra/pkg/evidence"
 )
@@ -20,6 +21,7 @@ type Options struct {
 	Signer           evidence.Signer
 	RetryTracker     RetryRecorder
 	BestEffortWrites bool
+	Pipeline         *assess.Pipeline
 }
 
 // Service is the shared prescribe/report business logic used by CLI and MCP.
@@ -28,6 +30,7 @@ type Service struct {
 	signer           evidence.Signer
 	retryTracker     RetryRecorder
 	bestEffortWrites bool
+	pipeline         *assess.Pipeline
 }
 
 // NewService creates a lifecycle service from options.
@@ -37,6 +40,7 @@ func NewService(opts Options) *Service {
 		signer:           opts.Signer,
 		retryTracker:     opts.RetryTracker,
 		bestEffortWrites: opts.BestEffortWrites,
+		pipeline:         opts.Pipeline,
 	}
 }
 
