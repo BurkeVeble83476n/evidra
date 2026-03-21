@@ -348,6 +348,9 @@ function Hero() {
           <a href="https://bench.evidra.cc" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             Benchmark Your Agent
           </a>
+          <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+            Design Puzzles &amp; Certify Agents
+          </a>
         </div>
       </Container>
     </section>

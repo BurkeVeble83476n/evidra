@@ -16,6 +16,7 @@ const LANDING_LINKS = [
   { href: "#api", label: "API" },
   { href: "#guides", label: "Guides" },
   { href: "https://bench.evidra.cc", label: "Bench", external: true },
+  { href: "https://lab.evidra.cc", label: "Lab", external: true },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -90,6 +91,14 @@ function Header() {
                     new
                   </span>
                 </Link>
+                <a
+                  href="https://lab.evidra.cc"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[0.82rem] font-medium tracking-wide no-underline transition-colors text-fg-muted hover:text-fg"
+                >
+                  Lab
+                </a>
               </>
             )}
           </nav>
@@ -161,6 +170,10 @@ function Footer() {
         {" \u00B7 "}
         <a href="https://bench.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
           bench.evidra.cc
+        </a>
+        {" \u00B7 "}
+        <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
+          lab.evidra.cc
         </a>
         {" \u00B7 Apache 2.0"}
       </div>
