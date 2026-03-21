@@ -6,15 +6,50 @@ The canonical design and business logic live in the versioned docs under
 
 One-sentence model:
 
-**Evidra records automation intent, execution, and outcome across agents, pipelines, and controllers, then computes reliability signals and scorecards from an append-only evidence chain.**
+**Evidra is a flight recorder for infrastructure automation — it observes
+and measures AI agent and CI pipeline reliability without blocking
+operations.**
 
-## Evidence Modes
+## Black Box Principle
 
-All three modes feed the same evidence chain.
+Evidra is a wire tap, not a gatekeeper. It reads data from buses that
+already exist (MCP stdio, OTLP traces, HTTP webhooks) and never asks
+agents to change behavior. Agents, like pilots, need to do their work —
+evidence exists to improve, not to prevent.
 
-- Full Prescribe: MCP agent calls `prescribe_full` with `raw_artifact`, then `report`
-- Smart Prescribe: MCP agent calls `prescribe_smart` with lightweight target context, then `report`
-- Proxy Observed: evidra records mutations around an upstream MCP server without agent participation
+Prescribe is a pre-flight check, not a gate. When available it enriches
+the evidence with intent and risk assessment, but it never blocks
+execution. Passive recording (bridge/proxy mode) works without it.
+
+## Two-Layer Architecture
+
+**Recorder** (write path, real-time):
+- Ingest evidence from any source
+- Assessment pipeline: canonicalize → assess risk → aggregate
+- Sign with Ed25519, chain via previous_hash, store
+
+**Intelligence** (read path, post-hoc):
+- Signal detection: 8 behavioral detectors across evidence sequences
+- Scoring: weighted penalty model → 0-100 reliability metric
+- Benchmarking: run comparison, leaderboards, model evaluation
+- Analytics: scorecards, explain, trends
+
+## Observation Modes
+
+All modes produce the same evidence entries and feed the same intelligence
+pipeline.
+
+| Mode | How Evidra connects | Prescribe | Assessment |
+|------|-------------------|-----------|------------|
+| **MCP direct** | Agent calls `prescribe_full`/`prescribe_smart` + `report` | Yes — full intent + artifact | Full pipeline |
+| **MCP proxy** | `evidra-mcp --proxy` wraps upstream MCP server, intercepts `tools/call` | Implicit | Observed only |
+| **OTLP bridge** | Reads AgentGateway OTLP traces, translates to prescribe/report | Implicit | Observed only |
+| **Webhooks** | ArgoCD/generic webhook → mapped prescribe/report | Translated | Full pipeline |
+| **Ext-authz** (future) | Gateway calls Evidra assessment endpoint before forwarding | Yes — via gateway | Full pipeline |
+
+MCP direct gives the richest evidence. Proxy and bridge are passive taps.
+Ext-authz combines both: the gateway consults Evidra for risk assessment,
+the agent never changes.
 
 ## Assessment Pipeline
 
@@ -42,15 +77,22 @@ Hosted mode changes where evidence is collected and replayed, not what evidence 
 - The lifecycle pair stays `prescribe_full` or `prescribe_smart`, followed by `report`; the external ingest request contract uses `flavor`, `evidence.kind`, and `source.system` to describe execution shape and ingestion source without creating a second scoring lane. Persisted entries expose the same context as `payload.flavor`, `payload.evidence.kind`, and `payload.source.system`. `flavor` includes `imperative`, `reconcile`, and `workflow`; `evidence.kind` includes `declared`, `observed`, and `translated`.
 
 ```text
-Full Prescribe -----\
-Smart Prescribe ----+-----> local JSONL evidence --------> local scorecard / explain
-Proxy Observed -----/                \
-CLI ----------------------------------\ forward evidence
-                                       v
-                                evidra-api <----- webhook ingestion + GitOps controller evidence
-                                     |
-                                     v
-                               Postgres evidence store --------> hosted scorecard / explain
+                          RECORDER                          INTELLIGENCE
+                          ────────                          ────────────
+
+  MCP direct ──────────┐
+  MCP proxy ───────────┤
+  CLI record/import ───┤                                   ┌──────────────────┐
+                       ├──▸ assess.Pipeline ──▸ sign ──▸ store ──▸ signals    │
+  OTLP bridge ─────────┤    (canonicalize,       chain      │     scoring     │
+  Webhooks ────────────┤     assess risk,                   │     benchmarks  │
+  Ext-authz (future) ──┘     aggregate)                     │     analytics   │
+                                                            └──────────────────┘
+                                                                    │
+  Storage:                                                          ▼
+    local ──▸ JSONL evidence chain                          scorecard / explain
+    hosted ──▸ Postgres (evidra-api)                        bench comparison
+                                                            leaderboards
 ```
 
 ## Where To Find Details
