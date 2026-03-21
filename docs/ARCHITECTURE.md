@@ -25,7 +25,7 @@ execution. Passive recording (bridge/proxy mode) works without it.
 
 **Recorder** (write path, real-time):
 - Ingest evidence from any source
-- Assessment pipeline: canonicalize → assess risk → aggregate
+- Assessment pipeline: pluggable assessors → risk_inputs[] → effective_risk
 - Sign with Ed25519, chain via previous_hash, store
 
 **Intelligence** (read path, post-hoc):

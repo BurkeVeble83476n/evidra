@@ -42,21 +42,16 @@ AI agent, a workflow runner, or a controller such as Argo CD.
 ```
   ┌──────────────────────────── RECORDER (write path) ──────────────────────────┐
   │                                                                             │
-  │   OBSERVATION                  ASSESSMENT                                   │
+  │   OBSERVATION                  ASSESSMENT (assess.Pipeline)                  │
   │                                                                             │
   │   MCP direct ────┐             ┌─────────────────────────────────────┐      │
-  │   MCP proxy ─────┤             │ 1. Canonicalize                     │      │
-  │   OTLP bridge ───┤   intent    │    Adapters: K8s, Terraform,        │      │
-  │   CLI ───────────┼──────────▸  │    Docker, Generic                  │      │
-  │   Webhooks ──────┤             │    → CanonicalAction + digests      │      │
+  │   MCP proxy ─────┤             │                                     │      │
+  │   OTLP bridge ───┤   intent    │  Assessor 1 ──▸ risk_input          │      │
+  │   CLI ───────────┼──────────▸  │  Assessor 2 ──▸ risk_input          │      │
+  │   Webhooks ──────┤             │  Assessor N ──▸ risk_input          │      │
   │   Ext-authz ─────┘             │                                     │      │
-  │   (future)                     │ 2. assess.Pipeline                  │      │
-  │                                │    ┌───────────────────────────┐    │      │
-  │                                │    │ Assessor 1 ──▸ risk_input │    │      │
-  │                                │    │ Assessor 2 ──▸ risk_input │    │      │
-  │                                │    │ Assessor N ──▸ risk_input │    │      │
-  │                                │    └───────────────────────────┘    │      │
-  │                                │    max-severity ──▸ effective_risk  │      │
+  │   (future)                     │  max-severity ──▸ effective_risk    │      │
+  │                                │                                     │      │
   │                                └─────────────────────────────────────┘      │
   │                                             │                               │
   │                                             ▼                               │
@@ -98,11 +93,18 @@ AI agent, a workflow runner, or a controller such as Argo CD.
                      └──────────────┘   └──────────────┘   └──────────────────┘
 ```
 
-The assessment pipeline is the pluggable abstraction. Built-in assessors
-include matrix risk lookup, native tag detectors, and SARIF scanner
-findings. External assessors (gateway ext-authz, OPA, custom webhooks)
-plug into the same interface. The pipeline output is always
-`risk_inputs[] + effective_risk` regardless of which assessors run.
+The assessment pipeline is the pluggable abstraction. Each assessor
+receives the raw intent and decides internally how to evaluate it:
+
+- Native assessors canonicalize the artifact (K8s/Terraform/Docker
+  adapters), run the risk matrix, and fire tag detectors — all
+  internal implementation details invisible to the pipeline
+- SARIF assessors read external scanner findings directly
+- External assessors (gateway ext-authz, OPA) use their own logic
+
+Canonicalization is not a pipeline phase — it's how the native assessors
+understand artifacts. The pipeline only knows the `Assessor` interface.
+Its output is always `risk_inputs[] + effective_risk`.
 
 ---
 
@@ -110,16 +112,14 @@ plug into the same interface. The pipeline output is always
 
 | # | Layer | Input | Output | What It Does |
 |---|-------|-------|--------|-------------|
-| 1 | **Adapters** | Raw artifact + tool name | CanonicalAction + digests | Normalizes YAML/JSON/HCL into structured representation |
-| 2 | **Detectors** | CanonicalAction + raw bytes | native detector tags[] | Pattern-matches misconfigs. One file, one tag, self-registering |
-| 3 | **Assessment Pipeline** (`internal/assess/`) | CanonicalAction + raw artifact + external findings | risk_inputs[] + effective_risk | Pluggable `Pipeline` runs registered `Assessor` implementations (MatrixAssessor, DetectorAssessor, SARIFAssessor) and aggregates via max-severity |
-| 4 | **Evidence Chain** | prescribe + report entries | Signed JSONL segments | Tamper-evident append-only log of all operations |
-| 5 | **Signals Engine** | Evidence entries (sequence) | signal counts + rates | Detects behavioral patterns across operation sequences |
+| 1 | **Assessment Pipeline** (`internal/assess/`) | Raw intent (artifact, smart target, or external context) | risk_inputs[] + effective_risk | Runs pluggable `Assessor` implementations and aggregates via max-severity. Adapters, detectors, and risk matrix are internal to native assessors — not visible at this level. |
+| 2 | **Evidence Chain** | prescribe + report entries | Signed JSONL segments | Tamper-evident append-only log of all operations |
+| 3 | **Signals Engine** | Evidence entries (sequence) | signal counts + rates | Detects behavioral patterns across operation sequences |
 | 6 | **Scorecard** | Signal counts + rates | score (0-100) + band | Weighted penalty model → reliability metric |
 
-**Layers 1-3** fire at prescribe time (per operation, instant).
-**Layers 4-5** accumulate over a session (sequence of operations).
-**Layer 6** evaluates at session end.
+**Layer 1** fires at prescribe time (per operation, instant).
+**Layer 2** accumulates over a session (append-only).
+**Layers 3-4** evaluate at scorecard time (post-hoc).
 
 ---
 
