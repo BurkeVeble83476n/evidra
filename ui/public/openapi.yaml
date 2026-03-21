@@ -232,6 +232,19 @@ paths:
               override:
                 summary: Override prescribe with raw payload
                 value:
+                  contract_version: v1
+                  actor:
+                    type: agent
+                    id: agent-1
+                    provenance: mcp
+                  session_id: sess-001
+                  operation_id: op-001
+                  trace_id: trace-001
+                  flavor: imperative
+                  evidence:
+                    kind: declared
+                  source:
+                    system: cli
                   artifact_digest: sha256:abc123def456
                   payload_override:
                     prescription_id: presc-001
@@ -323,6 +336,19 @@ paths:
               override:
                 summary: Override report with raw payload
                 value:
+                  contract_version: v1
+                  actor:
+                    type: agent
+                    id: agent-1
+                    provenance: mcp
+                  session_id: sess-001
+                  operation_id: op-001
+                  trace_id: trace-001
+                  flavor: imperative
+                  evidence:
+                    kind: declared
+                  source:
+                    system: cli
                   artifact_digest: sha256:abc123def456
                   payload_override:
                     prescription_id: presc-001
@@ -853,6 +879,8 @@ components:
         - flavor
         - evidence
         - source
+      not:
+        required: [payload_override]
       properties:
         contract_version:
           type: string
@@ -890,8 +918,6 @@ components:
           $ref: '#/components/schemas/CanonicalAction'
         smart_target:
           $ref: '#/components/schemas/SmartTarget'
-        payload_override:
-          type: object
 
     IngestPrescribeOverrideRequest:
       type: object
@@ -915,6 +941,14 @@ components:
     IngestReportNonDeclinedRequest:
       type: object
       required:
+        - contract_version
+        - actor
+        - session_id
+        - operation_id
+        - trace_id
+        - flavor
+        - evidence
+        - source
         - prescription_id
         - verdict
         - exit_code
@@ -968,6 +1002,14 @@ components:
     IngestReportDeclinedRequest:
       type: object
       required:
+        - contract_version
+        - actor
+        - session_id
+        - operation_id
+        - trace_id
+        - flavor
+        - evidence
+        - source
         - prescription_id
         - verdict
         - decision_context

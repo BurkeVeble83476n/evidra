@@ -84,10 +84,10 @@ Hosted mode changes where evidence is collected and replayed, not what evidence 
   MCP direct ──────────┐
   MCP proxy ───────────┤
   CLI record/import ───┤                                   ┌──────────────────┐
-                       ├──▸ assess.Pipeline ──▸ sign ──▸ store ──▸ signals    │
-  OTLP bridge ─────────┤    (canonicalize,       chain      │     scoring     │
-  Webhooks ────────────┤     assess risk,                   │     benchmarks  │
-  Ext-authz (future) ──┘     aggregate)                     │     analytics   │
+                       ├──▸ canonicalize ──▸ assess.Pipeline ──▸ sign ──▸ store ──▸ signals    │
+  OTLP bridge ─────────┤                     (assess risk,     chain      │     scoring     │
+  Webhooks ────────────┤                      aggregate)                  │     benchmarks  │
+  Ext-authz (future) ──┘                                                  │     analytics   │
                                                             └──────────────────┘
                                                                     │
   Storage:                                                          ▼

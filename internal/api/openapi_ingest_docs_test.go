@@ -27,8 +27,8 @@ func TestOpenAPIIngestRoutesDocumentContracts(t *testing.T) {
 	assertSchemaExists(t, spec, "IngestReportNonDeclinedOverrideRequest")
 	assertSchemaExists(t, spec, "IngestReportDeclinedOverrideRequest")
 
-	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedRequest"), []string{"prescription_id", "verdict", "exit_code"})
-	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedRequest"), []string{"prescription_id", "verdict", "decision_context"})
+	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedRequest"), []string{"contract_version", "actor", "session_id", "operation_id", "trace_id", "flavor", "evidence", "source", "prescription_id", "verdict", "exit_code"})
+	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedRequest"), []string{"contract_version", "actor", "session_id", "operation_id", "trace_id", "flavor", "evidence", "source", "prescription_id", "verdict", "decision_context"})
 	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedOverrideRequest"), []string{"payload_override"})
 	assertSchemaRequiredFields(t, schemaObjectNode(t, spec, "IngestReportDeclinedOverrideRequest"), []string{"payload_override"})
 	assertSchemaAnyOfRequiredFields(t, findMappingValue(t, findMappingValue(t, schemaObjectNode(t, spec, "IngestReportNonDeclinedRequest"), "not"), "anyOf"), []string{"payload_override", "decision_context"})

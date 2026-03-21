@@ -29,9 +29,10 @@ const SYSTEM_CHART = `flowchart TB
     Webhooks["Webhooks<br/>ArgoCD · generic"]
   end
   subgraph Recorder ["Recorder Layer"]
-    Pipeline["assess.Pipeline<br/>canonicalize · assess risk · aggregate"]
+    Canon["Canonicalize<br/>adapter selection · normalize"]
+    Pipeline["assess.Pipeline<br/>assess risk · aggregate"]
     Store[("Evidence Store<br/>sign · chain · persist")]
-    Pipeline --> Store
+    Canon --> Pipeline --> Store
   end
   subgraph Intelligence ["Intelligence Layer"]
     Signals["Signal Detectors<br/>8 behavioral patterns"]
@@ -42,11 +43,11 @@ const SYSTEM_CHART = `flowchart TB
     LS[("Local JSONL")]
     DB[("PostgreSQL")]
   end
-  MCP --> Pipeline
-  Proxy --> Pipeline
-  Bridge --> Pipeline
-  CLI --> Pipeline
-  Webhooks --> Pipeline
+  MCP --> Canon
+  Proxy --> Canon
+  Bridge --> Canon
+  CLI --> Canon
+  Webhooks --> Canon
   Store --> LS
   Store --> DB
   LS --> Signals
