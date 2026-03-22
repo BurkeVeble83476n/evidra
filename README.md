@@ -137,10 +137,10 @@ The agent calls `run_command("kubectl get deployment web -n bench")` and gets
 a token-efficient summary instead of raw JSON:
 
 ```
-# kubectl-mcp-server returns (~2,000 tokens):
-{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"managedFields":[...],"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{...}"},...},"spec":{...},"status":{...}}
+# Raw kubectl JSON output:
+{"apiVersion":"apps/v1","metadata":{"managedFields":[...],...},"spec":{...},"status":{...}}
 
-# evidra-mcp returns (~80 tokens):
+# evidra-mcp smart output:
 deployment/web (bench): 0/2 ready | image: nginx:99.99 | Available=False
 ```
 
