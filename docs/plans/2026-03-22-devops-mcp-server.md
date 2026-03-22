@@ -12,11 +12,43 @@ Agent → AgentGateway → kubectl-mcp-server → kubectl → cluster
                      → evidra-mcp → prescribe/report (evidence only)
 ```
 
-Three problems:
+### kubectl-mcp-server: the numbers
 
-1. **Two MCP servers needed.** Agent vendors must configure and maintain both.
-2. **kubectl-mcp-server is a token bomb.** Raw `kubectl get -o json` returns 2000+ tokens per call — managed fields, last-applied-config, annotation noise. Agents burn context window on information they don't need.
-3. **No safety layer.** kubectl-mcp-server executes anything. No evidence, no audit trail, no mutation awareness.
+Source: [github.com/rohitg00/kubectl-mcp-server](https://github.com/rohitg00/kubectl-mcp-server)
+
+| What | Count | Token impact |
+|---|---|---|
+| MCP tools | 253 | ~25,000 tokens in tool definitions |
+| MCP resources | 8 | ~800 tokens |
+| MCP prompts | 8 | ~1,000 tokens |
+| Agent skills | 25 (loaded into system prompt) | ~5,000 tokens |
+| **Total session overhead** | | **~32,000 tokens before agent starts** |
+
+On top of that, each tool call returns raw JSON output (~2,000 tokens per
+kubectl get). A typical diagnosis (5-8 calls) adds ~14,000 tokens of
+raw output to the context window.
+
+**Total cost of one diagnosis: ~46,000 tokens.**
+At $3/M input tokens (GPT-4o): **$0.14 per diagnosis.**
+
+### Four problems
+
+1. **253 tools = context window pollution.** Tool definitions consume 25K
+   tokens — 20% of a 128K window — before the agent does anything. Most
+   agents use 5-10 of these tools per session. The rest is waste.
+
+2. **Raw JSON output = token bomb.** `kubectl get deployment -o json` returns
+   managedFields, last-applied-configuration, UIDs, resourceVersions. The
+   agent burns tokens parsing noise instead of reasoning about the problem.
+
+3. **25 skills in the prompt = redundant knowledge.** Skills like
+   `k8s-troubleshoot` and `k8s-diagnostics` teach the agent how to parse
+   kubectl output. If the output were already clean, the agent wouldn't
+   need these skills.
+
+4. **No safety layer.** kubectl-mcp-server executes anything. No evidence,
+   no audit trail, no mutation awareness. No way to know if the agent
+   broke something.
 
 ## Solution
 
@@ -27,6 +59,34 @@ Agent → AgentGateway → evidra-mcp → kubectl/helm/terraform/aws → cluster
                                   → auto-evidence (built-in)
                                   → token-efficient output
 ```
+
+### Head-to-head comparison
+
+| | kubectl-mcp-server | evidra-mcp |
+|---|---|---|
+| MCP tools | 253 | 5 |
+| Tool definition tokens | ~25,000 | ~500 |
+| Skills/prompts loaded | 25 skills (~5,000 tokens) | 0 |
+| Per-call output (get deployment) | ~2,000 tokens (raw JSON) | ~80 tokens (smart summary) |
+| Typical diagnosis (5 calls) | ~46,000 tokens total | ~900 tokens total |
+| Cost per diagnosis (GPT-4o) | $0.14 | $0.003 |
+| **Token efficiency** | **Baseline** | **50x more efficient** |
+| Safety/evidence | None | Auto-prescribe/report |
+
+### The design principle
+
+**kubectl-mcp-server puts knowledge in tool definitions and skills (input cost).**
+253 tool schemas and 25 skills tell the agent what tools exist and how to use them.
+
+**evidra-mcp puts knowledge in smart output (near-zero input cost).**
+One `run_command` tool. The intelligence is in the response formatting:
+instead of raw JSON the agent must parse, we return actionable summaries
+the agent can reason about directly.
+
+The 25 skills that kubectl-mcp-server loads into the agent's prompt? That
+knowledge is embedded in evidra-mcp's output. When we return
+`"deployment/web: 0/2 ready — ErrImagePull on nginx:99.99"` instead of
+2KB of JSON, the agent doesn't need a `k8s-troubleshoot` skill to interpret it.
 
 ### What evidra-mcp becomes
 
