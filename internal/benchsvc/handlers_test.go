@@ -36,6 +36,11 @@ type handlerRepo struct {
 	artCT      string
 	artErr     error
 
+	// delete / archive
+	deleteErr    error
+	archiveCount int
+	archiveErr   error
+
 	// capture
 	lastTenant string
 	lastFilter bench.RunFilters
@@ -52,6 +57,14 @@ func (r *handlerRepo) GetRun(_ context.Context, tenant, id string) (*bench.RunRe
 	return r.run, r.runErr
 }
 func (r *handlerRepo) InsertRun(_ context.Context, _ string, _ bench.RunRecord) error { return nil }
+func (r *handlerRepo) DeleteRun(_ context.Context, tenant, id string) error {
+	r.lastTenant = tenant
+	return r.deleteErr
+}
+func (r *handlerRepo) ArchiveRuns(_ context.Context, tenant string, _ ArchiveRequest) (int, error) {
+	r.lastTenant = tenant
+	return r.archiveCount, r.archiveErr
+}
 func (r *handlerRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
 	return 0, nil
 }
@@ -600,6 +613,119 @@ func (r *ingestRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 
 func (r *ingestRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
 	return r.batchCount, nil
+}
+
+// ---------- Delete ----------
+
+func TestHandleDeleteRun_Returns204(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/v1/bench/runs/run-42", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+}
+
+func TestHandleDeleteRun_404ForMissing(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{deleteErr: pgx.ErrNoRows}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/v1/bench/runs/nonexistent", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+// ---------- Archive ----------
+
+func TestHandleArchiveRuns_ReturnsCount(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{archiveCount: 5}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	payload := `{"model":"sonnet"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs/archive", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if int(body["archived"].(float64)) != 5 {
+		t.Fatalf("archived = %v, want 5", body["archived"])
+	}
+}
+
+func TestHandleArchiveRuns_RejectsEmptyFilter(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	payload := `{}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs/archive", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestHandleArchiveRuns_AcceptsBeforeFilter(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{archiveCount: 10}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	payload := `{"before":"2026-03-21T00:00:00Z"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs/archive", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+}
+
+func TestHandleArchiveRuns_AcceptsIDsFilter(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{archiveCount: 2}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	payload := `{"ids":["run-1","run-2"]}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/bench/runs/archive", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
 }
 
 // ---------- Compare ----------

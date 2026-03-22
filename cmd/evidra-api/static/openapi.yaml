@@ -714,6 +714,45 @@ paths:
         '200':
           description: Import result
 
+  /v1/bench/runs/archive:
+    post:
+      summary: Archive runs matching a filter
+      tags: [Bench]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                before:
+                  type: string
+                  format: date-time
+                  description: Archive runs created before this timestamp
+                ids:
+                  type: array
+                  items: { type: string }
+                  description: Archive runs with these IDs
+                model:
+                  type: string
+                  description: Archive runs for this model
+      responses:
+        '200':
+          description: Archive result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  archived:
+                    type: integer
+        '400':
+          description: Missing filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /v1/bench/runs/{id}:
     get:
       summary: Get run detail
@@ -726,6 +765,23 @@ paths:
       responses:
         '200':
           description: Run record
+    delete:
+      summary: Delete a single run
+      tags: [Bench]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Run deleted
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /v1/bench/runs/{id}/transcript:
     get:

@@ -92,7 +92,7 @@ func (s *PgStore) ListRuns(ctx context.Context, tenantID string, f bench.RunFilt
 
 // GetRun returns a single run by ID, scoped to the given tenant.
 func (s *PgStore) GetRun(ctx context.Context, tenantID string, id string) (*bench.RunRecord, error) {
-	query := "SELECT " + runRecordColumns + " FROM bench_runs WHERE tenant_id = $1 AND id = $2"
+	query := "SELECT " + runRecordColumns + " FROM bench_runs WHERE tenant_id = $1 AND id = $2 AND archived_at IS NULL"
 	rows, err := s.db.Query(ctx, query, tenantID, id)
 	if err != nil {
 		return nil, fmt.Errorf("bench.GetRun: %w", err)
@@ -221,7 +221,7 @@ func (s *PgStore) Catalog(ctx context.Context, tenantID string) (*bench.RunCatal
 	var models, providers []string
 
 	rows, err := s.db.Query(ctx,
-		"SELECT DISTINCT model FROM bench_runs WHERE tenant_id = $1 ORDER BY model", tenantID)
+		"SELECT DISTINCT model FROM bench_runs WHERE tenant_id = $1 AND archived_at IS NULL ORDER BY model", tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("bench.Catalog: models: %w", err)
 	}
@@ -238,7 +238,7 @@ func (s *PgStore) Catalog(ctx context.Context, tenantID string) (*bench.RunCatal
 	}
 
 	rows2, err := s.db.Query(ctx,
-		"SELECT DISTINCT provider FROM bench_runs WHERE tenant_id = $1 AND provider != '' ORDER BY provider", tenantID)
+		"SELECT DISTINCT provider FROM bench_runs WHERE tenant_id = $1 AND archived_at IS NULL AND provider != '' ORDER BY provider", tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("bench.Catalog: providers: %w", err)
 	}
@@ -309,10 +309,51 @@ func (s *PgStore) GetArtifact(ctx context.Context, tenantID string, runID, artif
 	return data, ct, nil
 }
 
+// DeleteRun deletes a single run by ID, scoped to the given tenant.
+// Artifacts are cascade-deleted via the foreign key constraint.
+func (s *PgStore) DeleteRun(ctx context.Context, tenantID, runID string) error {
+	query := `DELETE FROM bench_runs WHERE id = $1 AND tenant_id = $2`
+	ct, err := s.db.Exec(ctx, query, runID, tenantID)
+	if err != nil {
+		return fmt.Errorf("bench.DeleteRun: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// ArchiveRuns sets archived_at on runs matching the request filters.
+// Returns the number of runs archived.
+func (s *PgStore) ArchiveRuns(ctx context.Context, tenantID string, req ArchiveRequest) (int, error) {
+	clauses := []string{"tenant_id = $1", "archived_at IS NULL"}
+	args := []any{tenantID}
+
+	if req.Before != nil {
+		args = append(args, *req.Before)
+		clauses = append(clauses, fmt.Sprintf("created_at < $%d", len(args)))
+	}
+	if len(req.IDs) > 0 {
+		args = append(args, req.IDs)
+		clauses = append(clauses, fmt.Sprintf("id = ANY($%d)", len(args)))
+	}
+	if req.Model != "" {
+		args = append(args, req.Model)
+		clauses = append(clauses, fmt.Sprintf("model = $%d", len(args)))
+	}
+
+	query := "UPDATE bench_runs SET archived_at = NOW() WHERE " + strings.Join(clauses, " AND ")
+	ct, err := s.db.Exec(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("bench.ArchiveRuns: %w", err)
+	}
+	return int(ct.RowsAffected()), nil
+}
+
 // buildWhere constructs a WHERE clause with numbered PostgreSQL placeholders.
 // The tenant_id filter is always applied.
 func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
-	clauses := []string{"tenant_id = $1"}
+	clauses := []string{"tenant_id = $1", "archived_at IS NULL"}
 	args := []any{tenantID}
 
 	if f.ScenarioID != "" {
@@ -368,7 +409,7 @@ func (s *PgStore) CompareModels(ctx context.Context, tenantID, modelA, modelB, e
 			COALESCE(AVG(CASE WHEN model = $2 THEN estimated_cost_usd END), 0) AS a_cost,
 			COALESCE(AVG(CASE WHEN model = $3 THEN estimated_cost_usd END), 0) AS b_cost
 		FROM bench_runs
-		WHERE tenant_id = $1 AND evidence_mode = $4
+		WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $4
 			AND model IN ($2, $3)
 		GROUP BY scenario_id
 		HAVING SUM(CASE WHEN model = $2 THEN 1 ELSE 0 END) > 0

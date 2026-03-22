@@ -26,6 +26,10 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(svc))))
 	mux.Handle("POST /v1/bench/runs/batch", authMw(http.HandlerFunc(handleIngestBatch(svc))))
 
+	// Authenticated — delete / archive.
+	mux.Handle("DELETE /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleDeleteRun(svc))))
+	mux.Handle("POST /v1/bench/runs/archive", authMw(http.HandlerFunc(handleArchiveRuns(svc))))
+
 	// Authenticated — queries.
 	mux.Handle("GET /v1/bench/runs", authMw(http.HandlerFunc(handleListRuns(svc))))
 	mux.Handle("GET /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleGetRun(svc))))
@@ -356,5 +360,45 @@ func handleCompareModels(svc *Service) http.HandlerFunc {
 			return
 		}
 		apiutil.WriteJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleDeleteRun(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		id := r.PathValue("id")
+		err := svc.DeleteRun(r.Context(), tenantID, id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				apiutil.WriteError(w, http.StatusNotFound, "run not found")
+			} else {
+				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			}
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleArchiveRuns(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+
+		var req ArchiveRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if req.Before == nil && len(req.IDs) == 0 && req.Model == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "at least one filter is required: before, ids, or model")
+			return
+		}
+
+		count, err := svc.ArchiveRuns(r.Context(), tenantID, req)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{"archived": count})
 	}
 }

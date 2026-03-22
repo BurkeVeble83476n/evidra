@@ -16,6 +16,13 @@ import (
 // but no PublicTenant has been configured.
 var ErrPublicTenantUnavailable = errors.New("benchsvc: public tenant not configured")
 
+// ArchiveRequest specifies which runs to archive. At least one filter must be set.
+type ArchiveRequest struct {
+	Before *time.Time `json:"before,omitempty"`
+	IDs    []string   `json:"ids,omitempty"`
+	Model  string     `json:"model,omitempty"`
+}
+
 // Repository defines the data-access contract the Service depends on.
 // PgStore satisfies this interface; test fakes can implement it too.
 type Repository interface {
@@ -23,6 +30,8 @@ type Repository interface {
 	GetRun(ctx context.Context, tenantID string, id string) (*bench.RunRecord, error)
 	InsertRun(ctx context.Context, tenantID string, r bench.RunRecord) error
 	InsertRunBatch(ctx context.Context, tenantID string, runs []bench.RunRecord) (int, error)
+	DeleteRun(ctx context.Context, tenantID, runID string) error
+	ArchiveRuns(ctx context.Context, tenantID string, req ArchiveRequest) (int, error)
 	FilteredStats(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.StatsResult, error)
 	Catalog(ctx context.Context, tenantID string) (*bench.RunCatalog, error)
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
@@ -212,6 +221,16 @@ func (s *Service) GetArtifact(ctx context.Context, tenantID string, runID, artif
 // StoreArtifact stores an artifact for a run (no tenant scoping on writes).
 func (s *Service) StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error {
 	return s.repo.StoreArtifact(ctx, runID, artifactType, contentType, data)
+}
+
+// DeleteRun deletes a single run by ID, scoped to the given tenant.
+func (s *Service) DeleteRun(ctx context.Context, tenantID, runID string) error {
+	return s.repo.DeleteRun(ctx, tenantID, runID)
+}
+
+// ArchiveRuns archives runs matching the given request filters.
+func (s *Service) ArchiveRuns(ctx context.Context, tenantID string, req ArchiveRequest) (int, error) {
+	return s.repo.ArchiveRuns(ctx, tenantID, req)
 }
 
 // --- Public methods (use configured PublicTenant) ---

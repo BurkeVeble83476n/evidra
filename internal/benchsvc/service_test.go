@@ -27,6 +27,10 @@ func (f *fakeRepo) GetRun(_ context.Context, _ string, _ string) (*bench.RunReco
 	return nil, nil
 }
 func (f *fakeRepo) InsertRun(_ context.Context, _ string, _ bench.RunRecord) error { return nil }
+func (f *fakeRepo) DeleteRun(_ context.Context, _, _ string) error                 { return nil }
+func (f *fakeRepo) ArchiveRuns(_ context.Context, _ string, _ ArchiveRequest) (int, error) {
+	return 0, nil
+}
 func (f *fakeRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunRecord) (int, error) {
 	return 0, nil
 }

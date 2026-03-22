@@ -20,7 +20,7 @@ func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode
 			AVG(estimated_cost_usd) AS avg_cost,
 			SUM(estimated_cost_usd) AS total_cost
 		FROM bench_runs
-		WHERE tenant_id = $1`
+		WHERE tenant_id = $1 AND archived_at IS NULL`
 
 	args := []any{tenantID}
 
