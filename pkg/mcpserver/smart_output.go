@@ -203,60 +203,24 @@ func formatDescribe(rawOutput string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// Extract key fields.
-		if strings.HasPrefix(trimmed, "Name:") ||
-			strings.HasPrefix(trimmed, "Namespace:") ||
-			strings.HasPrefix(trimmed, "Replicas:") ||
-			strings.HasPrefix(trimmed, "Image:") ||
-			strings.HasPrefix(trimmed, "Status:") ||
-			strings.HasPrefix(trimmed, "Ready:") ||
-			strings.HasPrefix(trimmed, "Restart Count:") ||
-			strings.HasPrefix(trimmed, "Type:") && inEvents {
+		if isDescribeKeyField(trimmed, inEvents) {
 			result = append(result, trimmed)
-			continue
-		}
-
-		// Conditions section.
-		if trimmed == "Conditions:" {
+		} else if trimmed == "Conditions:" {
 			result = append(result, "conditions:")
-			continue
-		}
-		if strings.HasPrefix(trimmed, "Type") && strings.Contains(trimmed, "Status") && strings.Contains(trimmed, "Reason") {
-			// Header row of conditions table — skip.
-			continue
-		}
-
-		// Events section — keep last 5.
-		if trimmed == "Events:" {
+		} else if trimmed == "Events:" {
 			inEvents = true
 			eventCount = 0
 			result = append(result, "events (last 5):")
-			continue
-		}
-		if inEvents {
+		} else if inEvents {
 			if trimmed == "" {
 				inEvents = false
-				continue
+			} else if !isDescribeHeaderRow(trimmed) {
+				eventCount++
+				if eventCount <= 5 {
+					result = append(result, "  "+trimmed)
+				}
 			}
-			// Skip the header row.
-			if strings.HasPrefix(trimmed, "Type") && strings.Contains(trimmed, "Reason") {
-				continue
-			}
-			eventCount++
-			if eventCount <= 5 {
-				result = append(result, "  "+trimmed)
-			}
-			continue
-		}
-
-		// Condition rows: e.g., "Available   True    MinimumReplicasAvailable"
-		if (strings.HasPrefix(trimmed, "Available") ||
-			strings.HasPrefix(trimmed, "Progressing") ||
-			strings.HasPrefix(trimmed, "Ready") ||
-			strings.HasPrefix(trimmed, "PodScheduled") ||
-			strings.HasPrefix(trimmed, "Initialized") ||
-			strings.HasPrefix(trimmed, "ContainersReady")) &&
-			(strings.Contains(trimmed, "True") || strings.Contains(trimmed, "False")) {
+		} else if isConditionRow(trimmed) {
 			result = append(result, "  "+trimmed)
 		}
 	}
@@ -265,6 +229,31 @@ func formatDescribe(rawOutput string) string {
 		return truncateString(rawOutput, maxFallbackLen)
 	}
 	return strings.Join(result, "\n")
+}
+
+func isDescribeKeyField(line string, inEvents bool) bool {
+	prefixes := []string{"Name:", "Namespace:", "Replicas:", "Image:", "Status:", "Ready:", "Restart Count:"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(line, p) {
+			return true
+		}
+	}
+	return strings.HasPrefix(line, "Type:") && inEvents
+}
+
+func isDescribeHeaderRow(line string) bool {
+	return strings.HasPrefix(line, "Type") && strings.Contains(line, "Reason")
+}
+
+var conditionPrefixes = []string{"Available", "Progressing", "Ready", "PodScheduled", "Initialized", "ContainersReady"}
+
+func isConditionRow(line string) bool {
+	for _, p := range conditionPrefixes {
+		if strings.HasPrefix(line, p) && (strings.Contains(line, "True") || strings.Contains(line, "False")) {
+			return true
+		}
+	}
+	return false
 }
 
 func formatLogs(cmd, rawOutput string) string {

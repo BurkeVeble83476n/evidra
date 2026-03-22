@@ -3,7 +3,6 @@ package mcpserver
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -224,17 +223,4 @@ func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath stri
 		},
 		InputSchema: runCommandInputSchema,
 	}, handler.Handle)
-}
-
-// marshalRunCommandSchema returns the input schema as a map for use with mcp.AddTool.
-func marshalRunCommandSchema() (map[string]any, error) {
-	raw, err := json.Marshal(runCommandInputSchema)
-	if err != nil {
-		return nil, fmt.Errorf("marshal run_command schema: %w", err)
-	}
-	var schema map[string]any
-	if err := json.Unmarshal(raw, &schema); err != nil {
-		return nil, fmt.Errorf("unmarshal run_command schema: %w", err)
-	}
-	return schema, nil
 }

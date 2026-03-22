@@ -123,10 +123,7 @@ func TestFormatSmartOutput_Logs(t *testing.T) {
 	if !strings.Contains(got, "60 total") {
 		t.Errorf("expected '60 total' in output, got:\n%s", got)
 	}
-	// Should not contain the first line (trimmed).
-	if strings.Contains(got, "log line "+strings.Repeat("x", 10)+"\nlog line") {
-		// This is fine, just check the count.
-	}
+	// Verify truncation happened (early lines should be dropped).
 	outputLines := strings.Split(strings.TrimSpace(got), "\n")
 	// 1 header + 50 log lines = 51
 	if len(outputLines) != 51 {
