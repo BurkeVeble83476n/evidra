@@ -114,17 +114,16 @@ Security boundary: `evidra record` executes the wrapped local command directly. 
 
 ## For AI Agents (MCP)
 
-Evidra-mcp is a DevOps MCP server — a drop-in replacement for kubectl-mcp-server
-with built-in evidence recording and token-efficient output.
+Evidra-mcp is a DevOps MCP server with built-in evidence recording and
+token-efficient output.
 
 ```bash
 evidra-mcp --evidence-dir ~/.evidra/evidence
 ```
 
-### One tool instead of 253
+### Lightweight tool set
 
-kubectl-mcp-server exposes 253 tools and 25 skill prompts — ~30,000 tokens of
-overhead before the agent starts working. evidra-mcp exposes 5 tools:
+evidra-mcp exposes 5 tools with token-efficient output:
 
 | Tool | Description |
 |---|---|

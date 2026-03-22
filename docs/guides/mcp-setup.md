@@ -112,8 +112,8 @@ Try: *"Apply this deployment to staging"* — the agent should call `prescribe_f
 
 ## DevOps Server Mode (new)
 
-evidra-mcp can replace kubectl-mcp-server entirely. Instead of 253 tools
-and ~30,000 tokens of overhead, you get 5 tools and ~500 tokens:
+evidra-mcp provides DevOps tooling with built-in evidence recording.
+5 tools with token-efficient output:
 
 | Tool | Description |
 |---|---|
