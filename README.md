@@ -114,44 +114,69 @@ Security boundary: `evidra record` executes the wrapped local command directly. 
 
 ## For AI Agents (MCP)
 
-Evidra speaks MCP. The MCP server exposes the prescribe/report protocol to any MCP-connected agent or runtime.
+Evidra-mcp is a DevOps MCP server — a drop-in replacement for kubectl-mcp-server
+with built-in evidence recording and token-efficient output.
 
 ```bash
 evidra-mcp --evidence-dir ~/.evidra/evidence
 ```
 
-The MCP server gives agents the tools. The skill teaches them when and how to use them — agents with the skill achieve 100% protocol compliance for infrastructure mutations.
+### One tool instead of 253
 
-```bash
-evidra skill install
+kubectl-mcp-server exposes 253 tools and 25 skill prompts — ~30,000 tokens of
+overhead before the agent starts working. evidra-mcp exposes 5 tools:
+
+| Tool | Description |
+|---|---|
+| `run_command` | Execute kubectl, helm, terraform, aws — with smart output |
+| `prescribe_smart` | Record intent before mutation (lightweight) |
+| `prescribe_full` | Record intent with artifact |
+| `report` | Record outcome after mutation |
+| `get_event` | Look up evidence |
+
+The agent calls `run_command("kubectl get deployment web -n bench")` and gets
+a token-efficient summary instead of raw JSON:
+
+```
+# kubectl-mcp-server returns (~2,000 tokens):
+{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"managedFields":[...],"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"{...}"},...},"spec":{...},"status":{...}}
+
+# evidra-mcp returns (~80 tokens):
+deployment/web (bench): 0/2 ready | image: nginx:99.99 | Available=False
 ```
 
-How the protocol looks from the agent's perspective:
+### Auto-evidence for mutations
+
+When the agent runs a mutation (`kubectl apply`, `helm upgrade`, etc.),
+evidra-mcp automatically records prescribe/report evidence. No skill prompt
+needed — safety is built into the tool.
+
+```
+Agent: run_command("kubectl apply -f fix.yaml")
+  → evidra auto-prescribes (intent recorded)
+  → kubectl executes
+  → evidra auto-reports (outcome recorded)
+  → smart output returned to agent
+```
+
+Read-only commands (`get`, `describe`, `logs`) execute directly — no evidence overhead.
+
+### Explicit protocol (optional)
+
+Agents with the evidra skill can call `prescribe_smart` and `report` explicitly
+for full risk assessment and declined verdicts:
 
 ```text
-Agent: "I need to kubectl apply this deployment"
-  → prescribe_smart(tool=kubectl, operation=apply, resource=deployment/web, namespace=default)
-  ← prescription_id, effective_risk=medium, risk_inputs=[{source=evidra/matrix, ...}]
-
-Agent: decides to proceed (or decline based on risk)
-  → executes kubectl apply
+Agent: prescribe_smart(tool=kubectl, operation=apply, resource=deployment/web)
+  ← prescription_id, effective_risk=medium
+Agent: decides to proceed
+  → run_command("kubectl apply -f fix.yaml")
   → report(prescription_id=..., verdict=success, exit_code=0)
-  ← score=95, score_band=excellent, signal_summary={...}
 ```
 
-If the agent decides not to act:
+### Proxy mode
 
-```text
-Agent: "Risk too high, declining"
-  → report(prescription_id=..., verdict=declined, decision_context={
-      trigger: "risk_threshold_exceeded",
-      reason: "privileged container in production"
-    })
-```
-
-Declined verdicts are first-class evidence — not silent gaps in the log.
-
-**Proxy Observed** — one config line, zero agent changes:
+Wrap any existing MCP server — zero agent changes:
 
 ```json
 {
@@ -164,7 +189,7 @@ Declined verdicts are first-class evidence — not silent gaps in the log.
 }
 ```
 
-References: [MCP setup guide](docs/guides/mcp-setup.md) · [Skill setup guide](docs/guides/skill-setup.md) · [Execution schemas](pkg/execcontract/schemas/)
+References: [MCP setup guide](docs/guides/mcp-setup.md) · [Execution schemas](pkg/execcontract/schemas/)
 
 ## For CI/CD Pipelines
 
