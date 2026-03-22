@@ -43,18 +43,17 @@ var defaultAllowedPrefixes = []string{
 	"jq", "yq",
 }
 
-// defaultBlockedSubcommands blocks interactive or dangerous subcommands.
+// defaultBlockedSubcommands blocks interactive, exec, and dangerous subcommands.
+// kubectl exec and kubectl run are blocked entirely — they execute arbitrary
+// commands inside pods, bypassing the allowlist.
 var defaultBlockedSubcommands = []string{
 	"kubectl edit ",
-	"kubectl exec -it ",
-	"kubectl exec -ti ",
-	"kubectl exec --stdin --tty ",
+	"kubectl exec ",
 	"kubectl attach ",
 	"kubectl port-forward ",
 	"kubectl proxy",
-	"kubectl run --stdin ",
-	"kubectl run -it ",
-	"kubectl run -ti ",
+	"kubectl run ",
+	"kubectl debug ",
 	"helm shell",
 	"terraform console",
 }
@@ -112,8 +111,9 @@ func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) 
 		}
 	}
 
-	// Execute command.
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+	// Execute command — use direct exec, not bash -c, to prevent shell injection.
+	args := strings.Fields(command)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Env = os.Environ()
 	if h.kubeconfigPath != "" {
 		cmd.Env = append(cmd.Env, "KUBECONFIG="+h.kubeconfigPath)
@@ -165,15 +165,27 @@ func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) 
 
 // validateRunCommand checks that a command starts with an allowed prefix
 // and does not match any blocked interactive subcommand.
+// shellMetachars are characters that enable command chaining/injection in bash.
+var shellMetachars = []string{";", "&&", "||", "|", "`", "$(", "${", ">", "<", "\n"}
+
 func validateRunCommand(command string, allowed, blocked []string) error {
 	trimmed := strings.TrimSpace(command)
 
+	// Reject shell metacharacters — prevents command injection via chaining.
+	for _, meta := range shellMetachars {
+		if strings.Contains(trimmed, meta) {
+			return fmt.Errorf("command contains shell metacharacter %q — only single commands allowed", meta)
+		}
+	}
+
+	// Check blocked subcommands.
 	for _, b := range blocked {
 		if trimmed == strings.TrimSpace(b) || strings.HasPrefix(trimmed, b) {
 			return fmt.Errorf("command %q is blocked (interactive/dangerous)", truncateCmd(trimmed, 60))
 		}
 	}
 
+	// Check allowlist.
 	for _, prefix := range allowed {
 		if trimmed == prefix || strings.HasPrefix(trimmed, prefix+" ") {
 			return nil
