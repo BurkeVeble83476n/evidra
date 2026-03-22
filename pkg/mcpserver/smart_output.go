@@ -203,24 +203,18 @@ func formatDescribe(rawOutput string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		if isDescribeKeyField(trimmed, inEvents) {
+		switch {
+		case isDescribeKeyField(trimmed, inEvents):
 			result = append(result, trimmed)
-		} else if trimmed == "Conditions:" {
+		case trimmed == "Conditions:":
 			result = append(result, "conditions:")
-		} else if trimmed == "Events:" {
+		case trimmed == "Events:":
 			inEvents = true
 			eventCount = 0
 			result = append(result, "events (last 5):")
-		} else if inEvents {
-			if trimmed == "" {
-				inEvents = false
-			} else if !isDescribeHeaderRow(trimmed) {
-				eventCount++
-				if eventCount <= 5 {
-					result = append(result, "  "+trimmed)
-				}
-			}
-		} else if isConditionRow(trimmed) {
+		case inEvents:
+			inEvents, eventCount, result = handleEventLine(trimmed, eventCount, result)
+		case isConditionRow(trimmed):
 			result = append(result, "  "+trimmed)
 		}
 	}
@@ -229,6 +223,20 @@ func formatDescribe(rawOutput string) string {
 		return truncateString(rawOutput, maxFallbackLen)
 	}
 	return strings.Join(result, "\n")
+}
+
+func handleEventLine(trimmed string, eventCount int, result []string) (bool, int, []string) {
+	if trimmed == "" {
+		return false, eventCount, result
+	}
+	if isDescribeHeaderRow(trimmed) {
+		return true, eventCount, result
+	}
+	eventCount++
+	if eventCount <= 5 {
+		result = append(result, "  "+trimmed)
+	}
+	return true, eventCount, result
 }
 
 func isDescribeKeyField(line string, inEvents bool) bool {
