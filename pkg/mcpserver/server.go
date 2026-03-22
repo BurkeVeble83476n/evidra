@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ type Options struct {
 	ScoringProfilePath string
 	Signer             evidence.Signer // required: signs evidence entries
 	Forward            ForwardFunc     // optional: best-effort forward to API
+	EvidenceOnly       bool            // when true, only register evidence tools (no run_command)
 }
 
 // InputActor identifies the caller in a prescribe request.
@@ -279,6 +281,11 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		InputSchema:  getEventSchema,
 		OutputSchema: getEventOutputSchema,
 	}, getEvent.Handle)
+
+	// run_command tool — only when not in evidence-only mode
+	if !opts.EvidenceOnly {
+		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"))
+	}
 
 	// Evidence resources
 	server.AddResourceTemplate(&mcp.ResourceTemplate{

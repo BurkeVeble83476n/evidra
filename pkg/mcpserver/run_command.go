@@ -1,0 +1,240 @@
+package mcpserver
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"samebits.com/evidra/pkg/evidence"
+	"samebits.com/evidra/pkg/proxy"
+)
+
+// RunCommandInput is the input for the run_command tool.
+type RunCommandInput struct {
+	Command string `json:"command"`
+}
+
+// RunCommandOutput is the output for the run_command tool.
+type RunCommandOutput struct {
+	OK       bool   `json:"ok"`
+	Output   string `json:"output"`
+	ExitCode int    `json:"exit_code"`
+	Mutation bool   `json:"mutation"`
+	Error    string `json:"error,omitempty"`
+}
+
+type runCommandHandler struct {
+	service         *MCPService
+	kubeconfigPath  string
+	allowedPrefixes []string
+	blockedSubs     []string
+}
+
+// defaultAllowedPrefixes restricts which commands the LLM can execute.
+var defaultAllowedPrefixes = []string{
+	"kubectl", "helm", "argocd", "kind", "terraform", "aws",
+	"cat", "echo", "grep", "head", "tail", "wc", "ls", "find", "openssl",
+	"jq", "yq",
+}
+
+// defaultBlockedSubcommands blocks interactive or dangerous subcommands.
+var defaultBlockedSubcommands = []string{
+	"kubectl edit ",
+	"kubectl exec -it ",
+	"kubectl exec -ti ",
+	"kubectl exec --stdin --tty ",
+	"kubectl attach ",
+	"kubectl port-forward ",
+	"kubectl proxy",
+	"kubectl run --stdin ",
+	"kubectl run -it ",
+	"kubectl run -ti ",
+	"helm shell",
+	"terraform console",
+}
+
+// runCommandInputSchema is the JSON Schema for the run_command tool input.
+var runCommandInputSchema = map[string]any{
+	"type":     "object",
+	"required": []any{"command"},
+	"properties": map[string]any{
+		"command": map[string]any{
+			"type":        "string",
+			"description": "Shell command to execute (e.g., 'kubectl get pods -n bench')",
+		},
+	},
+}
+
+// Handle executes an infrastructure command with validation, auto-evidence for mutations,
+// and smart output formatting.
+func (h *runCommandHandler) Handle(
+	ctx context.Context,
+	_ *mcp.CallToolRequest,
+	input RunCommandInput,
+) (*mcp.CallToolResult, RunCommandOutput, error) {
+	output := h.execute(ctx, input)
+	result := &mcp.CallToolResult{}
+	if !output.OK {
+		result.IsError = true
+	}
+	return result, output, nil
+}
+
+func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) RunCommandOutput {
+	command := strings.TrimSpace(input.Command)
+	if command == "" {
+		return RunCommandOutput{OK: false, Error: "command is required"}
+	}
+
+	if err := validateRunCommand(command, h.allowedPrefixes, h.blockedSubs); err != nil {
+		return RunCommandOutput{OK: false, Error: err.Error()}
+	}
+
+	isMutation := proxy.IsMutation(command)
+
+	// Auto-prescribe for mutations.
+	var prescriptionID string
+	if isMutation && h.service != nil {
+		tool, operation, _ := proxy.ClassifyCommand(command)
+		prescribeOut := h.service.PrescribeCtx(ctx, PrescribeInput{
+			Actor:     InputActor{Type: "proxy", ID: "run_command", Origin: "mcp"},
+			Tool:      tool,
+			Operation: operation,
+		})
+		if prescribeOut.OK {
+			prescriptionID = prescribeOut.PrescriptionID
+		}
+	}
+
+	// Execute command.
+	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+	cmd.Env = os.Environ()
+	if h.kubeconfigPath != "" {
+		cmd.Env = append(cmd.Env, "KUBECONFIG="+h.kubeconfigPath)
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		exitCode = exitCodeFromError(err)
+	}
+
+	// Combine output.
+	rawOutput := stdout.String()
+	if stderr.Len() > 0 {
+		if rawOutput != "" {
+			rawOutput += "\n"
+		}
+		rawOutput += stderr.String()
+	}
+
+	// Auto-report for mutations.
+	if prescriptionID != "" && h.service != nil {
+		ec := exitCode
+		verdict := evidence.Verdict("success")
+		if exitCode != 0 {
+			verdict = evidence.Verdict("failure")
+		}
+		h.service.ReportCtx(ctx, ReportInput{
+			PrescriptionID: prescriptionID,
+			Verdict:        verdict,
+			ExitCode:       &ec,
+			Actor:          InputActor{Type: "proxy", ID: "run_command", Origin: "mcp"},
+		})
+	}
+
+	// Smart formatting.
+	formatted := FormatSmartOutput(command, rawOutput, exitCode)
+
+	return RunCommandOutput{
+		OK:       exitCode == 0,
+		Output:   formatted,
+		ExitCode: exitCode,
+		Mutation: isMutation,
+	}
+}
+
+// validateRunCommand checks that a command starts with an allowed prefix
+// and does not match any blocked interactive subcommand.
+func validateRunCommand(command string, allowed, blocked []string) error {
+	trimmed := strings.TrimSpace(command)
+
+	for _, b := range blocked {
+		if trimmed == strings.TrimSpace(b) || strings.HasPrefix(trimmed, b) {
+			return fmt.Errorf("command %q is blocked (interactive/dangerous)", truncateCmd(trimmed, 60))
+		}
+	}
+
+	for _, prefix := range allowed {
+		if trimmed == prefix || strings.HasPrefix(trimmed, prefix+" ") {
+			return nil
+		}
+	}
+	return fmt.Errorf("command %q not in allowlist", truncateCmd(trimmed, 50))
+}
+
+func exitCodeFromError(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
+}
+
+func truncateCmd(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
+// RegisterRunCommand registers the run_command tool on the given MCP server.
+// It is only registered when the server is not in evidence-only mode.
+func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath string) {
+	handler := &runCommandHandler{
+		service:         svc,
+		kubeconfigPath:  kubeconfigPath,
+		allowedPrefixes: defaultAllowedPrefixes,
+		blockedSubs:     defaultBlockedSubcommands,
+	}
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "run_command",
+		Title:       "Execute Infrastructure Command",
+		Description: "Execute kubectl, helm, terraform, or aws commands with automatic evidence recording for mutations. Returns token-efficient formatted output.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Run Command",
+			ReadOnlyHint:    false,
+			IdempotentHint:  false,
+			DestructiveHint: boolPtr(true),
+			OpenWorldHint:   boolPtr(true),
+		},
+		InputSchema: runCommandInputSchema,
+	}, handler.Handle)
+}
+
+// marshalRunCommandSchema returns the input schema as a map for use with mcp.AddTool.
+func marshalRunCommandSchema() (map[string]any, error) {
+	raw, err := json.Marshal(runCommandInputSchema)
+	if err != nil {
+		return nil, fmt.Errorf("marshal run_command schema: %w", err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		return nil, fmt.Errorf("unmarshal run_command schema: %w", err)
+	}
+	return schema, nil
+}
