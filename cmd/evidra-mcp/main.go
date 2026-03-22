@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	offlineFlag := fs.Bool("offline", false, "Force offline mode")
 	fallbackOfflineFlag := fs.Bool("fallback-offline", false, "Fall back to offline on API failure")
 	proxyFlag := fs.Bool("proxy", false, "Proxy mode: wrap an upstream MCP server and auto-record mutations")
+	transportFlag := fs.String("transport", "stdio", "Transport mode: stdio (default) or streamable-http")
+	portFlag := fs.String("port", "3001", "HTTP port when using streamable-http transport")
 	helpFlag := fs.Bool("help", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
@@ -124,10 +127,32 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}()
 
-	logger.Printf("evidra-mcp running (evidence: %s, env: %s)", evidencePath, environment)
+	logger.Printf("evidra-mcp running (evidence: %s, env: %s, transport: %s)", evidencePath, environment, *transportFlag)
 
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
-		fmt.Fprintf(stderr, "run mcp server: %v\n", err)
+	switch *transportFlag {
+	case "stdio":
+		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+			fmt.Fprintf(stderr, "run mcp server: %v\n", err)
+			return 1
+		}
+	case "streamable-http":
+		handler := mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
+			return server
+		}, nil)
+		httpMux := http.NewServeMux()
+		httpMux.Handle("/mcp", handler)
+		httpMux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok\n"))
+		})
+		addr := ":" + *portFlag
+		logger.Printf("evidra-mcp HTTP listening on %s", addr)
+		if err := http.ListenAndServe(addr, httpMux); err != nil {
+			fmt.Fprintf(stderr, "http listen: %v\n", err)
+			return 1
+		}
+	default:
+		fmt.Fprintf(stderr, "unsupported transport: %s (use stdio or streamable-http)\n", *transportFlag)
 		return 1
 	}
 	return 0
