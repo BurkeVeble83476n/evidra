@@ -110,9 +110,62 @@ Try: *"Apply this deployment to staging"* — the agent should call `prescribe_f
 
 ---
 
+## DevOps Server Mode (new)
+
+evidra-mcp can replace kubectl-mcp-server entirely. Instead of 253 tools
+and ~30,000 tokens of overhead, you get 5 tools and ~500 tokens:
+
+| Tool | Description |
+|---|---|
+| `run_command` | Execute kubectl, helm, terraform, aws with smart output |
+| `prescribe_smart` | Record intent (lightweight) |
+| `prescribe_full` | Record intent with artifact |
+| `report` | Record outcome |
+| `get_event` | Look up evidence |
+
+### Smart output
+
+`run_command` returns token-efficient summaries instead of raw JSON:
+
+```
+# Raw kubectl output (~2,000 tokens):
+{"apiVersion":"apps/v1","metadata":{"managedFields":[...],...},...}
+
+# Smart output (~80 tokens):
+deployment/web (bench): 0/2 ready | image: nginx:99.99 | Available=False
+```
+
+### Auto-evidence
+
+Mutations are automatically recorded — no skill prompt needed:
+
+```bash
+# Agent calls run_command("kubectl apply -f fix.yaml")
+# evidra-mcp automatically: prescribe → execute → report
+# Agent just sees the result
+```
+
+Read-only commands (`get`, `describe`, `logs`) pass through with no evidence overhead.
+
+### AgentGateway integration
+
+```yaml
+# agentgateway config.yaml — one server, everything included
+servers:
+  - name: evidra
+    url: http://evidra-mcp:3001/mcp
+    transport: streamable-http
+```
+
+No kubectl-mcp-server needed. No separate evidence server. One connection.
+
+---
+
 ## How It Works
 
-Evidra exposes four MCP tools:
+Evidra exposes five MCP tools:
+
+**`run_command`** — Execute infrastructure commands (kubectl, helm, terraform, aws) with token-efficient smart output. Mutations are auto-recorded as evidence. Command allowlist prevents dangerous operations.
 
 **`prescribe_full`** — Record intent BEFORE an infrastructure mutation when artifact bytes are available. It analyzes the artifact, returns a `prescription_id`, and supports native detector coverage plus artifact drift detection.
 
@@ -122,8 +175,9 @@ Evidra exposes four MCP tools:
 
 **`get_event`** — Retrieve a previous evidence record by event ID for debugging or audit.
 
-The agent reports voluntarily; Evidra observes, scores, and explains. It does
-not intercept commands, block execution, or enforce policy.
+When using `run_command`, evidence is recorded automatically. When using
+`prescribe_*` and `report` directly, the agent controls the evidence flow
+explicitly. Both approaches produce the same evidence chain.
 
 ### The workflow
 
