@@ -157,7 +157,7 @@ servers:
     transport: streamable-http
 ```
 
-No kubectl-mcp-server needed. No separate evidence server. One connection.
+One MCP connection for both infrastructure commands and evidence recording.
 
 ---
 
