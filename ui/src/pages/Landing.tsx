@@ -324,16 +324,16 @@ function Hero() {
       <Container className="relative">
         <div className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium text-accent bg-accent-subtle border border-border rounded-full px-4 py-1 mb-6 tracking-wide">
           <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block animate-pulse" />
-          Open Source &middot; Apache 2.0 &middot; Evidence Protocol for Infrastructure Automation
+          Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; 50x fewer tokens than kubectl-mcp-server
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
           Know what your agent intended.<br />Know what actually happened.
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          The prescribe/report protocol for agents, pipelines, and controllers.
+          One MCP tool replaces 253. Smart output cuts tokens by 50x. Every mutation recorded automatically.
         </p>
         <p className="text-[0.95rem] text-fg-body max-w-[620px] mx-auto mb-10 leading-relaxed">
-          Evidra records what your automation intended, decided, reconciled, and did &mdash; whether the actor is an AI agent, a CI job, or a GitOps controller.
+          evidra-mcp is a DevOps MCP server for AI agents &mdash; execute kubectl, helm, terraform, and aws with token-efficient output and built-in safety recording.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
@@ -345,11 +345,8 @@ function Hero() {
           <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             API Docs
           </a>
-          <a href="https://bench.evidra.cc" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
-            Benchmark Your Agent
-          </a>
           <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
-            Design Puzzles &amp; Certify Agents
+            Test Your Agent Skills
           </a>
         </div>
       </Container>
