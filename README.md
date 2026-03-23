@@ -4,7 +4,7 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Evidra  — Flight recorder and reliability scoring for infrastructure AI agents**
+**Evidra  — DevOps MCP server with role-based skills, flight recorder, and reliability scoring**
 
 Your AI agent fixes Kubernetes. Can you prove it?
 
@@ -57,7 +57,7 @@ Evidra is one platform with three operating surfaces:
 | Surface | What it does |
 |---|---|
 | `evidra` CLI | Wraps live commands, imports completed operations, computes scorecards |
-| `evidra-mcp` | Exposes the prescribe/report protocol to MCP-connected agents and runtimes |
+| `evidra-mcp` | DevOps MCP server with role-based skills, smart output, evidence recording, and reliability scoring |
 | Self-hosted API | Centralizes evidence across agents, pipelines, and controllers, and provides team-wide analytics |
 
 From the evidence chain, Evidra computes:
@@ -114,12 +114,20 @@ Security boundary: `evidra record` executes the wrapped local command directly. 
 
 ## For AI Agents (MCP)
 
-Evidra-mcp is a DevOps MCP server with built-in evidence recording and
-token-efficient output.
+Evidra-mcp is a DevOps MCP server with role-based skills, token-efficient output,
+and built-in evidence recording.
 
 ```bash
-evidra-mcp --evidence-dir ~/.evidra/evidence
+# Start with a role-specific skill (tested on 62 real infrastructure scenarios)
+evidra-mcp --role k8s-admin --evidence-dir ~/.evidra/evidence
+
+# Available roles: k8s-admin, security-ops, release-manager, platform-eng
 ```
+
+Each role loads a compact skill prompt (~300 tokens) that shifts agent behavior:
+diagnosis before fix, safety boundaries, domain-specific patterns. Skills are
+tested on real Kubernetes clusters via [infra-bench](https://lab.evidra.cc)
+and ship only after achieving Proficient+ certification grade.
 
 ### Lightweight tool set
 
@@ -231,22 +239,32 @@ References: [Self-hosted setup](docs/guides/self-hosted-setup.md) · [Argo CD Gi
 
 ## For Agent Benchmarking
 
-Evidra includes a benchmark intelligence layer for testing infrastructure AI agents against real Kubernetes scenarios.
+Evidra includes infra-bench — a benchmark harness for testing and certifying
+AI agent skills against real infrastructure.
 
 ```bash
-# Run a scenario and report to evidra
-infra-bench run --scenario kubernetes/broken-deployment \
-  --model gemini-2.5-flash --provider bifrost \
-  --evidra-url http://localhost:8080 --evidra-api-key your-key
+# Test the k8s-admin skill on CKA scenarios
+infra-bench certify --track cka --model sonnet --role k8s-admin --provider bifrost
+
+# Compare baseline vs skill
+infra-bench skill-delta --track cka --model sonnet \
+  --with-skill skills/k8s-admin.md
+
+# Run a single scenario
+infra-bench run --scenario terraform/state-drift \
+  --model gemini-2.5-flash --role platform-eng --provider bifrost
 ```
 
-The bench CLI runs scenarios on real Kind clusters and reports results to evidra. The dashboard at `/bench` shows:
+62 scenarios across Kubernetes, Helm, Argo CD, Terraform, and AWS. 8 exam-aligned
+tracks. 4 certification levels. Skills that pass with Proficient+ grade ship
+in evidra-mcp as role-based skills.
 
-- **Leaderboard** — model pass rates across 36 scenarios
-- **Run detail** — decision timeline showing how the agent diagnosed and fixed each problem
-- **Proxy vs Smart comparison** — bare infrastructure fix rate vs protocol-aware fix rate
+- **Skill testing** — prove a skill helps before shipping it
+- **Certification** — CKA/CKS-aligned tracks with grading (Novice → Expert)
+- **Role skills** — k8s-admin, security-ops, release-manager, platform-eng
 
-Bench repo: [evidra-infra-bench](https://github.com/vitas/evidra-infra-bench)
+Bench repo: [evidra-infra-bench](https://github.com/vitas/evidra-infra-bench) |
+Puzzle designer: [lab.evidra.cc](https://lab.evidra.cc)
 
 ## Supported Tools
 

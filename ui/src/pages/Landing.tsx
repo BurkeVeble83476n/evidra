@@ -324,13 +324,13 @@ function Hero() {
       <Container className="relative">
         <div className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium text-accent bg-accent-subtle border border-border rounded-full px-4 py-1 mb-6 tracking-wide">
           <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block animate-pulse" />
-          Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Evidence Protocol
+          Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Intelligence Layer
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
           Know what your agent intended.<br />Know what actually happened.
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          DevOps MCP server with smart output and built-in evidence recording. Every infrastructure mutation is recorded automatically.
+          DevOps MCP server with role-based skills, smart output, flight recorder, and reliability scoring. Two-in-one: infrastructure toolkit and intelligence layer.
         </p>
         <p className="text-[0.95rem] text-fg-body max-w-[620px] mx-auto mb-10 leading-relaxed">
           evidra-mcp executes kubectl, helm, terraform, and aws with token-efficient output. Use <a href="https://lab.evidra.cc" className="text-accent hover:text-accent-bright">infra-bench</a> to test which skills and tools actually improve your agent.
@@ -637,8 +637,8 @@ function Benchmark() {
         <div className="mt-8 flex items-center justify-between flex-wrap gap-4 bg-accent-subtle border border-border rounded-[10px] p-5 px-6">
           <div>
             <div className="font-mono text-[0.72rem] font-medium tracking-widest uppercase text-accent mb-1">Live Demo</div>
-            <h3 className="text-[0.92rem] font-semibold text-fg mb-1">Infra Bench &mdash; Agent Benchmark Harness</h3>
-            <p className="text-[0.83rem] text-fg-muted leading-relaxed">34 real Kubernetes failure scenarios. Run agents against crashloops, drift, RBAC issues, and safety tradeoffs. Browse results, compare models, and explore protocol compliance.</p>
+            <h3 className="text-[0.92rem] font-semibold text-fg mb-1">Infra Bench &mdash; Test &amp; Certify Agent Skills</h3>
+            <p className="text-[0.83rem] text-fg-muted leading-relaxed">62 real infrastructure scenarios across Kubernetes, Helm, Argo CD, Terraform, and AWS. Test role-based skills (k8s-admin, security-ops, platform-eng) against real clusters. Skills that pass ship in evidra-mcp.</p>
           </div>
           <a
             href="https://bench.evidra.cc"
