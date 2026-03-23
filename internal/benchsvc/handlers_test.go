@@ -41,6 +41,16 @@ type handlerRepo struct {
 	archiveCount int
 	archiveErr   error
 
+	// analytics
+	signals     *bench.SignalAggregation
+	signalsErr  error
+	regressions []bench.Regression
+	regressErr  error
+	insights    *bench.FailureInsights
+	insightsErr error
+	matrix      *bench.ModelMatrix
+	matrixErr   error
+
 	// capture
 	lastTenant string
 	lastFilter bench.RunFilters
@@ -92,6 +102,25 @@ func (r *handlerRepo) GetArtifact(_ context.Context, tenant, runID, artType stri
 }
 func (r *handlerRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
 	return nil, nil
+}
+func (r *handlerRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+	return r.matrix, r.matrixErr
+}
+func (r *handlerRepo) SignalSummary(_ context.Context, tenant string, f bench.RunFilters) (*bench.SignalAggregation, error) {
+	r.lastTenant = tenant
+	r.lastFilter = f
+	return r.signals, r.signalsErr
+}
+func (r *handlerRepo) Regressions(_ context.Context, tenant string) ([]bench.Regression, error) {
+	r.lastTenant = tenant
+	return r.regressions, r.regressErr
+}
+func (r *handlerRepo) FailureAnalysis(_ context.Context, tenant string, _ string) (*bench.FailureInsights, error) {
+	r.lastTenant = tenant
+	return r.insights, r.insightsErr
+}
+func (r *handlerRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
+	return 0, nil
 }
 func (r *handlerRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	return nil, fmt.Errorf("handlerRepo: no real tx")
@@ -601,6 +630,9 @@ type ingestRepo struct {
 	batchCount int
 }
 
+func (r *ingestRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
+	return 0, nil
+}
 func (r *ingestRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	// Reuse fakeTx from service_batch_test.go (same package).
 	// Supply enough "INSERT 0 1" tags so IngestRunBatch counts rows as inserted.
@@ -818,4 +850,240 @@ type compareModelsRepo struct {
 
 func (r *compareModelsRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
 	return r.scenarios, nil
+}
+func (r *compareModelsRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+	return nil, nil
+}
+func (r *compareModelsRepo) SignalSummary(_ context.Context, _ string, _ bench.RunFilters) (*bench.SignalAggregation, error) {
+	return nil, nil
+}
+func (r *compareModelsRepo) Regressions(_ context.Context, _ string) ([]bench.Regression, error) {
+	return nil, nil
+}
+func (r *compareModelsRepo) FailureAnalysis(_ context.Context, _ string, _ string) (*bench.FailureInsights, error) {
+	return nil, nil
+}
+func (r *compareModelsRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
+	return 0, nil
+}
+
+// ---------- Signals ----------
+
+func TestHandleSignals_ReturnsAggregation(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		signals: &bench.SignalAggregation{
+			TotalRuns:         10,
+			RunsWithScorecard: 8,
+			AvgScore:          75.5,
+			Signals: map[string]bench.SignalCount{
+				"artifact_drift": {Total: 5, RunCount: 3},
+			},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/signals?model=sonnet", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body bench.SignalAggregation
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.TotalRuns != 10 {
+		t.Fatalf("TotalRuns = %d, want 10", body.TotalRuns)
+	}
+	if body.RunsWithScorecard != 8 {
+		t.Fatalf("RunsWithScorecard = %d, want 8", body.RunsWithScorecard)
+	}
+	if repo.lastFilter.Model != "sonnet" {
+		t.Fatalf("filter.Model = %q, want sonnet", repo.lastFilter.Model)
+	}
+}
+
+// ---------- Regressions ----------
+
+func TestHandleRegressions_ReturnsArray(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		regressions: []bench.Regression{
+			{ScenarioID: "broken-deployment", Model: "sonnet", LatestRunID: "r1", Severity: "critical", PrevRate: 90},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/regressions", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body []bench.Regression
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body) != 1 {
+		t.Fatalf("len(regressions) = %d, want 1", len(body))
+	}
+	if body[0].Severity != "critical" {
+		t.Fatalf("severity = %q, want critical", body[0].Severity)
+	}
+}
+
+func TestHandleRegressions_EmptyReturnsEmptyArray(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/regressions", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if rec.Body.String() != "[]" && rec.Body.String() != "[]\n" {
+		t.Fatalf("body = %q, want empty array", rec.Body.String())
+	}
+}
+
+// ---------- Failure Analysis ----------
+
+func TestHandleFailureAnalysis_ReturnsInsights(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		insights: &bench.FailureInsights{
+			ScenarioID: "broken-deployment",
+			TotalRuns:  20,
+			FailedRuns: 8,
+			PassedRuns: 12,
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/insights?scenario=broken-deployment", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body bench.FailureInsights
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.ScenarioID != "broken-deployment" {
+		t.Fatalf("ScenarioID = %q, want broken-deployment", body.ScenarioID)
+	}
+	if body.TotalRuns != 20 {
+		t.Fatalf("TotalRuns = %d, want 20", body.TotalRuns)
+	}
+}
+
+func TestHandleFailureAnalysis_RequiresScenario(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/insights", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// ---------- Compare Models (multi-model) ----------
+
+func TestHandleCompareModels_AcceptsModelsParam(t *testing.T) {
+	t.Parallel()
+
+	matrixRepo := &matrixRepo{
+		matrix: &bench.ModelMatrix{
+			Models:    []string{"opus", "sonnet"},
+			Scenarios: []string{"broken-deployment"},
+			Cells: map[string]map[string]bench.ModelMatrixCell{
+				"broken-deployment": {
+					"sonnet": {Runs: 5, Passed: 4, PassRate: 80},
+					"opus":   {Runs: 3, Passed: 3, PassRate: 100},
+				},
+			},
+		},
+	}
+	svc := NewService(matrixRepo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("tenant-a"))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/compare/models?models=sonnet,opus&scenarios=broken-deployment", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body bench.ModelMatrix
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Models) != 2 {
+		t.Fatalf("len(Models) = %d, want 2", len(body.Models))
+	}
+	if len(body.Scenarios) != 1 {
+		t.Fatalf("len(Scenarios) = %d, want 1", len(body.Scenarios))
+	}
+}
+
+func TestHandleCompareModels_RejectsNoParams(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/compare/models", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+// matrixRepo is a fake that returns canned ModelMatrix data.
+type matrixRepo struct {
+	handlerRepo
+	matrix *bench.ModelMatrix
+}
+
+func (r *matrixRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+	return r.matrix, nil
+}
+func (r *matrixRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+	return nil, nil
+}
+func (r *matrixRepo) SignalSummary(_ context.Context, _ string, _ bench.RunFilters) (*bench.SignalAggregation, error) {
+	return nil, nil
+}
+func (r *matrixRepo) Regressions(_ context.Context, _ string) ([]bench.Regression, error) {
+	return nil, nil
+}
+func (r *matrixRepo) FailureAnalysis(_ context.Context, _ string, _ string) (*bench.FailureInsights, error) {
+	return nil, nil
+}
+func (r *matrixRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
+	return 0, nil
 }

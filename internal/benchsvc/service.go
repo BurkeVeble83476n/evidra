@@ -39,6 +39,11 @@ type Repository interface {
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
 	GetArtifact(ctx context.Context, tenantID string, runID, artifactType string) ([]byte, string, error)
 	CompareModels(ctx context.Context, tenantID, modelA, modelB, evidenceMode string) ([]ScenarioModelComparison, error)
+	ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string) (*bench.ModelMatrix, error)
+	SignalSummary(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.SignalAggregation, error)
+	Regressions(ctx context.Context, tenantID string) ([]bench.Regression, error)
+	FailureAnalysis(ctx context.Context, tenantID string, scenarioID string) (*bench.FailureInsights, error)
+	UpsertScenarios(ctx context.Context, scenarios []bench.ScenarioSummary) (int, error)
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
 
@@ -246,4 +251,29 @@ func (s *Service) Leaderboard(ctx context.Context, evidenceMode string) ([]bench
 // ListScenarios returns the global scenario catalog.
 func (s *Service) ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error) {
 	return s.repo.ListScenarios(ctx)
+}
+
+// UpsertScenarios inserts or updates scenario metadata.
+func (s *Service) UpsertScenarios(ctx context.Context, scenarios []bench.ScenarioSummary) (int, error) {
+	return s.repo.UpsertScenarios(ctx, scenarios)
+}
+
+// SignalSummary returns aggregated signal counts for a tenant.
+func (s *Service) SignalSummary(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.SignalAggregation, error) {
+	return s.repo.SignalSummary(ctx, tenantID, f)
+}
+
+// Regressions returns scenario/model pairs with detected regressions.
+func (s *Service) Regressions(ctx context.Context, tenantID string) ([]bench.Regression, error) {
+	return s.repo.Regressions(ctx, tenantID)
+}
+
+// FailureAnalysis returns failure patterns for a specific scenario.
+func (s *Service) FailureAnalysis(ctx context.Context, tenantID string, scenarioID string) (*bench.FailureInsights, error) {
+	return s.repo.FailureAnalysis(ctx, tenantID, scenarioID)
+}
+
+// ModelMatrix returns a multi-model comparison grid.
+func (s *Service) ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string) (*bench.ModelMatrix, error) {
+	return s.repo.ModelMatrix(ctx, tenantID, models, scenarios)
 }

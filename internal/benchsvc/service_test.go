@@ -53,6 +53,21 @@ func (f *fakeRepo) GetArtifact(_ context.Context, _, _, _ string) ([]byte, strin
 func (f *fakeRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
 	return nil, nil
 }
+func (f *fakeRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+	return nil, nil
+}
+func (f *fakeRepo) SignalSummary(_ context.Context, _ string, _ bench.RunFilters) (*bench.SignalAggregation, error) {
+	return nil, nil
+}
+func (f *fakeRepo) Regressions(_ context.Context, _ string) ([]bench.Regression, error) {
+	return nil, nil
+}
+func (f *fakeRepo) FailureAnalysis(_ context.Context, _ string, _ string) (*bench.FailureInsights, error) {
+	return nil, nil
+}
+func (f *fakeRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
+	return 0, nil
+}
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr

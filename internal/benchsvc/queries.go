@@ -280,6 +280,30 @@ func (s *PgStore) ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, e
 	return scenarios, rows.Err()
 }
 
+// UpsertScenarios inserts or updates scenario metadata in bench_scenarios.
+func (s *PgStore) UpsertScenarios(ctx context.Context, scenarios []bench.ScenarioSummary) (int, error) {
+	upserted := 0
+	for _, sc := range scenarios {
+		_, err := s.db.Exec(ctx,
+			`INSERT INTO bench_scenarios (id, category, title, description, tools, chaos, evidra_enabled, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			 ON CONFLICT (id) DO UPDATE SET
+			   category = EXCLUDED.category,
+			   title = EXCLUDED.title,
+			   description = EXCLUDED.description,
+			   tools = EXCLUDED.tools,
+			   chaos = EXCLUDED.chaos,
+			   evidra_enabled = EXCLUDED.evidra_enabled,
+			   updated_at = NOW()`,
+			sc.ID, sc.Category, sc.Title, sc.Description, sc.Tags, sc.Chaos, sc.Evidra)
+		if err != nil {
+			return upserted, fmt.Errorf("bench.UpsertScenarios(%s): %w", sc.ID, err)
+		}
+		upserted++
+	}
+	return upserted, nil
+}
+
 // StoreArtifact upserts an artifact for a given run.
 // If the artifact already exists, the data is replaced.
 func (s *PgStore) StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error {

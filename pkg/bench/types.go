@@ -80,10 +80,96 @@ type ScenarioStat struct {
 
 // ScenarioSummary holds metadata about a scenario for listing.
 type ScenarioSummary struct {
-	ID       string   `json:"id"`
-	Title    string   `json:"title"`
-	Category string   `json:"category"`
-	Tags     []string `json:"tags"`
-	Chaos    bool     `json:"chaos"`
-	Evidra   bool     `json:"evidra"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+	Chaos       bool     `json:"chaos"`
+	Evidra      bool     `json:"evidra"`
+}
+
+// SignalAggregation holds aggregated signal counts across runs.
+type SignalAggregation struct {
+	TotalRuns         int                    `json:"total_runs"`
+	RunsWithScorecard int                    `json:"runs_with_scorecard"`
+	Signals           map[string]SignalCount `json:"signals"`
+	AvgScore          float64                `json:"avg_score"`
+}
+
+// SignalCount holds detection stats for a single signal type.
+type SignalCount struct {
+	Total    int `json:"total"`     // total detections
+	RunCount int `json:"run_count"` // runs where detected > 0
+}
+
+// Regression describes a scenario/model pair where the latest run failed
+// but previous runs had a positive pass rate.
+type Regression struct {
+	ScenarioID   string  `json:"scenario_id"`
+	Model        string  `json:"model"`
+	LatestRunID  string  `json:"latest_run_id"`
+	LatestPassed bool    `json:"latest_passed"`
+	PrevPassed   int     `json:"prev_passed"`
+	PrevTotal    int     `json:"prev_total"`
+	PrevRate     float64 `json:"prev_rate"`
+	Severity     string  `json:"severity"` // critical, warning
+}
+
+// FailureInsights holds analyzed failure patterns for a scenario.
+type FailureInsights struct {
+	ScenarioID      string             `json:"scenario_id"`
+	TotalRuns       int                `json:"total_runs"`
+	FailedRuns      int                `json:"failed_runs"`
+	PassedRuns      int                `json:"passed_runs"`
+	CheckFailures   []CheckFailureStat `json:"check_failures"`
+	ModelBreakdown  []ModelFailureStat `json:"model_breakdown"`
+	BehaviorMetrics BehaviorComparison `json:"behavior_metrics"`
+}
+
+// CheckFailureStat shows how often a specific check fails.
+type CheckFailureStat struct {
+	CheckName string  `json:"check_name"`
+	CheckType string  `json:"check_type"`
+	FailCount int     `json:"fail_count"`
+	FailRate  float64 `json:"fail_rate"` // percentage of failed runs where this check failed
+	Message   string  `json:"message,omitempty"`
+}
+
+// ModelFailureStat shows pass/fail per model for a scenario.
+type ModelFailureStat struct {
+	Model  string  `json:"model"`
+	Runs   int     `json:"runs"`
+	Passed int     `json:"passed"`
+	Failed int     `json:"failed"`
+	Rate   float64 `json:"rate"`
+}
+
+// BehaviorComparison shows metric differences between pass and fail runs.
+type BehaviorComparison struct {
+	PassAvgTurns    float64 `json:"pass_avg_turns"`
+	FailAvgTurns    float64 `json:"fail_avg_turns"`
+	PassAvgDuration float64 `json:"pass_avg_duration"`
+	FailAvgDuration float64 `json:"fail_avg_duration"`
+	PassAvgTokens   float64 `json:"pass_avg_tokens"`
+	FailAvgTokens   float64 `json:"fail_avg_tokens"`
+	PassAvgCost     float64 `json:"pass_avg_cost"`
+	FailAvgCost     float64 `json:"fail_avg_cost"`
+}
+
+// ModelMatrix holds a comparison grid across models and scenarios.
+type ModelMatrix struct {
+	Models    []string                              `json:"models"`
+	Scenarios []string                              `json:"scenarios"`
+	Cells     map[string]map[string]ModelMatrixCell `json:"cells"` // [scenario][model]
+}
+
+// ModelMatrixCell holds aggregate metrics for one scenario/model pair.
+type ModelMatrixCell struct {
+	Runs        int     `json:"runs"`
+	Passed      int     `json:"passed"`
+	PassRate    float64 `json:"pass_rate"`
+	AvgCost     float64 `json:"avg_cost"`
+	AvgTokens   int     `json:"avg_tokens"`
+	AvgDuration float64 `json:"avg_duration"`
 }

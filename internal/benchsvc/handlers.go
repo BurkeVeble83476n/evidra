@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,6 +26,7 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	// Authenticated — ingest.
 	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(svc))))
 	mux.Handle("POST /v1/bench/runs/batch", authMw(http.HandlerFunc(handleIngestBatch(svc))))
+	mux.Handle("POST /v1/bench/scenarios/sync", authMw(http.HandlerFunc(handleSyncScenarios(svc))))
 
 	// Authenticated — delete / archive.
 	mux.Handle("DELETE /v1/bench/runs/{id}", authMw(http.HandlerFunc(handleDeleteRun(svc))))
@@ -41,6 +43,9 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(svc))))
 	mux.Handle("GET /v1/bench/compare/runs", authMw(http.HandlerFunc(handleCompareRuns(svc))))
 	mux.Handle("GET /v1/bench/compare/models", authMw(http.HandlerFunc(handleCompareModels(svc))))
+	mux.Handle("GET /v1/bench/signals", authMw(http.HandlerFunc(handleSignals(svc))))
+	mux.Handle("GET /v1/bench/regressions", authMw(http.HandlerFunc(handleRegressions(svc))))
+	mux.Handle("GET /v1/bench/insights", authMw(http.HandlerFunc(handleFailureAnalysis(svc))))
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
@@ -326,6 +331,32 @@ func handleListScenarios(svc *Service) http.HandlerFunc {
 	}
 }
 
+func handleSyncScenarios(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Scenarios []bench.ScenarioSummary `json:"scenarios"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if len(req.Scenarios) == 0 {
+			apiutil.WriteError(w, http.StatusBadRequest, "scenarios array is required")
+			return
+		}
+		upserted, err := svc.UpsertScenarios(r.Context(), req.Scenarios)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
+			"ok":       true,
+			"upserted": upserted,
+			"total":    len(req.Scenarios),
+		})
+	}
+}
+
 func handleCompareRuns(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantID := auth.TenantID(r.Context())
@@ -347,19 +378,93 @@ func handleCompareRuns(svc *Service) http.HandlerFunc {
 func handleCompareModels(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantID := auth.TenantID(r.Context())
-		modelA := r.URL.Query().Get("a")
-		modelB := r.URL.Query().Get("b")
-		if modelA == "" || modelB == "" {
-			apiutil.WriteError(w, http.StatusBadRequest, "query params 'a' and 'b' (model names) are required")
+		q := r.URL.Query()
+
+		// Support both ?models=X,Y,Z (multi-model matrix) and legacy ?a=X&b=Y (pairwise).
+		modelsStr := q.Get("models")
+		if modelsStr != "" {
+			models := strings.Split(modelsStr, ",")
+			var scenarios []string
+			if scenariosStr := q.Get("scenarios"); scenariosStr != "" {
+				scenarios = strings.Split(scenariosStr, ",")
+			}
+			matrix, err := svc.ModelMatrix(r.Context(), tenantID, models, scenarios)
+			if err != nil {
+				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			apiutil.WriteJSON(w, http.StatusOK, matrix)
 			return
 		}
-		mode := r.URL.Query().Get("evidence_mode")
+
+		// Legacy pairwise comparison.
+		modelA := q.Get("a")
+		modelB := q.Get("b")
+		if modelA == "" || modelB == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "query param 'models' (comma-separated) or 'a' and 'b' are required")
+			return
+		}
+		mode := q.Get("evidence_mode")
 		result, err := svc.CompareModels(r.Context(), tenantID, modelA, modelB, mode)
 		if err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		apiutil.WriteJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleSignals(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		q := r.URL.Query()
+		f := bench.RunFilters{
+			ScenarioID:   q.Get("scenario"),
+			Model:        q.Get("model"),
+			Provider:     q.Get("provider"),
+			EvidenceMode: q.Get("evidence_mode"),
+			Since:        parseSince(q.Get("since")),
+		}
+
+		agg, err := svc.SignalSummary(r.Context(), tenantID, f)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, agg)
+	}
+}
+
+func handleRegressions(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		regs, err := svc.Regressions(r.Context(), tenantID)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if regs == nil {
+			regs = []bench.Regression{}
+		}
+		apiutil.WriteJSON(w, http.StatusOK, regs)
+	}
+}
+
+func handleFailureAnalysis(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		scenario := r.URL.Query().Get("scenario")
+		if scenario == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "query param 'scenario' is required")
+			return
+		}
+
+		insights, err := svc.FailureAnalysis(r.Context(), tenantID, scenario)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		apiutil.WriteJSON(w, http.StatusOK, insights)
 	}
 }
 
