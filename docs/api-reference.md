@@ -428,24 +428,107 @@ Response:
 
 #### GET /v1/bench/compare/models
 
-Compare two models across all shared scenarios. Single SQL query.
+Compare models across scenarios. Two modes:
 
-Query params: `a` (model name), `b` (model name) — both required. `evidence_mode` (default: proxy).
+**Pairwise:** `?a=claude-sonnet-4&b=gpt-5.2` — compare two models.
+
+**Matrix:** `?models=claude-sonnet-4,gpt-5.2,gemini-2.5-flash&scenarios=broken-deployment,crashloop-backoff` — multi-model comparison grid. `scenarios` is optional (all if omitted).
+
+Matrix response:
+```json
+{
+  "models": ["claude-sonnet-4", "gpt-5.2"],
+  "scenarios": ["broken-deployment", "crashloop-backoff"],
+  "cells": {
+    "broken-deployment": {
+      "claude-sonnet-4": { "runs": 5, "passed": 5, "pass_rate": 100, "avg_cost": 0.03, "avg_tokens": 1200, "avg_duration": 45.2 },
+      "gpt-5.2": { "runs": 3, "passed": 3, "pass_rate": 100, "avg_cost": 0.02, "avg_tokens": 900, "avg_duration": 32.1 }
+    }
+  }
+}
+```
+
+#### GET /v1/bench/signals
+
+Aggregated signal counts across runs. Parses scorecard artifacts.
+
+Query params: `evidence_mode` (default: proxy), `since` (RFC3339).
 
 Response:
 ```json
 {
-  "model_a": "claude-sonnet-4",
-  "model_b": "gpt-5.2",
-  "scenarios": [
-    { "scenario_id": "broken-deployment", "a_pass_rate": 100, "b_pass_rate": 100, "a_avg_duration": 72, "b_avg_duration": 36 }
+  "total_runs": 825,
+  "runs_with_scorecard": 340,
+  "signals": {
+    "protocol_violation": { "total": 12, "run_count": 8 },
+    "retry_loop": { "total": 5, "run_count": 3 }
+  },
+  "avg_score": 87.5
+}
+```
+
+#### GET /v1/bench/regressions
+
+Detects scenario/model pairs where the latest run failed but previous runs passed.
+
+Response:
+```json
+[
+  {
+    "scenario_id": "crashloop-backoff",
+    "model": "gpt-4o",
+    "latest_run_id": "20260323-...",
+    "latest_passed": false,
+    "prev_passed": 8,
+    "prev_total": 10,
+    "prev_rate": 80.0,
+    "severity": "critical"
+  }
+]
+```
+
+#### GET /v1/bench/insights
+
+Failure analysis for a specific scenario. Requires `?scenario=<id>`.
+
+Response:
+```json
+{
+  "scenario_id": "network-policy-fix",
+  "total_runs": 20,
+  "failed_runs": 8,
+  "passed_runs": 12,
+  "check_failures": [
+    { "check_name": "service-reachable", "check_type": "command-succeeds", "fail_count": 8, "fail_rate": 100 }
   ],
-  "summary": {
-    "a_overall_pass_rate": 97.5,
-    "b_overall_pass_rate": 100,
-    "shared_scenarios": 32
+  "model_breakdown": [
+    { "model": "gpt-4o", "runs": 5, "passed": 2, "failed": 3, "rate": 40.0 }
+  ],
+  "behavior_metrics": {
+    "pass_avg_turns": 8.2,
+    "fail_avg_turns": 14.5,
+    "pass_avg_duration": 35.1,
+    "fail_avg_duration": 62.3
   }
 }
+```
+
+#### POST /v1/bench/scenarios/sync
+
+Upsert scenario metadata. Used by `infra-bench scenario push`.
+
+Request:
+```json
+{
+  "scenarios": [
+    { "id": "broken-deployment", "title": "Fix a broken deployment", "category": "kubernetes", "tags": ["deployment", "image"], "chaos": false, "evidra": true }
+  ]
+}
+```
+
+Response:
+```json
+{ "ok": true, "upserted": 62, "total": 62 }
 ```
 
 ---

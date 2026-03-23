@@ -4,8 +4,23 @@
 
 ## v0.5.6 — 2026-03-23
 
+- Fix nil tags in `UpsertScenarios` causing NOT NULL constraint violation on `bench_scenarios.tools`
+
 ## v0.5.5 — 2026-03-23
 
+### Bench Intelligence Endpoints
+- `GET /v1/bench/signals` — aggregated signal counts (protocol_violation, retry_loop, blast_radius) from run scorecards
+- `GET /v1/bench/regressions` — detects scenario/model pairs where the latest run failed but previous runs passed
+- `GET /v1/bench/insights?scenario=X` — failure analysis with check failure stats, model breakdown, behavior metrics (pass vs fail avg turns/tokens/cost)
+- `GET /v1/bench/compare/models` — fixed to accept `?models=X,Y,Z&scenarios=A,B` for multi-model matrix comparison (in addition to legacy `?a=X&b=Y` pairwise)
+- `POST /v1/bench/scenarios/sync` — upsert scenario metadata from bench CLI
+
+### Types
+- Added: `SignalAggregation`, `SignalCount`, `Regression`, `FailureInsights`, `CheckFailureStat`, `ModelFailureStat`, `BehaviorComparison`, `ModelMatrix`, `ModelMatrixCell`
+- Added `Description` field to `ScenarioSummary`
+
+### Migration
+- `009_bench_scenarios_track_level.up.sql` — adds `track` and `level` columns to `bench_scenarios`
 
 ### MCP Modes And Ingest
 - Split the MCP lifecycle surface into `prescribe_full` and `prescribe_smart`, with clearer public mode wording around Full Prescribe, Smart Prescribe, and Proxy Observed
