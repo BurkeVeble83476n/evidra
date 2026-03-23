@@ -3,11 +3,11 @@
   "name": "io.github.vitas/evidra",
   "title": "Evidra",
   "description": "DevOps MCP server with role-based skills, flight recorder, and reliability scoring",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/vitas/evidra-mcp:0.5.5",
+      "identifier": "ghcr.io/vitas/evidra-mcp:0.5.6",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
