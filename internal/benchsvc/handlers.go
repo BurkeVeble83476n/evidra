@@ -21,7 +21,9 @@ import (
 func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) http.Handler) {
 	// Public — no auth.
 	mux.HandleFunc("GET /v1/bench/leaderboard", handleLeaderboard(svc))
-	mux.HandleFunc("GET /v1/bench/scenarios", handleListScenarios(svc))
+
+	// Authenticated — scenarios (metadata is IP).
+	mux.Handle("GET /v1/bench/scenarios", authMw(http.HandlerFunc(handleListScenarios(svc))))
 
 	// Authenticated — ingest.
 	mux.Handle("POST /v1/bench/runs", authMw(http.HandlerFunc(handleIngestRun(svc))))
