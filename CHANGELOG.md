@@ -4,13 +4,6 @@
 
 ## v0.5.5 — 2026-03-23
 
-## v0.5.2 — 2026-03-21
-
-## v0.5.1 — 2026-03-20
-
-## v0.5.0 — 2026-03-20
-
-## v0.4.12 — 2026-03-19
 
 ### MCP Modes And Ingest
 - Split the MCP lifecycle surface into `prescribe_full` and `prescribe_smart`, with clearer public mode wording around Full Prescribe, Smart Prescribe, and Proxy Observed

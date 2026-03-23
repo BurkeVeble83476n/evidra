@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.vitas/evidra",
   "title": "Evidra",
-  "description": "Evidra — Flight recorder for AI infrastructure agents",
+  "description": "DevOps MCP server with role-based skills, flight recorder, and reliability scoring",
   "version": "0.5.5",
   "packages": [
     {

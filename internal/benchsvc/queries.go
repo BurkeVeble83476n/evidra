@@ -284,6 +284,10 @@ func (s *PgStore) ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, e
 func (s *PgStore) UpsertScenarios(ctx context.Context, scenarios []bench.ScenarioSummary) (int, error) {
 	upserted := 0
 	for _, sc := range scenarios {
+		tags := sc.Tags
+		if tags == nil {
+			tags = []string{}
+		}
 		_, err := s.db.Exec(ctx,
 			`INSERT INTO bench_scenarios (id, category, title, description, tools, chaos, evidra_enabled, updated_at)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -295,7 +299,7 @@ func (s *PgStore) UpsertScenarios(ctx context.Context, scenarios []bench.Scenari
 			   chaos = EXCLUDED.chaos,
 			   evidra_enabled = EXCLUDED.evidra_enabled,
 			   updated_at = NOW()`,
-			sc.ID, sc.Category, sc.Title, sc.Description, sc.Tags, sc.Chaos, sc.Evidra)
+			sc.ID, sc.Category, sc.Title, sc.Description, tags, sc.Chaos, sc.Evidra)
 		if err != nil {
 			return upserted, fmt.Errorf("bench.UpsertScenarios(%s): %w", sc.ID, err)
 		}
