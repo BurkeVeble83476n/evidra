@@ -54,6 +54,24 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_SMART.md"),
 		active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
 	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "mcp.prompt_prescribe_smart",
+		template:  "templates/mcp/prompt_prescribe_smart.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcp", "prompt_prescribe_smart.md"),
+		active:    filepath.Join("prompts", "mcp", "prompt_prescribe_smart.md"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "mcp.prompt_prescribe_full",
+		template:  "templates/mcp/prompt_prescribe_full.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcp", "prompt_prescribe_full.md"),
+		active:    filepath.Join("prompts", "mcp", "prompt_prescribe_full.md"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "mcp.prompt_diagnosis",
+		template:  "templates/mcp/prompt_diagnosis.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcp", "prompt_diagnosis.md"),
+		active:    filepath.Join("prompts", "mcp", "prompt_diagnosis.md"),
+	})
 
 	data := renderData{
 		ContractVersion: bundle.Contract.Version,

@@ -19,28 +19,30 @@ type LeaderboardEntry struct {
 
 // RunRecord represents a single benchmark run stored in bench_runs.
 type RunRecord struct {
-	ID               string    `json:"id"`
-	TenantID         string    `json:"tenant_id"`
-	ScenarioID       string    `json:"scenario_id"`
-	Model            string    `json:"model"`
-	Provider         string    `json:"provider"`
-	Adapter          string    `json:"adapter"`
-	EvidenceMode     string    `json:"evidence_mode"` // direct, proxy, smart, or none
-	ToolServer       string    `json:"tool_server"`   // MCP server used (empty = baseline/direct exec)
-	Passed           bool      `json:"passed"`
-	Duration         float64   `json:"duration_seconds"`
-	ExitCode         int       `json:"exit_code"`
-	Turns            int       `json:"turns"`
-	MemoryWindow     int       `json:"memory_window"`
-	PromptTokens     int       `json:"prompt_tokens"`
-	CompletionTokens int       `json:"completion_tokens"`
-	EstimatedCost    float64   `json:"estimated_cost_usd"`
-	ChecksPassed     int       `json:"checks_passed"`
-	ChecksTotal      int       `json:"checks_total"`
-	ChecksJSON       string    `json:"checks_json,omitempty"`
-	MetadataJSON     string    `json:"metadata_json,omitempty"`
-	ArtifactDir      string    `json:"artifact_dir,omitempty"` // local filesystem path (bench runner only)
-	CreatedAt        time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	TenantID          string    `json:"tenant_id"`
+	ScenarioID        string    `json:"scenario_id"`
+	Model             string    `json:"model"`
+	Provider          string    `json:"provider"`
+	Adapter           string    `json:"adapter"`
+	EvidenceMode      string    `json:"evidence_mode"`       // direct, proxy, smart, or none
+	ToolServer        string    `json:"tool_server"`         // MCP server used (empty = baseline/direct exec)
+	ToolServerVersion string    `json:"tool_server_version"` // version of MCP server binary
+	ScenarioVersion   string    `json:"scenario_version"`    // version/hash of scenario definition
+	Passed            bool      `json:"passed"`
+	Duration          float64   `json:"duration_seconds"`
+	ExitCode          int       `json:"exit_code"`
+	Turns             int       `json:"turns"`
+	MemoryWindow      int       `json:"memory_window"`
+	PromptTokens      int       `json:"prompt_tokens"`
+	CompletionTokens  int       `json:"completion_tokens"`
+	EstimatedCost     float64   `json:"estimated_cost_usd"`
+	ChecksPassed      int       `json:"checks_passed"`
+	ChecksTotal       int       `json:"checks_total"`
+	ChecksJSON        string    `json:"checks_json,omitempty"`
+	MetadataJSON      string    `json:"metadata_json,omitempty"`
+	ArtifactDir       string    `json:"artifact_dir,omitempty"` // local filesystem path (bench runner only)
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 // RunFilters specifies filters for listing runs.

@@ -1,4 +1,4 @@
-<!-- contract: v1.2.0 -->
+<!-- contract: {{ .ContractVersion }} -->
 
 # Evidra Smart Prescribe Protocol
 
@@ -13,24 +13,23 @@ Read-only operations (get, describe, logs, plan, show) skip the protocol.
 **Diagnose first.** Use read-only commands to understand the problem before prescribing any mutation. Only call prescribe when you have identified the root cause and know what fix to apply.
 
 ## Rules
-
-- Do not execute mutate commands until a prescribe tool returns ok=true with prescription_id.
-- Every prescribe must have exactly one report.
-- Always include actor.skill_version (set to this contract version).
+{{ range .Contract.Invariants }}
+- {{ . }}
+{{- end }}
 
 ## Prescribe Smart
 
 Call before every kubectl apply/delete/patch, helm upgrade/install, terraform apply/destroy.
 
-```json
+{{ "```json" }}
 {
   "tool": "kubectl",
   "operation": "apply",
   "resource": "deployment/web",
   "namespace": "default",
-  "actor": {"type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "v1.2.0"}
+  "actor": {"type": "agent", "id": "your-agent-id", "origin": "mcp-stdio", "skill_version": "{{ .ContractVersion }}"}
 }
-```
+{{ "```" }}
 
 Required: tool, operation, resource, actor (type, id, origin).
 
@@ -38,13 +37,13 @@ Required: tool, operation, resource, actor (type, id, origin).
 
 Call after the command completes:
 
-```json
+{{ "```json" }}
 {
   "prescription_id": "<from prescribe>",
   "verdict": "success",
   "exit_code": 0
 }
-```
+{{ "```" }}
 
 Verdicts: success (exit 0), failure (non-zero exit), declined (chose not to execute).
 

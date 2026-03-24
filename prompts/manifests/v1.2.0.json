@@ -1,0 +1,32 @@
+{
+  "contract_version": "v1.2.0",
+  "generated_at": "2026-03-24T11:39:11Z",
+  "files": {
+    "prompts/experiments/runtime/agent_contract_v1.md": "sha256:496d4108e38a969c399ad6602cb4d9cece2376bbbdbfbbcfa045d243bd0404ea",
+    "prompts/experiments/runtime/system_instructions.txt": "sha256:5a4586b205c2c5ce0bc5e70bc6305bf97455536c8eb044b17b3d6d90b771c005",
+    "prompts/generated/v1.2.0/experiments/runtime/agent_contract_v1.md": "sha256:496d4108e38a969c399ad6602cb4d9cece2376bbbdbfbbcfa045d243bd0404ea",
+    "prompts/generated/v1.2.0/experiments/runtime/system_instructions.txt": "sha256:5a4586b205c2c5ce0bc5e70bc6305bf97455536c8eb044b17b3d6d90b771c005",
+    "prompts/generated/v1.2.0/mcp/prompt_diagnosis.md": "sha256:362635cb26bb613cfc356366d315eeb829441b633cdc1521b47bf8b954eb4cee",
+    "prompts/generated/v1.2.0/mcp/prompt_prescribe_full.md": "sha256:6978a08bcdfae361b66204e6fbf09f78f41b0533177da51c831437c6a2b67504",
+    "prompts/generated/v1.2.0/mcp/prompt_prescribe_smart.md": "sha256:eca851c21707ace7aa9d1681a2318463f228dfc418eaf06f51e932b2558d9b5d",
+    "prompts/generated/v1.2.0/mcpserver/initialize/instructions.txt": "sha256:db79fb533eb0cce13b23af5cf38a6c4e263bf07eb773e05c395949d5b5152a9c",
+    "prompts/generated/v1.2.0/mcpserver/resources/content/agent_contract_v1.md": "sha256:317a0071ac5da52dc6bd354e8368b6933d259c64b5c1006af36adf92c032ee1d",
+    "prompts/generated/v1.2.0/mcpserver/tools/get_event_description.txt": "sha256:93177c85affeb32be01dec2c7aefd39609363be44321b38025b9e2145608e38a",
+    "prompts/generated/v1.2.0/mcpserver/tools/prescribe_full_description.txt": "sha256:1fe7fdf03557ea9fbed37451980c421e885e159f728a1137529703665eabd7e6",
+    "prompts/generated/v1.2.0/mcpserver/tools/prescribe_smart_description.txt": "sha256:fda01466e5c0b93d8e839089de696e8754ad2c1dd5f73620abf6cf2a689e43da",
+    "prompts/generated/v1.2.0/mcpserver/tools/report_description.txt": "sha256:16c52123617982c6ea7ff420808b85ebfe9f37dcfc65b759514a48a1e0209f4b",
+    "prompts/generated/v1.2.0/skill/SKILL.md": "sha256:b59ca11fbe118b16096486d9559348115fc56b4bd257f47bc85bf0a7fb9cb9d4",
+    "prompts/generated/v1.2.0/skill/SKILL_SMART.md": "sha256:6bb74a1055b2a703b9740e165800fb71a59cb8a4bb7e666219db8cde5f45a732",
+    "prompts/mcp/prompt_diagnosis.md": "sha256:362635cb26bb613cfc356366d315eeb829441b633cdc1521b47bf8b954eb4cee",
+    "prompts/mcp/prompt_prescribe_full.md": "sha256:6978a08bcdfae361b66204e6fbf09f78f41b0533177da51c831437c6a2b67504",
+    "prompts/mcp/prompt_prescribe_smart.md": "sha256:eca851c21707ace7aa9d1681a2318463f228dfc418eaf06f51e932b2558d9b5d",
+    "prompts/mcpserver/initialize/instructions.txt": "sha256:db79fb533eb0cce13b23af5cf38a6c4e263bf07eb773e05c395949d5b5152a9c",
+    "prompts/mcpserver/resources/content/agent_contract_v1.md": "sha256:317a0071ac5da52dc6bd354e8368b6933d259c64b5c1006af36adf92c032ee1d",
+    "prompts/mcpserver/tools/get_event_description.txt": "sha256:93177c85affeb32be01dec2c7aefd39609363be44321b38025b9e2145608e38a",
+    "prompts/mcpserver/tools/prescribe_full_description.txt": "sha256:1fe7fdf03557ea9fbed37451980c421e885e159f728a1137529703665eabd7e6",
+    "prompts/mcpserver/tools/prescribe_smart_description.txt": "sha256:fda01466e5c0b93d8e839089de696e8754ad2c1dd5f73620abf6cf2a689e43da",
+    "prompts/mcpserver/tools/report_description.txt": "sha256:16c52123617982c6ea7ff420808b85ebfe9f37dcfc65b759514a48a1e0209f4b",
+    "prompts/skill/SKILL.md": "sha256:b59ca11fbe118b16096486d9559348115fc56b4bd257f47bc85bf0a7fb9cb9d4",
+    "prompts/skill/SKILL_SMART.md": "sha256:6bb74a1055b2a703b9740e165800fb71a59cb8a4bb7e666219db8cde5f45a732"
+  }
+}
