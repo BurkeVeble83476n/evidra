@@ -12,12 +12,20 @@ type entryAPIResponse struct {
 	Type      string    `json:"type"`
 	Tool      string    `json:"tool,omitempty"`
 	Operation string    `json:"operation,omitempty"`
+	Resource  string    `json:"resource,omitempty"`
 	Scope     string    `json:"scope,omitempty"`
 	RiskLevel string    `json:"risk_level,omitempty"`
 	Actor     string    `json:"actor,omitempty"`
 	Verdict   string    `json:"verdict,omitempty"`
 	ExitCode  *int      `json:"exit_code,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// resourceID mirrors canon.ResourceID for JSON extraction.
+type resourceID struct {
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // payloadFields captures evidence fields that may appear at different
@@ -28,10 +36,11 @@ type payloadFields struct {
 	EffectiveRisk   string `json:"effective_risk"`
 	RiskLevel       string `json:"risk_level"`
 	CanonicalAction struct {
-		Tool           string `json:"tool"`
-		Operation      string `json:"operation"`
-		OperationClass string `json:"operation_class"`
-		ScopeClass     string `json:"scope_class"`
+		Tool             string       `json:"tool"`
+		Operation        string       `json:"operation"`
+		OperationClass   string       `json:"operation_class"`
+		ScopeClass       string       `json:"scope_class"`
+		ResourceIdentity []resourceID `json:"resource_identity"`
 	} `json:"canonical_action"`
 	Verdict  string `json:"verdict"`
 	ExitCode *int   `json:"exit_code"`
@@ -111,6 +120,23 @@ func toEntryAPIResponse(e store.StoredEntry) entryAPIResponse {
 
 	if resp.Tool == "" {
 		resp.Tool = envelope.ScopeDimensions["tool"]
+	}
+
+	// Build resource string from resource_identity.
+	ids := p.CanonicalAction.ResourceIdentity
+	if len(ids) == 0 {
+		ids = flat.CanonicalAction.ResourceIdentity
+	}
+	if len(ids) > 0 {
+		r := ids[0]
+		if r.Kind != "" && r.Name != "" {
+			resp.Resource = r.Kind + "/" + r.Name
+			if r.Namespace != "" {
+				resp.Resource += " (" + r.Namespace + ")"
+			}
+		} else if r.Name != "" {
+			resp.Resource = r.Name
+		}
 	}
 
 	return resp

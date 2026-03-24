@@ -7,6 +7,7 @@ interface EvidenceEntry {
   type: string;
   tool: string;
   operation: string;
+  resource: string;
   scope: string;
   risk_level: string;
   actor: string;
@@ -239,12 +240,11 @@ export function Evidence() {
               <tr className="border-b border-bg-alt text-left text-fg-muted">
                 <th className="py-2 px-3">Time</th>
                 <th className="py-2 px-3">Type</th>
-                <th className="py-2 px-3">Tool</th>
-                <th className="py-2 px-3">Operation</th>
+                <th className="py-2 px-3">Tool / Operation</th>
+                <th className="py-2 px-3">Resource</th>
                 <th className="py-2 px-3">Risk</th>
                 <th className="py-2 px-3">Verdict</th>
                 <th className="py-2 px-3">Actor</th>
-                <th className="py-2 px-3 text-right">ID</th>
               </tr>
             </thead>
             <tbody>
@@ -258,14 +258,13 @@ export function Evidence() {
                     <span className="font-mono text-xs">{formatTime(e.created_at)}</span>
                   </td>
                   <td className="py-2 px-3">{typeBadge(e.type)}</td>
-                  <td className="py-2 px-3 font-mono text-xs">{e.tool || "—"}</td>
-                  <td className="py-2 px-3 text-xs">{e.operation || "—"}</td>
+                  <td className="py-2 px-3 font-mono text-xs">
+                    {e.tool || "—"}{e.operation && e.operation !== "tools/call" ? ` ${e.operation}` : ""}
+                  </td>
+                  <td className="py-2 px-3 font-mono text-xs text-fg-muted">{e.resource || "—"}</td>
                   <td className="py-2 px-3">{riskBadge(e.risk_level)}</td>
                   <td className="py-2 px-3">{verdictBadge(e.verdict)}</td>
                   <td className="py-2 px-3 text-xs text-fg-muted">{e.actor || "—"}</td>
-                  <td className="py-2 px-3 text-right">
-                    <span className="font-mono text-xs text-fg-muted">{e.id.slice(-8)}</span>
-                  </td>
                 </tr>
               ))}
             </tbody>
