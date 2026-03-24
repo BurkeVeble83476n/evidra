@@ -4,12 +4,18 @@
 [![Release Pipeline](https://github.com/vitas/evidra/actions/workflows/release.yml/badge.svg?event=push)](https://github.com/vitas/evidra/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**DevOps MCP server with smart output, built-in flight recorder, and reliability scoring**
+**Flight recorder and reliability scoring for infrastructure automation**
 
-One MCP server for kubectl, helm, terraform, and aws. Token-efficient output.
-Every mutation automatically recorded. No extra agent code needed.
+Evidra records intent, outcome, and refusal for every infrastructure mutation — across MCP agents, CI pipelines, A2A agents, and scripts. The evidence chain enables risk assessment, behavioral signal detection, and reliability scoring.
 
-## Quick Start
+**Two ways to use it:**
+
+| | What | How |
+|---|---|---|
+| **DevOps MCP Server** | All-in-one: kubectl/helm/terraform/aws with smart output + auto-evidence | `evidra-mcp` as your agent's MCP server |
+| **Flight Recorder** | Add evidence to any existing workflow — no MCP required | `evidra record`, `evidra import`, webhooks, or proxy mode |
+
+## Quick Start — MCP Server
 
 ```json
 {
@@ -22,7 +28,22 @@ Every mutation automatically recorded. No extra agent code needed.
 }
 ```
 
-That's it. Your agent gets `run_command` with smart output and automatic evidence recording for every mutation.
+Your agent gets `run_command` with smart output and automatic evidence recording for every mutation.
+
+## Quick Start — CLI (No MCP)
+
+```bash
+# Wrap any command — evidence recorded automatically
+evidra record -f deploy.yaml -- kubectl apply -f deploy.yaml
+
+# Import from CI pipelines
+evidra import --input record.json
+
+# View reliability scorecard
+evidra scorecard --period 30d
+```
+
+Works with any agent framework, CI system, or script. No MCP required.
 
 ```bash
 # Install
