@@ -15,7 +15,7 @@ const LANDING_LINKS = [
   { href: "#mcp-setup", label: "MCP Setup" },
   { href: "#api", label: "API" },
   { href: "#guides", label: "Guides" },
-  { href: "https://bench.evidra.cc", label: "Bench", external: true },
+  { href: "/bench", label: "Bench" },
   { href: "https://lab.evidra.cc", label: "Lab", external: true },
 ];
 
@@ -168,8 +168,8 @@ function Footer() {
           github.com/vitas/evidra
         </a>
         {" \u00B7 "}
-        <a href="https://bench.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
-          bench.evidra.cc
+        <a href="/bench" className="text-fg-muted font-medium hover:text-accent">
+          Bench
         </a>
         {" \u00B7 "}
         <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">

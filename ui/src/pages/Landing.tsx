@@ -641,9 +641,7 @@ function Benchmark() {
             <p className="text-[0.83rem] text-fg-muted leading-relaxed">62 real infrastructure scenarios across Kubernetes, Helm, Argo CD, Terraform, and AWS. Test role-based skills (k8s-admin, security-ops, platform-eng) against real clusters. Skills that pass ship in evidra-mcp.</p>
           </div>
           <a
-            href="https://bench.evidra.cc"
-            target="_blank"
-            rel="noopener"
+            href="/bench"
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline whitespace-nowrap"
           >
             Open Bench &rarr;
