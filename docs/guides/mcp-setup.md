@@ -5,12 +5,12 @@
 - Canonical for: MCP setup and local operation
 - Audience: public
 
-Evidra MCP is a flight recorder for AI agents that touch infrastructure.
-It records intent, explicit decisions, and outcomes for each reported operation, computes
-behavioral signals, and produces reliability assessments over an append-only
-evidence chain.
+Evidra MCP is a DevOps MCP server with built-in flight recorder and reliability scoring.
 
-The MCP server (`evidra-mcp`) lets any MCP-capable AI agent report to Evidra out of the box.
+It gives AI agents `run_command` for kubectl, helm, terraform, and aws with token-efficient
+smart output. Every mutation is automatically recorded in an append-only evidence chain —
+no extra agent code needed. The server also exposes `prescribe_smart`, `prescribe_full`,
+and `report` tools for agents that want explicit control over evidence recording.
 
 ---
 

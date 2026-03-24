@@ -5,23 +5,20 @@
 - Canonical for: Skill installation and usage
 - Audience: public
 
-The Evidra skill teaches AI agents the prescribe/report protocol for infrastructure mutations. When installed, agents follow the protocol with 100% compliance — calling prescribe before every mutation and report after every execution or refusal. The current skill recommends smart prescribe by default for direct mode, and full prescribe when the artifact bytes are available and artifact-level analysis matters.
+The Evidra skill teaches AI agents DevOps operational discipline and the evidence recording protocol. When installed, agents diagnose before fixing, follow safety boundaries, and record evidence for infrastructure mutations via the prescribe/report protocol.
 
 ---
 
 ## Why Install the Skill
 
-The Evidra MCP server gives AI agents access to `prescribe_full`, `prescribe_smart`, `report`, and `get_event` tools. But having tools available does not guarantee the agent will use them correctly. Without guidance, agents may:
+The Evidra MCP server gives AI agents `run_command` (with smart output and auto-evidence) plus `prescribe_smart`, `prescribe_full`, `report`, and `get_event` tools. The skill adds two things:
 
-- Skip the correct prescribe tool for some mutations
-- Forget to call `report` after failures
-- Omit required fields like `exit_code` or `actor.skill_version`
-- Call a prescribe tool for read-only operations that don't need it
-- Reuse a `prescription_id` on retry instead of calling a prescribe tool again
+1. **DevOps discipline** — diagnose before fixing, verify after patching, don't over-scope changes
+2. **Protocol guidance** — when to use prescribe_smart vs prescribe_full, how to handle retries and failures
 
-The skill embeds protocol rules, invariants, classification tables, and a decision flowchart directly into the agent's context. In testing, agents with the skill installed achieved **100% protocol compliance** compared to inconsistent behavior with the MCP server alone.
+Without the skill, agents use `run_command` and get auto-evidence for free (proxy mode). With the skill, agents also learn operational patterns that improve their infrastructure decision-making.
 
-**The MCP server gives agents the tools. The skill teaches them when and how to use them.**
+**The MCP server gives agents the tools. The skill teaches them how to think about infrastructure.**
 
 ---
 
