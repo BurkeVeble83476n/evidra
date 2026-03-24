@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.5.7 — 2026-03-24
+
 ## v0.5.6 — 2026-03-23
 
 - Fix nil tags in `UpsertScenarios` causing NOT NULL constraint violation on `bench_scenarios.tools`
