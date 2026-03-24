@@ -41,6 +41,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	offlineFlag := fs.Bool("offline", false, "Force offline mode")
 	fallbackOfflineFlag := fs.Bool("fallback-offline", false, "Fall back to offline on API failure")
 	proxyFlag := fs.Bool("proxy", false, "Proxy mode: wrap an upstream MCP server and auto-record mutations")
+	fullPrescribeFlag := fs.Bool("full-prescribe", false, "Expose prescribe_full tool (experimental, for advanced models only)")
 	transportFlag := fs.String("transport", "stdio", "Transport mode: stdio (default) or streamable-http")
 	portFlag := fs.String("port", "3001", "HTTP port when using streamable-http transport")
 	helpFlag := fs.Bool("help", false, "Show help")
@@ -108,14 +109,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	server, cleanup, err := mcpserver.NewServerWithCleanup(mcpserver.Options{
-		Name:             "evidra-benchmark",
-		Version:          version.Version,
-		EvidencePath:     evidencePath,
-		Environment:      environment,
-		RetryTracker:     *retryFlag || envBool("EVIDRA_RETRY_TRACKER", false),
-		BestEffortWrites: writeMode == config.EvidenceWriteModeBestEffort,
-		Signer:           signer,
-		Forward:          forwardFn,
+		Name:              "evidra-mcp",
+		Version:           version.Version,
+		EvidencePath:      evidencePath,
+		Environment:       environment,
+		RetryTracker:      *retryFlag || envBool("EVIDRA_RETRY_TRACKER", false),
+		BestEffortWrites:  writeMode == config.EvidenceWriteModeBestEffort,
+		HidePrescribeFull: !*fullPrescribeFlag,
+		Signer:            signer,
+		Forward:           forwardFn,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "initialize server: %v\n", err)

@@ -35,6 +35,7 @@ type Options struct {
 	Signer             evidence.Signer // required: signs evidence entries
 	Forward            ForwardFunc     // optional: best-effort forward to API
 	EvidenceOnly       bool            // when true, only register evidence tools (no run_command)
+	HidePrescribeFull  bool            // when true, don't expose prescribe_full (prevents agent YAML parse loops)
 }
 
 // InputActor identifies the caller in a prescribe request.
@@ -225,19 +226,21 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		},
 	)
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "prescribe_full",
-		Title:       "Record Full Infrastructure Intent",
-		Description: prescribeFullDef.Description,
-		Annotations: &mcp.ToolAnnotations{
-			Title:           "Prescribe Full",
-			ReadOnlyHint:    false,
-			IdempotentHint:  false,
-			DestructiveHint: boolPtr(false),
-			OpenWorldHint:   boolPtr(false),
-		},
-		InputSchema: prescribeFullDef.Parameters,
-	}, prescribeFull.Handle)
+	if !opts.HidePrescribeFull {
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "prescribe_full",
+			Title:       "Record Full Infrastructure Intent",
+			Description: prescribeFullDef.Description,
+			Annotations: &mcp.ToolAnnotations{
+				Title:           "Prescribe Full",
+				ReadOnlyHint:    false,
+				IdempotentHint:  false,
+				DestructiveHint: boolPtr(false),
+				OpenWorldHint:   boolPtr(false),
+			},
+			InputSchema: prescribeFullDef.Parameters,
+		}, prescribeFull.Handle)
+	}
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "prescribe_smart",
