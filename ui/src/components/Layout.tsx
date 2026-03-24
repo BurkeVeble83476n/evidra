@@ -15,6 +15,7 @@ const LANDING_LINKS = [
   { href: "#mcp-setup", label: "MCP Setup" },
   { href: "#api", label: "API" },
   { href: "#guides", label: "Guides" },
+  { href: "/evidence", label: "Evidence" },
   { href: "/bench", label: "Bench" },
   { href: "https://lab.evidra.cc", label: "Lab", external: true },
 ];
