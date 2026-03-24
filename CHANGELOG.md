@@ -1,32 +1,12 @@
 # Changelog
 
-## Unreleased
-
-## v0.5.8 — 2026-03-24
+## v0.5.8 
 
 ### Contract v1.2.0
 - Contract extended with DevOps operations (run_command, write_file, diagnosis protocol, safety rules)
 - MCP prompt templates (prescribe-smart, prescribe-full, diagnosis) generated from contract source
 - All prompts generated from `CONTRACT.yaml` — no hardcoded files
 - SKILL.md leads with DevOps operations, protocol compressed to essentials
-
-### New Tools
-- `write_file` tool in evidra-mcp for creating/updating config files (Terraform .tf, YAML, scripts)
-- `kustomize` added to command allowlist
-
-### Version Tracking
-- Migration 011: `tool_server_version`, `scenario_version` columns on `bench_runs`
-- Migration 010: `tool_server` column on `bench_runs`
-- `RunRecord`: new `ToolServer`, `ToolServerVersion`, `ScenarioVersion` fields
-- Every run now tracks which MCP server, version, and scenario version was used
-
-### README & Positioning
-- README: dual positioning (DevOps MCP server + flight recorder)
-- Landing page: "Flight recorder for infrastructure automation"
-- Removed `--role` claims until implemented in evidra-mcp
-- `GET /v1/bench/scenarios` moved behind auth (IP protection)
-
-## v0.5.7 — 2026-03-24
 
 ### Skill Rework
 - SKILL.md rewritten: DevOps ops first (~600 tokens), protocol second (was ~2000)
@@ -39,13 +19,6 @@
 - `GET /v1/bench/insights?scenario=X` — failure analysis with check failure stats, model breakdown, behavior metrics (pass vs fail avg turns/tokens/cost)
 - `GET /v1/bench/compare/models` — fixed to accept `?models=X,Y,Z&scenarios=A,B` for multi-model matrix comparison (in addition to legacy `?a=X&b=Y` pairwise)
 - `POST /v1/bench/scenarios/sync` — upsert scenario metadata from bench CLI
-
-### Types
-- Added: `SignalAggregation`, `SignalCount`, `Regression`, `FailureInsights`, `CheckFailureStat`, `ModelFailureStat`, `BehaviorComparison`, `ModelMatrix`, `ModelMatrixCell`
-- Added `Description` field to `ScenarioSummary`
-
-### Migration
-- `009_bench_scenarios_track_level.up.sql` — adds `track` and `level` columns to `bench_scenarios`
 
 ### MCP Modes And Ingest
 - Split the MCP lifecycle surface into `prescribe_full` and `prescribe_smart`, with clearer public mode wording around Full Prescribe, Smart Prescribe, and Proxy Observed
