@@ -67,9 +67,17 @@ function Header() {
                   Home
                 </Link>
                 <Link
+                  to="/dashboard"
+                  className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
+                    pathname === "/dashboard" ? "text-accent" : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  Dashboard
+                </Link>
+                <Link
                   to="/evidence"
                   className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
-                    pathname === "/dashboard" || pathname === "/evidence" ? "text-accent" : "text-fg-muted hover:text-fg"
+                    pathname === "/evidence" ? "text-accent" : "text-fg-muted hover:text-fg"
                   }`}
                 >
                   Evidence
