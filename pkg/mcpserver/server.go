@@ -282,9 +282,10 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		OutputSchema: getEventOutputSchema,
 	}, getEvent.Handle)
 
-	// run_command tool — only when not in evidence-only mode
+	// DevOps tools — only when not in evidence-only mode
 	if !opts.EvidenceOnly {
 		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"))
+		RegisterWriteFile(server)
 	}
 
 	// MCP prompts
