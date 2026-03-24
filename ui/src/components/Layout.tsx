@@ -82,17 +82,6 @@ function Header() {
                 >
                   Bench
                 </Link>
-                <Link
-                  to="/designer"
-                  className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors inline-flex items-center gap-1.5 ${
-                    pathname === "/designer" ? "text-accent" : "text-fg-muted hover:text-fg"
-                  }`}
-                >
-                  Designer
-                  <span className="text-[0.6rem] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/25">
-                    new
-                  </span>
-                </Link>
                 <a
                   href="https://lab.evidra.cc"
                   target="_blank"
