@@ -356,60 +356,11 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Evidence timeline */}
-        <div className="mb-8">
-          <SectionHeader title="Recent Evidence" />
-          {entries.length === 0 && !loading ? (
-            <div className="bg-bg-elevated border border-border rounded-xl p-10 text-center">
-              <div className="text-3xl mb-3 opacity-40">{"\uD83D\uDCCB"}</div>
-              <p className="text-[0.88rem] text-fg-muted mb-2">No evidence entries yet.</p>
-              <p className="text-[0.82rem] text-fg-muted/60">
-                Run <code className="text-[0.8rem]">evidra record</code> or connect an MCP agent to start recording.
-              </p>
-            </div>
-          ) : (
-            <div className={`bg-bg-elevated border border-border rounded-xl overflow-hidden shadow-[var(--shadow-card)] transition-opacity ${entriesLoading ? "opacity-50" : ""}`}>
-              {/* Table header */}
-              <div className="grid grid-cols-[80px_70px_1fr_1fr_1fr_70px] gap-3 px-5 py-2.5 bg-[var(--color-code-bg)] border-b border-border text-[0.72rem] font-mono font-medium text-fg-muted/60 uppercase tracking-wider max-md:hidden">
-                <div>Time</div>
-                <div>Type</div>
-                <div>Actor</div>
-                <div>Operation</div>
-                <div>Scope</div>
-                <div className="text-right">Effective Risk</div>
-              </div>
-              {entries.map((entry) => (
-                <EntryRow key={entry.id} entry={entry} />
-              ))}
-            </div>
-          )}
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 px-1">
-              <div className="font-mono text-[0.74rem] text-fg-muted/60">
-                {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, totalEntries)} of {totalEntries}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 0 || entriesLoading}
-                  className="px-3 py-1.5 rounded-lg text-[0.76rem] font-mono font-medium border border-border-subtle bg-transparent text-fg-muted cursor-pointer transition-all hover:border-accent hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Prev
-                </button>
-                <span className="font-mono text-[0.74rem] text-fg-muted tabular-nums">
-                  {page + 1} / {totalPages}
-                </span>
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages - 1 || entriesLoading}
-                  className="px-3 py-1.5 rounded-lg text-[0.76rem] font-mono font-medium border border-border-subtle bg-transparent text-fg-muted cursor-pointer transition-all hover:border-accent hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Link to Evidence page */}
+        <div className="mb-8 text-center">
+          <a href="/evidence" className="text-[0.84rem] font-medium text-accent hover:underline">
+            View full evidence chain →
+          </a>
         </div>
       </div>
     </section>
