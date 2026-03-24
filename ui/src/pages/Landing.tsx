@@ -327,13 +327,13 @@ function Hero() {
           Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Intelligence Layer
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          Know what your agent intended.<br />Know what actually happened.
+          One MCP server for all your<br />infrastructure tools
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          DevOps MCP server with role-based skills, smart output, flight recorder, and reliability scoring. Two-in-one: infrastructure toolkit and intelligence layer.
+          kubectl, helm, terraform, aws &mdash; smart output, auto-evidence, role-based skills. Replace 270 tool definitions with one <code className="text-accent font-mono text-[0.95rem]">run_command</code>.
         </p>
         <p className="text-[0.95rem] text-fg-body max-w-[620px] mx-auto mb-10 leading-relaxed">
-          evidra-mcp executes kubectl, helm, terraform, and aws with token-efficient output. Use <a href="https://lab.evidra.cc" className="text-accent hover:text-accent-bright">infra-bench</a> to test which skills and tools actually improve your agent.
+          Every mutation automatically recorded. No extra agent code. Flight recorder and reliability scoring built in.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
@@ -357,27 +357,27 @@ function Hero() {
 function TheGap() {
   const columns = [
     {
-      icon: "\u25B6",
-      title: "What was the agent trying to do?",
-      body: "Your agent decides at runtime which YAML to generate, which namespace to target, which command to run. That intent exists for one moment \u2014 then it\u2019s gone. OTel, Datadog, and CloudTrail only see what happened after.",
+      icon: "\u26A1",
+      title: "Smart output \u2014 60x fewer tokens",
+      body: "Raw kubectl JSON is ~2,400 tokens. evidra-mcp returns a 40-token summary with the same information. Your agent reasons faster and cheaper.",
     },
     {
-      icon: "\u2718",
-      title: "Did the agent decide not to act \u2014 and why?",
-      body: "When an agent skips a risky operation, nothing is recorded. No log entry. No audit trail. The safest decision your agent makes is the one that\u2019s completely invisible.",
+      icon: "\u2705",
+      title: "Auto-evidence \u2014 zero agent code",
+      body: "Every mutation (apply, patch, delete) is automatically recorded with intent and outcome. Read-only commands pass through with no overhead. No skill prompt needed.",
     },
     {
-      icon: "\u2194",
-      title: "Did the outcome match the intent?",
-      body: "The agent prescribed one artifact. Did it apply the same one? Without recording intent before execution, drift between plan and action is undetectable.",
+      icon: "\uD83C\uDFAF",
+      title: "Role skills \u2014 bench-tested",
+      body: "k8s-admin, security-ops, platform-eng \u2014 compact prompts that shift agent behavior. Tested on 62 real scenarios. Skills that hurt performance don\u2019t ship.",
     },
   ];
 
   return (
     <section className="py-8 bg-bg-alt">
       <Container>
-        <SectionLabel>The Problem</SectionLabel>
-        <SectionTitle>Automation Makes Decisions. Nothing Records Them.</SectionTitle>
+        <SectionLabel>Why evidra-mcp</SectionLabel>
+        <SectionTitle>One MCP Server. Smart Output. Auto-Evidence. Role Skills.</SectionTitle>
         <div className="grid grid-cols-3 gap-5 mt-10 max-md:grid-cols-1">
           {columns.map((c) => (
             <div key={c.title} className="bg-bg-elevated border border-border rounded-lg p-6 shadow-[var(--shadow-card)]">
