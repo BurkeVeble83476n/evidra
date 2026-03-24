@@ -2,13 +2,9 @@
 
 ## Unreleased
 
+## v0.5.8 — 2026-03-24
+
 ## v0.5.7 — 2026-03-24
-
-## v0.5.6 — 2026-03-23
-
-- Fix nil tags in `UpsertScenarios` causing NOT NULL constraint violation on `bench_scenarios.tools`
-
-## v0.5.5 — 2026-03-23
 
 ### Bench Intelligence Endpoints
 - `GET /v1/bench/signals` — aggregated signal counts (protocol_violation, retry_loop, blast_radius) from run scorecards
