@@ -4,7 +4,34 @@
 
 ## v0.5.8 — 2026-03-24
 
+### Contract v1.2.0
+- Contract extended with DevOps operations (run_command, write_file, diagnosis protocol, safety rules)
+- MCP prompt templates (prescribe-smart, prescribe-full, diagnosis) generated from contract source
+- All prompts generated from `CONTRACT.yaml` — no hardcoded files
+- SKILL.md leads with DevOps operations, protocol compressed to essentials
+
+### New Tools
+- `write_file` tool in evidra-mcp for creating/updating config files (Terraform .tf, YAML, scripts)
+- `kustomize` added to command allowlist
+
+### Version Tracking
+- Migration 011: `tool_server_version`, `scenario_version` columns on `bench_runs`
+- Migration 010: `tool_server` column on `bench_runs`
+- `RunRecord`: new `ToolServer`, `ToolServerVersion`, `ScenarioVersion` fields
+- Every run now tracks which MCP server, version, and scenario version was used
+
+### README & Positioning
+- README: dual positioning (DevOps MCP server + flight recorder)
+- Landing page: "Flight recorder for infrastructure automation"
+- Removed `--role` claims until implemented in evidra-mcp
+- `GET /v1/bench/scenarios` moved behind auth (IP protection)
+
 ## v0.5.7 — 2026-03-24
+
+### Skill Rework
+- SKILL.md rewritten: DevOps ops first (~600 tokens), protocol second (was ~2000)
+- Trigger description updated to include all DevOps ops (read + write)
+- MCP prompts: prescribe-smart, prescribe-full, diagnosis as on-demand resources
 
 ### Bench Intelligence Endpoints
 - `GET /v1/bench/signals` — aggregated signal counts (protocol_violation, retry_loop, blast_radius) from run scorecards
