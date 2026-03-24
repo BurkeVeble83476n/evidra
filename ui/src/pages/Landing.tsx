@@ -327,13 +327,13 @@ function Hero() {
           Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Intelligence Layer
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          One MCP server for all your<br />infrastructure tools
+          Flight recorder for<br />infrastructure automation
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
-          kubectl, helm, terraform, aws &mdash; smart output, auto-evidence, role-based skills. Replace 270 tool definitions with one <code className="text-accent font-mono text-[0.95rem]">run_command</code>.
+          Every infrastructure mutation recorded &mdash; across MCP agents, CI pipelines, A2A agents, and scripts. Risk assessment, behavioral signals, reliability scoring.
         </p>
         <p className="text-[0.95rem] text-fg-body max-w-[620px] mx-auto mb-10 leading-relaxed">
-          Every mutation automatically recorded. No extra agent code. Flight recorder and reliability scoring built in.
+          Use as a DevOps MCP server (kubectl, helm, terraform, aws with smart output) or as a standalone flight recorder via CLI. Two-in-one.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
