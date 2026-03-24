@@ -38,7 +38,7 @@ type runCommandHandler struct {
 
 // defaultAllowedPrefixes restricts which commands the LLM can execute.
 var defaultAllowedPrefixes = []string{
-	"kubectl", "helm", "argocd", "kind", "terraform", "aws",
+	"kubectl", "helm", "argocd", "kind", "terraform", "aws", "kustomize",
 	"cat", "echo", "grep", "head", "tail", "wc", "ls", "find", "openssl",
 	"jq", "yq",
 }
