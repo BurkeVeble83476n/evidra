@@ -10,7 +10,7 @@ import { BenchDashboard } from "./pages/bench/BenchDashboard";
 import { BenchRuns } from "./pages/bench/BenchRuns";
 import { BenchRunDetail } from "./pages/bench/BenchRunDetail";
 import { Designer } from "./pages/Designer";
-import { Evidence } from "./pages/Evidence";
+import { Navigate } from "react-router";
 
 export function App() {
   return (
@@ -22,7 +22,7 @@ export function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/evidence" element={<Evidence />} />
+              <Route path="/evidence" element={<Navigate to="/dashboard" replace />} />
               <Route path="/bench" element={<BenchLeaderboard />} />
               <Route path="/bench/dashboard" element={<BenchDashboard />} />
               <Route path="/bench/runs" element={<BenchRuns />} />
