@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
 import { useApi } from "../hooks/useApi";
 
 interface EvidenceEntry {
@@ -103,12 +104,14 @@ function formatDate(iso: string) {
 }
 
 export function Evidence() {
+  const { apiKey, setApiKey } = useAuth();
   const { request } = useApi();
   const [entries, setEntries] = useState<EvidenceEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [scorecard, setScorecard] = useState<Scorecard | null>(null);
   const [period, setPeriod] = useState("30d");
   const [loading, setLoading] = useState(true);
+  const [keyInput, setKeyInput] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,8 +130,38 @@ export function Evidence() {
   }, [request, period]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (apiKey) load();
+  }, [load, apiKey]);
+
+  if (!apiKey) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center">
+        <h1 className="text-2xl font-bold text-fg mb-4">Evidence Chain</h1>
+        <p className="text-fg-muted mb-6">Enter your API key to view evidence.</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (keyInput.trim()) setApiKey(keyInput.trim());
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder="API key (e.g. dev-api-key)"
+            className="flex-1 px-3 py-2 rounded-lg border border-bg-alt bg-bg text-fg text-sm"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-bright"
+          >
+            Connect
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

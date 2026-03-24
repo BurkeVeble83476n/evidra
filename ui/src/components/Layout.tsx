@@ -74,6 +74,14 @@ function Header() {
                   Dashboard
                 </Link>
                 <Link
+                  to="/evidence"
+                  className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
+                    pathname === "/evidence" ? "text-accent" : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  Evidence
+                </Link>
+                <Link
                   to="/bench"
                   className={`text-[0.82rem] font-medium tracking-wide no-underline transition-colors ${
                     pathname.startsWith("/bench") ? "text-accent" : "text-fg-muted hover:text-fg"
