@@ -214,7 +214,17 @@ Add evidence to an existing MCP server — zero agent changes:
 make build
 make test
 make lint
+make test-mcp-inspector    # MCP protocol compliance tests
 ```
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `EVIDRA_EVIDENCE_DIR` | Evidence storage path (default: `~/.evidra/evidence`) |
+| `EVIDRA_SIGNING_MODE` | `strict` (default) or `optional` (dev mode) |
+| `EVIDRA_SIGNING_KEY` | Base64 Ed25519 signing key |
+| `EVIDRA_ENVIRONMENT` | Environment label (production, staging) |
 
 ## License
 
