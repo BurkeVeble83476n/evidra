@@ -28,7 +28,7 @@ Evidra records intent, outcome, and refusal for every infrastructure mutation �
 }
 ```
 
-Your agent gets `run_command` with smart output and automatic evidence recording for every mutation.
+Your agent gets `run_command` for direct operations plus `collect_diagnostics` for one bundled Kubernetes diagnosis pass, with automatic evidence recording for mutations.
 
 ## Quick Start — CLI (No MCP)
 
@@ -83,23 +83,24 @@ operational discipline: diagnosis before fix, safety boundaries, domain-specific
 patterns. Skills are tested on 62 real scenarios via [infra-bench](https://lab.evidra.cc)
 before shipping — skills that hurt performance don't ship.
 
-### 5 tools, not 270
+### 6 tools, not 270
 
 | Tool | Description |
 |---|---|
 | `run_command` | Execute kubectl, helm, terraform, aws — with smart output |
+| `collect_diagnostics` | Gather pods, describe output, events, and recent logs for one workload |
 | `prescribe_smart` | Record intent before mutation (optional, for explicit protocol) |
 | `prescribe_full` | Record intent with full artifact (optional) |
 | `report` | Record outcome (optional, auto-recorded in proxy mode) |
 | `get_event` | Look up evidence |
 
-Most agents only need `run_command`. Evidence is automatic.
+Most agents only need `run_command`. Use `collect_diagnostics` when the model would otherwise spend multiple turns on `get` / `describe` / `events` / `logs`.
 
 ## Why Not Just kubectl-mcp-server?
 
 | | kubectl-mcp-server | evidra-mcp |
 |---|---|---|
-| Tools | 270 specialized | 5 (one `run_command` for all) |
+| Tools | 270 specialized | 6 (one `run_command` plus one diagnostics helper) |
 | Output | Raw JSON (~2400 tokens) | Smart summary (~40 tokens) |
 | Evidence | None | Auto prescribe/report for mutations |
 | Security | Open | Command allowlist + blocked subcommands |
@@ -176,14 +177,14 @@ Three modes:
 
 | Mode | How | Agent awareness |
 |---|---|---|
-| **Proxy** | Auto prescribe/report via `run_command` | None needed |
+| **Proxy** | Auto prescribe/report via observed mutation-style tool calls | None needed |
 | **Smart** | Agent calls `prescribe_smart` + `report` | Minimal (~30 tokens) |
 | **Full** | Agent calls `prescribe_full` with artifact | Full artifact (~300 tokens) |
 
 Most users should use Proxy mode (default). Smart and Full are for teams
 that want agents to see risk assessments before executing.
 
-## Proxy Mode — Wrap Any MCP Server
+## Proxy Mode — Wrap Mutation-Oriented MCP Servers
 
 Add evidence to an existing MCP server — zero agent changes:
 
@@ -197,6 +198,8 @@ Add evidence to an existing MCP server — zero agent changes:
   }
 }
 ```
+
+The proxy records evidence when it sees `run_command` or other mutation-shaped MCP tool calls it can classify heuristically. Unclassified or read-only tool calls pass through without evidence.
 
 ## Docs
 

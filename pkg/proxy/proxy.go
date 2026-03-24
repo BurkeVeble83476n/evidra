@@ -83,18 +83,7 @@ func (p *Proxy) relayRequests(client io.Reader, server io.Writer) {
 		line := scanner.Bytes()
 
 		if req, ok := p.parseToolCallRequest(line); ok {
-			command := req.extractCommand()
-			if command != "" && IsMutation(command) {
-				if p.Verbose {
-					log.Printf("[proxy] mutation detected: %s", truncateLog(command, 80))
-				}
-				if p.Evidence != nil && !p.DryRun {
-					prescriptionID := p.Evidence.Prescribe(command)
-					p.mu.Lock()
-					p.pending[string(req.ID)] = prescriptionID
-					p.mu.Unlock()
-				}
-			}
+			p.trackMutationRequest(req)
 		}
 
 		// Always forward to upstream
@@ -105,6 +94,37 @@ func (p *Proxy) relayRequests(client io.Reader, server io.Writer) {
 			return
 		}
 	}
+}
+
+func (p *Proxy) trackMutationRequest(req *jsonRPCRequest) {
+	command := req.extractCommand()
+	if command != "" && IsMutation(command) {
+		if p.Verbose {
+			log.Printf("[proxy] mutation detected: %s", truncateLog(command, 80))
+		}
+		if p.Evidence != nil && !p.DryRun {
+			prescriptionID := p.Evidence.Prescribe(command)
+			p.mu.Lock()
+			p.pending[string(req.ID)] = prescriptionID
+			p.mu.Unlock()
+		}
+		return
+	}
+
+	tool, operation, class := ClassifyToolName(req.Params.Name)
+	if class != OpMutate && class != OpDestroy {
+		return
+	}
+	if p.Verbose {
+		log.Printf("[proxy] mutation tool detected: %s", truncateLog(req.Params.Name, 80))
+	}
+	if p.Evidence == nil || p.DryRun {
+		return
+	}
+	prescriptionID := p.Evidence.PrescribeObserved(tool, operation, class)
+	p.mu.Lock()
+	p.pending[string(req.ID)] = prescriptionID
+	p.mu.Unlock()
 }
 
 // relayResponses reads JSON-RPC messages from upstream, matches responses to prescriptions.
@@ -188,27 +208,73 @@ func (r *jsonRPCResponse) extractExitCode() int {
 	if len(r.Error) > 0 && string(r.Error) != "null" {
 		return 1
 	}
-	// Try to extract exit code from result content
+
 	var result struct {
-		Content []struct {
+		IsError           bool           `json:"isError"`
+		StructuredContent map[string]any `json:"structuredContent"`
+		Content           []struct {
 			Text string `json:"text"`
 		} `json:"content"`
 	}
-	if json.Unmarshal(r.Result, &result) == nil {
-		for _, c := range result.Content {
-			if strings.Contains(c.Text, "Exit code:") {
-				// Parse "Exit code: N" from the output
-				parts := strings.Split(c.Text, "Exit code:")
-				if len(parts) >= 2 {
-					code := strings.TrimSpace(parts[len(parts)-1])
-					if len(code) > 0 && code[0] != '0' {
-						return 1
-					}
-				}
-			}
-		}
+	if json.Unmarshal(r.Result, &result) != nil {
+		return 0
+	}
+	if code, ok := structuredExitCode(result.StructuredContent); ok {
+		return code
+	}
+	if code, ok := contentExitCode(result.Content); ok {
+		return code
+	}
+	if result.IsError {
+		return 1
 	}
 	return 0
+}
+
+func extractNumericExitCode(value any) (int, bool) {
+	switch v := value.(type) {
+	case float64:
+		return int(v), true
+	case int:
+		return v, true
+	case int32:
+		return int(v), true
+	case int64:
+		return int(v), true
+	}
+	return 0, false
+}
+
+func structuredExitCode(content map[string]any) (int, bool) {
+	for _, key := range []string{"exit_code", "exitCode"} {
+		if code, ok := extractNumericExitCode(content[key]); ok {
+			return code, true
+		}
+	}
+	return 0, false
+}
+
+func contentExitCode(content []struct {
+	Text string `json:"text"`
+}) (int, bool) {
+	for _, item := range content {
+		if !strings.Contains(item.Text, "Exit code:") {
+			continue
+		}
+		parts := strings.Split(item.Text, "Exit code:")
+		if len(parts) < 2 {
+			continue
+		}
+		code := strings.TrimSpace(parts[len(parts)-1])
+		if len(code) == 0 {
+			continue
+		}
+		if code[0] != '0' {
+			return 1, true
+		}
+		return 0, true
+	}
+	return 0, false
 }
 
 func (p *Proxy) parseToolCallRequest(data []byte) (*jsonRPCRequest, bool) {

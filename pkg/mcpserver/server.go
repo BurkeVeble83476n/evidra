@@ -288,6 +288,7 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	// DevOps tools — only when not in evidence-only mode
 	if !opts.EvidenceOnly {
 		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"))
+		RegisterCollectDiagnostics(server, svc, os.Getenv("KUBECONFIG"))
 		RegisterWriteFile(server)
 	}
 

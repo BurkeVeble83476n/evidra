@@ -5,7 +5,7 @@ raw_tools=$(call_list_tools) || {
   return
 }
 
-for t in prescribe_full prescribe_smart report get_event; do
+for t in run_command collect_diagnostics prescribe_full prescribe_smart report get_event; do
   has_tool=$(echo "$raw_tools" | jq --arg t "$t" '[.tools[]? | select(.name == $t)] | length')
   if [[ "$has_tool" -gt 0 ]]; then
     pass "list_tools/${t}_registered"
@@ -20,6 +20,39 @@ if [[ "$legacy_prescribe" == "0" ]]; then
 else
   fail "list_tools/legacy_prescribe_absent" "legacy prescribe tool should not be registered"
 fi
+
+run_command_tool=$(tool_from_list "$raw_tools" "run_command")
+if [[ "$(echo "$run_command_tool" | jq -r '.description // empty')" == *"Investigate before fixing"* ]]; then
+  pass "list_tools/run_command_description_guidance"
+else
+  fail "list_tools/run_command_description_guidance" "missing diagnosis guidance"
+fi
+
+if [[ "$(echo "$run_command_tool" | jq -r '.description // empty')" == *"kubectl rollout status"* ]]; then
+  pass "list_tools/run_command_description_examples"
+else
+  fail "list_tools/run_command_description_examples" "missing verify example"
+fi
+
+run_command_output_required=$(echo "$run_command_tool" | jq -c '.outputSchema.required // []')
+for field in ok output exit_code mutation; do
+  found=$(echo "$run_command_output_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
+  if [[ "$found" -gt 0 ]]; then
+    pass "list_tools/run_command_output_requires_${field}"
+  else
+    fail "list_tools/run_command_output_requires_${field}" "missing required field"
+  fi
+done
+
+collect_diagnostics_required=$(tool_from_list "$raw_tools" "collect_diagnostics" | jq -c '.inputSchema.required // []')
+for field in namespace workload; do
+  found=$(echo "$collect_diagnostics_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
+  if [[ "$found" -gt 0 ]]; then
+    pass "list_tools/collect_diagnostics_requires_${field}"
+  else
+    fail "list_tools/collect_diagnostics_requires_${field}" "missing required field"
+  fi
+done
 
 prescribe_full_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "prescribe_full")][0].inputSchema.required // []')
 for field in tool operation raw_artifact actor; do

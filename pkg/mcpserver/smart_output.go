@@ -20,41 +20,67 @@ func FormatSmartOutput(command string, rawOutput string, exitCode int) string {
 	}
 
 	cmd := strings.TrimSpace(command)
+	fields := commandFields(cmd)
 
 	// JSON/YAML output requested explicitly — strip noisy fields, pass through.
-	if hasOutputFlag(cmd, "json") {
+	if hasOutputFlag(fields, "json") {
 		return stripJSONNoise(rawOutput)
 	}
-	if hasOutputFlag(cmd, "yaml") {
+	if hasOutputFlag(fields, "yaml") {
 		return truncateString(rawOutput, maxFallbackLen)
 	}
 
-	if isGetDeployments(cmd) {
+	if isGetDeployments(fields) {
 		return formatGetDeployments(rawOutput)
 	}
-	if isGetPods(cmd) {
+	if isGetPods(fields) {
 		return formatGetPods(rawOutput)
 	}
-	if isDescribe(cmd) {
+	if isDescribe(fields) {
 		return formatDescribe(rawOutput)
 	}
-	if isLogs(cmd) {
-		return formatLogs(cmd, rawOutput)
+	if isLogs(fields) {
+		return formatLogs(fields, rawOutput)
+	}
+	if isTerraformPlan(fields) {
+		return formatTerraformPlan(rawOutput)
+	}
+	if isTerraformApply(fields) {
+		return formatTerraformApply(rawOutput)
+	}
+	if isHelmStatus(fields) {
+		return formatHelmStatus(rawOutput)
+	}
+	if isHelmList(fields) {
+		return formatHelmList(rawOutput)
+	}
+	if isEKSUpdateKubeconfig(fields) {
+		return formatEKSKubeconfig(rawOutput)
 	}
 
 	return truncateString(rawOutput, maxFallbackLen)
 }
 
 // hasOutputFlag checks whether the command contains -o <format> or --output=<format>.
-func hasOutputFlag(cmd, format string) bool {
-	for _, pattern := range []string{
-		"-o " + format,
-		"-o=" + format,
-		"--output " + format,
-		"--output=" + format,
-	} {
-		if strings.Contains(cmd, pattern) {
-			return true
+func hasOutputFlag(fields []string, format string) bool {
+	for i := range fields {
+		switch {
+		case fields[i] == "-o" || fields[i] == "--output":
+			if i+1 < len(fields) && strings.EqualFold(fields[i+1], format) {
+				return true
+			}
+		case strings.HasPrefix(fields[i], "-o="):
+			if strings.EqualFold(strings.TrimPrefix(fields[i], "-o="), format) {
+				return true
+			}
+		case strings.HasPrefix(fields[i], "--output="):
+			if strings.EqualFold(strings.TrimPrefix(fields[i], "--output="), format) {
+				return true
+			}
+		case strings.HasPrefix(fields[i], "-o") && len(fields[i]) > 2:
+			if strings.EqualFold(strings.TrimPrefix(fields[i], "-o"), format) {
+				return true
+			}
 		}
 	}
 	return false
@@ -62,8 +88,7 @@ func hasOutputFlag(cmd, format string) bool {
 
 // --- command classifiers ---
 
-func isGetDeployments(cmd string) bool {
-	fields := strings.Fields(cmd)
+func isGetDeployments(fields []string) bool {
 	if len(fields) < 3 || fields[0] != "kubectl" || fields[1] != "get" {
 		return false
 	}
@@ -72,8 +97,7 @@ func isGetDeployments(cmd string) bool {
 		res == "deploy" || res == "deployment.apps" || res == "deployments.apps"
 }
 
-func isGetPods(cmd string) bool {
-	fields := strings.Fields(cmd)
+func isGetPods(fields []string) bool {
 	if len(fields) < 3 || fields[0] != "kubectl" || fields[1] != "get" {
 		return false
 	}
@@ -81,20 +105,38 @@ func isGetPods(cmd string) bool {
 	return res == "pod" || res == "pods" || res == "po"
 }
 
-func isDescribe(cmd string) bool {
-	fields := strings.Fields(cmd)
+func isDescribe(fields []string) bool {
 	if len(fields) < 3 || fields[0] != "kubectl" || fields[1] != "describe" {
 		return false
 	}
 	return true
 }
 
-func isLogs(cmd string) bool {
-	fields := strings.Fields(cmd)
+func isLogs(fields []string) bool {
 	if len(fields) < 3 || fields[0] != "kubectl" || fields[1] != "logs" {
 		return false
 	}
 	return true
+}
+
+func isTerraformPlan(fields []string) bool {
+	return len(fields) >= 2 && fields[0] == "terraform" && fields[1] == "plan"
+}
+
+func isTerraformApply(fields []string) bool {
+	return len(fields) >= 2 && fields[0] == "terraform" && fields[1] == "apply"
+}
+
+func isHelmStatus(fields []string) bool {
+	return len(fields) >= 2 && fields[0] == "helm" && fields[1] == "status"
+}
+
+func isHelmList(fields []string) bool {
+	return len(fields) >= 2 && fields[0] == "helm" && fields[1] == "list"
+}
+
+func isEKSUpdateKubeconfig(fields []string) bool {
+	return len(fields) >= 3 && fields[0] == "aws" && fields[1] == "eks" && fields[2] == "update-kubeconfig"
 }
 
 // --- formatters ---
@@ -264,7 +306,7 @@ func isConditionRow(line string) bool {
 	return false
 }
 
-func formatLogs(cmd, rawOutput string) string {
+func formatLogs(fields []string, rawOutput string) string {
 	lines := strings.Split(strings.TrimSpace(rawOutput), "\n")
 	total := len(lines)
 
@@ -276,7 +318,6 @@ func formatLogs(cmd, rawOutput string) string {
 	kept := lines[start:]
 
 	// Extract pod name from command.
-	fields := strings.Fields(cmd)
 	podName := ""
 	if len(fields) >= 3 {
 		podName = fields[2]
@@ -284,6 +325,107 @@ func formatLogs(cmd, rawOutput string) string {
 
 	header := fmt.Sprintf("logs %s (last %d lines, %d total):", podName, len(kept), total)
 	return header + "\n" + strings.Join(kept, "\n")
+}
+
+func formatTerraformPlan(rawOutput string) string {
+	for _, line := range strings.Split(strings.TrimSpace(rawOutput), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Plan:") {
+			return "terraform plan: " + strings.TrimPrefix(trimmed, "Plan: ")
+		}
+		if trimmed == "No changes. Your infrastructure matches the configuration." {
+			return "terraform plan: no changes"
+		}
+	}
+	return truncateString(rawOutput, maxFallbackLen)
+}
+
+func formatTerraformApply(rawOutput string) string {
+	for _, line := range strings.Split(strings.TrimSpace(rawOutput), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Apply complete! Resources:") {
+			return "terraform apply complete: " + strings.TrimPrefix(trimmed, "Apply complete! Resources: ")
+		}
+		if trimmed == "No changes. Your infrastructure matches the configuration." {
+			return "terraform apply: no changes"
+		}
+	}
+	return truncateString(rawOutput, maxFallbackLen)
+}
+
+func formatHelmStatus(rawOutput string) string {
+	values := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(rawOutput), "\n") {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.ToUpper(strings.TrimSpace(parts[0]))
+		values[key] = strings.TrimSpace(parts[1])
+	}
+	name := values["NAME"]
+	status := values["STATUS"]
+	if name == "" || status == "" {
+		return truncateString(rawOutput, maxFallbackLen)
+	}
+	lines := []string{fmt.Sprintf("helm release %s: %s", name, strings.ToLower(status))}
+	if ns := values["NAMESPACE"]; ns != "" {
+		lines = append(lines, "namespace: "+ns)
+	}
+	if rev := values["REVISION"]; rev != "" {
+		lines = append(lines, "revision: "+rev)
+	}
+	if deployed := values["LAST DEPLOYED"]; deployed != "" {
+		lines = append(lines, "last deployed: "+deployed)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatHelmList(rawOutput string) string {
+	lines := strings.Split(strings.TrimSpace(rawOutput), "\n")
+	if len(lines) < 2 {
+		return truncateString(rawOutput, maxFallbackLen)
+	}
+
+	var result []string
+	for _, line := range lines[1:] {
+		fields := strings.Fields(line)
+		if len(fields) < 6 {
+			continue
+		}
+		name := fields[0]
+		namespace := fields[1]
+		revision := fields[2]
+		status := fields[len(fields)-3]
+		chart := fields[len(fields)-2]
+
+		entry := fmt.Sprintf("release/%s (%s): %s | rev %s", name, namespace, strings.ToLower(status), revision)
+		if chart != "" {
+			entry += " | chart " + chart
+		}
+		result = append(result, entry)
+	}
+	if len(result) == 0 {
+		return truncateString(rawOutput, maxFallbackLen)
+	}
+	return strings.Join(result, "\n")
+}
+
+func formatEKSKubeconfig(rawOutput string) string {
+	output := strings.TrimSpace(rawOutput)
+	for _, prefix := range []string{"Added new context ", "Updated context "} {
+		if !strings.HasPrefix(output, prefix) {
+			continue
+		}
+		remainder := strings.TrimPrefix(output, prefix)
+		for _, separator := range []string{" to ", " in "} {
+			if idx := strings.Index(remainder, separator); idx >= 0 {
+				return "kubeconfig updated: " + remainder[:idx]
+			}
+		}
+		return "kubeconfig updated: " + remainder
+	}
+	return truncateString(rawOutput, maxFallbackLen)
 }
 
 // --- JSON noise stripping ---

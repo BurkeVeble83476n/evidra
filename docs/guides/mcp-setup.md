@@ -113,11 +113,12 @@ Try: *"Apply this deployment to staging"* — the agent should call `prescribe_f
 ## DevOps Server Mode (new)
 
 evidra-mcp provides DevOps tooling with built-in evidence recording.
-5 tools with token-efficient output:
+6 tools with token-efficient output:
 
 | Tool | Description |
 |---|---|
 | `run_command` | Execute kubectl, helm, terraform, aws with smart output |
+| `collect_diagnostics` | Run one bundled Kubernetes diagnosis pass for a workload |
 | `prescribe_smart` | Record intent (lightweight) |
 | `prescribe_full` | Record intent with artifact |
 | `report` | Record outcome |
@@ -163,9 +164,11 @@ One MCP connection for both infrastructure commands and evidence recording.
 
 ## How It Works
 
-Evidra exposes five MCP tools:
+Evidra exposes six MCP tools:
 
 **`run_command`** — Execute infrastructure commands (kubectl, helm, terraform, aws) with token-efficient smart output. Mutations are auto-recorded as evidence. Command allowlist prevents dangerous operations.
+
+**`collect_diagnostics`** — Run a fixed read-only Kubernetes diagnosis sequence for one workload. It gathers pods, describe output, recent events, and recent logs when a failing pod needs more context, then returns one compact summary plus machine-readable findings and the commands it executed.
 
 **`prescribe_full`** — Record intent BEFORE an infrastructure mutation when artifact bytes are available. It analyzes the artifact, returns a `prescription_id`, and supports native detector coverage plus artifact drift detection.
 
@@ -259,7 +262,7 @@ Wrap your existing MCP server command with `evidra-mcp --proxy --`:
 }
 ```
 
-The proxy intercepts `run_command` tool calls, detects mutations (kubectl apply, helm upgrade, terraform apply, etc.), and auto-records prescribe/report evidence. Read-only commands (kubectl get, helm list) pass through unrecorded.
+The proxy intercepts `run_command` tool calls and generic mutation-shaped MCP tool names it can classify heuristically, then auto-records prescribe/report evidence. Read-only or unclassified tool calls pass through unrecorded.
 
 ### What Proxy Observed records
 

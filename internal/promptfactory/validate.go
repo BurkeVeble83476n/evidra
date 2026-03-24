@@ -8,6 +8,9 @@ func ValidateBundle(bundle Bundle, expectedVersion string) error {
 	if err := validateContract(bundle.Contract, expectedVersion); err != nil {
 		return err
 	}
+	if err := validateDevOpsContract(bundle.Contract.DevOps); err != nil {
+		return err
+	}
 	if err := validateMCPContract(bundle.Contract.MCP); err != nil {
 		return err
 	}
@@ -22,6 +25,36 @@ func ValidateBundle(bundle Bundle, expectedVersion string) error {
 	}
 	if err := validateAgentContract(bundle.Contract.AgentContract); err != nil {
 		return err
+	}
+	return nil
+}
+
+func validateDevOpsContract(contract DevOpsContract) error {
+	if contract.RunCommand.Intro == "" &&
+		contract.RunCommand.SmartOutput == "" &&
+		len(contract.RunCommand.DiagnosisProtocol) == 0 &&
+		len(contract.RunCommand.SafetyRules) == 0 &&
+		contract.RunCommand.EvidenceIntro == "" &&
+		len(contract.RunCommand.WhenToPrescribe) == 0 {
+		return nil
+	}
+	if contract.RunCommand.Intro == "" {
+		return fmt.Errorf("devops.run_command.intro is required")
+	}
+	if contract.RunCommand.SmartOutput == "" {
+		return fmt.Errorf("devops.run_command.smart_output is required")
+	}
+	if len(contract.RunCommand.DiagnosisProtocol) == 0 {
+		return fmt.Errorf("devops.run_command.diagnosis_protocol is required")
+	}
+	if len(contract.RunCommand.SafetyRules) == 0 {
+		return fmt.Errorf("devops.run_command.safety_rules is required")
+	}
+	if contract.RunCommand.EvidenceIntro == "" {
+		return fmt.Errorf("devops.run_command.evidence_intro is required")
+	}
+	if len(contract.RunCommand.WhenToPrescribe) == 0 {
+		return fmt.Errorf("devops.run_command.when_to_prescribe is required")
 	}
 	return nil
 }

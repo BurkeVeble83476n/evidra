@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MCP Inspector deterministic e2e layer for prescribe_full/prescribe_smart/report/get_event.
+# MCP Inspector deterministic e2e layer for tool metadata plus prescribe_full/prescribe_smart/report/get_event flows.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -90,7 +90,7 @@ check_common_prerequisites() {
 preflight_inspector_cli() {
   local out rc
   set +e
-  out="$(npx -y @modelcontextprotocol/inspector --version 2>&1)"
+  out="$(npx -y @modelcontextprotocol/inspector --help 2>&1)"
   rc=$?
   set -e
   if [[ $rc -eq 0 ]]; then
@@ -274,6 +274,11 @@ call_list_tools() {
       _hosted_list_tools_raw | jq '.result // .error // .'
       ;;
   esac
+}
+
+tool_from_list() {
+  local raw_tools="$1" tool_name="$2"
+  echo "$raw_tools" | jq -c --arg t "$tool_name" '[.tools[]? | select(.name == $t)][0] // {}'
 }
 
 substitute_vars() {

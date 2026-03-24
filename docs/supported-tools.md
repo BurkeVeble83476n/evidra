@@ -11,6 +11,16 @@ Evidra supports two related integration surfaces:
 - controller evidence sources, which emit reconcile lifecycle evidence without
   pretending to be artifact adapters
 
+## MCP DevOps Tools
+
+When running `evidra-mcp` in DevOps server mode, the MCP surface stays intentionally small:
+
+- `run_command` for direct kubectl, helm, terraform, and aws operations
+- `collect_diagnostics` for one bundled Kubernetes diagnosis pass over a workload
+- `prescribe_smart`, `prescribe_full`, `report`, and `get_event` for explicit evidence control
+
+`collect_diagnostics` is not a new artifact adapter. It is a read-only MCP helper that reduces repeated `get` / `describe` / `events` / `logs` turns for common Kubernetes debugging workflows.
+
 ## Kubernetes (k8s/v1)
 
 | Tool | CLI flag | Artifact | Notes |

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"samebits.com/evidra/internal/lifecycle"
 	"samebits.com/evidra/internal/testutil"
 	"samebits.com/evidra/pkg/evidence"
@@ -133,6 +135,69 @@ func TestInitializeInstructions_IncludeContractVersion(t *testing.T) {
 	}
 	if strings.Contains(defaultInitializeInstructions, "Call `prescribe` BEFORE") {
 		t.Fatalf("default initialize instructions should not mention legacy prescribe flow: %q", defaultInitializeInstructions)
+	}
+}
+
+func TestRunCommandTool_HasOutputSchemaAndExamples(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: t.TempDir(),
+		Environment:  "test",
+		Signer:       testutil.TestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	var runCommand *mcp.Tool
+	for _, tool := range tools.Tools {
+		if tool.Name == "run_command" {
+			runCommand = tool
+			break
+		}
+	}
+	if runCommand == nil {
+		t.Fatal("run_command tool missing from tools/list response")
+	}
+	if runCommand.OutputSchema == nil {
+		t.Fatal("run_command tool missing output schema")
+	}
+	if !strings.Contains(runCommand.Description, "Investigate before fixing") {
+		t.Fatalf("run_command description missing diagnosis guidance: %q", runCommand.Description)
+	}
+	if !strings.Contains(runCommand.Description, "kubectl describe pod") {
+		t.Fatalf("run_command description missing diagnose example: %q", runCommand.Description)
+	}
+	if !strings.Contains(runCommand.Description, "kubectl rollout status") {
+		t.Fatalf("run_command description missing verify example: %q", runCommand.Description)
 	}
 }
 

@@ -12,6 +12,9 @@ var getEventSchemaBytes []byte
 //go:embed schemas/get_event.output.schema.json
 var getEventOutputSchemaBytes []byte
 
+//go:embed schemas/run_command.output.schema.json
+var runCommandOutputSchemaBytes []byte
+
 func loadSchema(raw []byte, name string) (map[string]any, error) {
 	var schema map[string]any
 	if err := json.Unmarshal(raw, &schema); err != nil {

@@ -69,6 +69,24 @@ func TestReadMCPPrescribeSmartDescription_IsLightweight(t *testing.T) {
 	}
 }
 
+func TestReadMCPRunCommandDescription_HasExamples(t *testing.T) {
+	t.Parallel()
+
+	content, err := Read(MCPRunCommandDescriptionPath)
+	if err != nil {
+		t.Fatalf("Read(%q): %v", MCPRunCommandDescriptionPath, err)
+	}
+	if !strings.Contains(content, "Investigate before fixing") {
+		t.Fatalf("run_command description missing diagnosis guidance: %s", content)
+	}
+	if !strings.Contains(content, "kubectl describe pod") {
+		t.Fatalf("run_command description missing diagnose example: %s", content)
+	}
+	if !strings.Contains(content, "kubectl rollout status") {
+		t.Fatalf("run_command description missing verify example: %s", content)
+	}
+}
+
 func TestLegacyPrescribeDescription_IsNotEmbedded(t *testing.T) {
 	t.Parallel()
 

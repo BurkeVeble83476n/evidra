@@ -28,6 +28,6 @@ EVIDRA_ENABLE_NETWORK_TESTS=1 EVIDRA_TEST_MODE=hosted-mcp EVIDRA_MCP_URL=https:/
 ## Layout
 
 - `run_inspector_tests.sh`: main runner
-- `special/t_*.sh`: mode-aware special checks (`list_tools`, `schema_error`, `get_event` chain)
+- `special/t_*.sh`: mode-aware special checks (`list_tools`, `schema_error`, `get_event` chain). `list_tools` also verifies the `run_command` metadata surface and the `collect_diagnostics` schema.
 - `cases/*.json`: curated scenario set for `prescribe_full` / `prescribe_smart` / `report`
 - `fixtures/*`: imported useful baseline fixtures from old `evidra-mcp`

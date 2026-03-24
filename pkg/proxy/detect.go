@@ -85,3 +85,32 @@ func IsMutation(command string) bool {
 	_, _, class := ClassifyCommand(command)
 	return class == OpMutate || class == OpDestroy
 }
+
+// ClassifyToolName infers mutation intent from a generic MCP tool name when
+// no raw shell command is available.
+func ClassifyToolName(name string) (tool, operation string, class OperationClass) {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	if normalized == "" {
+		return "", "", OpUnknown
+	}
+
+	replacer := strings.NewReplacer(".", " ", "_", " ", "-", " ", "/", " ")
+	tokens := strings.Fields(replacer.Replace(normalized))
+	if len(tokens) == 0 {
+		return normalized, "", OpUnknown
+	}
+
+	for _, token := range tokens {
+		switch token {
+		case "delete", "destroy", "uninstall", "remove", "rm", "down":
+			return normalized, token, OpDestroy
+		case "apply", "create", "patch", "update", "install", "upgrade", "sync", "restart",
+			"rollout", "scale", "annotate", "label", "set", "import", "deploy":
+			return normalized, token, OpMutate
+		case "get", "list", "describe", "logs", "read", "show", "status", "top", "diff":
+			return normalized, token, OpRead
+		}
+	}
+
+	return normalized, "", OpUnknown
+}

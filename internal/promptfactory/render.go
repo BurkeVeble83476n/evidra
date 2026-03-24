@@ -31,6 +31,12 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 
 	templateBase := filepath.Join(rootDir, "prompts", "source", "contracts", bundle.Contract.Version)
 	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "mcp.run_command",
+		template:  "templates/mcp/run_command.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "run_command_description.txt"),
+		active:    filepath.Join("prompts", "mcpserver", "tools", "run_command_description.txt"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
 		id:        "mcp.prescribe",
 		template:  "templates/mcp/prescribe.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcpserver", "tools", "prescribe_description.txt"),

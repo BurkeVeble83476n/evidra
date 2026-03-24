@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,6 +61,9 @@ type ProxyEntry struct {
 // Prescribe records a pre-execution entry and returns the prescription ID.
 func (w *EvidenceWriter) Prescribe(command string) string {
 	tool, operation, class := ClassifyCommand(command)
+	if strings.TrimSpace(tool) == "" {
+		tool = strings.TrimSpace(command)
+	}
 	id := fmt.Sprintf("proxy-%d", time.Now().UnixNano())
 
 	entry := ProxyEntry{
@@ -69,6 +73,29 @@ func (w *EvidenceWriter) Prescribe(command string) string {
 		Operation:      operation,
 		OperationClass: string(class),
 		Command:        command,
+		Timestamp:      time.Now().UTC(),
+		Actor: execcontract.Actor{
+			Type: "proxy",
+			ID:   "evidra-proxy",
+		},
+	}
+
+	w.write(entry)
+	return id
+}
+
+// PrescribeObserved records a pre-execution entry for a generic MCP tool call
+// when no raw shell command is available.
+func (w *EvidenceWriter) PrescribeObserved(tool, operation string, class OperationClass) string {
+	id := fmt.Sprintf("proxy-%d", time.Now().UnixNano())
+
+	entry := ProxyEntry{
+		Type:           "prescribe",
+		PrescriptionID: id,
+		Tool:           strings.TrimSpace(tool),
+		Operation:      strings.TrimSpace(operation),
+		OperationClass: string(class),
+		Command:        strings.TrimSpace(tool),
 		Timestamp:      time.Now().UTC(),
 		Actor: execcontract.Actor{
 			Type: "proxy",

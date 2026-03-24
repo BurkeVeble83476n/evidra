@@ -280,7 +280,7 @@ func TestE2E_ListTools_UsesSplitPrescribeSurface(t *testing.T) {
 		toolDefs[tool.Name] = tool
 	}
 
-	for _, name := range []string{"prescribe_full", "prescribe_smart", "report", "get_event"} {
+	for _, name := range []string{"prescribe_full", "prescribe_smart", "report", "get_event", "collect_diagnostics"} {
 		if _, ok := toolDefs[name]; !ok {
 			t.Fatalf("missing tool %q in tools/list response", name)
 		}

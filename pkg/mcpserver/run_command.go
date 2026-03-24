@@ -13,6 +13,7 @@ import (
 
 	"samebits.com/evidra/pkg/evidence"
 	"samebits.com/evidra/pkg/proxy"
+	promptdata "samebits.com/evidra/prompts"
 )
 
 // RunCommandInput is the input for the run_command tool.
@@ -70,6 +71,35 @@ var runCommandInputSchema = map[string]any{
 	},
 }
 
+const defaultRunCommandToolDescription = `Execute kubectl, helm, terraform, or aws commands with token-efficient output summaries.
+
+Investigate before fixing:
+- kubectl get pods -n bench
+- kubectl describe pod web-abc -n bench
+- kubectl logs web-abc -n bench --tail=50
+
+Fix and verify:
+- kubectl patch deployment/web -n bench --type=merge -p '{"spec":{"template":{"spec":{}}}}'
+- kubectl rollout status deployment/web -n bench --timeout=60s
+
+Mutations are automatically recorded as evidence. Use prescribe_smart or prescribe_full explicitly when you need tighter control before execution.`
+
+func runCommandToolDescription() string {
+	content, err := promptdata.Read(promptdata.MCPRunCommandDescriptionPath)
+	if err != nil {
+		return defaultRunCommandToolDescription
+	}
+	return promptdata.StripContractHeader(content)
+}
+
+func runCommandOutputSchema() map[string]any {
+	schema, err := loadSchema(runCommandOutputSchemaBytes, "schemas/run_command.output.schema.json")
+	if err != nil {
+		panic(err)
+	}
+	return schema
+}
+
 // Handle executes an infrastructure command with validation, auto-evidence for mutations,
 // and smart output formatting.
 func (h *runCommandHandler) Handle(
@@ -100,19 +130,23 @@ func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) 
 	// Auto-prescribe for mutations.
 	var prescriptionID string
 	if isMutation && h.service != nil {
-		tool, operation, _ := proxy.ClassifyCommand(command)
-		prescribeOut := h.service.PrescribeCtx(ctx, PrescribeInput{
-			Actor:     InputActor{Type: "proxy", ID: "run_command", Origin: "mcp"},
-			Tool:      tool,
-			Operation: operation,
-		})
-		if prescribeOut.OK {
-			prescriptionID = prescribeOut.PrescriptionID
+		prescribeInput, ok, err := deriveAutoPrescribeInput(command)
+		if err != nil {
+			return RunCommandOutput{OK: false, Error: err.Error(), Mutation: true}
+		}
+		if ok {
+			prescribeOut := h.service.PrescribeCtx(ctx, prescribeInput)
+			if prescribeOut.OK {
+				prescriptionID = prescribeOut.PrescriptionID
+			}
 		}
 	}
 
 	// Execute command — use direct exec, not bash -c, to prevent shell injection.
-	args := strings.Fields(command)
+	args, err := parseCommand(command)
+	if err != nil {
+		return RunCommandOutput{OK: false, Error: err.Error(), Mutation: isMutation}
+	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Env = os.Environ()
 	if h.kubeconfigPath != "" {
@@ -122,7 +156,7 @@ func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	exitCode := 0
 	if err != nil {
 		exitCode = exitCodeFromError(err)
@@ -225,7 +259,7 @@ func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath stri
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "run_command",
 		Title:       "Execute Infrastructure Command",
-		Description: "Execute kubectl, helm, terraform, or aws commands with automatic evidence recording for mutations. Returns token-efficient formatted output.",
+		Description: runCommandToolDescription(),
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Run Command",
 			ReadOnlyHint:    false,
@@ -233,6 +267,7 @@ func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath stri
 			DestructiveHint: boolPtr(true),
 			OpenWorldHint:   boolPtr(true),
 		},
-		InputSchema: runCommandInputSchema,
+		InputSchema:  runCommandInputSchema,
+		OutputSchema: runCommandOutputSchema(),
 	}, handler.Handle)
 }

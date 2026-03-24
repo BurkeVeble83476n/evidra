@@ -217,3 +217,89 @@ func TestFormatSmartOutput_FallbackTruncation(t *testing.T) {
 		t.Errorf("expected fallback truncation to ~%d chars, got %d", maxFallbackLen, len(got))
 	}
 }
+
+func TestFormatSmartOutput_TerraformPlan(t *testing.T) {
+	t.Parallel()
+
+	raw := `Terraform will perform the following actions:
+
+Plan: 2 to add, 1 to change, 0 to destroy.`
+
+	got := FormatSmartOutput("terraform plan", raw, 0)
+
+	if !strings.Contains(got, "terraform plan") {
+		t.Fatalf("expected terraform plan summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "2 to add, 1 to change, 0 to destroy") {
+		t.Fatalf("expected plan counts, got:\n%s", got)
+	}
+}
+
+func TestFormatSmartOutput_TerraformApply(t *testing.T) {
+	t.Parallel()
+
+	raw := `Apply complete! Resources: 2 added, 1 changed, 0 destroyed.`
+
+	got := FormatSmartOutput("terraform apply -auto-approve", raw, 0)
+
+	if !strings.Contains(got, "terraform apply complete") {
+		t.Fatalf("expected terraform apply summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "2 added, 1 changed, 0 destroyed") {
+		t.Fatalf("expected apply counts, got:\n%s", got)
+	}
+}
+
+func TestFormatSmartOutput_HelmStatus(t *testing.T) {
+	t.Parallel()
+
+	raw := `NAME: web
+LAST DEPLOYED: Tue Mar 24 12:00:00 2026
+NAMESPACE: bench
+STATUS: deployed
+REVISION: 3`
+
+	got := FormatSmartOutput("helm status web -n bench", raw, 0)
+
+	if !strings.Contains(got, "helm release web: deployed") {
+		t.Fatalf("expected helm release status summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "namespace: bench") {
+		t.Fatalf("expected namespace in summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "revision: 3") {
+		t.Fatalf("expected revision in summary, got:\n%s", got)
+	}
+}
+
+func TestFormatSmartOutput_HelmList(t *testing.T) {
+	t.Parallel()
+
+	raw := `NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+web	bench	3	2026-03-24 12:00:00	deployed	web-1.2.3	1.2.3
+api	bench	1	2026-03-24 11:00:00	failed	api-0.1.0	0.1.0`
+
+	got := FormatSmartOutput("helm list -n bench", raw, 0)
+
+	if !strings.Contains(got, "release/web (bench): deployed") {
+		t.Fatalf("expected web release summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "release/api (bench): failed") {
+		t.Fatalf("expected api release summary, got:\n%s", got)
+	}
+}
+
+func TestFormatSmartOutput_AWSEKSUpdateKubeconfig(t *testing.T) {
+	t.Parallel()
+
+	raw := `Added new context arn:aws:eks:us-west-2:123456789012:cluster/demo to /Users/vitas/.kube/config`
+
+	got := FormatSmartOutput("aws eks update-kubeconfig --name demo --region us-west-2", raw, 0)
+
+	if !strings.Contains(got, "kubeconfig updated") {
+		t.Fatalf("expected kubeconfig summary, got:\n%s", got)
+	}
+	if !strings.Contains(got, "cluster/demo") {
+		t.Fatalf("expected cluster context in summary, got:\n%s", got)
+	}
+}

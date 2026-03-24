@@ -15,6 +15,7 @@
     "prompts/generated/v1.2.0/mcpserver/tools/prescribe_full_description.txt": "sha256:1fe7fdf03557ea9fbed37451980c421e885e159f728a1137529703665eabd7e6",
     "prompts/generated/v1.2.0/mcpserver/tools/prescribe_smart_description.txt": "sha256:fda01466e5c0b93d8e839089de696e8754ad2c1dd5f73620abf6cf2a689e43da",
     "prompts/generated/v1.2.0/mcpserver/tools/report_description.txt": "sha256:16c52123617982c6ea7ff420808b85ebfe9f37dcfc65b759514a48a1e0209f4b",
+    "prompts/generated/v1.2.0/mcpserver/tools/run_command_description.txt": "sha256:a05c3622be7d455e24c93e1c0506ad9d78535e64aece67715c419dbee9167f2b",
     "prompts/generated/v1.2.0/skill/SKILL.md": "sha256:b59ca11fbe118b16096486d9559348115fc56b4bd257f47bc85bf0a7fb9cb9d4",
     "prompts/generated/v1.2.0/skill/SKILL_SMART.md": "sha256:6bb74a1055b2a703b9740e165800fb71a59cb8a4bb7e666219db8cde5f45a732",
     "prompts/mcp/prompt_diagnosis.md": "sha256:362635cb26bb613cfc356366d315eeb829441b633cdc1521b47bf8b954eb4cee",
@@ -26,6 +27,7 @@
     "prompts/mcpserver/tools/prescribe_full_description.txt": "sha256:1fe7fdf03557ea9fbed37451980c421e885e159f728a1137529703665eabd7e6",
     "prompts/mcpserver/tools/prescribe_smart_description.txt": "sha256:fda01466e5c0b93d8e839089de696e8754ad2c1dd5f73620abf6cf2a689e43da",
     "prompts/mcpserver/tools/report_description.txt": "sha256:16c52123617982c6ea7ff420808b85ebfe9f37dcfc65b759514a48a1e0209f4b",
+    "prompts/mcpserver/tools/run_command_description.txt": "sha256:a05c3622be7d455e24c93e1c0506ad9d78535e64aece67715c419dbee9167f2b",
     "prompts/skill/SKILL.md": "sha256:b59ca11fbe118b16096486d9559348115fc56b4bd257f47bc85bf0a7fb9cb9d4",
     "prompts/skill/SKILL_SMART.md": "sha256:6bb74a1055b2a703b9740e165800fb71a59cb8a4bb7e666219db8cde5f45a732"
   }

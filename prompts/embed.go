@@ -11,6 +11,7 @@ import (
 
 const (
 	MCPInitializeInstructionsPath    = "mcpserver/initialize/instructions.txt"
+	MCPRunCommandDescriptionPath     = "mcpserver/tools/run_command_description.txt"
 	MCPPrescribeFullDescriptionPath  = "mcpserver/tools/prescribe_full_description.txt"
 	MCPPrescribeSmartDescriptionPath = "mcpserver/tools/prescribe_smart_description.txt"
 	MCPReportDescriptionPath         = "mcpserver/tools/report_description.txt"
@@ -29,7 +30,7 @@ const (
 var (
 	contractVersionPattern = regexp.MustCompile(`^v?[0-9]+(\.[0-9]+){1,2}$`)
 
-	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/prescribe_full_description.txt mcpserver/tools/prescribe_smart_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md mcp/prompt_prescribe_smart.md mcp/prompt_prescribe_full.md mcp/prompt_diagnosis.md manifests/*.json
+	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/run_command_description.txt mcpserver/tools/prescribe_full_description.txt mcpserver/tools/prescribe_smart_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md mcp/prompt_prescribe_smart.md mcp/prompt_prescribe_full.md mcp/prompt_diagnosis.md manifests/*.json
 	files embed.FS
 )
 
