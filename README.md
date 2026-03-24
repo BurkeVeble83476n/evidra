@@ -55,16 +55,12 @@ Agent: run_command("kubectl apply -f fix.yaml")
 
 Read-only commands (`get`, `describe`, `logs`) execute directly — no overhead.
 
-### Role-based skills — tested on real infrastructure
+### Skills — tested on real infrastructure
 
-```bash
-evidra-mcp --role k8s-admin    # diagnosis-first, blast radius awareness
-evidra-mcp --role security-ops # deny-by-default, RBAC/PSA analysis
-evidra-mcp --role platform-eng # terraform state safety, plan-before-apply
-```
-
-Each role loads ~300 tokens of domain-specific behavior. Skills are tested
-on 62 real scenarios via [infra-bench](https://lab.evidra.cc) before shipping.
+Install the [Evidra skill](docs/guides/skill-setup.md) to give your agent
+operational discipline: diagnosis before fix, safety boundaries, domain-specific
+patterns. Skills are tested on 62 real scenarios via [infra-bench](https://lab.evidra.cc)
+before shipping — skills that hurt performance don't ship.
 
 ### 5 tools, not 270
 
@@ -86,7 +82,7 @@ Most agents only need `run_command`. Evidence is automatic.
 | Output | Raw JSON (~2400 tokens) | Smart summary (~40 tokens) |
 | Evidence | None | Auto prescribe/report for mutations |
 | Security | Open | Command allowlist + blocked subcommands |
-| Skills | None | Role-based, bench-tested |
+| Skills | None | Bench-tested, installable |
 | Scoring | None | Reliability scorecards + behavioral signals |
 
 ## For Platform Teams
