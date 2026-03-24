@@ -13,7 +13,7 @@ import (
 )
 
 // runRecordColumns is the SELECT column list for RunRecord scans.
-const runRecordColumns = `id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
+const runRecordColumns = `id, tenant_id, scenario_id, model, provider, adapter, evidence_mode, tool_server,
 	passed, duration_seconds, exit_code, turns, memory_window,
 	prompt_tokens, completion_tokens, estimated_cost_usd,
 	checks_passed, checks_total, checks_json, metadata_json, created_at`
@@ -23,7 +23,7 @@ func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 	var r bench.RunRecord
 	var checksJSON, metadataJSON *string
 	err := row.Scan(
-		&r.ID, &r.TenantID, &r.ScenarioID, &r.Model, &r.Provider, &r.Adapter, &r.EvidenceMode,
+		&r.ID, &r.TenantID, &r.ScenarioID, &r.Model, &r.Provider, &r.Adapter, &r.EvidenceMode, &r.ToolServer,
 		&r.Passed, &r.Duration, &r.ExitCode, &r.Turns, &r.MemoryWindow,
 		&r.PromptTokens, &r.CompletionTokens, &r.EstimatedCost,
 		&r.ChecksPassed, &r.ChecksTotal, &checksJSON, &metadataJSON, &r.CreatedAt,
@@ -112,11 +112,11 @@ func (s *PgStore) GetRun(ctx context.Context, tenantID string, id string) (*benc
 // InsertRun inserts a single benchmark run record.
 func (s *PgStore) InsertRun(ctx context.Context, tenantID string, r bench.RunRecord) error {
 	query := `INSERT INTO bench_runs (
-		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
+		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode, tool_server,
 		passed, duration_seconds, exit_code, turns, memory_window,
 		prompt_tokens, completion_tokens, estimated_cost_usd,
 		checks_passed, checks_total, checks_json, metadata_json, created_at
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`
 
 	checksJSON := nullableJSONB(r.ChecksJSON)
 	metadataJSON := nullableJSONB(r.MetadataJSON)
@@ -126,7 +126,7 @@ func (s *PgStore) InsertRun(ctx context.Context, tenantID string, r bench.RunRec
 	}
 
 	_, err := s.db.Exec(ctx, query,
-		r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
+		r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode, r.ToolServer,
 		r.Passed, r.Duration, r.ExitCode, r.Turns, r.MemoryWindow,
 		r.PromptTokens, r.CompletionTokens, r.EstimatedCost,
 		r.ChecksPassed, r.ChecksTotal, checksJSON, metadataJSON, createdAt,
@@ -144,11 +144,11 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, tenantID string, runs []be
 	}
 
 	query := `INSERT INTO bench_runs (
-		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode,
+		id, tenant_id, scenario_id, model, provider, adapter, evidence_mode, tool_server,
 		passed, duration_seconds, exit_code, turns, memory_window,
 		prompt_tokens, completion_tokens, estimated_cost_usd,
 		checks_passed, checks_total, checks_json, metadata_json, created_at
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
 	ON CONFLICT (id) DO NOTHING`
 
 	inserted := 0
@@ -161,7 +161,7 @@ func (s *PgStore) InsertRunBatch(ctx context.Context, tenantID string, runs []be
 			createdAt = time.Now()
 		}
 		batch.Queue(query,
-			r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode,
+			r.ID, tenantID, r.ScenarioID, r.Model, r.Provider, r.Adapter, r.EvidenceMode, r.ToolServer,
 			r.Passed, r.Duration, r.ExitCode, r.Turns, r.MemoryWindow,
 			r.PromptTokens, r.CompletionTokens, r.EstimatedCost,
 			r.ChecksPassed, r.ChecksTotal, checksJSON, metadataJSON, createdAt,

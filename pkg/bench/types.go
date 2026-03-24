@@ -26,6 +26,7 @@ type RunRecord struct {
 	Provider         string    `json:"provider"`
 	Adapter          string    `json:"adapter"`
 	EvidenceMode     string    `json:"evidence_mode"` // direct, proxy, smart, or none
+	ToolServer       string    `json:"tool_server"`   // MCP server used (empty = baseline/direct exec)
 	Passed           bool      `json:"passed"`
 	Duration         float64   `json:"duration_seconds"`
 	ExitCode         int       `json:"exit_code"`
