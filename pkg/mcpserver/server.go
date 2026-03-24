@@ -287,6 +287,9 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"))
 	}
 
+	// MCP prompts
+	registerPrompts(server)
+
 	// Evidence resources
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:        "evidra-event",
