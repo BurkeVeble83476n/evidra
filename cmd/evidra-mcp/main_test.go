@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 
 	"samebits.com/evidra/internal/config"
@@ -67,5 +69,26 @@ func TestNormalizeProxyArgs_RejectsMissingCommand(t *testing.T) {
 		if _, err := normalizeProxyArgs(tc); err == nil {
 			t.Fatalf("normalizeProxyArgs(%v): expected error", tc)
 		}
+	}
+}
+
+func TestPrintHelp_DescribesDefaultToolSurfaceAndOptionalFullPrescribe(t *testing.T) {
+	var out bytes.Buffer
+	printHelp(&out)
+	help := out.String()
+
+	for _, needle := range []string{
+		"--full-prescribe",
+		"write_file",
+		"prescribe_smart",
+		"run_command",
+		"collect_diagnostics",
+	} {
+		if !strings.Contains(help, needle) {
+			t.Fatalf("help missing %q: %s", needle, help)
+		}
+	}
+	if strings.Contains(help, "Agent calls prescribe_full/prescribe_smart/report tools explicitly") {
+		t.Fatalf("help should not claim prescribe_full is part of the default direct surface: %s", help)
 	}
 }

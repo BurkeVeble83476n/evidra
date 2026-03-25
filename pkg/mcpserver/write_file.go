@@ -52,61 +52,154 @@ func validateWritePath(raw string) (string, string) {
 		return "", fmt.Sprintf("resolve path: %v", err)
 	}
 
-	// Reject any remaining ".." components after resolution.
-	if strings.Contains(abs, "..") {
-		return "", fmt.Sprintf("path traversal not allowed: %s", raw)
+	target, err := resolveWriteTarget(abs)
+	if err != nil {
+		return "", fmt.Sprintf("resolve symlinks: %v", err)
 	}
 
 	// Reject ~/.ssh.
-	home, err := os.UserHomeDir()
-	if err == nil {
-		sshDir := filepath.Join(home, ".ssh")
-		if isUnderDir(abs, sshDir) {
-			return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", abs)
-		}
-	}
-
-	// Build the list of allowed temp directory prefixes.
-	// On macOS /tmp -> /private/tmp and os.TempDir() returns paths under
-	// /var/folders, so we must resolve symlinks and check all variants.
-	// All paths are cleaned to remove trailing slashes.
-	allowedTmpDirs := []string{"/tmp"}
-	if real, err := filepath.EvalSymlinks("/tmp"); err == nil && real != "/tmp" {
-		allowedTmpDirs = append(allowedTmpDirs, filepath.Clean(real))
-	}
-	osTmp := filepath.Clean(os.TempDir())
-	if osTmp != "" && osTmp != "." {
-		allowedTmpDirs = append(allowedTmpDirs, osTmp)
-		if real, err := filepath.EvalSymlinks(osTmp); err == nil && real != osTmp {
-			allowedTmpDirs = append(allowedTmpDirs, filepath.Clean(real))
-		}
+	if isUnderAnyDir(target, sshBlockedDirs()) {
+		return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", target)
 	}
 
 	// Allow temp directories and subdirectories.
-	for _, td := range allowedTmpDirs {
-		if isUnderDir(abs, td) {
-			return abs, ""
-		}
+	if isUnderAnyDir(target, allowedTempDirs()) {
+		return target, ""
 	}
 
 	// Allow current working directory and subdirectories.
-	cwd, err := os.Getwd()
+	allowedWorkDirs, err := allowedWorkDirs()
 	if err != nil {
 		return "", fmt.Sprintf("cannot determine working directory: %v", err)
 	}
-	if isUnderDir(abs, cwd) {
-		return abs, ""
+	if isUnderAnyDir(target, allowedWorkDirs) {
+		return target, ""
 	}
 
-	// Reject blocklisted directory prefixes.
-	for _, prefix := range blockedPrefixes {
-		dir := strings.TrimSuffix(prefix, "/")
-		if isUnderDir(abs, dir) {
-			return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", abs)
+	// Reject blocklisted directory prefixes after explicit allowlists so
+	// platform temp directories (for example /private/var/folders on macOS)
+	// still work, while symlinks into blocked targets remain rejected because
+	// target already points at the resolved destination.
+	if isUnderAnyDir(target, blockedSystemDirs()) {
+		return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", target)
+	}
+
+	return "", fmt.Sprintf("path %s is outside allowed directories (cwd or /tmp)", target)
+}
+
+func isUnderAnyDir(path string, dirs []string) bool {
+	for _, dir := range dirs {
+		if isUnderDir(path, dir) {
+			return true
 		}
 	}
+	return false
+}
 
-	return "", fmt.Sprintf("path %s is outside allowed directories (cwd or /tmp)", abs)
+func sshBlockedDirs() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	sshDir := filepath.Join(home, ".ssh")
+	dirs := []string{sshDir}
+	if realSSHDir, err := filepath.EvalSymlinks(sshDir); err == nil {
+		realSSHDir = filepath.Clean(realSSHDir)
+		if realSSHDir != sshDir {
+			dirs = append(dirs, realSSHDir)
+		}
+	}
+	return dirs
+}
+
+func allowedTempDirs() []string {
+	// On macOS /tmp -> /private/tmp and os.TempDir() returns paths under
+	// /var/folders, so we must resolve symlinks and check all variants.
+	dirs := []string{"/tmp"}
+	if realTmp, err := filepath.EvalSymlinks("/tmp"); err == nil && realTmp != "/tmp" {
+		dirs = append(dirs, filepath.Clean(realTmp))
+	}
+
+	osTmp := filepath.Clean(os.TempDir())
+	if osTmp == "" || osTmp == "." {
+		return dirs
+	}
+	dirs = append(dirs, osTmp)
+	if realOSTmp, err := filepath.EvalSymlinks(osTmp); err == nil && realOSTmp != osTmp {
+		dirs = append(dirs, filepath.Clean(realOSTmp))
+	}
+	return dirs
+}
+
+func allowedWorkDirs() ([]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	dirs := []string{filepath.Clean(cwd)}
+	if realCwd, err := filepath.EvalSymlinks(cwd); err == nil {
+		realCwd = filepath.Clean(realCwd)
+		if realCwd != dirs[0] {
+			dirs = append(dirs, realCwd)
+		}
+	}
+	return dirs, nil
+}
+
+func blockedSystemDirs() []string {
+	dirs := make([]string, 0, len(blockedPrefixes)*2)
+	for _, prefix := range blockedPrefixes {
+		dir := filepath.Clean(strings.TrimSuffix(prefix, "/"))
+		dirs = append(dirs, dir)
+		if realDir, err := filepath.EvalSymlinks(dir); err == nil {
+			realDir = filepath.Clean(realDir)
+			if realDir != dir {
+				dirs = append(dirs, realDir)
+			}
+		}
+	}
+	return dirs
+}
+
+func resolveWriteTarget(abs string) (string, error) {
+	pending := make([]string, 0, 4)
+	cur := filepath.Clean(abs)
+
+	for {
+		info, err := os.Lstat(cur)
+		switch {
+		case err == nil:
+			if info.Mode()&os.ModeSymlink != 0 {
+				resolved, err := filepath.EvalSymlinks(cur)
+				if err != nil {
+					return "", err
+				}
+				cur = filepath.Clean(resolved)
+				continue
+			}
+			if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+				cur = filepath.Clean(resolved)
+			}
+			for i := len(pending) - 1; i >= 0; i-- {
+				cur = filepath.Join(cur, pending[i])
+			}
+			return cur, nil
+		case os.IsNotExist(err):
+			parent := filepath.Dir(cur)
+			if parent == cur {
+				for i := len(pending) - 1; i >= 0; i-- {
+					cur = filepath.Join(cur, pending[i])
+				}
+				return cur, nil
+			}
+			pending = append(pending, filepath.Base(cur))
+			cur = parent
+		default:
+			return "", err
+		}
+	}
 }
 
 type writeFileHandler struct{}

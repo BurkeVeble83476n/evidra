@@ -559,7 +559,7 @@ export function Onboarding() {
                 </div>
                 <p className="text-[0.82rem] text-fg-muted leading-relaxed">
                   Restart your editor, then ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em>
-                  &mdash; you should see <code className="text-[0.78rem] text-fg">prescribe</code>, <code className="text-[0.78rem] text-fg">report</code>, and <code className="text-[0.78rem] text-fg">get_event</code>.
+                  &mdash; you should see <code className="text-[0.78rem] text-fg">run_command</code>, <code className="text-[0.78rem] text-fg">collect_diagnostics</code>, <code className="text-[0.78rem] text-fg">write_file</code>, <code className="text-[0.78rem] text-fg">prescribe_smart</code>, <code className="text-[0.78rem] text-fg">report</code>, and <code className="text-[0.78rem] text-fg">get_event</code>. Add <code className="text-[0.78rem] text-fg">--full-prescribe</code> if you also want <code className="text-[0.78rem] text-fg">prescribe_full</code>.
                 </p>
               </div>
 

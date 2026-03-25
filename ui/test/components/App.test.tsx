@@ -1,6 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import mermaid from "mermaid";
+
+vi.mock("../../src/components/MermaidDiagram", () => ({
+  MermaidDiagram: ({ chart }: { chart: string }) => (
+    <div data-testid="mermaid-diagram">{chart}</div>
+  ),
+}));
+
+vi.mock("../../src/hooks/useHealthCheck", () => ({
+  useHealthCheck: () => "healthy",
+}));
+
 import { App } from "../../src/App";
 import { SEQUENCE_CHART } from "../../src/pages/Landing";
 
@@ -47,8 +58,10 @@ describe("App", () => {
 
     expect(hero).not.toBeNull();
     expect(
-      within(hero as HTMLElement).getByRole("link", { name: "Bench" }),
-    ).toHaveAttribute("href", "https://bench.evidra.cc");
+      within(hero as HTMLElement).getByRole("link", {
+        name: "Test Your Agent Skills",
+      }),
+    ).toHaveAttribute("href", "https://lab.evidra.cc");
   });
 
   it("does not expose raw signal weights on the landing page", () => {

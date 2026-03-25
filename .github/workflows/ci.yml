@@ -19,6 +19,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
       - name: Check formatting
         run: |
           files=$(gofmt -l .)
@@ -40,6 +47,15 @@ jobs:
           version: v2.10.1
           args: --timeout=5m
           verify: false
+
+      - name: Install UI dependencies
+        run: cd ui && npm ci
+
+      - name: Run UI tests
+        run: cd ui && npm test
+
+      - name: Build UI
+        run: cd ui && npm run build
 
       - name: Build binaries
         run: |
@@ -73,6 +89,15 @@ jobs:
 
       - name: Check doc command paths
         run: bash scripts/check-doc-commands.sh
+
+      - name: Check doc trust alignment
+        run: bash tests/test_doc_trust_alignment.sh
+
+      - name: Check supported surface positioning
+        run: bash tests/test_supported_core_positioning.sh
+
+      - name: Check MCP mode label docs
+        run: bash tests/test_mode_labels_docs.sh
 
       - name: Check test naming consistency
         run: bash tests/test_fixture_snapshot_names.sh

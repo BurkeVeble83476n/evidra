@@ -314,7 +314,7 @@ function Hero() {
           Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Intelligence Layer
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          Flight recorder for<br /><span className="text-gradient">infrastructure automation</span>
+          Know what your agent intended.<br /><span className="text-gradient">Know what actually happened.</span>
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
           Every infrastructure mutation recorded &mdash; across MCP agents, CI pipelines, A2A agents, and scripts. Risk assessment, behavioral signals, reliability scoring.
@@ -546,27 +546,27 @@ function McpSetup() {
         <div className="mb-8">
           <h3 className="text-[0.95rem] font-bold text-fg mb-3">{editor === "claude-code" && mode !== "hosted" ? "4" : mode === "hosted" ? "2" : "3"}. Verify</h3>
           <p className="text-[0.85rem] text-fg-muted">
-            Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>prescribe_full</code>, <code>prescribe_smart</code>, <code>report</code>, and <code>get_event</code>.
+            Restart your editor. Ask your agent: <em>&ldquo;What tools do you have from Evidra?&rdquo;</em> &mdash; you should see <code>run_command</code>, <code>collect_diagnostics</code>, <code>write_file</code>, <code>prescribe_smart</code>, <code>report</code>, and <code>get_event</code>. Add <code>--full-prescribe</code> if you also want <code>prescribe_full</code>.
           </p>
         </div>
 
         <div className="glass-card p-6">
           <h3 className="text-[0.92rem] font-bold text-fg mb-2">How it works</h3>
           <p className="text-[0.83rem] text-fg-muted leading-relaxed mb-3">
-            Every infrastructure mutation follows the same lifecycle. The agent calls <code>prescribe_full</code> with an artifact or <code>prescribe_smart</code> with lightweight target context before execution &mdash; Evidra returns risk level, risk tags, and a prescription ID. After execution (or refusal), the agent calls <code>report</code> with the outcome. The evidence chain grows. Behavioral patterns become visible.
+            Every infrastructure mutation follows the same lifecycle. The default path is <code>run_command</code> plus auto-evidence, with <code>write_file</code> available for agent-authored manifests. When you enable <code>--full-prescribe</code>, the agent can call <code>prescribe_full</code> with an artifact; otherwise it can call <code>prescribe_smart</code> with lightweight target context before execution. After execution (or refusal), the agent calls <code>report</code>. The evidence chain grows. Behavioral patterns become visible.
           </p>
           <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
             <div className="text-center">
-              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe_full / prescribe_smart</div>
-              <div className="text-[0.78rem] text-fg-muted">What does the agent intend to do? Record before execution with artifact bytes or lightweight target context.</div>
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">run_command / write_file</div>
+              <div className="text-[0.78rem] text-fg-muted">Default DevOps surface: operate directly, author manifests in the workspace, and let Evidra observe mutations automatically.</div>
             </div>
             <div className="text-center">
-              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">report</div>
-              <div className="text-[0.78rem] text-fg-muted">What actually happened? Or why did the agent refuse?</div>
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">prescribe_smart / prescribe_full</div>
+              <div className="text-[0.78rem] text-fg-muted">Explicit mode: register intent before execution with lightweight target context or full artifact bytes.</div>
             </div>
             <div className="text-center">
-              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">get_event</div>
-              <div className="text-[0.78rem] text-fg-muted">Look up any evidence entry by ID.</div>
+              <div className="font-mono text-[0.78rem] font-semibold text-accent mb-1">report / get_event</div>
+              <div className="text-[0.78rem] text-fg-muted">Record the outcome, then look up any evidence entry by ID.</div>
             </div>
           </div>
         </div>

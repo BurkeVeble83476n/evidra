@@ -5,7 +5,7 @@ raw_tools=$(call_list_tools) || {
   return
 }
 
-for t in run_command collect_diagnostics prescribe_full prescribe_smart report get_event; do
+for t in run_command collect_diagnostics write_file prescribe_full prescribe_smart report get_event; do
   has_tool=$(echo "$raw_tools" | jq --arg t "$t" '[.tools[]? | select(.name == $t)] | length')
   if [[ "$has_tool" -gt 0 ]]; then
     pass "list_tools/${t}_registered"
@@ -91,3 +91,13 @@ if [[ "$found" -gt 0 ]]; then
 else
   fail "list_tools/get_event_requires_event_id" "missing required field"
 fi
+
+write_file_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "write_file")][0].inputSchema.required // []')
+for field in path content; do
+  found=$(echo "$write_file_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
+  if [[ "$found" -gt 0 ]]; then
+    pass "list_tools/write_file_requires_${field}"
+  else
+    fail "list_tools/write_file_requires_${field}" "missing required field"
+  fi
+done

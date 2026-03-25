@@ -218,6 +218,118 @@ func TestWriteFile_OutsideAllowedDirs(t *testing.T) {
 	}
 }
 
+func TestWriteFile_SymlinkedParentResolvesToBlockedDir(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	sshDir := filepath.Join(homeDir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatalf("mkdir ssh dir: %v", err)
+	}
+
+	linkPath := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(sshDir, linkPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	h := &writeFileHandler{}
+	result, out, err := h.Handle(context.Background(), nil, WriteFileInput{
+		Path:    filepath.Join(linkPath, "payload.txt"),
+		Content: "malicious",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected IsError=true for symlinked blocked parent")
+	}
+	if out.OK {
+		t.Fatal("expected OK=false for symlinked blocked parent")
+	}
+	if !strings.Contains(out.Error, "not allowed") {
+		t.Fatalf("error = %q, want blocked-directory message", out.Error)
+	}
+	if _, err := os.Stat(filepath.Join(sshDir, "payload.txt")); !os.IsNotExist(err) {
+		t.Fatalf("blocked target file should not be created, stat err=%v", err)
+	}
+}
+
+func TestWriteFile_SymlinkedFileResolvesToBlockedTarget(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	sshDir := filepath.Join(homeDir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatalf("mkdir ssh dir: %v", err)
+	}
+
+	blockedTarget := filepath.Join(sshDir, "authorized_keys")
+	if err := os.WriteFile(blockedTarget, []byte("original"), 0o600); err != nil {
+		t.Fatalf("write blocked target: %v", err)
+	}
+
+	linkPath := filepath.Join(t.TempDir(), "payload-link.txt")
+	if err := os.Symlink(blockedTarget, linkPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	h := &writeFileHandler{}
+	result, out, err := h.Handle(context.Background(), nil, WriteFileInput{
+		Path:    linkPath,
+		Content: "malicious",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected IsError=true for symlinked blocked file")
+	}
+	if out.OK {
+		t.Fatal("expected OK=false for symlinked blocked file")
+	}
+	if !strings.Contains(out.Error, "not allowed") {
+		t.Fatalf("error = %q, want blocked-directory message", out.Error)
+	}
+	data, err := os.ReadFile(blockedTarget)
+	if err != nil {
+		t.Fatalf("read blocked target: %v", err)
+	}
+	if string(data) != "original" {
+		t.Fatalf("blocked target was modified: %q", string(data))
+	}
+}
+
+func TestWriteFile_AllowsFilenameContainingDoubleDots(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	dest := filepath.Join(tmpDir, "config..backup.yaml")
+
+	h := &writeFileHandler{}
+	result, out, err := h.Handle(context.Background(), nil, WriteFileInput{
+		Path:    dest,
+		Content: "key: value",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success, got error: %s", out.Error)
+	}
+	if !out.OK {
+		t.Fatalf("expected OK=true, got false: %s", out.Error)
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+	if string(data) != "key: value" {
+		t.Errorf("content = %q, want %q", string(data), "key: value")
+	}
+}
+
 func TestValidateWritePath_Table(t *testing.T) {
 	t.Parallel()
 

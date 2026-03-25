@@ -39,6 +39,8 @@ execution. Passive recording (bridge/proxy mode) works without it.
 
 All modes produce the same evidence entries and feed the same intelligence
 pipeline.
+All three modes feed the same evidence chain.
+At the MCP layer, Full Prescribe, Smart Prescribe, and Proxy Observed are different entry modes.
 
 | Mode | How Evidra connects | Prescribe | Assessment |
 |------|-------------------|-----------|------------|

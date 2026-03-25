@@ -7,10 +7,15 @@
 
 Evidra MCP is a DevOps MCP server with built-in flight recorder and reliability scoring.
 
+It is a flight recorder for AI agents that touch infrastructure.
+The agent reports voluntarily; Evidra observes, scores, and explains.
+
 It gives AI agents `run_command` for kubectl, helm, terraform, and aws with token-efficient
 smart output. Every mutation is automatically recorded in an append-only evidence chain —
-no extra agent code needed. The server also exposes `prescribe_smart`, `prescribe_full`,
-and `report` tools for agents that want explicit control over evidence recording.
+no extra agent code needed. By default the direct surface includes `run_command`,
+`collect_diagnostics`, `write_file`, `prescribe_smart`, `report`, and `get_event`.
+Start the server with `--full-prescribe` when you also want `prescribe_full` for
+artifact-aware explicit control over evidence recording.
 
 ---
 
@@ -104,25 +109,27 @@ Full guide: [Skill Setup](skill-setup.md)
 
 Ask your agent: *"What tools do you have from Evidra?"*
 
-You should see four tools: `prescribe_full`, `prescribe_smart`, `report`, and `get_event`.
+You should see six default tools: `run_command`, `collect_diagnostics`, `write_file`, `prescribe_smart`, `report`, and `get_event`. Start `evidra-mcp` with `--full-prescribe` when you also want `prescribe_full`.
 
-Try: *"Apply this deployment to staging"* — the agent should call `prescribe_full` or `prescribe_smart` before executing and `report` after.
+Try: *"Apply this deployment to staging"* — the agent should call `run_command` for the direct path, or `prescribe_full` / `prescribe_smart` followed by `report` when you want the explicit protocol.
 
 ---
 
 ## DevOps Server Mode (new)
 
 evidra-mcp provides DevOps tooling with built-in evidence recording.
-6 tools with token-efficient output:
+The default direct surface is 6 tools; `--full-prescribe` adds `prescribe_full` as an optional seventh tool.
 
 | Tool | Description |
 |---|---|
 | `run_command` | Execute kubectl, helm, terraform, aws with smart output |
 | `collect_diagnostics` | Run one bundled Kubernetes diagnosis pass for a workload |
+| `write_file` | Write config or manifest files under the workspace or temp directories |
 | `prescribe_smart` | Record intent (lightweight) |
-| `prescribe_full` | Record intent with artifact |
 | `report` | Record outcome |
 | `get_event` | Look up evidence |
+
+Enable `--full-prescribe` when you also want `prescribe_full` for artifact-aware explicit intent capture.
 
 ### Smart output
 
@@ -164,11 +171,13 @@ One MCP connection for both infrastructure commands and evidence recording.
 
 ## How It Works
 
-Evidra exposes six MCP tools:
+By default Evidra exposes six MCP tools, plus optional `prescribe_full` when the server is started with `--full-prescribe`:
 
 **`run_command`** — Execute infrastructure commands (kubectl, helm, terraform, aws) with token-efficient smart output. Mutations are auto-recorded as evidence. Command allowlist prevents dangerous operations.
 
 **`collect_diagnostics`** — Run a fixed read-only Kubernetes diagnosis sequence for one workload. It gathers pods, describe output, recent events, and recent logs when a failing pod needs more context, then returns one compact summary plus machine-readable findings and the commands it executed.
+
+**`write_file`** — Write files under the current workspace or temp directories. Use it for agent-authored YAML, Terraform snippets, or scripts without exposing system directories. Evidra blocks system paths and `~/.ssh`.
 
 **`prescribe_full`** — Record intent BEFORE an infrastructure mutation when artifact bytes are available. It analyzes the artifact, returns a `prescription_id`, and supports native detector coverage plus artifact drift detection.
 
@@ -322,7 +331,7 @@ GitOps mode the agent or CI should register intent first and annotate the Argo
 
 ### Protocol rules
 
-1. Call `prescribe_full` or `prescribe_smart` BEFORE execution — do not execute until it returns `ok=true` with a `prescription_id`.
+1. If `prescribe_full` is available and you have artifact bytes, use it. Otherwise call `prescribe_smart` BEFORE execution — do not execute until it returns `ok=true` with a `prescription_id`.
 2. Call `report` with an explicit `verdict` for every prescription.
 3. For `success`, `failure`, or `error`, include the exit code.
 4. For `declined`, do not include an exit code. Include `decision_context.trigger` and `decision_context.reason`.
@@ -437,7 +446,7 @@ For agents without automatic MCP tool discovery, add this to your system prompt:
 ```
 ## Infrastructure Reliability Benchmark (Evidra)
 
-You have access to MCP tools: "prescribe_full", "prescribe_smart", "report", and "get_event".
+You have access to MCP tools: "run_command", "collect_diagnostics", "write_file", "prescribe_smart", "report", and "get_event". If the server was started with "--full-prescribe", you also have "prescribe_full".
 
 Before every infrastructure mutation (apply, delete, create, patch, upgrade,
 destroy, import), call "prescribe_full" when artifact bytes are available.
