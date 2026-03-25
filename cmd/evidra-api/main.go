@@ -321,9 +321,17 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 	if defaultTenant == "" {
 		defaultTenant = "default"
 	}
+	triggerStore := benchsvc.NewTriggerStore()
+	var executor benchsvc.RunExecutor
+	if benchServiceURL := os.Getenv("EVIDRA_BENCH_SERVICE_URL"); benchServiceURL != "" {
+		executor = benchsvc.NewRemoteExecutor(benchServiceURL)
+	}
+
 	repo := benchsvc.NewPgStore(pool)
 	benchService := benchsvc.NewService(repo, benchsvc.ServiceConfig{
 		PublicTenant: envOr("EVIDRA_BENCH_PUBLIC_TENANT", defaultTenant),
+		TriggerStore: triggerStore,
+		Executor:     executor,
 	})
 	return persistenceResources{
 			Pinger:       pool,
