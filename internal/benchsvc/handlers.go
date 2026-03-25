@@ -76,9 +76,6 @@ func parseSince(s string) *time.Time {
 func handleLeaderboard(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mode := r.URL.Query().Get("evidence_mode")
-		if mode == "" {
-			mode = "proxy"
-		}
 		entries, err := svc.Leaderboard(r.Context(), mode)
 		if err != nil {
 			if errors.Is(err, ErrPublicTenantUnavailable) {

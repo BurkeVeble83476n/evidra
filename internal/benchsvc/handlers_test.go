@@ -194,16 +194,16 @@ func TestHandleLeaderboard_DefaultsToProxy(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if repo.lastMode != "proxy" {
-		t.Fatalf("evidence_mode = %q, want proxy", repo.lastMode)
+	if repo.lastMode != "" {
+		t.Fatalf("evidence_mode = %q, want empty (all)", repo.lastMode)
 	}
 
 	var body map[string]string
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body["evidence_mode"] != "proxy" {
-		t.Fatalf("response evidence_mode = %q, want proxy", body["evidence_mode"])
+	if body["evidence_mode"] != "" {
+		t.Fatalf("response evidence_mode = %q, want empty", body["evidence_mode"])
 	}
 }
 
