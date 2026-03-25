@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -64,7 +65,7 @@ func (w *EvidenceWriter) Prescribe(command string) string {
 	if strings.TrimSpace(tool) == "" {
 		tool = strings.TrimSpace(command)
 	}
-	id := fmt.Sprintf("proxy-%d", time.Now().UnixNano())
+	id := generateProxyID()
 
 	entry := ProxyEntry{
 		Type:           "prescribe",
@@ -87,7 +88,7 @@ func (w *EvidenceWriter) Prescribe(command string) string {
 // PrescribeObserved records a pre-execution entry for a generic MCP tool call
 // when no raw shell command is available.
 func (w *EvidenceWriter) PrescribeObserved(tool, operation string, class OperationClass) string {
-	id := fmt.Sprintf("proxy-%d", time.Now().UnixNano())
+	id := generateProxyID()
 
 	entry := ProxyEntry{
 		Type:           "prescribe",
@@ -149,4 +150,11 @@ func writeJSONLine(w io.Writer, entry any) error {
 // Dir returns the evidence session directory path.
 func (w *EvidenceWriter) Dir() string {
 	return w.dir
+}
+
+// generateProxyID returns a collision-safe prescription ID using timestamp and random suffix.
+func generateProxyID() string {
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	return fmt.Sprintf("proxy-%d-%x", time.Now().UnixNano(), b)
 }

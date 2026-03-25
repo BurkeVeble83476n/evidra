@@ -3,10 +3,14 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// safeK8sName matches valid Kubernetes resource names and workload references like "deployment/web".
+var safeK8sName = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]*$`)
 
 // CollectDiagnosticsInput is the input for the collect_diagnostics tool.
 type CollectDiagnosticsInput struct {
@@ -67,6 +71,12 @@ func (h *collectDiagnosticsHandler) Handle(
 	}
 	if workload == "" {
 		return &mcp.CallToolResult{IsError: true}, CollectDiagnosticsOutput{OK: false, Error: "workload is required"}, nil
+	}
+	if !safeK8sName.MatchString(namespace) {
+		return &mcp.CallToolResult{IsError: true}, CollectDiagnosticsOutput{OK: false, Error: "namespace contains invalid characters"}, nil
+	}
+	if !safeK8sName.MatchString(workload) {
+		return &mcp.CallToolResult{IsError: true}, CollectDiagnosticsOutput{OK: false, Error: "workload contains invalid characters"}, nil
 	}
 	if h.run == nil {
 		return &mcp.CallToolResult{IsError: true}, CollectDiagnosticsOutput{OK: false, Error: "diagnostics runner is not configured"}, nil

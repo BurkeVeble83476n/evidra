@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -269,10 +270,11 @@ func contentExitCode(content []struct {
 		if len(code) == 0 {
 			continue
 		}
-		if code[0] != '0' {
-			return 1, true
+		n, err := strconv.Atoi(code)
+		if err != nil {
+			continue
 		}
-		return 0, true
+		return n, true
 	}
 	return 0, false
 }

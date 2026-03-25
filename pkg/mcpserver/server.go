@@ -198,10 +198,6 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	report := &reportHandler{service: svc}
 	getEvent := &getEventHandler{service: svc}
 
-	prescribeFullDef, err := execcontract.PrescribeFullToolDefinition()
-	if err != nil {
-		return nil, nil, err
-	}
 	prescribeSmartDef, err := execcontract.PrescribeSmartToolDefinition()
 	if err != nil {
 		return nil, nil, err
@@ -227,6 +223,10 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	)
 
 	if !opts.HidePrescribeFull {
+		prescribeFullDef, err := execcontract.PrescribeFullToolDefinition()
+		if err != nil {
+			return nil, nil, err
+		}
 		mcp.AddTool(server, &mcp.Tool{
 			Name:        "prescribe_full",
 			Title:       "Record Full Infrastructure Intent",

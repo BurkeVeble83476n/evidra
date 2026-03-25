@@ -502,12 +502,8 @@ func findColumn(headers []string, names ...string) int {
 	return -1
 }
 
-func splitTableRow(line string, numCols int) []string {
-	fields := strings.Fields(line)
-	if len(fields) >= numCols {
-		return fields
-	}
-	return fields
+func splitTableRow(line string, _ int) []string {
+	return strings.Fields(line)
 }
 
 func safeCol(cols []string, idx int) string {
