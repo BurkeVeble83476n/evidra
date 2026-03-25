@@ -48,6 +48,13 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("GET /v1/bench/signals", authMw(http.HandlerFunc(handleSignals(svc))))
 	mux.Handle("GET /v1/bench/regressions", authMw(http.HandlerFunc(handleRegressions(svc))))
 	mux.Handle("GET /v1/bench/insights", authMw(http.HandlerFunc(handleFailureAnalysis(svc))))
+
+	// Trigger routes — only enabled when TriggerStore is configured.
+	if svc.cfg.TriggerStore != nil {
+		mux.Handle("POST /v1/bench/trigger", authMw(http.HandlerFunc(handleTrigger(svc, svc.cfg.TriggerStore, svc.cfg.Executor))))
+		mux.Handle("GET /v1/bench/trigger/{id}", authMw(http.HandlerFunc(handleTriggerStatus(svc.cfg.TriggerStore))))
+		mux.Handle("POST /v1/bench/trigger/{id}/progress", authMw(http.HandlerFunc(handleTriggerProgress(svc.cfg.TriggerStore))))
+	}
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
