@@ -2,22 +2,12 @@
 
 ## Unreleased
 
-## v0.5.12 — 2026-03-25
-
-### Documentation & Surface Alignment
-- README rewritten: 6 default tools + optional prescribe_full, trust boundary note
-- Evidence mode labels aligned: Proxy Observed, Smart Prescribe, Full Prescribe
-- MCP help text corrected: default vs optional tool sections
-- MCP setup guide, supported tools docs updated
+## v0.5.13 
 
 ### CI
 - UI pipeline: Node setup, npm test, vite build in CI
 - Doc alignment checks: trust positioning, mode labels, supported surface
 
-### Security
-- write_file: enhanced path validation with additional test coverage
-
-## v0.5.11 — 2026-03-25
 
 ### UI
 - Glass morphism design refresh — aligned with bench UI
@@ -25,23 +15,11 @@
 - Dark theme: lighter bg, rgba borders/shadows, translucent cards
 - Landing page: glass-card sections, gradient hero title, glow CTA
 
-## v0.5.10 — 2026-03-25
-
-### Security Hardening
+### Security
+- write_file: enhanced path validation with additional test coverage
 - `write_file`: path validation with blocklist (system dirs) and allowlist (cwd, /tmp), reject traversal attacks
 - `write_file`: 9 tests covering valid paths, traversal, blocklist, overwrite, directory auto-creation
 - `collect_diagnostics`: validate namespace/workload inputs against safe regex pattern
-
-### Bug Fixes
-- Proxy: preserve actual exit codes (127, 2, etc.) instead of collapsing to 0/1
-- Proxy: add random suffix to prescription IDs to prevent collisions under concurrency
-- Server: move `prescribeFullDef` loading inside `HidePrescribeFull` guard — broken schema no longer crashes when tool is disabled
-- `splitTableRow`: remove dead code (both branches returned same value)
-
-## v0.5.9 — 2026-03-25
-
-
-## v0.5.8 
 
 ### Contract v1.2.0
 - Contract extended with DevOps operations (run_command, write_file, diagnosis protocol, safety rules)
