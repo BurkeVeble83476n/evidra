@@ -89,6 +89,7 @@ POST /v1/bench/trigger { model, scenarios }
 
 The executor contract (v1.0.0) is an open specification. Third-party
 executors can implement it to plug into Evidra's analytics.
+See [Executor Contract v1.0.0](contracts/EXECUTOR_CONTRACT_V1.md).
 
 ## Hosted Mode
 
@@ -127,6 +128,7 @@ Normative contracts:
 - [Core Data Model](system-design/EVIDRA_CORE_DATA_MODEL_V1.md)
 - [Canonicalization Contract](system-design/EVIDRA_CANONICALIZATION_CONTRACT_V1.md)
 - [Signal Spec](system-design/EVIDRA_SIGNAL_SPEC_V1.md)
+- [Executor Contract](contracts/EXECUTOR_CONTRACT_V1.md)
 
 System design and implementation mapping:
 - [Architecture](system-design/EVIDRA_ARCHITECTURE_V1.md)

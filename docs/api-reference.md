@@ -518,6 +518,8 @@ Response:
 ### Bench Trigger
 
 Start and monitor benchmark runs via a pluggable executor.
+See [Executor Contract v1.0.0](contracts/EXECUTOR_CONTRACT_V1.md) for
+implementing custom executors.
 
 #### POST /v1/bench/trigger
 
