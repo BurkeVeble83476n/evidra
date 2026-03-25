@@ -466,40 +466,6 @@ function riskItemColor(name: string): string {
   return "bg-emerald-500";
 }
 
-function EntryRow({ entry }: { entry: EvidenceEntry }) {
-  const time = formatTime(entry.created_at);
-  const typeColor =
-    entry.type === "prescription"
-      ? "bg-emerald-500"
-      : entry.type === "report"
-        ? "bg-blue-500"
-        : "bg-fg-muted";
-
-  const riskColor =
-    entry.risk_level === "high"
-      ? "text-red-500"
-      : entry.risk_level === "medium"
-        ? "text-amber-500"
-        : "text-fg-muted";
-
-  return (
-    <div className="grid grid-cols-[80px_70px_1fr_1fr_1fr_70px] gap-3 px-5 py-3 border-b border-border-subtle last:border-b-0 items-center hover:bg-bg-alt/30 transition-colors max-md:grid-cols-1 max-md:gap-1">
-      <div className="font-mono text-[0.78rem] text-fg-muted tabular-nums">{time}</div>
-      <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${typeColor}`} />
-        <span className="font-mono text-[0.74rem] text-fg">{entry.type === "prescription" ? "prescribe" : entry.type}</span>
-      </div>
-      <div className="font-mono text-[0.76rem] text-fg-muted truncate">{entry.actor || "\u2014"}</div>
-      <div className="font-mono text-[0.78rem] text-fg-body truncate">
-        {entry.tool && entry.operation ? `${entry.tool} ${entry.operation}` : entry.operation || "\u2014"}
-      </div>
-      <div className="font-mono text-[0.76rem] text-fg-muted truncate">{entry.scope || "\u2014"}</div>
-      <div className={`font-mono text-[0.76rem] font-medium text-right ${riskColor}`}>
-        {entry.risk_level || "\u2014"}
-      </div>
-    </div>
-  );
-}
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -523,11 +489,3 @@ function bandColor(band?: string): string {
   return "default";
 }
 
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "\u2014";
-  }
-}

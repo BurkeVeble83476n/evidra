@@ -8,8 +8,6 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
 type Period = "24h" | "7d" | "30d" | "90d" | "all";
 
-type ScenarioStatus = "pending" | "running" | "passed" | "failed";
-
 interface ScenarioSummary {
   id: string;
   title: string;
@@ -19,7 +17,12 @@ interface ScenarioSummary {
 interface TriggerProgress {
   id: string;
   status: string;
-  scenarios: Record<string, ScenarioStatus>;
+  total: number;
+  completed: number;
+  passed: number;
+  failed: number;
+  current_scenario: string;
+  progress: Array<{ scenario: string; status: string; run_id?: string }>;
 }
 
 interface ScenarioStat {
@@ -131,8 +134,8 @@ export function BenchDashboard() {
 
   /* ── Trigger state ── */
   const [showTriggerModal, setShowTriggerModal] = useState(false);
-  const [triggerModel, setTriggerModel] = useState("deepseek-chat");
-  const [triggerProvider, setTriggerProvider] = useState("deepseek");
+  const [triggerModel, setTriggerModel] = useState("");
+  const [triggerProvider, setTriggerProvider] = useState("");
   const [triggerScenarios, setTriggerScenarios] = useState<Set<string>>(
     new Set(),
   );
@@ -144,13 +147,12 @@ export function BenchDashboard() {
     const modeFirst = evidenceModeParam("?", mode);
     const modeAmp = evidenceModeParam("&", mode);
     const sinceAmp = since ? `&since=${encodeURIComponent(since)}` : "";
-    const sinceParam = since ? `&since=${encodeURIComponent(since)}` : "";
 
     setLoading(true);
     Promise.all([
       request<Stats>(`/v1/bench/stats${modeFirst}${sinceAmp}`),
       request<RunsResponse>(buildRunsPath(8, since, mode)),
-      request<RunsResponse>(`/v1/bench/runs?limit=500${modeAmp}${sinceParam}`),
+      request<RunsResponse>(`/v1/bench/runs?limit=500${modeAmp}${sinceAmp}`),
     ])
       .then(([s, recent, all]) => {
         setStats(s);
@@ -709,6 +711,7 @@ export function BenchDashboard() {
                   type="text"
                   value={triggerModel}
                   onChange={(e) => setTriggerModel(e.target.value)}
+                  placeholder="e.g. deepseek-chat"
                   className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-1.5 text-[0.85rem] text-fg focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>
@@ -718,6 +721,7 @@ export function BenchDashboard() {
                   type="text"
                   value={triggerProvider}
                   onChange={(e) => setTriggerProvider(e.target.value)}
+                  placeholder="e.g. deepseek"
                   className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-1.5 text-[0.85rem] text-fg focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>
@@ -765,23 +769,22 @@ export function BenchDashboard() {
         <div className="fixed bottom-6 right-6 z-50 w-80 bg-bg-elevated border border-border rounded-xl shadow-lg p-4 space-y-3">
           <h3 className="text-[0.9rem] font-bold text-fg">Benchmark Running</h3>
           <ul className="space-y-1">
-            {Object.entries(triggerProgress.scenarios).map(([name, st]) => (
-              <li key={name} className="flex items-center gap-2 text-[0.82rem]">
+            {triggerProgress.progress.map((p) => (
+              <li key={p.scenario} className="flex items-center gap-2 text-[0.82rem]">
                 <span>
-                  {st === "pending" && "\u23F3"}
-                  {st === "running" && "\uD83D\uDD04"}
-                  {st === "passed" && "\u2705"}
-                  {st === "failed" && "\u274C"}
+                  {p.status === "pending" && "\u23F3"}
+                  {p.status === "running" && "\uD83D\uDD04"}
+                  {p.status === "passed" && "\u2705"}
+                  {p.status === "failed" && "\u274C"}
                 </span>
-                <span className={st === "running" ? "text-fg font-medium" : "text-fg-muted"}>
-                  {name}
+                <span className={p.status === "running" ? "text-fg font-medium" : "text-fg-muted"}>
+                  {p.scenario}
                 </span>
               </li>
             ))}
           </ul>
           <p className="text-[0.72rem] text-fg-muted">
-            {Object.values(triggerProgress.scenarios).filter((s) => s === "passed" || s === "failed").length}
-            /{Object.keys(triggerProgress.scenarios).length} completed
+            {triggerProgress.completed}/{triggerProgress.total} completed
           </p>
         </div>
       )}

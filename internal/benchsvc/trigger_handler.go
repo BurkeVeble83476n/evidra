@@ -145,7 +145,9 @@ func handleTriggerProgress(store *TriggerStore) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
-		if update.ContractVersion != "" && update.ContractVersion != "v1.0.0" {
+		if update.ContractVersion == "" {
+			// Accept for backward compatibility, but future versions will require it.
+		} else if update.ContractVersion != ExecutorContractVersion {
 			apiutil.WriteError(w, http.StatusBadRequest, "unsupported contract version")
 			return
 		}

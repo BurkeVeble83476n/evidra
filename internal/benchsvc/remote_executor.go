@@ -48,7 +48,7 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 	}
 
 	req := certifyRequest{
-		ContractVersion: "v1.0.0",
+		ContractVersion: ExecutorContractVersion,
 		JobID:           job.ID,
 		Model:           job.Model,
 		Provider:        job.Provider,

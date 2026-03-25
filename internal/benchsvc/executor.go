@@ -8,6 +8,9 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+// ExecutorContractVersion is the protocol version for bench executor communication.
+const ExecutorContractVersion = "v1.0.0"
+
 // TriggerRequest is the payload for POST /v1/bench/trigger.
 type TriggerRequest struct {
 	Model     string   `json:"model"`
@@ -128,6 +131,11 @@ func (s *TriggerStore) Update(u ProgressUpdate) bool {
 		job.Passed++
 	case "failed":
 		job.Failed++
+	case "error":
+		job.Failed++
+		if u.RunID != "" {
+			job.RunIDs = append(job.RunIDs, u.RunID)
+		}
 	case "running":
 		job.CurrentScenario = u.Scenario
 	}

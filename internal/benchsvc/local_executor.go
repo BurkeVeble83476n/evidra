@@ -37,7 +37,7 @@ func (e *LocalExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL, a
 		})
 
 		// Execute scenario check via kubectl.
-		passed := e.runScenario(ctx, sp.Scenario, job.Model)
+		passed := e.runScenario(ctx, sp.Scenario)
 
 		status := "passed"
 		if !passed {
@@ -59,7 +59,7 @@ func (e *LocalExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL, a
 	return nil
 }
 
-func (e *LocalExecutor) runScenario(ctx context.Context, scenarioID, model string) bool {
+func (e *LocalExecutor) runScenario(ctx context.Context, scenarioID string) bool {
 	// Basic check: verify kubectl connectivity and namespace existence.
 	// Full scenario orchestration requires RemoteExecutor with bench service.
 	cmd := exec.CommandContext(ctx, "kubectl", "get", "namespace", "default")

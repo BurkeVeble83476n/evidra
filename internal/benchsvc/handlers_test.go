@@ -1087,3 +1087,129 @@ func (r *matrixRepo) FailureAnalysis(_ context.Context, _ string, _ string) (*be
 func (r *matrixRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
 	return 0, nil
 }
+
+// ---------- Trigger ----------
+
+// spyExecutor records whether Start was called.
+type spyExecutor struct {
+	started bool
+}
+
+func (e *spyExecutor) Start(_ context.Context, _ *TriggerJob, _, _ string) error {
+	e.started = true
+	return nil
+}
+
+func TestHandleTrigger_NoExecutor_Returns501(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     nil, // no executor
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"test-model","scenarios":["s1"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotImplemented, rec.Body.String())
+	}
+}
+
+func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	spy := &spyExecutor{}
+	repo := &handlerRepo{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     spy,
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"test-model","scenarios":["s1","s2"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusAccepted, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := resp["id"]; !ok {
+		t.Fatal("response missing 'id' key")
+	}
+}
+
+func TestHandleTriggerProgress_UnknownJob_Returns404(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"scenario":"s1","status":"passed","completed":1,"total":1}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger/nonexistent/progress", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestHandleTriggerProgress_InvalidVersion_Returns400(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	// Create a job first so the 404 check passes.
+	job := &TriggerJob{
+		ID:     "job-1",
+		Status: "running",
+		Total:  1,
+		Progress: []ScenarioProgress{
+			{Scenario: "s1", Status: "running"},
+		},
+	}
+	store.Create(job)
+
+	rec := httptest.NewRecorder()
+	body := `{"contract_version":"v2.0.0","scenario":"s1","status":"passed","completed":1,"total":1}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger/job-1/progress", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
