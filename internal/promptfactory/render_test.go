@@ -121,6 +121,7 @@ func TestRenderFiles_SkillContainsFrontmatter(t *testing.T) {
 	}
 	if skill == nil {
 		t.Fatal("skill.skill target not found")
+		return
 	}
 
 	if !strings.HasPrefix(skill.Content, "---\nname: evidra\n") {

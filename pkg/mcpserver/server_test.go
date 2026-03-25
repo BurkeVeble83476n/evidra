@@ -186,6 +186,7 @@ func TestRunCommandTool_HasOutputSchemaAndExamples(t *testing.T) {
 	}
 	if runCommand == nil {
 		t.Fatal("run_command tool missing from tools/list response")
+		return
 	}
 	if runCommand.OutputSchema == nil {
 		t.Fatal("run_command tool missing output schema")
