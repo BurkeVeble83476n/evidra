@@ -162,10 +162,90 @@ bench service — results can still be submitted via API.
 - Leaderboard and comparison views
 - Trigger endpoint (thin proxy)
 
+## Microservice Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER BROWSER                            │
+│                                                                 │
+│  /bench          /bench/runs      /evidence       /bench/runs/X │
+│  leaderboard     run list         evidence chain  run detail    │
+│  + "Run" btn     + filter         + scorecard     + timeline    │
+│       │                                                         │
+└───────┼─────────────────────────────────────────────────────────┘
+        │ SSE progress stream
+        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      EVIDRA API (public)                        │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐    │
+│  │ Trigger       │  │ Bench        │  │ Evidence           │    │
+│  │               │  │              │  │                    │    │
+│  │ POST /trigger │  │ POST /runs   │  │ POST /forward      │    │
+│  │ GET  /trigger │  │ GET  /runs   │  │ GET  /entries      │    │
+│  │   (SSE)       │  │ GET  /stats  │  │ GET  /scorecard    │    │
+│  │               │  │ GET  /matrix │  │                    │    │
+│  └───────┬───────┘  └──────▲───────┘  └──────▲─────────────┘    │
+│          │                 │                 │                   │
+│          │            stores runs       stores evidence          │
+│          │                 │                 │                   │
+│  ┌───────┴─────────────────┴─────────────────┘                  │
+│  │ PostgreSQL                                                   │
+│  │ bench_runs | bench_artifacts | evidence_entries               │
+│  └──────────────────────────────────────────────────────────────┘│
+│          │                                                       │
+└──────────┼───────────────────────────────────────────────────────┘
+           │ POST bench-service/v1/certify
+           │ { model, scenarios, callback_url, evidra_url }
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   BENCH SERVICE (private)                        │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐    │
+│  │ Certify API   │  │ Scenario     │  │ Agent Runner       │    │
+│  │               │  │ Engine       │  │                    │    │
+│  │ POST /certify │  │ seed cluster │  │ kagent + evidra-mcp│    │
+│  │               │  │ run checks   │  │ per scenario       │    │
+│  └───────┬───────┘  └──────┬───────┘  └──────┬─────────────┘    │
+│          │                 │                 │                   │
+│          │          Kind/k3d cluster    During execution:        │
+│          │                              POST evidra/evidence ────┼──→ Evidra
+│          │                              POST evidra/bench/runs ──┼──→ Evidra
+│          │                                                       │
+│          │──── POST callback_url/progress ───────────────────────┼──→ Evidra
+│          │──── POST callback_url/complete ───────────────────────┼──→ Evidra
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────────┘│
+│  │ Private assets: scenario YAMLs, check logic, cluster mgmt    │
+│  └──────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Architecture Principles
+
+1. **Clean boundary** — Bench service is a black box. Evidra only
+   knows the trigger/callback contract. Scenario logic stays private.
+
+2. **Evidra is the system of record** — all runs, evidence, and
+   scorecards are stored in Evidra. The bench service is stateless
+   (fire and forget).
+
+3. **Existing APIs only** — bench runs use `POST /v1/bench/runs`,
+   evidence uses `POST /v1/evidence/forward`. No new storage.
+   Only new surface: trigger + SSE progress.
+
+4. **Graceful degradation** — when `EVIDRA_BENCH_SERVICE_URL` is
+   not set, the "Run" button is hidden. All bench features still
+   work with manually submitted results.
+
+5. **Multi-tenant ready** — trigger passes the tenant's API key to
+   the bench service. Results are scoped to that tenant.
+
 ## Implementation Order
 
 1. Bench service: `POST /v1/certify` endpoint in evidra-stand
 2. Evidra API: `POST /v1/bench/trigger` + webhook + SSE
 3. Evidra UI: "Run" button + progress overlay
-4. Wire: EVIDRA_BENCH_SERVICE_URL config
-5. Test end-to-end
+4. Architecture docs: update ARCHITECTURE.md + diagrams
+5. Wire: EVIDRA_BENCH_SERVICE_URL config
+6. Test end-to-end
