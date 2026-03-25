@@ -221,6 +221,54 @@ bench service — results can still be submitted via API.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Executor Interface
+
+The bench runner is a pluggable interface, not a specific implementation:
+
+```go
+// RunExecutor executes benchmark scenarios and reports results.
+type RunExecutor interface {
+    // Start begins a benchmark run and returns a job ID.
+    Start(ctx context.Context, req RunRequest) (jobID string, err error)
+    // Status returns the current progress of a job.
+    Status(ctx context.Context, jobID string) (RunStatus, error)
+}
+```
+
+Two implementations:
+
+### LocalExecutor (default, OSS)
+
+Runs scenarios in the evidra-mcp process. Uses `run_command` to
+execute kubectl against the local kubeconfig. Evidence recorded
+directly via the lifecycle service. No external dependencies.
+
+Best for: single-machine setups, CI pipelines, OSS users.
+
+### RemoteExecutor (configured)
+
+Delegates to an external bench service via REST API. The service
+runs scenarios on dedicated clusters with full isolation. Evidence
+and bench runs flow back to Evidra via existing APIs.
+
+Best for: SaaS deployments, enterprise, multi-tenant, dedicated
+test clusters.
+
+Activated by setting `EVIDRA_BENCH_SERVICE_URL`. When not set,
+falls back to LocalExecutor.
+
+```
+POST /v1/bench/trigger { model, scenarios }
+            ↓
+    EVIDRA_BENCH_SERVICE_URL set?
+        ├── yes → RemoteExecutor → POST bench-service/v1/certify
+        └── no  → LocalExecutor  → run scenarios in-process
+            ↓
+    Same SSE progress stream
+    Same bench results pages
+    Same evidence viewer
+```
+
 ## Architecture Principles
 
 1. **Clean boundary** — Bench service is a black box. Evidra only
