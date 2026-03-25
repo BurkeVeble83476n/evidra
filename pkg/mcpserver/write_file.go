@@ -52,12 +52,25 @@ func validateWritePath(raw string) (string, string) {
 		return "", fmt.Sprintf("resolve path: %v", err)
 	}
 
+	// Early reject: check blocklist on the unresolved absolute path first.
+	// This catches obviously blocked paths (like /root/.bashrc) without
+	// needing filesystem access, avoiding permission errors on macOS.
+	if isUnderAnyDir(abs, sshBlockedDirs()) {
+		return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", abs)
+	}
+	if isUnderAnyDir(abs, blockedSystemDirs()) {
+		// But first check if it's actually an allowed temp dir (e.g. /var/folders on macOS).
+		if !isUnderAnyDir(abs, allowedTempDirs()) {
+			return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", abs)
+		}
+	}
+
 	target, err := resolveWriteTarget(abs)
 	if err != nil {
 		return "", fmt.Sprintf("resolve symlinks: %v", err)
 	}
 
-	// Reject ~/.ssh.
+	// Post-resolve: reject ~/.ssh (symlink could point here).
 	if isUnderAnyDir(target, sshBlockedDirs()) {
 		return "", fmt.Sprintf("writing to %s is not allowed: blocked directory", target)
 	}
