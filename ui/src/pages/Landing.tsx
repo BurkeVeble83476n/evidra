@@ -4,91 +4,78 @@ import { CodeBlock } from "../components/CodeBlock";
 import { MermaidDiagram } from "../components/MermaidDiagram";
 
 const PIPELINE_CHART = `flowchart LR
-  A["Raw Artifact"] --> B["Canonicalize<br/>(adapter)"]
-  B --> C["CanonicalAction<br/>+ digests"]
-  C --> D{"assess.Pipeline"}
-  D --> D1["Assessor 1<br/>→ risk_input"]
-  D --> D2["Assessor 2<br/>→ risk_input"]
-  D --> D3["Assessor N<br/>→ risk_input"]
-  D1 & D2 & D3 --> E["Prescription<br/>risk_inputs[] · effective_risk"]
-  C --> E
-  E --> F[("Evidence<br/>Chain")]
-  G1["Execution outcome<br/>verdict + exit_code"] --> H["Report"]
-  G2["Deliberate refusal<br/>verdict=declined + decision_context"] --> H
-  H --> F
-  F --> I["Signal Detectors<br/>8 behavioral signals"]
-  I --> J["Scoring Engine"]
-  J --> K["Scorecard<br/>0-100 + Band"]`;
+  A["Agent calls<br/>run_command"] --> B["Auto-Evidence<br/>prescribe intent"]
+  B --> C["Execute<br/>kubectl · helm · terraform"]
+  C --> D["Auto-Evidence<br/>report outcome"]
+  B & D --> E[("Evidence<br/>Chain")]
+  F["assess.Pipeline<br/>Assessor 1..N"] --> E
+  E --> G["Signal Detectors<br/>8 behavioral signals"]
+  G --> H["Scoring Engine"]
+  H --> I["Scorecard<br/>0-100 + Band"]
+  I --> J["Bench Comparison<br/>leaderboard · regression"]`;
 
 const SYSTEM_CHART = `flowchart TB
-  subgraph Sources ["Observation Modes"]
-    MCP["MCP Direct<br/>prescribe_full · prescribe_smart · report"]
-    Proxy["MCP Proxy<br/>wraps upstream MCP server<br/>intercepts tools/call"]
-    Bridge["OTLP Bridge<br/>taps AgentGateway traces<br/>translates to prescribe/report"]
-    CLI["CLI<br/>record · import"]
-    Webhooks["Webhooks<br/>ArgoCD · generic"]
+  subgraph Agent ["AI Agent"]
+    LLM["Agent · LLM"]
   end
-  subgraph Recorder ["Recorder Layer"]
-    Canon["Canonicalize<br/>adapter selection · normalize"]
-    Pipeline["assess.Pipeline<br/>assess risk · aggregate"]
+  subgraph MCP ["evidra-mcp (DevOps MCP Server)"]
+    RC["run_command<br/>kubectl · helm · terraform"]
+    CD["collect_diagnostics<br/>one-call workload diagnosis"]
+    PS["prescribe_smart · report<br/>explicit risk assessment"]
+    AE["Auto-Evidence<br/>every mutation recorded"]
+  end
+  subgraph Recorder ["Recorder"]
+    Pipeline["assess.Pipeline<br/>risk assessment"]
     Store[("Evidence Store<br/>sign · chain · persist")]
-    Canon --> Pipeline --> Store
+    Pipeline --> Store
   end
-  subgraph Intelligence ["Intelligence Layer"]
-    Signals["Signal Detectors<br/>8 behavioral patterns"]
-    Scoring["Scoring Engine<br/>weighted penalty → 0-100"]
-    Bench["Benchmarking<br/>run comparison · leaderboards"]
+  subgraph Intelligence ["Intelligence"]
+    Signals["8 Signal Detectors"]
+    Scoring["Scoring 0-100"]
+    Bench["Benchmarking"]
+    Trigger["Bench Trigger<br/>pluggable executor"]
   end
   subgraph Storage ["Storage"]
-    LS[("Local JSONL")]
     DB[("PostgreSQL")]
   end
-  MCP --> Canon
-  Proxy --> Canon
-  Bridge --> Canon
-  CLI --> Canon
-  Webhooks --> Canon
-  Store --> LS
+  LLM --> RC & CD & PS
+  RC --> AE
+  AE --> Pipeline
+  PS --> Pipeline
   Store --> DB
-  LS --> Signals
-  DB --> Signals
-  Signals --> Scoring
-  Scoring --> Bench`;
+  DB --> Signals --> Scoring --> Bench
+  Trigger --> Bench`;
 
 export const SEQUENCE_CHART = `sequenceDiagram
-  participant Agent as Agent / CI
-  participant Gateway as Gateway / MCP
-  participant Evidra as Evidra
-  participant Pipeline as assess.Pipeline
-  participant Chain as Evidence Chain
-  participant Signals as Intelligence
+  participant Agent as AI Agent
+  participant MCP as evidra-mcp
+  participant K8s as Kubernetes
+  participant Store as Evidence Store
+  participant Intel as Intelligence
 
-  Note over Agent,Gateway: Observation happens via MCP direct, proxy, OTLP bridge, or webhooks
+  Agent->>MCP: run_command("kubectl get pods -n demo")
+  MCP->>K8s: execute (read-only, no evidence)
+  K8s-->>MCP: pod list (smart output)
+  MCP-->>Agent: condensed result
 
-  Agent->>Gateway: tools/call (infrastructure mutation)
-  Gateway->>Evidra: prescribe (intent + artifact or smart target)
-  Evidra->>Pipeline: canonicalize → assess risk
-  Pipeline-->>Evidra: risk_inputs[] + effective_risk
-  Evidra->>Chain: append(prescription entry, signed)
-  Evidra-->>Gateway: prescription_id + effective_risk
-  Gateway-->>Agent: tool result
+  Agent->>MCP: run_command("kubectl set image deploy/web nginx:1.27")
+  Note over MCP: Auto-evidence: mutation detected
+  MCP->>Store: prescribe(kubectl set, deployment/web, risk=medium)
+  MCP->>K8s: execute mutation
+  K8s-->>MCP: result
+  MCP->>Store: report(prescription_id, verdict=success)
+  MCP-->>Agent: result + evidence recorded
 
-  Note over Agent: Agent executes or declines
+  Agent->>MCP: run_command("kubectl rollout status deploy/web")
+  MCP->>K8s: execute (read-only)
+  K8s-->>MCP: rollout complete
+  MCP-->>Agent: healthy ✓
 
-  alt Success / Failure
-    Agent->>Gateway: execution complete
-    Gateway->>Evidra: report(prescription_id, verdict, exit_code)
-  else Deliberate refusal
-    Agent->>Evidra: report(prescription_id, declined, decision_context)
-  end
-  Evidra->>Chain: append(report entry, linked)
-
-  Note over Signals: Post-hoc intelligence (read path)
-
-  Signals->>Chain: read evidence sequence
-  Signals->>Signals: detect: retry_loop, blast_radius, repair_loop, ...
-  Signals->>Signals: score: 100 × (1 - weighted penalties)
-  Signals-->>Agent: scorecard (0-100) + band + signal summary`;
+  Note over Intel: Post-hoc analysis
+  Intel->>Store: read evidence sequence
+  Intel->>Intel: detect signals (retry_loop, blast_radius, ...)
+  Intel->>Intel: score: 100 × (1 - weighted penalties)
+  Intel-->>Agent: scorecard (0-100) + band`;
 
 const INSTALL_BINARY = `# Download latest release (Linux/macOS)
 curl -fsSL https://github.com/samebits/evidra/releases/latest/download/evidra_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \\
