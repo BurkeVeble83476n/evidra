@@ -18,7 +18,7 @@ const LANDING_LINKS = [
   { href: "/evidence", label: "Evidence" },
   { href: "/bench", label: "Bench" },
   { href: "/bench/runs", label: "Runs" },
-  { href: "https://lab.evidra.cc", label: "Lab", external: true },
+  { href: "/lab", label: "Lab" },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -91,9 +91,7 @@ function Header() {
                   Bench
                 </Link>
                 <a
-                  href="https://lab.evidra.cc"
-                  target="_blank"
-                  rel="noopener"
+                  href="/lab"
                   className="text-[0.82rem] font-medium tracking-wide no-underline transition-colors text-fg-muted hover:text-fg"
                 >
                   Lab
@@ -171,8 +169,8 @@ function Footer() {
           Bench
         </a>
         {" \u00B7 "}
-        <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
-          lab.evidra.cc
+        <a href="/lab" className="text-fg-muted font-medium hover:text-accent">
+          Lab
         </a>
         {" \u00B7 Apache 2.0"}
       </div>
