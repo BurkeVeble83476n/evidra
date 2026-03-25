@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -34,16 +32,6 @@ func (e *LocalExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL, a
 	client, err := e.kubeClient()
 	if err != nil {
 		log.Printf("[local-executor] kubernetes client init failed: %v", err)
-		// Mark all scenarios as failed.
-		for i, sp := range job.Progress {
-			e.Store.Update(ProgressUpdate{
-				JobID:     job.ID,
-				Scenario:  sp.Scenario,
-				Status:    "failed",
-				Completed: i + 1,
-				Total:     job.Total,
-			})
-		}
 		return fmt.Errorf("benchsvc.LocalExecutor: kube client: %w", err)
 	}
 
@@ -78,15 +66,16 @@ func (e *LocalExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL, a
 	return nil
 }
 
-// kubeClient builds a Kubernetes clientset from kubeconfig or in-cluster config.
+// kubeClient builds a Kubernetes clientset using standard kubeconfig resolution:
+// explicit path > KUBECONFIG env > ~/.kube/config > in-cluster config.
 func (e *LocalExecutor) kubeClient() (kubernetes.Interface, error) {
-	var cfg *rest.Config
-	var err error
-	if strings.TrimSpace(e.KubeconfigPath) != "" {
-		cfg, err = clientcmd.BuildConfigFromFlags("", e.KubeconfigPath)
-	} else {
-		cfg, err = rest.InClusterConfig()
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if e.KubeconfigPath != "" {
+		loadingRules.ExplicitPath = e.KubeconfigPath
 	}
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loadingRules, &clientcmd.ConfigOverrides{},
+	).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
