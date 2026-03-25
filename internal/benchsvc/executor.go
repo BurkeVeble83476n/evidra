@@ -40,12 +40,13 @@ type ScenarioProgress struct {
 
 // ProgressUpdate is the payload sent by the bench service callback.
 type ProgressUpdate struct {
-	JobID     string `json:"job_id"`
-	Scenario  string `json:"scenario"`
-	Status    string `json:"status"`
-	RunID     string `json:"run_id,omitempty"`
-	Completed int    `json:"completed"`
-	Total     int    `json:"total"`
+	ContractVersion string `json:"contract_version,omitempty"`
+	JobID           string `json:"job_id"`
+	Scenario        string `json:"scenario"`
+	Status          string `json:"status"`
+	RunID           string `json:"run_id,omitempty"`
+	Completed       int    `json:"completed"`
+	Total           int    `json:"total"`
 }
 
 // RunExecutor starts a bench job against an external service.
@@ -134,7 +135,7 @@ func (s *TriggerStore) Update(u ProgressUpdate) bool {
 	// Determine job-level status.
 	if job.Completed >= job.Total {
 		if job.Failed > 0 {
-			job.Status = "completed"
+			job.Status = "failed"
 		} else {
 			job.Status = "completed"
 		}
@@ -152,6 +153,14 @@ func (s *TriggerStore) Update(u ProgressUpdate) bool {
 		}
 	}
 
+	// Clean up subscriber channels on terminal state.
+	if job.Status == "completed" || job.Status == "failed" {
+		for _, ch := range s.subscribers[u.JobID] {
+			close(ch)
+		}
+		delete(s.subscribers, u.JobID)
+	}
+
 	return true
 }
 
@@ -165,6 +174,8 @@ func (s *TriggerStore) Subscribe(jobID string) chan ProgressUpdate {
 }
 
 // Unsubscribe removes a subscriber channel for a job.
+// The channel may already be closed by Update on terminal state, so
+// Unsubscribe only removes the entry without closing again.
 func (s *TriggerStore) Unsubscribe(jobID string, ch chan ProgressUpdate) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -172,7 +183,6 @@ func (s *TriggerStore) Unsubscribe(jobID string, ch chan ProgressUpdate) {
 	for i, sub := range subs {
 		if sub == ch {
 			s.subscribers[jobID] = append(subs[:i], subs[i+1:]...)
-			close(ch)
 			return
 		}
 	}

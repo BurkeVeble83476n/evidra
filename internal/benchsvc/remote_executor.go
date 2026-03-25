@@ -30,6 +30,7 @@ type certifyRequest struct {
 	Model           string          `json:"model"`
 	Provider        string          `json:"provider,omitempty"`
 	Scenarios       []string        `json:"scenarios"`
+	Config          map[string]any  `json:"config"`
 	Callback        certifyCallback `json:"callback"`
 }
 
@@ -52,6 +53,10 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 		Model:           job.Model,
 		Provider:        job.Provider,
 		Scenarios:       scenarios,
+		Config: map[string]any{
+			"timeout_per_scenario": 300,
+			"adapter":              "kagent",
+		},
 		Callback: certifyCallback{
 			ProgressURL:  evidraURL + "/v1/bench/trigger/" + job.ID + "/progress",
 			EvidraURL:    evidraURL,

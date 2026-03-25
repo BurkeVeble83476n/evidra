@@ -72,8 +72,10 @@ Evidra delegates benchmark scenario execution to a pluggable executor:
 
 | Executor | When | How |
 |----------|------|-----|
-| **LocalExecutor** | Default (OSS) | Runs in evidra-mcp process |
+| **LocalExecutor** | Default (OSS) | Basic scenario execution via kubectl |
 | **RemoteExecutor** | `EVIDRA_BENCH_SERVICE_URL` set | Delegates to external REST service |
+
+LocalExecutor provides basic trigger flow. Full scenario orchestration (seed, agent, verify) requires RemoteExecutor with an external bench service.
 
 ```
 POST /v1/bench/trigger { model, scenarios }

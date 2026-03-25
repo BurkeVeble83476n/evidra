@@ -325,6 +325,10 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 	var executor benchsvc.RunExecutor
 	if benchServiceURL := os.Getenv("EVIDRA_BENCH_SERVICE_URL"); benchServiceURL != "" {
 		executor = benchsvc.NewRemoteExecutor(benchServiceURL)
+		log.Printf("bench executor: remote (%s)", benchServiceURL)
+	} else {
+		executor = benchsvc.NewLocalExecutor(os.Getenv("KUBECONFIG"), triggerStore)
+		log.Printf("bench executor: local")
 	}
 
 	repo := benchsvc.NewPgStore(pool)

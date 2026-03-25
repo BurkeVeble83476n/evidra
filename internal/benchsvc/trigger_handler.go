@@ -1,13 +1,14 @@
 package benchsvc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"samebits.com/evidra/internal/apiutil"
-	"samebits.com/evidra/internal/auth"
 )
 
 // handleTrigger returns a handler that starts a new bench trigger job.
@@ -50,10 +51,19 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 		store.Create(job)
 
 		evidraURL := resolveEvidraURL(r)
-		apiKey := auth.TenantID(r.Context()) // use tenant as API key context
+		apiKey := r.Header.Get("Authorization")
 
 		go func() {
-			_ = executor.Start(r.Context(), job, evidraURL, apiKey)
+			if err := executor.Start(context.Background(), job, evidraURL, apiKey); err != nil {
+				log.Printf("[bench-trigger] executor failed for job %s: %v", job.ID, err)
+				store.Update(ProgressUpdate{
+					JobID:     job.ID,
+					Scenario:  "",
+					Status:    "error",
+					Completed: job.Total,
+					Total:     job.Total,
+				})
+			}
 		}()
 
 		apiutil.WriteJSON(w, http.StatusAccepted, map[string]any{
@@ -133,6 +143,10 @@ func handleTriggerProgress(store *TriggerStore) http.HandlerFunc {
 		var update ProgressUpdate
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if update.ContractVersion != "" && update.ContractVersion != "v1.0.0" {
+			apiutil.WriteError(w, http.StatusBadRequest, "unsupported contract version")
 			return
 		}
 		update.JobID = id
