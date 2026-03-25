@@ -85,7 +85,7 @@ function medalEmoji(rank: number): string {
 
 export function BenchLeaderboard() {
   const { request } = useApi();
-  const { mode } = useEvidenceMode();
+  const { mode, setMode } = useEvidenceMode();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("rate");
@@ -155,13 +155,30 @@ export function BenchLeaderboard() {
   return (
     <div className="max-w-[980px] mx-auto px-8 py-10 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-[1.4rem] font-bold text-fg tracking-tight">
-          Model Leaderboard
-        </h1>
-        <p className="text-[0.85rem] text-fg-muted mt-0.5">
-          {totalModels} models ranked across {totalRuns} benchmark runs
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-[1.4rem] font-bold text-fg tracking-tight">
+            Model Leaderboard
+          </h1>
+          <p className="text-[0.85rem] text-fg-muted mt-0.5">
+            {totalModels} models ranked across {totalRuns} benchmark runs
+          </p>
+        </div>
+        <div className="flex gap-1 text-[0.72rem] font-medium">
+          {(["all", "proxy", "direct", "smart"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-2.5 py-1 rounded-md transition-colors ${
+                mode === m
+                  ? "bg-accent text-white"
+                  : "bg-bg-alt text-fg-muted hover:text-fg"
+              }`}
+            >
+              {m === "all" ? "All" : m}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Summary cards */}

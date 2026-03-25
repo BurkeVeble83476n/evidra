@@ -1,21 +1,24 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type EvidenceMode = "proxy" | "smart";
+export type EvidenceMode = "all" | "proxy" | "smart" | "direct";
 
 interface EvidenceModeCtx {
   mode: EvidenceMode;
   setMode: (m: EvidenceMode) => void;
 }
 
+const VALID_MODES: EvidenceMode[] = ["all", "proxy", "smart", "direct"];
+
 const EvidenceModeContext = createContext<EvidenceModeCtx>({
-  mode: "proxy",
+  mode: "all",
   setMode: () => {},
 });
 
 export function EvidenceModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<EvidenceMode>(() => {
     const saved = localStorage.getItem("evidra-bench-evidence-mode");
-    return saved === "smart" ? "smart" : "proxy";
+    if (saved && VALID_MODES.includes(saved as EvidenceMode)) return saved as EvidenceMode;
+    return "all";
   });
 
   const setMode = (m: EvidenceMode) => {
