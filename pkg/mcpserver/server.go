@@ -184,7 +184,7 @@ func NewServer(opts Options) (*mcp.Server, error) {
 // NewServerWithCleanup creates a new Evidra MCP server and returns a cleanup function.
 func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	if opts.Name == "" {
-		opts.Name = "evidra-benchmark"
+		opts.Name = "evidra"
 	}
 	opts.Version = defaultServerVersion(opts.Version)
 

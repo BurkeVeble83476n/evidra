@@ -8,7 +8,7 @@
 # a specific signal pattern. Measures scorecard distribution.
 #
 # Usage:
-#   cd /path/to/evidra-benchmark
+#   cd /path/to/evidra
 #   make build
 #   export PATH="$PWD/bin:$PATH"
 #   bash tests/signal-validation/validate-signals-engine.sh

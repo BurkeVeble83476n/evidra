@@ -1,4 +1,4 @@
-id: evidra-benchmark
+id: evidra
 version: "0.1.0-limited"
 profile: limited-contract-baseline
 maturity: pre-benchmark

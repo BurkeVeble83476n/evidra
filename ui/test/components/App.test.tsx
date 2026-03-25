@@ -61,7 +61,7 @@ describe("App", () => {
       within(hero as HTMLElement).getByRole("link", {
         name: "Test Your Agent Skills",
       }),
-    ).toHaveAttribute("href", "https://lab.evidra.cc");
+    ).toHaveAttribute("href", "/lab");
   });
 
   it("does not expose raw signal weights on the landing page", () => {
