@@ -197,6 +197,7 @@ List evidence entries with pagination and optional filters.
       "scope": "namespace",
       "risk_level": "medium",
       "actor": "alice",
+      "resource": "deployment/web (demo)",
       "created_at": "2025-01-15T10:30:00Z"
     },
     {
@@ -207,6 +208,7 @@ List evidence entries with pagination and optional filters.
       "scope": "namespace",
       "risk_level": "medium",
       "actor": "alice",
+      "resource": "deployment/web (demo)",
       "verdict": "success",
       "exit_code": 0,
       "created_at": "2025-01-15T10:30:05Z"
@@ -512,6 +514,65 @@ Response:
   }
 }
 ```
+
+### Bench Trigger
+
+Start and monitor benchmark runs via a pluggable executor.
+
+#### POST /v1/bench/trigger
+
+Start a benchmark run. Requires `model` and `scenarios` in the request body. Returns a job ID for progress tracking.
+
+Request:
+```json
+{
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "scenarios": ["broken-deployment", "repair-loop-escalation"]
+}
+```
+
+Response (`202 Accepted`):
+```json
+{ "id": "job_01JD...", "status": "pending" }
+```
+
+Errors: `400` (missing model/scenarios), `401` (unauthorized), `501` (no executor configured).
+
+#### GET /v1/bench/trigger/{id}
+
+Get current job state. Supports SSE streaming when `Accept: text/event-stream` is set.
+
+Response (`200 OK`):
+```json
+{
+  "id": "job_01JD...",
+  "status": "running",
+  "completed": 2,
+  "total": 5,
+  "scenarios": [
+    { "id": "broken-deployment", "status": "passed", "run_id": "run_01..." },
+    { "id": "repair-loop-escalation", "status": "running" }
+  ]
+}
+```
+
+#### POST /v1/bench/trigger/{id}/progress
+
+Webhook called by the bench executor to report scenario completion.
+
+Request:
+```json
+{
+  "scenario": "broken-deployment",
+  "status": "passed",
+  "run_id": "run_01...",
+  "completed": 1,
+  "total": 5
+}
+```
+
+Response: `200 OK`.
 
 #### POST /v1/bench/scenarios/sync
 

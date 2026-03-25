@@ -529,6 +529,31 @@ paths:
                     type: array
                     items:
                       type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                        tool:
+                          type: string
+                        operation:
+                          type: string
+                        scope:
+                          type: string
+                        risk_level:
+                          type: string
+                        actor:
+                          type: string
+                        resource:
+                          type: string
+                          description: Target resource identity (e.g. "deployment/web (demo)")
+                        verdict:
+                          type: string
+                        exit_code:
+                          type: integer
+                        created_at:
+                          type: string
+                          format: date-time
 
   /v1/evidence/entries/{id}:
     get:
@@ -1012,6 +1037,107 @@ paths:
                       fail_avg_turns: { type: number }
                       pass_avg_duration: { type: number }
                       fail_avg_duration: { type: number }
+
+  /v1/bench/trigger:
+    post:
+      tags: [Bench]
+      summary: Start a benchmark run
+      description: Triggers scenario execution via configured executor. Returns job ID for progress tracking.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, scenarios]
+              properties:
+                model:
+                  type: string
+                  example: deepseek-chat
+                provider:
+                  type: string
+                  example: deepseek
+                scenarios:
+                  type: array
+                  items:
+                    type: string
+                  example: [broken-deployment, repair-loop-escalation]
+      responses:
+        '202':
+          description: Trigger accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '501':
+          description: No executor configured
+
+  /v1/bench/trigger/{id}:
+    get:
+      tags: [Bench]
+      summary: Get trigger progress
+      description: Returns current job state. Supports SSE streaming when Accept includes text/event-stream.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job state (JSON snapshot or SSE stream)
+        '404':
+          description: Job not found
+
+  /v1/bench/trigger/{id}/progress:
+    post:
+      tags: [Bench]
+      summary: Webhook for executor progress updates
+      description: Called by the bench executor to report scenario completion.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scenario:
+                  type: string
+                status:
+                  type: string
+                  enum: [running, passed, failed, error, skipped]
+                run_id:
+                  type: string
+                completed:
+                  type: integer
+                total:
+                  type: integer
+      responses:
+        '200':
+          description: Progress recorded
+        '404':
+          description: Job not found
 
   /v1/bench/scenarios/sync:
     post:

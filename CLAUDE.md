@@ -116,7 +116,7 @@ It consolidates key decisions, invariants, and known gaps from the former review
 - `EVIDRA_EVIDENCE_DIR` — evidence storage directory (default: `~/.evidra/evidence`)
 - `EVIDRA_ENVIRONMENT` — environment label (MCP server only)
 - `EVIDRA_RETRY_TRACKER` — enable retry loop tracking (MCP server only)
-- `EVIDRA_BENCH_SERVICE_URL` — external bench executor URL (optional)
+- `EVIDRA_BENCH_SERVICE_URL` — remote bench executor URL for `POST /v1/bench/trigger` (optional; falls back to local executor)
 
 ## API Changes — Mandatory Checklist
 

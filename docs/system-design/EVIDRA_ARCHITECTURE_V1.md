@@ -530,6 +530,21 @@ All share the same evidence model and analytics path. Same detectors, same signa
 
 ---
 
+## Bench Execution
+
+Benchmark scenario execution is delegated to a pluggable `RunExecutor`:
+
+| Executor | Config | Description |
+|----------|--------|-------------|
+| LocalExecutor | Default | Runs in evidra-mcp process |
+| RemoteExecutor | `EVIDRA_BENCH_SERVICE_URL` | Calls external REST service |
+
+The trigger API (`POST /v1/bench/trigger`) accepts a model and scenario list, delegates to the configured executor, and returns a job ID. Progress is reported via `POST /v1/bench/trigger/{id}/progress` webhook and consumed via `GET /v1/bench/trigger/{id}` (JSON polling or SSE streaming).
+
+The executor contract (v1.0.0) is an open specification for third-party executors.
+
+---
+
 ## What Evidra Is NOT
 
 | Not This | Why | What Instead |
