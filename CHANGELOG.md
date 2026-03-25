@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.5.11 — 2026-03-25
+
+### UI
+- Glass morphism design refresh — aligned with bench UI
+- Glass variables, utility classes (.glass, .glass-card, .glow-accent, .text-gradient)
+- Dark theme: lighter bg, rgba borders/shadows, translucent cards
+- Landing page: glass-card sections, gradient hero title, glow CTA
+
 ## v0.5.10 — 2026-03-25
 
 ### Security Hardening
