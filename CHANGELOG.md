@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+## v0.5.9 — 2026-03-25
+
+
 ## v0.5.8 
 
 ### Contract v1.2.0
