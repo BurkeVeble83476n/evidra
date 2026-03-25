@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## v0.5.12 — 2026-03-25
+
+### Documentation & Surface Alignment
+- README rewritten: 6 default tools + optional prescribe_full, trust boundary note
+- Evidence mode labels aligned: Proxy Observed, Smart Prescribe, Full Prescribe
+- MCP help text corrected: default vs optional tool sections
+- MCP setup guide, supported tools docs updated
+
+### CI
+- UI pipeline: Node setup, npm test, vite build in CI
+- Doc alignment checks: trust positioning, mode labels, supported surface
+
+### Security
+- write_file: enhanced path validation with additional test coverage
+
 ## v0.5.11 — 2026-03-25
 
 ### UI
