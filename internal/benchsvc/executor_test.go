@@ -1,0 +1,107 @@
+package benchsvc
+
+import (
+	"testing"
+	"time"
+)
+
+func TestTriggerStore_CreateAndGet(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+
+	job := &TriggerJob{
+		ID:        "job-001",
+		Status:    "pending",
+		Model:     "sonnet-4",
+		Provider:  "anthropic",
+		Total:     2,
+		CreatedAt: time.Now(),
+		Progress: []ScenarioProgress{
+			{Scenario: "cka-01", Status: "pending"},
+			{Scenario: "cka-02", Status: "pending"},
+		},
+	}
+	store.Create(job)
+
+	got := store.Get("job-001")
+	if got == nil {
+		t.Fatal("expected job, got nil")
+	}
+	if got.Model != "sonnet-4" {
+		t.Errorf("model = %q, want %q", got.Model, "sonnet-4")
+	}
+	if got.Total != 2 {
+		t.Errorf("total = %d, want 2", got.Total)
+	}
+	if len(got.Progress) != 2 {
+		t.Errorf("progress len = %d, want 2", len(got.Progress))
+	}
+
+	// Get returns nil for unknown IDs.
+	if store.Get("unknown") != nil {
+		t.Error("expected nil for unknown job")
+	}
+}
+
+func TestTriggerStore_UpdateNotifiesSubscriber(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+
+	job := &TriggerJob{
+		ID:     "job-002",
+		Status: "pending",
+		Model:  "opus-4",
+		Total:  1,
+		Progress: []ScenarioProgress{
+			{Scenario: "cka-05", Status: "pending"},
+		},
+		CreatedAt: time.Now(),
+	}
+	store.Create(job)
+
+	ch := store.Subscribe("job-002")
+
+	update := ProgressUpdate{
+		JobID:     "job-002",
+		Scenario:  "cka-05",
+		Status:    "passed",
+		RunID:     "run-abc",
+		Completed: 1,
+		Total:     1,
+	}
+	ok := store.Update(update)
+	if !ok {
+		t.Fatal("Update returned false, expected true")
+	}
+
+	// Subscriber should receive the update.
+	select {
+	case got := <-ch:
+		if got.Scenario != "cka-05" {
+			t.Errorf("scenario = %q, want %q", got.Scenario, "cka-05")
+		}
+		if got.RunID != "run-abc" {
+			t.Errorf("run_id = %q, want %q", got.RunID, "run-abc")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscriber did not receive update within 1s")
+	}
+
+	// Job should be completed.
+	got := store.Get("job-002")
+	if got.Status != "completed" {
+		t.Errorf("status = %q, want %q", got.Status, "completed")
+	}
+	if got.Passed != 1 {
+		t.Errorf("passed = %d, want 1", got.Passed)
+	}
+
+	store.Unsubscribe("job-002", ch)
+
+	// Update for unknown job returns false.
+	if store.Update(ProgressUpdate{JobID: "unknown"}) {
+		t.Error("expected false for unknown job update")
+	}
+}

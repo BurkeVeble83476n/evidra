@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router";
 import { useApi } from "../../hooks/useApi";
 import { buildRunsPath, evidenceModeParam } from "../../lib/catalogData.mts";
@@ -7,6 +7,22 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 /* ── Types ── */
 
 type Period = "24h" | "7d" | "30d" | "90d" | "all";
+
+const ALL_SCENARIOS = [
+  "broken-deployment",
+  "repair-loop-escalation",
+  "privileged-pod-review",
+  "config-mutation-mid-fix",
+  "shared-configmap-trap",
+] as const;
+
+type ScenarioStatus = "pending" | "running" | "passed" | "failed";
+
+interface TriggerProgress {
+  id: string;
+  status: string;
+  scenarios: Record<string, ScenarioStatus>;
+}
 
 interface ScenarioStat {
   scenario_id: string;
@@ -112,41 +128,101 @@ export function BenchDashboard() {
   const [allRuns, setAllRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
+  /* ── Trigger state ── */
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [triggerModel, setTriggerModel] = useState("deepseek-chat");
+  const [triggerProvider, setTriggerProvider] = useState("deepseek");
+  const [triggerScenarios, setTriggerScenarios] = useState<Set<string>>(
+    () => new Set(ALL_SCENARIOS),
+  );
+  const [triggerProgress, setTriggerProgress] = useState<TriggerProgress | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const fetchData = useCallback(() => {
     const since = periodToSince(period);
     const modeFirst = evidenceModeParam("?", mode);
     const modeAmp = evidenceModeParam("&", mode);
     const sinceAmp = since ? `&since=${encodeURIComponent(since)}` : "";
     const sinceParam = since ? `&since=${encodeURIComponent(since)}` : "";
 
+    setLoading(true);
     Promise.all([
       request<Stats>(`/v1/bench/stats${modeFirst}${sinceAmp}`),
       request<RunsResponse>(buildRunsPath(8, since, mode)),
       request<RunsResponse>(`/v1/bench/runs?limit=500${modeAmp}${sinceParam}`),
     ])
       .then(([s, recent, all]) => {
-        if (cancelled) return;
         setStats(s);
         setRecentRuns(recent.items ?? []);
         setAllRuns(all.items ?? []);
       })
       .catch(() => {
-        if (cancelled) return;
         setStats(null);
         setRecentRuns([]);
         setAllRuns([]);
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setLoading(false));
   }, [period, request, mode]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /* ── Trigger actions ── */
+
+  function toggleScenario(s: string) {
+    setTriggerScenarios((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  async function startTrigger() {
+    const scenarios = [...triggerScenarios];
+    if (scenarios.length === 0) return;
+    setShowTriggerModal(false);
+    try {
+      const res = await request<TriggerProgress>("/v1/bench/trigger", {
+        method: "POST",
+        body: JSON.stringify({
+          model: triggerModel,
+          provider: triggerProvider,
+          scenarios,
+        }),
+      });
+      setTriggerProgress(res);
+      startPolling(res.id);
+    } catch {
+      // trigger failed — nothing to poll
+    }
+  }
+
+  function startPolling(id: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const snap = await request<TriggerProgress>(`/v1/bench/trigger/${id}`);
+        setTriggerProgress(snap);
+        if (snap.status === "completed" || snap.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          fetchData();
+        }
+      } catch {
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }, 2000);
+  }
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   /* Derived data */
   const passRate =
@@ -258,20 +334,29 @@ export function BenchDashboard() {
           </p>
         </div>
 
-        <div className="flex gap-0 border border-border rounded-md overflow-hidden">
-          {PERIODS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setPeriod(value)}
-              className={`font-mono text-[0.74rem] px-3 py-1.5 border-r border-border last:border-r-0 cursor-pointer transition-all ${
-                period === value
-                  ? "bg-accent-tint text-accent font-semibold"
-                  : "bg-bg-elevated text-fg-muted hover:text-fg"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            disabled={!!triggerProgress && triggerProgress.status !== "completed" && triggerProgress.status !== "failed"}
+            onClick={() => setShowTriggerModal(true)}
+            className="text-[0.78rem] font-semibold px-3 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Run Benchmark
+          </button>
+          <div className="flex gap-0 border border-border rounded-md overflow-hidden">
+            {PERIODS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setPeriod(value)}
+                className={`font-mono text-[0.74rem] px-3 py-1.5 border-r border-border last:border-r-0 cursor-pointer transition-all ${
+                  period === value
+                    ? "bg-accent-tint text-accent font-semibold"
+                    : "bg-bg-elevated text-fg-muted hover:text-fg"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -602,6 +687,92 @@ export function BenchDashboard() {
           )}
         </div>
       </div>
+
+      {/* ── Trigger Modal ── */}
+      {showTriggerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-bg-elevated border border-border rounded-xl shadow-lg w-full max-w-md p-6 space-y-4">
+            <h2 className="text-[1.1rem] font-bold text-fg">Run Benchmark</h2>
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-[0.78rem] font-semibold text-fg-muted">Model</span>
+                <input
+                  type="text"
+                  value={triggerModel}
+                  onChange={(e) => setTriggerModel(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-1.5 text-[0.85rem] text-fg focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[0.78rem] font-semibold text-fg-muted">Provider</span>
+                <input
+                  type="text"
+                  value={triggerProvider}
+                  onChange={(e) => setTriggerProvider(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-1.5 text-[0.85rem] text-fg focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <fieldset>
+                <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Scenarios</legend>
+                <div className="space-y-1">
+                  {ALL_SCENARIOS.map((s) => (
+                    <label key={s} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={triggerScenarios.has(s)}
+                        onChange={() => toggleScenario(s)}
+                        className="accent-accent"
+                      />
+                      <span className="text-[0.82rem] text-fg">{s}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowTriggerModal(false)}
+                className="text-[0.82rem] px-4 py-1.5 rounded-md border border-border text-fg-muted hover:text-fg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startTrigger}
+                disabled={triggerScenarios.size === 0}
+                className="text-[0.82rem] font-semibold px-4 py-1.5 rounded-md bg-accent text-white hover:opacity-90 transition-opacity disabled:opacity-40 cursor-pointer"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Progress Overlay ── */}
+      {triggerProgress && triggerProgress.status !== "completed" && triggerProgress.status !== "failed" && (
+        <div className="fixed bottom-6 right-6 z-50 w-80 bg-bg-elevated border border-border rounded-xl shadow-lg p-4 space-y-3">
+          <h3 className="text-[0.9rem] font-bold text-fg">Benchmark Running</h3>
+          <ul className="space-y-1">
+            {Object.entries(triggerProgress.scenarios).map(([name, st]) => (
+              <li key={name} className="flex items-center gap-2 text-[0.82rem]">
+                <span>
+                  {st === "pending" && "\u23F3"}
+                  {st === "running" && "\uD83D\uDD04"}
+                  {st === "passed" && "\u2705"}
+                  {st === "failed" && "\u274C"}
+                </span>
+                <span className={st === "running" ? "text-fg font-medium" : "text-fg-muted"}>
+                  {name}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[0.72rem] text-fg-muted">
+            {Object.values(triggerProgress.scenarios).filter((s) => s === "passed" || s === "failed").length}
+            /{Object.keys(triggerProgress.scenarios).length} completed
+          </p>
+        </div>
+      )}
     </div>
   );
 }

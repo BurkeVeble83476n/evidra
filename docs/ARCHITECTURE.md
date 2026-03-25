@@ -66,6 +66,30 @@ At prescribe time, risk assessment runs through the pluggable `internal/assess/`
 
 The pipeline replaces the former monolithic risk computation that was duplicated across lifecycle and ingest services.
 
+## Bench Execution
+
+Evidra delegates benchmark scenario execution to a pluggable executor:
+
+| Executor | When | How |
+|----------|------|-----|
+| **LocalExecutor** | Default (OSS) | Runs in evidra-mcp process |
+| **RemoteExecutor** | `EVIDRA_BENCH_SERVICE_URL` set | Delegates to external REST service |
+
+```
+POST /v1/bench/trigger { model, scenarios }
+        ↓
+  RunExecutor.Start()
+        ↓
+  Evidence → POST /v1/evidence/forward
+  Bench runs → POST /v1/bench/runs
+  Progress → POST /v1/bench/trigger/{id}/progress (webhook)
+        ↓
+  UI polls progress → redirects to /bench/runs
+```
+
+The executor contract (v1.0.0) is an open specification. Third-party
+executors can implement it to plug into Evidra's analytics.
+
 ## Hosted Mode
 
 Hosted mode changes where evidence is collected and replayed, not what evidence means.

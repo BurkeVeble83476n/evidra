@@ -49,7 +49,9 @@ type Repository interface {
 
 // ServiceConfig holds configuration for the bench service.
 type ServiceConfig struct {
-	PublicTenant string // tenant for unauthenticated leaderboard/scenarios
+	PublicTenant string        // tenant for unauthenticated leaderboard/scenarios
+	TriggerStore *TriggerStore // in-memory trigger job store (nil disables trigger endpoints)
+	Executor     RunExecutor   // executor for bench trigger jobs (nil returns 501)
 }
 
 // Service provides request-scoped bench operations over a tenant-agnostic repository.
