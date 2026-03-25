@@ -165,7 +165,7 @@ export function BenchLeaderboard() {
           </p>
         </div>
         <div className="flex gap-1 text-[0.72rem] font-medium">
-          {(["all", "proxy", "direct", "smart"] as const).map((m) => (
+          {(["all", "proxy", "smart", "direct"] as const).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
