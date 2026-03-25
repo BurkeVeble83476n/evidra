@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v0.5.10 — 2026-03-25
+
+### Security Hardening
+- `write_file`: path validation with blocklist (system dirs) and allowlist (cwd, /tmp), reject traversal attacks
+- `write_file`: 9 tests covering valid paths, traversal, blocklist, overwrite, directory auto-creation
+- `collect_diagnostics`: validate namespace/workload inputs against safe regex pattern
+
+### Bug Fixes
+- Proxy: preserve actual exit codes (127, 2, etc.) instead of collapsing to 0/1
+- Proxy: add random suffix to prescription IDs to prevent collisions under concurrency
+- Server: move `prescribeFullDef` loading inside `HidePrescribeFull` guard — broken schema no longer crashes when tool is disabled
+- `splitTableRow`: remove dead code (both branches returned same value)
+
 ## v0.5.9 — 2026-03-25
 
 
