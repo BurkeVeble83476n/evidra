@@ -79,7 +79,7 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 	if err != nil {
 		return fmt.Errorf("benchsvc.RemoteExecutor: do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 300 {
 		return fmt.Errorf("benchsvc.RemoteExecutor: unexpected status %d", resp.StatusCode)
