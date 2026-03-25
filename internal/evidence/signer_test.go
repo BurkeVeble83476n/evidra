@@ -229,8 +229,9 @@ func TestPublicKeyPEM(t *testing.T) {
 	}
 
 	block, _ := pem.Decode(pemData)
-	if block == nil {
+	if block == nil { //nolint:staticcheck // t.Fatal stops execution
 		t.Fatal("no PEM block found")
+		return
 	}
 	if block.Type != "PUBLIC KEY" {
 		t.Fatalf("PEM type = %q, want PUBLIC KEY", block.Type)

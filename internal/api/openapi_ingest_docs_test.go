@@ -133,8 +133,9 @@ func assertSchemaRequiredFields(t *testing.T, node *yaml.Node, want []string) {
 func assertSchemaAnyOfRequiredFields(t *testing.T, node *yaml.Node, want []string) {
 	t.Helper()
 
-	if node == nil {
+	if node == nil { //nolint:staticcheck // t.Fatal stops execution
 		t.Fatal("anyOf node is nil")
+		return
 	}
 	if len(node.Content) != len(want) {
 		t.Fatalf("anyOf len = %d, want %d", len(node.Content), len(want))

@@ -25,8 +25,9 @@ func TestTriggerStore_CreateAndGet(t *testing.T) {
 	store.Create(job)
 
 	got := store.Get("job-001")
-	if got == nil {
+	if got == nil { //nolint:staticcheck // t.Fatal stops execution
 		t.Fatal("expected job, got nil")
+		return
 	}
 	if got.Model != "sonnet-4" {
 		t.Errorf("model = %q, want %q", got.Model, "sonnet-4")
