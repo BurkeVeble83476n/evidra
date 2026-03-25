@@ -221,7 +221,123 @@ bench service — results can still be submitted via API.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Executor Interface
+## Executor Contract (Versioned Specification)
+
+The executor contract is an open specification. Anyone can implement
+it — kagent team, third-party vendors, enterprise platform teams.
+Evidra speaks the protocol; the executor runs the scenarios.
+
+### Contract Version: v1.0.0
+
+#### Request: Start a Run
+
+```
+POST {executor_url}/v1/certify
+Content-Type: application/json
+
+{
+  "contract_version": "v1.0.0",
+  "job_id": "trigger-01KMH...",
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "scenarios": ["broken-deployment", "repair-loop-escalation"],
+  "config": {
+    "timeout_per_scenario": 300,
+    "adapter": "kagent"
+  },
+  "callback": {
+    "progress_url": "https://evidra:8080/v1/bench/trigger/{id}/progress",
+    "evidra_url": "https://evidra:8080",
+    "evidra_api_key": "ev1_..."
+  }
+}
+```
+
+#### Callback: Progress Update
+
+Executor calls back for each scenario completion:
+
+```
+POST {callback.progress_url}
+Content-Type: application/json
+
+{
+  "contract_version": "v1.0.0",
+  "job_id": "trigger-01KMH...",
+  "scenario": "broken-deployment",
+  "status": "passed",
+  "run_id": "20260325-broken-deployment-deepseek",
+  "completed": 1,
+  "total": 5
+}
+```
+
+Status values: `running`, `passed`, `failed`, `error`, `skipped`
+
+#### Callback: Completion
+
+```
+POST {callback.progress_url}
+Content-Type: application/json
+
+{
+  "contract_version": "v1.0.0",
+  "job_id": "trigger-01KMH...",
+  "status": "complete",
+  "completed": 5,
+  "total": 5,
+  "passed": 4,
+  "failed": 1,
+  "run_ids": ["20260325-broken-deployment-deepseek", "..."]
+}
+```
+
+#### Data Delivery
+
+During execution, the executor pushes results to Evidra using
+standard APIs (no executor-specific endpoints):
+
+| Data | Evidra endpoint | When |
+|------|----------------|------|
+| Evidence entries | `POST /v1/evidence/forward` | During scenario execution |
+| Bench run results | `POST /v1/bench/runs` | After each scenario |
+| Scenario metadata | `POST /v1/bench/scenarios/sync` | Before first run (optional) |
+
+These are standard Evidra APIs — the executor authenticates with
+`callback.evidra_api_key`.
+
+#### Contract Evolution
+
+- `contract_version` is required on every request/callback
+- Evidra validates the version and rejects unsupported versions
+- New fields are additive (backward compatible within major version)
+- Breaking changes increment the major version
+
+### Third-Party Adoption
+
+The contract is designed for third-party executors:
+
+- **kagent team** builds an executor that benchmarks kagent against
+  their own scenarios → results show in Evidra's leaderboard
+- **Platform team** builds an executor that runs company-specific
+  compliance scenarios → results in the same bench UI
+- **Security vendor** builds an executor that tests agent behavior
+  against adversarial scenarios → signals and scorecards in Evidra
+
+Evidra is the analytics platform. Executors are the test runners.
+The contract is the adoption surface.
+
+### Go Interface
+
+```go
+// RunExecutor executes benchmark scenarios and reports results.
+type RunExecutor interface {
+    // Start begins a benchmark run and returns a job ID.
+    Start(ctx context.Context, req RunRequest) (jobID string, err error)
+    // Status returns the current progress of a job.
+    Status(ctx context.Context, jobID string) (RunStatus, error)
+}
+```
 
 The bench runner is a pluggable interface, not a specific implementation:
 
