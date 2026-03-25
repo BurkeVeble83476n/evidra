@@ -8,15 +8,13 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
 type Period = "24h" | "7d" | "30d" | "90d" | "all";
 
-const ALL_SCENARIOS = [
-  "broken-deployment",
-  "repair-loop-escalation",
-  "privileged-pod-review",
-  "config-mutation-mid-fix",
-  "shared-configmap-trap",
-] as const;
-
 type ScenarioStatus = "pending" | "running" | "passed" | "failed";
+
+interface ScenarioSummary {
+  id: string;
+  title: string;
+  category: string;
+}
 
 interface TriggerProgress {
   id: string;
@@ -128,12 +126,15 @@ export function BenchDashboard() {
   const [allRuns, setAllRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* ── Scenarios catalog ── */
+  const [scenarios, setScenarios] = useState<ScenarioSummary[]>([]);
+
   /* ── Trigger state ── */
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [triggerModel, setTriggerModel] = useState("deepseek-chat");
   const [triggerProvider, setTriggerProvider] = useState("deepseek");
   const [triggerScenarios, setTriggerScenarios] = useState<Set<string>>(
-    () => new Set(ALL_SCENARIOS),
+    new Set(),
   );
   const [triggerProgress, setTriggerProgress] = useState<TriggerProgress | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,7 +167,15 @@ export function BenchDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // Fetch scenario catalog once.
+    request<{ scenarios: ScenarioSummary[] }>("/v1/bench/scenarios")
+      .then((res) => {
+        const list = res.scenarios ?? [];
+        setScenarios(list);
+        setTriggerScenarios(new Set(list.map((s) => s.id)));
+      })
+      .catch(() => {});
+  }, [fetchData, request]);
 
   /* ── Trigger actions ── */
 
@@ -715,15 +724,18 @@ export function BenchDashboard() {
               <fieldset>
                 <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Scenarios</legend>
                 <div className="space-y-1">
-                  {ALL_SCENARIOS.map((s) => (
-                    <label key={s} className="flex items-center gap-2 cursor-pointer">
+                  {scenarios.length === 0 && (
+                    <span className="text-[0.8rem] text-fg-muted">No scenarios found. Sync scenarios via API first.</span>
+                  )}
+                  {scenarios.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={triggerScenarios.has(s)}
-                        onChange={() => toggleScenario(s)}
+                        checked={triggerScenarios.has(s.id)}
+                        onChange={() => toggleScenario(s.id)}
                         className="accent-accent"
                       />
-                      <span className="text-[0.82rem] text-fg">{s}</span>
+                      <span className="text-[0.82rem] text-fg">{s.title || s.id}</span>
                     </label>
                   ))}
                 </div>
