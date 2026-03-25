@@ -38,7 +38,7 @@ function Header() {
   const isLanding = pathname === "/";
 
   return (
-    <header className="sticky top-0 z-50 bg-[color-mix(in_srgb,var(--color-bg)_85%,transparent)] backdrop-blur-xl border-b border-border-subtle">
+    <header className="sticky top-0 z-50 glass border-b border-border-subtle">
       <div className="px-6 flex justify-between items-center py-3">
         <div className="flex items-center gap-8">
           <Link to="/" className="font-extrabold text-[1.05rem] text-fg tracking-tight no-underline hover:text-fg">
@@ -133,7 +133,7 @@ function Header() {
 
 function StatusBar() {
   return (
-    <div className="border-t border-border-subtle py-2.5 text-[0.78rem] text-fg-muted font-mono">
+    <div className="glass border-t border-border-subtle py-2.5 text-[0.78rem] text-fg-muted font-mono">
       <div className="max-w-[980px] mx-auto px-8 flex justify-center gap-10 items-center flex-wrap">
         <StatusDot endpoint="/healthz" label="api" />
         <StatusDot endpoint="/readyz" label="database" />
@@ -161,7 +161,7 @@ function StatusDot({ endpoint, label }: { endpoint: string; label: string }) {
 
 function Footer() {
   return (
-    <footer className="py-8 text-center text-[0.8rem] text-fg-muted border-t border-border-subtle">
+    <footer className="glass py-8 text-center text-[0.8rem] text-fg-muted border-t border-border-subtle">
       <div className="max-w-[980px] mx-auto px-8">
         <a href="https://github.com/vitas/evidra" target="_blank" rel="noopener" className="text-fg-muted font-medium hover:text-accent">
           github.com/vitas/evidra

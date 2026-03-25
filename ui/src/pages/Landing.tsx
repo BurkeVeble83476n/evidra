@@ -314,7 +314,7 @@ function Hero() {
           Open Source &middot; Apache 2.0 &middot; DevOps MCP Server &middot; Intelligence Layer
         </div>
         <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-extrabold text-fg leading-[1.15] tracking-tighter mb-5">
-          Flight recorder for<br />infrastructure automation
+          Flight recorder for<br /><span className="text-gradient">infrastructure automation</span>
         </h1>
         <p className="text-[1.15rem] text-fg-muted max-w-[640px] mx-auto mb-3 leading-relaxed">
           Every infrastructure mutation recorded &mdash; across MCP agents, CI pipelines, A2A agents, and scripts. Risk assessment, behavioral signals, reliability scoring.
@@ -323,16 +323,16 @@ function Hero() {
           Use as a DevOps MCP server (kubectl, helm, terraform, aws with smart output) or as a standalone flight recorder via CLI. Two-in-one.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
-          <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 hover:shadow-lg no-underline">
+          <a href="#get-started" className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-accent text-white transition-all hover:bg-accent-bright hover:-translate-y-0.5 glow-accent hover:shadow-lg no-underline">
             Quick Start
           </a>
-          <Link to="/onboarding" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+          <Link to="/onboarding" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold glass text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             Get API Key
           </Link>
-          <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+          <a href="/docs/api" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold glass text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             API Docs
           </a>
-          <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold bg-transparent border border-border text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
+          <a href="https://lab.evidra.cc" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[0.88rem] font-semibold glass text-fg-muted transition-all hover:border-accent hover:text-fg no-underline">
             Test Your Agent Skills
           </a>
         </div>
@@ -367,7 +367,7 @@ function TheGap() {
         <SectionTitle>One MCP Server. Smart Output. Auto-Evidence. Role Skills.</SectionTitle>
         <div className="grid grid-cols-3 gap-5 mt-10 max-md:grid-cols-1">
           {columns.map((c) => (
-            <div key={c.title} className="bg-bg-elevated border border-border rounded-lg p-6 shadow-[var(--shadow-card)]">
+            <div key={c.title} className="glass-card p-6">
               <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg mb-4">{c.icon}</div>
               <h3 className="text-[0.92rem] font-bold text-fg mb-2">{c.title}</h3>
               <p className="text-[0.83rem] text-fg-muted leading-relaxed">{c.body}</p>
@@ -388,7 +388,7 @@ function Features() {
         <p className="text-fg-muted mb-10 text-[1.14rem]">Every infrastructure mutation or reconciliation follows the same lifecycle. The actor records what it intends to do, does it (or refuses), and records what happened. Evidra stores the evidence.</p>
         <div className="grid grid-cols-4 gap-5 max-md:grid-cols-2 max-sm:grid-cols-1">
           {FEATURES.map((f) => (
-            <div key={f.title} className="bg-bg-elevated border border-border border-l-[3px] border-l-accent rounded-lg p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:-translate-y-0.5">
+            <div key={f.title} className="glass-card border-l-[3px] border-l-accent p-6">
               <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg mb-4">{f.icon}</div>
               <h3 className="text-[0.92rem] font-bold text-fg mb-1.5">{f.title}</h3>
               <p className="text-[0.83rem] text-fg-muted leading-relaxed">{f.desc}</p>
@@ -411,7 +411,7 @@ function Signals() {
         </p>
         <div className="grid grid-cols-3 gap-5 mb-6 max-md:grid-cols-1">
           {PRIMARY_SIGNALS.map((s) => (
-            <div key={s.name} className="bg-bg-elevated border border-border border-l-[3px] border-l-accent rounded-lg p-6 shadow-[var(--shadow-card)]">
+            <div key={s.name} className="glass-card border-l-[3px] border-l-accent p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-9 h-9 rounded-lg bg-accent-subtle border border-border flex items-center justify-center text-lg">{s.icon}</div>
                 <span className="font-mono text-[0.7rem] font-medium text-accent tracking-wide uppercase">{s.tag}</span>
@@ -421,7 +421,7 @@ function Signals() {
             </div>
           ))}
         </div>
-        <div className="bg-bg-elevated border border-border rounded-[10px] p-5 px-6 shadow-[var(--shadow-card)]">
+        <div className="glass-card p-5 px-6">
           <p className="text-[0.83rem] text-fg-muted leading-relaxed">
             Additional signals &mdash; <code>artifact_drift</code>, <code>new_scope</code>, <code>repair_loop</code>, <code>thrashing</code>, <code>risk_escalation</code> &mdash; contribute to scoring and mature as evidence accumulates. All eight are documented in the{" "}
             <a href="https://github.com/vitas/evidra/blob/main/docs/signal-spec.md" target="_blank" rel="noopener" className="font-semibold">Signal Specification &rarr;</a>
@@ -550,7 +550,7 @@ function McpSetup() {
           </p>
         </div>
 
-        <div className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)]">
+        <div className="glass-card p-6">
           <h3 className="text-[0.92rem] font-bold text-fg mb-2">How it works</h3>
           <p className="text-[0.83rem] text-fg-muted leading-relaxed mb-3">
             Every infrastructure mutation follows the same lifecycle. The agent calls <code>prescribe_full</code> with an artifact or <code>prescribe_smart</code> with lightweight target context before execution &mdash; Evidra returns risk level, risk tags, and a prescription ID. After execution (or refusal), the agent calls <code>report</code> with the outcome. The evidence chain grows. Behavioral patterns become visible.
@@ -646,7 +646,7 @@ function ApiReference() {
         <SectionLabel>API</SectionLabel>
         <SectionTitle>API Reference</SectionTitle>
         <p className="text-fg-muted mb-10 text-[1.14rem]">Full OpenAPI 3.0 documentation for all endpoints, including webhook ingress, controller-facing evidence routes, and hosted analytics.</p>
-        <a href="/docs/api" className="flex items-center justify-between bg-bg-elevated border border-border rounded-[10px] p-6 px-8 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:border-accent no-underline">
+        <a href="/docs/api" className="flex items-center justify-between glass-card p-6 px-8 no-underline">
           <div>
             <h3 className="text-base text-fg mb-1">Interactive API Documentation</h3>
             <p className="text-[0.85rem] text-fg-muted">Explore all endpoints with request/response schemas, authentication details, examples, Argo CD webhook payloads, and hosted scorecard/explain analytics contracts.</p>
@@ -667,7 +667,7 @@ function GuidesSection() {
         <p className="text-fg-muted mb-10 text-[1.14rem]">Step-by-step guides for agents, pipelines, controllers, and observability.</p>
         <div className="grid grid-cols-4 gap-5 max-lg:grid-cols-2 max-sm:grid-cols-1">
           {GUIDES.map((g) => (
-            <a key={g.title} href={g.href} target="_blank" rel="noopener" className="bg-bg-elevated border border-border rounded-[10px] p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-lg)] hover:border-accent hover:-translate-y-0.5 no-underline block">
+            <a key={g.title} href={g.href} target="_blank" rel="noopener" className="glass-card p-6 transition-all hover:shadow-[var(--shadow-card-lg)] hover:border-accent hover:-translate-y-0.5 no-underline block">
               <div className="font-mono text-[0.7rem] font-medium text-accent tracking-wide uppercase mb-2">{g.tag}</div>
               <h3 className="text-[0.95rem] text-fg mb-1.5 font-semibold">{g.title}</h3>
               <p className="text-[0.83rem] text-fg-muted leading-relaxed">{g.desc}</p>
