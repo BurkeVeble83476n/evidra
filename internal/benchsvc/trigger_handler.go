@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"samebits.com/evidra/internal/apiutil"
@@ -163,7 +164,12 @@ func handleTriggerProgress(store *TriggerStore) http.HandlerFunc {
 }
 
 // resolveEvidraURL determines the base URL for the Evidra API from the request.
+// In container deployments, EVIDRA_SELF_URL overrides request-based resolution
+// because external and internal URLs may differ.
 func resolveEvidraURL(r *http.Request) string {
+	if selfURL := os.Getenv("EVIDRA_SELF_URL"); selfURL != "" {
+		return selfURL
+	}
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"

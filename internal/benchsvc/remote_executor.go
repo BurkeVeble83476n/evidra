@@ -74,6 +74,9 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 		return fmt.Errorf("benchsvc.RemoteExecutor: new request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", apiKey)
+	}
 
 	resp, err := e.HTTPClient.Do(httpReq)
 	if err != nil {
