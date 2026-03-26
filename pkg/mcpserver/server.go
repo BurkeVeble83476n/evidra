@@ -194,18 +194,8 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	}
 
 	prescribeFull := &prescribeFullHandler{service: svc}
-	prescribeSmart := &prescribeSmartHandler{service: svc}
-	report := &reportHandler{service: svc}
 	getEvent := &getEventHandler{service: svc}
 
-	prescribeSmartDef, err := execcontract.PrescribeSmartToolDefinition()
-	if err != nil {
-		return nil, nil, err
-	}
-	reportDef, err := execcontract.ReportToolDefinition()
-	if err != nil {
-		return nil, nil, err
-	}
 	getEventSchema, err := loadSchema(getEventSchemaBytes, "schemas/get_event.schema.json")
 	if err != nil {
 		return nil, nil, err
@@ -242,33 +232,11 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		}, prescribeFull.Handle)
 	}
 
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "prescribe_smart",
-		Title:       "Record Smart Infrastructure Intent",
-		Description: prescribeSmartDef.Description,
-		Annotations: &mcp.ToolAnnotations{
-			Title:           "Prescribe Smart",
-			ReadOnlyHint:    false,
-			IdempotentHint:  false,
-			DestructiveHint: boolPtr(false),
-			OpenWorldHint:   boolPtr(false),
-		},
-		InputSchema: prescribeSmartDef.Parameters,
-	}, prescribeSmart.Handle)
-
-	mcp.AddTool(server, &mcp.Tool{
-		Name:        "report",
-		Title:       "Report Operation Result",
-		Description: reportDef.Description,
-		Annotations: &mcp.ToolAnnotations{
-			Title:           "Report",
-			ReadOnlyHint:    false,
-			IdempotentHint:  false,
-			DestructiveHint: boolPtr(false),
-			OpenWorldHint:   boolPtr(false),
-		},
-		InputSchema: reportDef.Parameters,
-	}, report.Handle)
+	registry := newToolRegistry()
+	if err := registerDeferredProtocolTools(server, svc, registry); err != nil {
+		return nil, nil, err
+	}
+	RegisterDescribeTool(server, registry)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_event",

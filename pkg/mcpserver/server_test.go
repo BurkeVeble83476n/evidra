@@ -202,6 +202,70 @@ func TestRunCommandTool_HasOutputSchemaAndExamples(t *testing.T) {
 	}
 }
 
+func TestNewServer_DefaultToolSurfaceUsesDeferredProtocolSchemas(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:              "test",
+		Version:           "0.0.1",
+		EvidencePath:      t.TempDir(),
+		Environment:       "test",
+		Signer:            testutil.TestSigner(t),
+		HidePrescribeFull: true,
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	toolDefs := make(map[string]*mcp.Tool, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		toolDefs[tool.Name] = tool
+	}
+
+	if _, ok := toolDefs["describe_tool"]; !ok {
+		t.Fatal("describe_tool missing from tools/list response")
+	}
+	if _, ok := toolDefs["prescribe_full"]; ok {
+		t.Fatal("prescribe_full should stay hidden from the default tool surface")
+	}
+
+	for _, name := range []string{"prescribe_smart", "report"} {
+		tool := toolDefs[name]
+		if tool == nil {
+			t.Fatalf("missing tool %q in tools/list response", name)
+		}
+		if tool.OutputSchema != nil {
+			t.Fatalf("%s should not advertise an output schema by default", name)
+		}
+		assertMinimalObjectSchema(t, tool.InputSchema)
+	}
+}
+
 func TestPrescribe_SimpleK8s(t *testing.T) {
 	t.Parallel()
 
@@ -239,6 +303,25 @@ func TestPrescribe_SimpleK8s(t *testing.T) {
 	}
 	if output.OperationClass != "mutate" {
 		t.Errorf("operation_class = %q, want %q", output.OperationClass, "mutate")
+	}
+}
+
+func assertMinimalObjectSchema(t *testing.T, schema any) {
+	t.Helper()
+
+	var got map[string]any
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		t.Fatalf("marshal schema: %v", err)
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal schema: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("schema = %v, want exactly one field", got)
+	}
+	if got["type"] != "object" {
+		t.Fatalf("schema type = %v, want object", got["type"])
 	}
 }
 
