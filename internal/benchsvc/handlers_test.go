@@ -2063,7 +2063,9 @@ func TestHandlePollJob_DefaultsEvidenceModeForLegacyJobs(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
 	}
 	var resp map[string]any
-	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
 	if resp["evidence_mode"] != "none" {
 		t.Fatalf("evidence_mode = %v, want none", resp["evidence_mode"])
 	}
