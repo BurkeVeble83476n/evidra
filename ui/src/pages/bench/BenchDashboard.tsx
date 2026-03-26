@@ -733,7 +733,7 @@ export function BenchDashboard() {
                 <div className="flex gap-2">
                   {[
                     { value: "none", label: "Baseline" },
-                    { value: "smart", label: "Evidra" },
+                    { value: "evidra", label: "Evidra" },
                   ].map((option) => (
                     <label
                       key={option.value}
