@@ -369,6 +369,25 @@ func handleDeleteTenantProvider(svc *Service) http.HandlerFunc {
 	}
 }
 
+// HandleUpdateGlobalModel updates platform-level defaults for a model.
+// This handler is intended to be wrapped by an invite-secret gate in the API router.
+func HandleUpdateGlobalModel(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		modelID := r.PathValue("model_id")
+
+		var cfg GlobalModelConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if err := svc.UpdateGlobalModel(r.Context(), modelID, cfg); err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func handleListScenarios(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		scenarios, err := svc.ListScenarios(r.Context())

@@ -114,6 +114,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// Bench intelligence layer.
 	if cfg.BenchService != nil {
 		benchsvc.RegisterRoutes(mux, cfg.BenchService, authMw)
+		mux.Handle("PUT /v1/admin/bench/models/{model_id}",
+			inviteSecretMiddleware(benchsvc.HandleUpdateGlobalModel(cfg.BenchService), cfg.InviteSecret))
 	}
 
 	// Embedded landing page.
@@ -122,4 +124,18 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	return wrapMiddleware(mux)
+}
+
+func inviteSecretMiddleware(next http.Handler, inviteSecret string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if inviteSecret == "" {
+			writeError(w, http.StatusServiceUnavailable, "invite-gated admin route disabled: invite secret not configured")
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Invite-Secret")), []byte(inviteSecret)) != 1 {
+			writeError(w, http.StatusForbidden, "invite required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

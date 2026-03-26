@@ -339,6 +339,33 @@ func TestHandleDeleteTenantProvider_Returns204(t *testing.T) {
 	}
 }
 
+func TestHandleUpdateGlobalModel_Returns204(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	svc := NewService(repo, ServiceConfig{})
+	handler := HandleUpdateGlobalModel(svc)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/v1/admin/bench/models/gemini-2.5-flash", strings.NewReader(`{"api_key_env":"CUSTOM_KEY","api_base_url":"https://gw.example.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("model_id", "gemini-2.5-flash")
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if repo.lastModelID != "gemini-2.5-flash" {
+		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
+	}
+	if repo.lastGlobalCfg.APIKeyEnv != "CUSTOM_KEY" {
+		t.Fatalf("api_key_env = %q, want CUSTOM_KEY", repo.lastGlobalCfg.APIKeyEnv)
+	}
+	if repo.lastGlobalCfg.APIBaseURL != "https://gw.example.com" {
+		t.Fatalf("api_base_url = %q, want https://gw.example.com", repo.lastGlobalCfg.APIBaseURL)
+	}
+}
+
 // ---------- List Runs ----------
 
 func TestHandleListRuns_ReturnsItems(t *testing.T) {
