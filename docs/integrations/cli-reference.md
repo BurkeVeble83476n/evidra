@@ -228,8 +228,8 @@ The legacy score-band alias is not part of the v1 output contract.
 
 | Subcommand | Flags |
 |---|---|
-| `prompts generate` | `--contract` (default `v1.1.0`), `--root` (default `.`), `--write-active` (default `true`), `--write-generated` (default `true`), `--write-manifest` (default `true`) |
-| `prompts verify` | `--contract` (default `v1.1.0`), `--root` (default `.`) |
+| `prompts generate` | `--contract` (default `v1.3.0`), `--root` (default `.`), `--write-active` (default `true`), `--write-generated` (default `true`), `--write-manifest` (default `true`) |
+| `prompts verify` | `--contract` (default `v1.3.0`), `--root` (default `.`) |
 
 ### `evidra skill install` Flags
 

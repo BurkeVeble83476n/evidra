@@ -33,6 +33,18 @@ func TestLoadBundle_ContractVersionMismatch(t *testing.T) {
 	}
 }
 
+func TestLoadBundle_LatestContractVersion(t *testing.T) {
+	t.Parallel()
+
+	bundle, err := LoadBundle(repoRoot(t), "v1.3.0")
+	if err != nil {
+		t.Fatalf("LoadBundle(v1.3.0): %v", err)
+	}
+	if bundle.Contract.Version != "v1.3.0" {
+		t.Fatalf("contract version = %q, want %q", bundle.Contract.Version, "v1.3.0")
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 

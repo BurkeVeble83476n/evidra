@@ -1,0 +1,32 @@
+# contract: {{ .ContractVersion }}
+
+{{ range .Contract.Runtime.SystemIntro -}}
+{{ . }}
+{{ end }}
+
+Modes:
+1) Execution mode (tools available): use `run_command` by default and explicit protocol tools only when needed.
+2) Assessment mode (artifact-only): classify risk from provided artifact and return strict JSON.
+
+Execution mode workflow:
+{{ range .Contract.Runtime.ExecutionModeRules -}}
+- {{ . }}
+{{ end }}
+
+Mutate examples:
+{{ range .Classification.MutateExamples -}}
+- {{ . }}
+{{ end }}
+
+Read-only examples:
+{{ range .Classification.ReadOnlyExamples -}}
+- {{ . }}
+{{ end }}
+
+Assessment mode requirements:
+{{ range .Contract.Runtime.AssessmentModeRequirements -}}
+- {{ . }}
+{{ end }}
+- Output fields:
+  - `{{ .Output.AssessmentJSON.LevelField }}`: {{ range $i, $v := .Output.AssessmentJSON.AllowedLevel }}{{ if $i }}|{{ end }}{{ $v }}{{ end }}
+  - `{{ .Output.AssessmentJSON.DetailsField }}`: string array

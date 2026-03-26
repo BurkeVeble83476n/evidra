@@ -167,3 +167,27 @@ func TestResolvePromptMetadata_RuntimeContract(t *testing.T) {
 		t.Fatal("prompt_version is empty")
 	}
 }
+
+func TestReadMCPInitializeInstructions_PrefersRunCommandWorkflow(t *testing.T) {
+	t.Parallel()
+
+	content, contractVersion, skillVersion, err := ReadMCPInitializeInstructions()
+	if err != nil {
+		t.Fatalf("ReadMCPInitializeInstructions: %v", err)
+	}
+	if contractVersion != DefaultContractVersion {
+		t.Fatalf("contract_version = %q, want %q", contractVersion, DefaultContractVersion)
+	}
+	if skillVersion != DefaultContractSkillVersion {
+		t.Fatalf("skill_version = %q, want %q", skillVersion, DefaultContractSkillVersion)
+	}
+	if !strings.Contains(content, "`run_command`") {
+		t.Fatalf("initialize instructions should mention run_command default path: %s", content)
+	}
+	if !strings.Contains(content, "`describe_tool`") {
+		t.Fatalf("initialize instructions should mention describe_tool: %s", content)
+	}
+	if strings.Contains(content, "1) call `prescribe_full` or `prescribe_smart` BEFORE execution") {
+		t.Fatalf("initialize instructions should not require explicit prescribe/report as the default path: %s", content)
+	}
+}

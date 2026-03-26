@@ -23,8 +23,8 @@ const (
 	SkillPath                        = "skill/SKILL.md"
 	RuntimeExperimentContractPath    = "prompts/experiments/runtime/agent_contract_v1.md"
 
-	DefaultContractVersion      = "v1.2.0"
-	DefaultContractSkillVersion = "1.2.0"
+	DefaultContractVersion      = "v1.3.0"
+	DefaultContractSkillVersion = "1.3.0"
 )
 
 var (

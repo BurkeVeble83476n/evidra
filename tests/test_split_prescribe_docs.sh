@@ -54,7 +54,7 @@ grep -Fq "\"origin\":\"mcp\"" docs/system-design/EVIDRA_END_TO_END_EXAMPLE_V1.md
 ! grep -Fq "The MCP tools \`prescribe\` and \`report\` accept caller-provided" docs/system-design/EVIDRA_CORE_DATA_MODEL_V1.md \
   || fail "core data model should not describe the MCP surface as a single prescribe tool"
 
-grep -Fq "default \`v1.1.0\`" docs/integrations/cli-reference.md \
-  || fail "CLI reference should document v1.1.0 as the prompt default"
+grep -Fq "default \`v1.3.0\`" docs/integrations/cli-reference.md \
+  || fail "CLI reference should document v1.3.0 as the prompt default"
 
 echo "PASS: test_split_prescribe_docs"
