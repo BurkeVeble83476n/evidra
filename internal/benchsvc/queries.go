@@ -19,6 +19,15 @@ const runRecordColumns = `id, tenant_id, scenario_id, model, provider, adapter, 
 	prompt_tokens, completion_tokens, estimated_cost_usd,
 	checks_passed, checks_total, checks_json, metadata_json, created_at`
 
+// EnabledModel is a model available to a tenant via platform default or tenant override.
+type EnabledModel struct {
+	ID                string  `json:"id"`
+	DisplayName       string  `json:"display_name"`
+	Provider          string  `json:"provider"`
+	InputCostPerMtok  float64 `json:"input_cost_per_mtok"`
+	OutputCostPerMtok float64 `json:"output_cost_per_mtok"`
+}
+
 // scanRunRecord scans a row into a bench.RunRecord.
 func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 	var r bench.RunRecord
@@ -261,6 +270,44 @@ func (s *PgStore) Catalog(ctx context.Context, tenantID string) (*bench.RunCatal
 	}
 
 	return &bench.RunCatalog{Models: models, Providers: providers}, nil
+}
+
+// ListEnabledModels returns models available to a tenant.
+// A model is available if it has a platform API key env var or
+// the tenant has an enabled provider entry for that model.
+func (s *PgStore) ListEnabledModels(ctx context.Context, tenantID string) ([]EnabledModel, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT m.id, m.display_name, m.provider,
+		       m.input_cost_per_mtok, m.output_cost_per_mtok
+		FROM bench_models m
+		LEFT JOIN bench_tenant_providers tp
+		  ON tp.model_id = m.id AND tp.tenant_id = $1 AND tp.enabled = true
+		WHERE m.api_key_env != '' OR tp.tenant_id IS NOT NULL
+		ORDER BY m.provider, m.display_name
+	`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.ListEnabledModels: %w", err)
+	}
+	defer rows.Close()
+
+	var models []EnabledModel
+	for rows.Next() {
+		var model EnabledModel
+		if err := rows.Scan(
+			&model.ID,
+			&model.DisplayName,
+			&model.Provider,
+			&model.InputCostPerMtok,
+			&model.OutputCostPerMtok,
+		); err != nil {
+			return nil, fmt.Errorf("benchsvc.ListEnabledModels scan: %w", err)
+		}
+		models = append(models, model)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("benchsvc.ListEnabledModels rows: %w", err)
+	}
+	return models, nil
 }
 
 // ListScenarios returns all scenarios from the global catalog.
