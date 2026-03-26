@@ -61,6 +61,11 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 		mux.Handle("GET /v1/bench/trigger/{id}", authMw(http.HandlerFunc(handleTriggerStatus(svc.cfg.TriggerStore))))
 		mux.Handle("POST /v1/bench/trigger/{id}/progress", authMw(http.HandlerFunc(handleTriggerProgress(svc.cfg.TriggerStore))))
 	}
+
+	// Runner routes — V2b multi-runner support.
+	mux.Handle("POST /v1/runners/register", authMw(http.HandlerFunc(handleRegisterRunner(svc))))
+	mux.Handle("GET /v1/runners", authMw(http.HandlerFunc(handleListRunners(svc))))
+	mux.Handle("DELETE /v1/runners/{id}", authMw(http.HandlerFunc(handleDeleteRunner(svc))))
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
