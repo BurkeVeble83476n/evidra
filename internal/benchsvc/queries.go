@@ -36,6 +36,12 @@ type TenantProviderConfig struct {
 	MonthlyBudget float64 `json:"monthly_budget,omitempty"`
 }
 
+// GlobalModelConfig holds platform-level configuration for a model.
+type GlobalModelConfig struct {
+	APIBaseURL string `json:"api_base_url,omitempty"`
+	APIKeyEnv  string `json:"api_key_env,omitempty"`
+}
+
 // scanRunRecord scans a row into a bench.RunRecord.
 func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 	var r bench.RunRecord
@@ -345,6 +351,24 @@ func (s *PgStore) DeleteTenantProvider(ctx context.Context, tenantID, modelID st
 	`, tenantID, modelID)
 	if err != nil {
 		return fmt.Errorf("benchsvc.DeleteTenantProvider: %w", err)
+	}
+	return nil
+}
+
+// UpdateGlobalModel updates platform-level defaults for a model.
+func (s *PgStore) UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error {
+	result, err := s.db.Exec(ctx, `
+		UPDATE bench_models SET
+			api_base_url = CASE WHEN $2 != '' THEN $2 ELSE api_base_url END,
+			api_key_env = CASE WHEN $3 != '' THEN $3 ELSE api_key_env END,
+			updated_at = NOW()
+		WHERE id = $1
+	`, modelID, cfg.APIBaseURL, cfg.APIKeyEnv)
+	if err != nil {
+		return fmt.Errorf("benchsvc.UpdateGlobalModel: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("benchsvc.UpdateGlobalModel: model %q not found", modelID)
 	}
 	return nil
 }

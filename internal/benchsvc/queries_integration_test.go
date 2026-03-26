@@ -190,3 +190,44 @@ func TestPgStore_DeleteTenantProvider(t *testing.T) {
 		t.Fatalf("len(models) = %d, want 0", len(models))
 	}
 }
+
+func TestPgStore_UpdateGlobalModel(t *testing.T) {
+	pool := setupTestDB(t)
+	store := NewPgStore(pool)
+	modelID := testID("model")
+
+	seedModel(t, pool, modelID)
+
+	err := store.UpdateGlobalModel(context.Background(), modelID, GlobalModelConfig{
+		APIBaseURL: "https://gateway.example.com/v1",
+		APIKeyEnv:  "CUSTOM_API_KEY",
+	})
+	if err != nil {
+		t.Fatalf("UpdateGlobalModel: %v", err)
+	}
+
+	models, err := store.ListEnabledModels(context.Background(), testID("tenant"))
+	if err != nil {
+		t.Fatalf("ListEnabledModels: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("len(models) = %d, want 1", len(models))
+	}
+
+	var apiBaseURL, apiKeyEnv string
+	err = pool.QueryRow(context.Background(),
+		`SELECT api_base_url, api_key_env
+		 FROM bench_models
+		 WHERE id = $1`,
+		modelID,
+	).Scan(&apiBaseURL, &apiKeyEnv)
+	if err != nil {
+		t.Fatalf("select updated model: %v", err)
+	}
+	if apiBaseURL != "https://gateway.example.com/v1" {
+		t.Fatalf("api_base_url = %q, want https://gateway.example.com/v1", apiBaseURL)
+	}
+	if apiKeyEnv != "CUSTOM_API_KEY" {
+		t.Fatalf("api_key_env = %q, want CUSTOM_API_KEY", apiKeyEnv)
+	}
+}
