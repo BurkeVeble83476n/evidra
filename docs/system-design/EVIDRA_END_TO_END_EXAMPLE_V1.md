@@ -9,7 +9,7 @@ Worked example. Updated to match the current canonicalization, protocol, and sco
 
 This document is illustrative. Canonical rules live in:
 
-- [EVIDRA_CANONICALIZATION_CONTRACT_V1.md](EVIDRA_CANONICALIZATION_CONTRACT_V1.md)
+- [EVIDRA_CANONICALIZATION_CONTRACT_V1.md](../contracts/EVIDRA_CANONICALIZATION_CONTRACT_V1.md)
 - [EVIDRA_PROTOCOL_V1.md](EVIDRA_PROTOCOL_V1.md)
 - [EVIDRA_CORE_DATA_MODEL_V1.md](EVIDRA_CORE_DATA_MODEL_V1.md)
 - [EVIDRA_SIGNAL_SPEC_V1.md](EVIDRA_SIGNAL_SPEC_V1.md)
@@ -39,7 +39,7 @@ Goal:
 Each operation produces an `artifact_digest` from raw bytes and an
 `intent_digest` from the canonical action. The exact digest rules,
 canonical schema, and adapter behavior are defined in
-[EVIDRA_CANONICALIZATION_CONTRACT_V1.md](EVIDRA_CANONICALIZATION_CONTRACT_V1.md).
+[EVIDRA_CANONICALIZATION_CONTRACT_V1.md](../contracts/EVIDRA_CANONICALIZATION_CONTRACT_V1.md).
 
 ---
 

@@ -2,7 +2,7 @@
 
 This is the non-normative public index for the live architecture set.
 The canonical design and business logic live in the versioned docs under
-`docs/system-design/`.
+`docs/system-design/` and `docs/contracts/`.
 
 One-sentence model:
 
@@ -172,14 +172,14 @@ Hosted mode changes where evidence is collected and replayed, not what evidence 
 Normative contracts:
 - [Protocol](system-design/EVIDRA_PROTOCOL_V1.md)
 - [Core Data Model](system-design/EVIDRA_CORE_DATA_MODEL_V1.md)
-- [Canonicalization Contract](system-design/EVIDRA_CANONICALIZATION_CONTRACT_V1.md)
+- [Canonicalization Contract](contracts/EVIDRA_CANONICALIZATION_CONTRACT_V1.md)
 - [Signal Spec](system-design/EVIDRA_SIGNAL_SPEC_V1.md)
 - [Executor Contract](contracts/EXECUTOR_CONTRACT_V1.md)
 - [Bench Runner Control Plane Contract](contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md)
 
 System design and implementation mapping:
 - [Architecture](system-design/EVIDRA_ARCHITECTURE_V1.md)
-- [Record/Import Contract](system-design/EVIDRA_RUN_RECORD_CONTRACT_V1.md)
+- [Record/Import Contract](contracts/EVIDRA_RUN_RECORD_CONTRACT_V1.md)
 - [Default Scoring Profile](system-design/scoring/default.v1.1.0.md)
 
 ### Bench Intelligence Layer

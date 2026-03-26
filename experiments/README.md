@@ -5,13 +5,11 @@ This folder is for running and storing artifact-classification benchmark outputs
 ## What to use
 
 - Go CLI: `evidra-exp` (`go run ./cmd/evidra-exp ...` or `bin/evidra-exp` after build)
-- CLI flags reference: `docs/integrations/CLI_REFERENCE.md`
-- Artifact runner guide: `docs/experimental/ARTIFACT_RUNNER_GUIDE.md`
-- Matrix definition: `docs/experimental/EXPERIMENT_MATRIX.md`
-- Result schema: `docs/experimental/RESULT_SCHEMA.json`
+- CLI flags and experiment commands: `docs/integrations/cli-reference.md`
+- Run modes and output layout: this file (`experiments/README.md`)
 - Experiment prompt contract: `prompts/experiments/runtime/system_instructions.txt`
-- Prompt source contract: `prompts/source/contracts/v1.0.1/`
-- Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC.md`
+- Prompt source contract: `prompts/source/contracts/v1.3.0/`
+- Prompt source-of-truth spec: `docs/system-design/EVIDRA_PROMPT_FACTORY_SPEC_V1.md`
 
 Prompt editing policy:
 - Edit only `prompts/source/contracts/<version>/...`

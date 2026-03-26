@@ -1,7 +1,7 @@
 # EVIDRA Prompt Factory Spec (Single Source of Truth)
 
-**Status:** Active (`v1.1.0`)
-**Date:** 2026-03-20 (updated from 2026-03-06 baseline)
+**Status:** Active (`v1.3.0`)
+**Date:** 2026-03-26
 **Scope:** Prompt contract source, folder structure, generation targets, versioning, CI gates
 
 ---
@@ -10,6 +10,7 @@
 
 Evidra has multiple prompt surfaces:
 - MCP server prompts (`prompts/mcpserver/*`)
+- MCP prompt references (`prompts/mcp/*`)
 - Skill definitions (`prompts/skill/*`)
 - Runtime experiment prompts (`prompts/experiments/runtime/*`)
 - Framework-specific integrations (future)
@@ -60,7 +61,11 @@ prompts/
     contracts/
       v1.0.1/                              # legacy baseline
         ...
-      v1.1.0/                              # active contract
+      v1.1.0/
+        ...
+      v1.2.0/
+        ...
+      v1.3.0/                              # active contract
         CONTRACT.yaml                      # canonical rules and invariants
         CLASSIFICATION.yaml                # mutate/read-only command taxonomy
         OUTPUT_CONTRACTS.yaml              # strict output schemas by target mode
@@ -68,11 +73,15 @@ prompts/
         templates/
           mcp/
             initialize.tmpl
-            prescribe_full.tmpl            # full artifact prescribe
-            prescribe_smart.tmpl           # lightweight intent prescribe
             report.tmpl
             get_event.tmpl
             agent_contract.tmpl
+            run_command.tmpl
+            prescribe_full.tmpl            # full artifact prescribe
+            prescribe_smart.tmpl           # lightweight intent prescribe
+            prompt_prescribe_full.tmpl
+            prompt_prescribe_smart.tmpl
+            prompt_diagnosis.tmpl
           runtime/
             system_instructions.tmpl
             agent_contract.tmpl
@@ -84,14 +93,19 @@ prompts/
   generated/                               # generated artifacts (never manual source)
     v1.0.1/                                # legacy
       ...
-    v1.1.0/                                # active
+    v1.3.0/                                # active
       mcpserver/
         initialize/instructions.txt
+        tools/run_command_description.txt
         tools/prescribe_full_description.txt
         tools/prescribe_smart_description.txt
         tools/report_description.txt
         tools/get_event_description.txt
         resources/content/agent_contract_v1.md
+      mcp/
+        prompt_prescribe_full.md
+        prompt_prescribe_smart.md
+        prompt_diagnosis.md
       experiments/
         runtime/
           system_instructions.txt
@@ -103,16 +117,22 @@ prompts/
 
   manifests/
     v1.0.1.json                            # legacy manifest
-    v1.1.0.json                            # active manifest
+    v1.1.0.json
+    v1.2.0.json
+    v1.3.0.json                            # active manifest
 
   mcpserver/                               # active runtime location (compat)
+  mcp/                                     # active prompt reference location (compat)
   skill/                                   # active skill definitions (compat)
   experiments/runtime/                     # active runtime location (compat)
 ```
 
 Compatibility rule:
-- Runtime continues reading current active paths (`prompts/mcpserver/*`, `prompts/skill/*`, `prompts/experiments/runtime/*`).
+- Runtime and embedded prompt readers continue reading current active paths (`prompts/mcpserver/*`, `prompts/mcp/*`, `prompts/skill/*`, `prompts/experiments/runtime/*`).
 - Generation pipeline MUST materialize outputs into those active paths.
+- Some render specs are optional across contract versions. Legacy bundles may
+  generate fewer active files, such as `tools/prescribe_description.txt` in
+  pre-split versions.
 
 ---
 
@@ -159,6 +179,7 @@ Version bump rules:
 
 Generated files:
 - `initialize/instructions.txt`
+- `tools/run_command_description.txt`
 - `tools/prescribe_full_description.txt`
 - `tools/prescribe_smart_description.txt`
 - `tools/report_description.txt`
@@ -171,6 +192,18 @@ Must preserve:
 - prescribe/report invariants
 - retry and failure-path rules
 - `actor.skill_version` guidance
+
+### MCP Prompt References
+
+Generated files:
+- `prompt_prescribe_full.md`
+- `prompt_prescribe_smart.md`
+- `prompt_diagnosis.md`
+
+Must preserve:
+- the same contract header and version traceability as MCP server artifacts
+- direct examples for explicit prescribe/report use
+- diagnosis workflow guidance aligned with `run_command`-first instructions
 
 ### Skill Definitions
 
@@ -223,14 +256,15 @@ make prompts-verify
 ## 10. Implementation State
 
 Implemented:
-1. Source contract tree under `prompts/source/contracts/` (v1.0.1 and v1.1.0).
+1. Source contract tree under `prompts/source/contracts/` (`v1.0.1`, `v1.1.0`, `v1.2.0`, `v1.3.0`).
 2. Deterministic generator + verifier (`evidra prompts generate|verify`).
 3. Make wrappers (`make prompts-generate`, `make prompts-verify`).
 4. CI/release drift enforcement via `make prompts-verify`.
 5. Prescribe split: `prescribe_full` (raw artifact) and `prescribe_smart` (target intent).
-6. Skill target surface with `SKILL.md`, `SKILL_SMART.md`, and `SKILL_FULL.md` generation.
-7. Runtime embed layer (`prompts/embed.go`) with `DefaultContractVersion` and skill_version derivation.
-8. Optional render specs — generator gracefully handles missing optional templates across contract versions.
+6. `run_command`-first MCP guidance with separate generated MCP server and MCP prompt-reference surfaces.
+7. Skill target surface with `SKILL.md`, `SKILL_SMART.md`, and `SKILL_FULL.md` generation.
+8. Runtime embed layer (`prompts/embed.go`) with `DefaultContractVersion = v1.3.0` and skill_version derivation.
+9. Optional render specs — generator gracefully handles missing optional templates across contract versions.
 
 Planned next:
 1. Additional target templates (LangChain/LangGraph/REST-hosted variants).

@@ -11,7 +11,7 @@ This document is the user-facing command and flag reference for all binaries in 
 
 For architecture and protocol semantics, see:
 - [Integration Protocol](../system-design/EVIDRA_PROTOCOL_V1.md)
-- [Record/Import Contract](../system-design/EVIDRA_RUN_RECORD_CONTRACT_V1.md)
+- [Record/Import Contract](../contracts/EVIDRA_RUN_RECORD_CONTRACT_V1.md)
 - [Core Data Model](../system-design/EVIDRA_CORE_DATA_MODEL_V1.md)
 
 ## 1) `evidra` (core CLI)
@@ -286,7 +286,6 @@ Output: JSON with `count` and `items` array of detector metadata (tag, descripti
 ## 3) `evidra-exp` (experiments)
 
 See also [Experiments README](../../experiments/README.md) for run modes and output schema.
-For execution flow and result interpretation, see [Artifact Runner Guide](../experimental/ARTIFACT_RUNNER_GUIDE.md).
 
 ### Top-Level Commands
 

@@ -199,7 +199,7 @@
 - [Observability Quickstart](docs/guides/observability-quickstart.md) — OTLP setup, Grafana/Prometheus queries, CI examples
 - [Terraform CI Quickstart](docs/guides/terraform-ci-quickstart.md)
 - [Scanner SARIF Quickstart](docs/integrations/SCANNER_SARIF_QUICKSTART.md) rewritten with run/record patterns
-- [CLI Reference](docs/integrations/CLI_REFERENCE.md) — unified command reference
+- [CLI Reference](docs/integrations/cli-reference.md) — unified command reference
 - [Setup Evidra Action](docs/guides/setup-evidra-action.md) — GitHub Actions + generic CI install
 
 ### Testing
