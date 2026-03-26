@@ -741,7 +741,7 @@ export function BenchDashboard() {
                         triggerEvidenceMode === option.value
                           ? "border-accent bg-accent-tint text-accent"
                           : "border-border bg-bg text-fg-muted hover:text-fg"
-                      }`}
+                      } focus-within:border-accent focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-bg-elevated`}
                     >
                       <input
                         type="radio"

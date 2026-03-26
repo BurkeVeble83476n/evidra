@@ -73,7 +73,7 @@ describe("Bench evidence mode UI", () => {
     },
   );
 
-  it("shows demo labels on the leaderboard filter buttons", async () => {
+  it("shows demo labels on the leaderboard filter buttons and switches requests", async () => {
     requestMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/v1/bench/leaderboard")) {
         return {
@@ -92,6 +92,24 @@ describe("Bench evidence mode UI", () => {
     expect(screen.queryByRole("button", { name: "proxy" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "smart" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "direct" })).not.toBeInTheDocument();
+
+    requestMock.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Baseline" }));
+    await waitFor(() => {
+      expect(
+        requestMock.mock.calls.some(([path]) => path === "/v1/bench/leaderboard?evidence_mode=none"),
+      ).toBe(true);
+    });
+
+    requestMock.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: "Evidra" }));
+    await waitFor(() => {
+      expect(
+        requestMock.mock.calls.some(([path]) => path === "/v1/bench/leaderboard?evidence_mode=evidra"),
+      ).toBe(true);
+    });
   });
 
   it.each([

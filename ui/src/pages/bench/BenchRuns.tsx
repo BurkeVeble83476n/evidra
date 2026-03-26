@@ -222,6 +222,8 @@ export function BenchRuns() {
 
   const thClass =
     "text-left text-[0.7rem] font-semibold text-fg-muted uppercase tracking-wide bg-bg-alt px-3 py-2.5 select-none cursor-pointer hover:text-fg transition-colors whitespace-nowrap";
+  const inertThClass =
+    "text-left text-[0.7rem] font-semibold text-fg-muted uppercase tracking-wide bg-bg-alt px-3 py-2.5 select-none cursor-default whitespace-nowrap";
 
   return (
     <div className="max-w-[980px] mx-auto px-8 py-10">
@@ -336,7 +338,7 @@ export function BenchRuns() {
                   <th className={thClass} onClick={() => handleSort("provider")}>
                     Provider <SortArrow field="provider" sort={sort} />
                   </th>
-                  <th className={thClass}>
+                  <th className={inertThClass}>
                     Mode
                   </th>
                   <th className={thClass} onClick={() => handleSort("duration_seconds")}>
