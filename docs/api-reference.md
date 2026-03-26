@@ -422,12 +422,18 @@ Response:
       "id": "gemini-2.5-flash",
       "display_name": "Gemini 2.5 Flash",
       "provider": "google",
+      "api_base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "available": true,
       "input_cost_per_mtok": 0.15,
       "output_cost_per_mtok": 0.6
     }
   ]
 }
 ```
+
+The `available` field indicates whether the server has an API key configured for the model
+(checked via `os.Getenv(api_key_env)` at request time). The UI uses this to show only
+usable models.
 
 #### PUT /v1/bench/models/{model_id}/provider
 

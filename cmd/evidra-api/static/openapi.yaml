@@ -1329,7 +1329,7 @@ components:
 
     EnabledModel:
       type: object
-      required: [id, display_name, provider, input_cost_per_mtok, output_cost_per_mtok]
+      required: [id, display_name, provider, available, input_cost_per_mtok, output_cost_per_mtok]
       properties:
         id:
           type: string
@@ -1340,6 +1340,14 @@ components:
         provider:
           type: string
           example: google
+        api_base_url:
+          type: string
+          description: Provider API base URL (empty when using default)
+          example: https://generativelanguage.googleapis.com/v1beta/openai
+        available:
+          type: boolean
+          description: Whether the platform has an API key configured for this model
+          example: true
         input_cost_per_mtok:
           type: number
           example: 0.15
