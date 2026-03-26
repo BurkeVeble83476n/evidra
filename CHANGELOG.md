@@ -2,10 +2,27 @@
 
 ## Unreleased
 
+## v0.5.14 — 2026-03-26
+
 ### Bench Model Configuration
-- `GET /v1/bench/models` — list tenant-visible models resolved from platform defaults plus tenant overrides
-- `PUT /v1/bench/models/{model_id}/provider` and `DELETE /v1/bench/models/{model_id}/provider` — manage tenant-specific model provider settings
-- `PUT /v1/admin/bench/models/{model_id}` — invite-gated platform route for updating global model defaults used by tenant model resolution
+- `GET /v1/bench/models` — list tenant-visible models with `available` field based on platform env var presence
+- `PUT /v1/bench/models/{model_id}/provider` and `DELETE` — tenant provider overrides (disabled until encryption is implemented)
+- `PUT /v1/admin/bench/models/{model_id}` — invite-gated platform route for global model defaults
+- Trigger handler auto-resolves provider from model catalog when not supplied in request
+- Trigger handler validates API key is configured before accepting jobs
+- Input validation: upsert requires at least one non-empty field; delete returns 404 for nonexistent providers
+
+### MCP Deferred Tool Loading
+- Deferred tool schema registry — `prescribe_smart` and `report` schemas loaded on demand, not at initialize
+- `describe_tool` meta-tool for clients to fetch individual tool schemas
+- `run_command` path preferred in initialize instructions
+- MCP contract bumped to v1.3.0
+
+### Skill Install
+- Smart and full-prescribe install modes for on-demand protocol tool loading
+
+### Security
+- Per-tenant API key endpoints disabled pending AES-256-GCM encryption
 
 ## v0.5.13 
 
