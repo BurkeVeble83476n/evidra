@@ -138,6 +138,20 @@ func TestInitializeInstructions_IncludeContractVersion(t *testing.T) {
 	}
 }
 
+func TestDefaultInitializeInstructions_PreferRunCommandWorkflow(t *testing.T) {
+	t.Parallel()
+
+	if !strings.Contains(defaultInitializeInstructions, "`run_command`") {
+		t.Fatalf("instructions should mention run_command default path: %q", defaultInitializeInstructions)
+	}
+	if !strings.Contains(defaultInitializeInstructions, "`describe_tool`") {
+		t.Fatalf("instructions should mention describe_tool for explicit protocol control: %q", defaultInitializeInstructions)
+	}
+	if strings.Contains(defaultInitializeInstructions, "auto-expand") {
+		t.Fatalf("instructions should not promise dynamic schema auto-expansion: %q", defaultInitializeInstructions)
+	}
+}
+
 func TestRunCommandTool_HasOutputSchemaAndExamples(t *testing.T) {
 	t.Parallel()
 

@@ -154,7 +154,9 @@ const (
 	defaultGetEventToolDescription = "Look up an evidence record by event_id."
 
 	defaultInitializeInstructions = "Evidra — Flight recorder for AI infrastructure agents. " +
-		"Call `prescribe_full` when artifact bytes are available or `prescribe_smart` when only target context is available BEFORE any infrastructure operation, and call `report` with an explicit verdict AFTER execution or decision."
+		"Use `run_command` for the normal investigation and mutation workflow; Evidra records evidence automatically for mutations. " +
+		"When you need explicit pre/post control, call `describe_tool` first, then use `prescribe_smart` or `report`. " +
+		"`prescribe_full` is only available when the server is started with `--full-prescribe`."
 )
 
 var (
