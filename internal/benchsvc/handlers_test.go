@@ -54,9 +54,12 @@ type handlerRepo struct {
 	matrixErr   error
 
 	// capture
-	lastTenant string
-	lastFilter bench.RunFilters
-	lastMode   string
+	lastTenant      string
+	lastFilter      bench.RunFilters
+	lastMode        string
+	lastModelID     string
+	lastProviderCfg TenantProviderConfig
+	lastGlobalCfg   GlobalModelConfig
 }
 
 func (r *handlerRepo) ListRuns(_ context.Context, tenant string, f bench.RunFilters) ([]bench.RunRecord, int, error) {
@@ -93,15 +96,20 @@ func (r *handlerRepo) ListEnabledModels(_ context.Context, tenant string) ([]Ena
 	r.lastTenant = tenant
 	return r.enabledModels, r.enabledModelsErr
 }
-func (r *handlerRepo) UpsertTenantProvider(_ context.Context, tenantID, modelID string, _ TenantProviderConfig) error {
+func (r *handlerRepo) UpsertTenantProvider(_ context.Context, tenantID, modelID string, cfg TenantProviderConfig) error {
 	r.lastTenant = tenantID
+	r.lastModelID = modelID
+	r.lastProviderCfg = cfg
 	return nil
 }
 func (r *handlerRepo) DeleteTenantProvider(_ context.Context, tenantID, modelID string) error {
 	r.lastTenant = tenantID
+	r.lastModelID = modelID
 	return nil
 }
-func (r *handlerRepo) UpdateGlobalModel(_ context.Context, _ string, _ GlobalModelConfig) error {
+func (r *handlerRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg GlobalModelConfig) error {
+	r.lastModelID = modelID
+	r.lastGlobalCfg = cfg
 	return nil
 }
 func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
@@ -279,6 +287,55 @@ func TestHandleListModels_ReturnsModels(t *testing.T) {
 	}
 	if repo.lastTenant != "tenant-a" {
 		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+}
+
+func TestHandleUpsertTenantProvider_Returns204(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/v1/bench/models/gemini-2.5-flash/provider", strings.NewReader(`{"api_key":"sk-secret","rate_limit":10}`))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+	if repo.lastModelID != "gemini-2.5-flash" {
+		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
+	}
+	if repo.lastProviderCfg.APIKeyEnc != "sk-secret" {
+		t.Fatalf("api_key = %q, want sk-secret", repo.lastProviderCfg.APIKeyEnc)
+	}
+	if repo.lastProviderCfg.RateLimit != 10 {
+		t.Fatalf("rate_limit = %d, want 10", repo.lastProviderCfg.RateLimit)
+	}
+}
+
+func TestHandleDeleteTenantProvider_Returns204(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/v1/bench/models/gemini-2.5-flash/provider", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+	if repo.lastModelID != "gemini-2.5-flash" {
+		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
 	}
 }
 

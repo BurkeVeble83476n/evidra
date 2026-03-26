@@ -43,6 +43,8 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(svc))))
 	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(svc))))
 	mux.Handle("GET /v1/bench/models", authMw(http.HandlerFunc(handleListModels(svc))))
+	mux.Handle("PUT /v1/bench/models/{model_id}/provider", authMw(http.HandlerFunc(handleUpsertTenantProvider(svc))))
+	mux.Handle("DELETE /v1/bench/models/{model_id}/provider", authMw(http.HandlerFunc(handleDeleteTenantProvider(svc))))
 	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(svc))))
 	mux.Handle("GET /v1/bench/compare/runs", authMw(http.HandlerFunc(handleCompareRuns(svc))))
 	mux.Handle("GET /v1/bench/compare/models", authMw(http.HandlerFunc(handleCompareModels(svc))))
@@ -334,6 +336,36 @@ func handleListModels(svc *Service) http.HandlerFunc {
 			models = []EnabledModel{}
 		}
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": models})
+	}
+}
+
+func handleUpsertTenantProvider(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		modelID := r.PathValue("model_id")
+
+		var cfg TenantProviderConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+			return
+		}
+		if err := svc.UpsertTenantProvider(r.Context(), tenantID, modelID, cfg); err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleDeleteTenantProvider(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		modelID := r.PathValue("model_id")
+		if err := svc.DeleteTenantProvider(r.Context(), tenantID, modelID); err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
