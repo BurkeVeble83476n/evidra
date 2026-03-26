@@ -1279,8 +1279,8 @@ func (r *matrixRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummar
 
 // spyExecutor records whether Start was called.
 type spyExecutor struct {
-	started bool
-	job     *TriggerJob
+	started   bool
+	job       *TriggerJob
 	startedCh chan struct{}
 }
 
@@ -1414,6 +1414,45 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	}
 	if spy.job != nil && spy.job.EvidenceMode != "smart" {
 		t.Fatalf("job evidence mode = %q, want smart", spy.job.EvidenceMode)
+	}
+}
+
+func TestHandleTrigger_ValidRequest_Returns202_WithEvidenceModeNone(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
+	spy := &spyExecutor{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     spy,
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"sonnet","evidence_mode":"none","scenarios":["s1","s2"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusAccepted, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	stored := store.Get(resp["id"].(string))
+	if stored == nil {
+		t.Fatal("stored trigger job missing")
+	}
+	if stored.EvidenceMode != "none" {
+		t.Fatalf("stored evidence mode = %q, want none", stored.EvidenceMode)
 	}
 }
 
