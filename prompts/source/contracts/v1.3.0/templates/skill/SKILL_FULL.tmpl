@@ -4,13 +4,14 @@ description: "Use this skill when the user asks you to perform DevOps operations
 ---
 <!-- contract: {{ .ContractVersion }} -->
 
-# Evidra — DevOps MCP Server
+# Evidra — Full Prescribe MCP Server
 
 {{ .Contract.DevOps.RunCommand.Intro }}
 
-## Smart Output
+## Full-Prescribe Mode
 
-{{ .Contract.DevOps.RunCommand.SmartOutput }}
+Install this skill only when the MCP server is started with `--full-prescribe`.
+Use `run_command` for investigation and routine operations, but when you have artifact bytes and want explicit control, prefer `prescribe_full` before execution and `report` after execution.
 
 ## Diagnosis Protocol
 {{ range .Contract.DevOps.RunCommand.DiagnosisProtocol }}
@@ -22,34 +23,29 @@ description: "Use this skill when the user asks you to perform DevOps operations
 - {{ . }}
 {{- end }}
 
-## Evidence Recording
+## Explicit Evidence Recording
 
 {{ .Contract.DevOps.RunCommand.EvidenceIntro }}
 
-### When to prescribe explicitly
-{{ range .Contract.DevOps.RunCommand.WhenToPrescribe }}
-- {{ . }}
-{{- end }}
+### prescribe_full (recommended when artifact bytes are available)
 
-### prescribe_smart (recommended)
-
-Call with: tool, operation, resource, namespace, actor.
-Returns: prescription_id, effective_risk.
+Call with: tool, operation, raw_artifact, actor.
+Use this when you have the full YAML/manifest and want drift detection plus artifact-aware assessment.
 
 {{ "```json" }}
 {
   "tool": "kubectl", "operation": "apply",
-  "resource": "deployment/web", "namespace": "default",
+  "raw_artifact": "apiVersion: apps/v1\nkind: Deployment\n...",
   "actor": {"type": "agent", "id": "your-id", "origin": "mcp-stdio", "skill_version": "{{ .SkillVersion }}"}
 }
 {{ "```" }}
 
-### prescribe_full
+### prescribe_smart (fallback when you do not have artifact bytes)
 
-Call with: tool, operation, raw_artifact, actor.
-Use when you have the full YAML/manifest and want drift detection.
+Call with: tool, operation, resource, namespace, actor.
+Use this only when the target is known but the artifact bytes are not available in context.
 
-### report (after every mutation)
+### report (after every explicit mutation)
 
 Call with: prescription_id, verdict (success/failure/declined), exit_code, actor.
 On retry: new prescribe, execute, new report (each attempt is a pair).
@@ -61,14 +57,9 @@ On retry: new prescribe, execute, new report (each attempt is a pair).
 - Report failures honestly (non-zero exit_code)
 - Declined verdicts use decision_context, not exit_code
 
-## Risk Tags
+## Decision Rule
 
-| Tag | Severity |
-|-----|----------|
-{{- range .Contract.DevOps.RiskTags }}
-| `{{ .Tag }}` | {{ .Severity }} |
-{{- end }}
-
-## Behavioral Signals
-
-{{ range $i, $s := .Contract.DevOps.BehavioralSignals }}{{ if $i }}, {{ end }}{{ $s }}{{ end }}
+1. Diagnose first with read-only commands or `run_command`.
+2. If you have artifact bytes and the server exposes `prescribe_full`, use it.
+3. If not, fall back to `prescribe_smart`.
+4. Always call `report` after an explicit prescribe flow.

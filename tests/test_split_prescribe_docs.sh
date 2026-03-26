@@ -57,4 +57,10 @@ grep -Fq "\"origin\":\"mcp\"" docs/system-design/EVIDRA_END_TO_END_EXAMPLE_V1.md
 grep -Fq "default \`v1.3.0\`" docs/integrations/cli-reference.md \
   || fail "CLI reference should document v1.3.0 as the prompt default"
 
+grep -Fq -- "--full-prescribe" docs/integrations/cli-reference.md \
+  || fail "CLI reference should document the full-prescribe skill flag"
+
+grep -Fq -- "evidra skill install --full-prescribe" docs/guides/skill-setup.md \
+  || fail "skill setup guide should document full-prescribe installation"
+
 echo "PASS: test_split_prescribe_docs"

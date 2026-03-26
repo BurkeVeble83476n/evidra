@@ -35,6 +35,7 @@ func runSkillInstall(args []string, stdout, stderr io.Writer) int {
 	target := fs.String("target", "claude", "Target platform (claude)")
 	scope := fs.String("scope", "global", "Installation scope (global, project)")
 	projectDir := fs.String("project-dir", ".", "Project directory for --scope project")
+	fullPrescribe := fs.Bool("full-prescribe", false, "Install the full-prescribe skill variant")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -49,7 +50,14 @@ func runSkillInstall(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	content, err := promptdata.ReadSkill()
+	readSkill := promptdata.ReadSkill
+	modeLabel := "smart"
+	if *fullPrescribe {
+		readSkill = promptdata.ReadSkillFull
+		modeLabel = "full-prescribe"
+	}
+
+	content, err := readSkill()
 	if err != nil {
 		fmt.Fprintf(stderr, "read embedded skill: %v\n", err)
 		return 1
@@ -83,9 +91,10 @@ func runSkillInstall(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "Evidra skill %s: %s\n", verb, destPath)
 	fmt.Fprintf(stdout, "Contract version: %s\n", promptdata.DefaultContractVersion)
 	fmt.Fprintf(stdout, "Target: %s (%s)\n", *target, *scope)
+	fmt.Fprintf(stdout, "Mode: %s\n", modeLabel)
 	fmt.Fprintln(stdout)
-	fmt.Fprintln(stdout, "The skill guides AI agents to follow the Evidra prescribe/report protocol")
-	fmt.Fprintln(stdout, "with 100% compliance for infrastructure mutations.")
+	fmt.Fprintln(stdout, "The skill guides AI agents through Evidra's infrastructure workflow")
+	fmt.Fprintln(stdout, "and explicit evidence-recording protocol when needed.")
 	return 0
 }
 
@@ -118,4 +127,5 @@ func printSkillUsage(w io.Writer) {
 	fmt.Fprintln(w, "  --target       Target platform: claude (default: claude)")
 	fmt.Fprintln(w, "  --scope        Installation scope: global, project (default: global)")
 	fmt.Fprintln(w, "  --project-dir  Project directory for --scope project (default: .)")
+	fmt.Fprintln(w, "  --full-prescribe  Install the full-prescribe skill variant")
 }

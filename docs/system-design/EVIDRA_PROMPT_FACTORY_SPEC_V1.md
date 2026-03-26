@@ -79,6 +79,7 @@ prompts/
           skill/
             SKILL.tmpl
             SKILL_SMART.tmpl
+            SKILL_FULL.tmpl
 
   generated/                               # generated artifacts (never manual source)
     v1.0.1/                                # legacy
@@ -98,6 +99,7 @@ prompts/
       skill/
         SKILL.md
         SKILL_SMART.md
+        SKILL_FULL.md
 
   manifests/
     v1.0.1.json                            # legacy manifest
@@ -173,8 +175,9 @@ Must preserve:
 ### Skill Definitions
 
 Generated files:
-- `SKILL.md` (full artifact prescribe skill)
-- `SKILL_SMART.md` (lightweight intent prescribe skill)
+- `SKILL.md` (default installable skill)
+- `SKILL_SMART.md` (smart/default skill variant)
+- `SKILL_FULL.md` (full-prescribe skill variant)
 
 Must preserve:
 - same core invariants as MCP
@@ -225,7 +228,7 @@ Implemented:
 3. Make wrappers (`make prompts-generate`, `make prompts-verify`).
 4. CI/release drift enforcement via `make prompts-verify`.
 5. Prescribe split: `prescribe_full` (raw artifact) and `prescribe_smart` (target intent).
-6. Skill target surface with `SKILL.md` and `SKILL_SMART.md` generation.
+6. Skill target surface with `SKILL.md`, `SKILL_SMART.md`, and `SKILL_FULL.md` generation.
 7. Runtime embed layer (`prompts/embed.go`) with `DefaultContractVersion` and skill_version derivation.
 8. Optional render specs — generator gracefully handles missing optional templates across contract versions.
 

@@ -4,13 +4,14 @@ description: "Use this skill when the user asks you to perform DevOps operations
 ---
 <!-- contract: v1.3.0 -->
 
-# Evidra — DevOps MCP Server
+# Evidra — Full Prescribe MCP Server
 
 evidra-mcp is your infrastructure toolkit. Use `run_command` for kubectl, helm, terraform, and aws operations.
 
-## Smart Output
+## Full-Prescribe Mode
 
-Responses are token-efficient summaries, not raw JSON. Trust them.
+Install this skill only when the MCP server is started with `--full-prescribe`.
+Use `run_command` for investigation and routine operations, but when you have artifact bytes and want explicit control, prefer `prescribe_full` before execution and `report` after execution.
 
 ## Diagnosis Protocol
 
@@ -24,37 +25,29 @@ Responses are token-efficient summaries, not raw JSON. Trust them.
 - Verify fixes with kubectl get or rollout status
 - Check what exists before creating (avoid duplicates)
 
-## Evidence Recording
+## Explicit Evidence Recording
 
 Infrastructure mutations executed through `run_command` are automatically recorded as evidence. For explicit control, call `describe_tool` to inspect `prescribe_smart` and `report`; use `prescribe_full` only when the server exposes it and you have artifact bytes.
 
-### When to prescribe explicitly
+### prescribe_full (recommended when artifact bytes are available)
 
-- You need a prescription_id before execution for tighter control or custom correlation.
-- You are executing a mutation outside `run_command` and need to record intent/result directly.
-- Use `describe_tool` first when you need the full `prescribe_smart` or `report` schema.
-- Use `prescribe_full` only when available and you have artifact bytes.
-- Skip explicit prescribe/report for `run_command`-based mutations unless you need tighter control.
-
-### prescribe_smart (recommended)
-
-Call with: tool, operation, resource, namespace, actor.
-Returns: prescription_id, effective_risk.
+Call with: tool, operation, raw_artifact, actor.
+Use this when you have the full YAML/manifest and want drift detection plus artifact-aware assessment.
 
 ```json
 {
   "tool": "kubectl", "operation": "apply",
-  "resource": "deployment/web", "namespace": "default",
+  "raw_artifact": "apiVersion: apps/v1\nkind: Deployment\n...",
   "actor": {"type": "agent", "id": "your-id", "origin": "mcp-stdio", "skill_version": "1.3.0"}
 }
 ```
 
-### prescribe_full
+### prescribe_smart (fallback when you do not have artifact bytes)
 
-Call with: tool, operation, raw_artifact, actor.
-Use when you have the full YAML/manifest and want drift detection.
+Call with: tool, operation, resource, namespace, actor.
+Use this only when the target is known but the artifact bytes are not available in context.
 
-### report (after every mutation)
+### report (after every explicit mutation)
 
 Call with: prescription_id, verdict (success/failure/declined), exit_code, actor.
 On retry: new prescribe, execute, new report (each attempt is a pair).
@@ -68,25 +61,9 @@ On retry: new prescribe, execute, new report (each attempt is a pair).
 - Report failures honestly (non-zero exit_code)
 - Declined verdicts use decision_context, not exit_code
 
-## Risk Tags
+## Decision Rule
 
-| Tag | Severity |
-|-----|----------|
-| `k8s.privileged_container` | critical |
-| `k8s.cluster_admin_binding` | critical |
-| `ops.mass_delete` | critical |
-| `k8s.hostpath_mount` | high |
-| `k8s.run_as_root` | high |
-| `k8s.host_namespace_escape` | high |
-| `k8s.docker_socket` | high |
-| `k8s.dangerous_capabilities` | high |
-| `k8s.writable_rootfs` | high |
-| `ops.kube_system` | high |
-| `ops.namespace_delete` | high |
-| `aws_iam.wildcard_policy` | critical |
-| `terraform.s3_public_access` | high |
-| `aws.security_group_open` | high |
-
-## Behavioral Signals
-
-protocol_violation, artifact_drift, retry_loop, blast_radius, new_scope, repair_loop, thrashing, risk_escalation
+1. Diagnose first with read-only commands or `run_command`.
+2. If you have artifact bytes and the server exposes `prescribe_full`, use it.
+3. If not, fall back to `prescribe_smart`.
+4. Always call `report` after an explicit prescribe flow.

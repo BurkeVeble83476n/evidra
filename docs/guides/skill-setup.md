@@ -11,10 +11,10 @@ The Evidra skill teaches AI agents DevOps operational discipline and the evidenc
 
 ## Why Install the Skill
 
-The Evidra MCP server gives AI agents `run_command` (with smart output and auto-evidence) plus `prescribe_smart`, `prescribe_full`, `report`, and `get_event` tools. The skill adds two things:
+The Evidra MCP server gives AI agents `run_command` (with smart output and auto-evidence) plus `prescribe_smart`, `prescribe_full`, `report`, and `get_event` tools. The installed skill variant adds two things:
 
 1. **DevOps discipline** — diagnose before fixing, verify after patching, don't over-scope changes
-2. **Protocol guidance** — when to use prescribe_smart vs prescribe_full, how to handle retries and failures
+2. **Protocol guidance** — when to use the explicit prescribe/report flow for the chosen skill mode, and how to handle retries and failures
 
 Without the skill, agents use `run_command` and get auto-evidence for free (proxy mode). With the skill, agents also learn operational patterns that improve their infrastructure decision-making.
 
@@ -25,8 +25,11 @@ Without the skill, agents use `run_command` and get auto-evidence for free (prox
 ## Install
 
 ```bash
-# Install globally (recommended — works across all projects)
+# Install the default smart skill globally (recommended — works across all projects)
 evidra skill install
+
+# Install the full-prescribe skill variant
+evidra skill install --full-prescribe
 
 # Install for a specific project only
 evidra skill install --scope project
@@ -39,6 +42,7 @@ evidra skill install --scope project
 | `--target` | `claude` | Target platform. Currently supports `claude` (Claude Code). |
 | `--scope` | `global` | `global` installs to `~/.claude/skills/evidra/SKILL.md`. `project` installs to `.claude/skills/evidra/SKILL.md` in the current directory. |
 | `--project-dir` | `.` | Project directory when using `--scope project`. |
+| `--full-prescribe` | `false` | Install the full-prescribe skill variant instead of the default smart skill. |
 
 ### Global vs Project
 
@@ -85,11 +89,16 @@ Observes and scores              • Decision flowchart
 
 The MCP server handles evidence recording, risk analysis, and scoring. The skill handles agent behavior — ensuring the agent calls the right tool at the right time with the right inputs.
 
-`prescribe_smart` is the recommended default in the skill:
+Default install (`evidra skill install`) writes the smart skill:
 
 - send `tool`, `operation`, `resource`, and optional `namespace` when the target is known
 - keep `actor.type`, `actor.id`, `actor.origin`, and `actor.skill_version` present
 - fall back to `prescribe_full` with `raw_artifact` when you want native detector coverage and artifact drift detection
+
+Full install (`evidra skill install --full-prescribe`) writes the full-prescribe skill:
+
+- prefer `prescribe_full` when artifact bytes are available and the server was started with `--full-prescribe`
+- fall back to `prescribe_smart` only when the target is known but bytes are not available
 
 ---
 

@@ -200,3 +200,53 @@ func TestCmdSkill_InstalledContentMatchesEmbedded(t *testing.T) {
 		t.Fatal("installed skill content does not match embedded content")
 	}
 }
+
+func TestCmdSkill_DefaultInstallUsesEmbeddedSmartSkill(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{"skill", "install"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("skill install exit %d: %s", code, errBuf.String())
+	}
+
+	installed, err := os.ReadFile(filepath.Join(tmp, ".claude", "skills", "evidra", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read installed skill: %v", err)
+	}
+
+	embedded, err := promptdata.Read("skill/SKILL_SMART.md")
+	if err != nil {
+		t.Fatalf("Read smart skill: %v", err)
+	}
+
+	if string(installed) != embedded {
+		t.Fatal("default installed skill should match embedded smart skill")
+	}
+}
+
+func TestCmdSkill_InstallFullPrescribeUsesEmbeddedFullSkill(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	var out, errBuf bytes.Buffer
+	code := run([]string{"skill", "install", "--full-prescribe"}, &out, &errBuf)
+	if code != 0 {
+		t.Fatalf("skill install exit %d: %s", code, errBuf.String())
+	}
+
+	installed, err := os.ReadFile(filepath.Join(tmp, ".claude", "skills", "evidra", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read installed skill: %v", err)
+	}
+
+	embedded, err := promptdata.Read("skill/SKILL_FULL.md")
+	if err != nil {
+		t.Fatalf("Read full skill: %v", err)
+	}
+
+	if string(installed) != embedded {
+		t.Fatal("full-prescribe install should match embedded full skill")
+	}
+}

@@ -100,6 +100,48 @@ func TestRenderFiles_ExpectedTargets_V110(t *testing.T) {
 	}
 }
 
+func TestRenderFiles_ExpectedTargets_V130(t *testing.T) {
+	t.Parallel()
+
+	bundle, err := LoadBundle(repoRoot(t), "v1.3.0")
+	if err != nil {
+		t.Fatalf("LoadBundle: %v", err)
+	}
+	files, err := RenderFiles(repoRoot(t), bundle)
+	if err != nil {
+		t.Fatalf("RenderFiles: %v", err)
+	}
+
+	wantIDs := map[string]bool{
+		"mcp.initialize":            true,
+		"mcp.prescribe_full":        true,
+		"mcp.prescribe_smart":       true,
+		"mcp.report":                true,
+		"mcp.get_event":             true,
+		"mcp.agent_contract":        true,
+		"runtime.system":            true,
+		"runtime.agent_contract":    true,
+		"skill.skill":               true,
+		"skill.skill_smart":         true,
+		"skill.skill_full":          true,
+		"mcp.run_command":           true,
+		"mcp.prompt_prescribe_smart": true,
+		"mcp.prompt_prescribe_full":  true,
+		"mcp.prompt_diagnosis":       true,
+	}
+	if len(files) != len(wantIDs) {
+		t.Fatalf("rendered files = %d, want %d", len(files), len(wantIDs))
+	}
+	for _, f := range files {
+		if !wantIDs[f.ID] {
+			t.Fatalf("unexpected file id: %s", f.ID)
+		}
+		if !strings.Contains(f.Content, "contract: v1.3.0") {
+			t.Fatalf("%s missing contract header", f.ID)
+		}
+	}
+}
+
 func TestRenderFiles_SkillContainsFrontmatter(t *testing.T) {
 	t.Parallel()
 

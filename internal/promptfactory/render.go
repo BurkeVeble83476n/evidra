@@ -61,6 +61,12 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		active:    filepath.Join("prompts", "skill", "SKILL_SMART.md"),
 	})
 	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
+		id:        "skill.skill_full",
+		template:  "templates/skill/SKILL_FULL.tmpl",
+		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "skill", "SKILL_FULL.md"),
+		active:    filepath.Join("prompts", "skill", "SKILL_FULL.md"),
+	})
+	specs = appendOptionalRenderSpec(specs, templateBase, renderSpec{
 		id:        "mcp.prompt_prescribe_smart",
 		template:  "templates/mcp/prompt_prescribe_smart.tmpl",
 		generated: filepath.Join("prompts", "generated", bundle.Contract.Version, "mcp", "prompt_prescribe_smart.md"),

@@ -17,7 +17,8 @@
     "prompts/generated/v1.3.0/mcpserver/tools/report_description.txt": "sha256:83c2d5ed1f8705728b97a7655c15509fee48128d743e5d042beb0a9f517fbaa0",
     "prompts/generated/v1.3.0/mcpserver/tools/run_command_description.txt": "sha256:e5fbdf71163d0f61cba81219995e05d8bdfed8ba46e73f49fec2501809d7d59e",
     "prompts/generated/v1.3.0/skill/SKILL.md": "sha256:60d1a4a6932adcf1d0221be448b0354bf214ed5375d7a669c351d12e5e65b657",
-    "prompts/generated/v1.3.0/skill/SKILL_SMART.md": "sha256:f6fd7be9d7e773e0a4b3045c4fd86659344341cb15c362cd3c0750e7d2423d1c",
+    "prompts/generated/v1.3.0/skill/SKILL_FULL.md": "sha256:d99e9a2c42b4f44f94055097af2371531a2fdb427a18b4776e5af9e4a90af84e",
+    "prompts/generated/v1.3.0/skill/SKILL_SMART.md": "sha256:60d1a4a6932adcf1d0221be448b0354bf214ed5375d7a669c351d12e5e65b657",
     "prompts/mcp/prompt_diagnosis.md": "sha256:d440697b4db45dbf97e81bb1446cd4371ecea2be2ec48cd858788f3e16f87de8",
     "prompts/mcp/prompt_prescribe_full.md": "sha256:ac28809c56b26905b9462ebbc53b54d6c753b61b36ff89674bbe6f7ea266ce41",
     "prompts/mcp/prompt_prescribe_smart.md": "sha256:bc7ebb5a25b2a72ca352ccb848c11181a76b93a3b31f407b4ea8aa2a62780d41",
@@ -29,6 +30,7 @@
     "prompts/mcpserver/tools/report_description.txt": "sha256:83c2d5ed1f8705728b97a7655c15509fee48128d743e5d042beb0a9f517fbaa0",
     "prompts/mcpserver/tools/run_command_description.txt": "sha256:e5fbdf71163d0f61cba81219995e05d8bdfed8ba46e73f49fec2501809d7d59e",
     "prompts/skill/SKILL.md": "sha256:60d1a4a6932adcf1d0221be448b0354bf214ed5375d7a669c351d12e5e65b657",
-    "prompts/skill/SKILL_SMART.md": "sha256:f6fd7be9d7e773e0a4b3045c4fd86659344341cb15c362cd3c0750e7d2423d1c"
+    "prompts/skill/SKILL_FULL.md": "sha256:d99e9a2c42b4f44f94055097af2371531a2fdb427a18b4776e5af9e4a90af84e",
+    "prompts/skill/SKILL_SMART.md": "sha256:60d1a4a6932adcf1d0221be448b0354bf214ed5375d7a669c351d12e5e65b657"
   }
 }

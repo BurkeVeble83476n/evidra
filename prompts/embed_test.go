@@ -39,6 +39,39 @@ func TestReadSkill_IncludesSplitPrescribeGuidance(t *testing.T) {
 	}
 }
 
+func TestReadSkillSmart_ReturnsSmartDefaultContent(t *testing.T) {
+	t.Parallel()
+
+	content, err := Read("skill/SKILL_SMART.md")
+	if err != nil {
+		t.Fatalf("Read(%q): %v", "skill/SKILL_SMART.md", err)
+	}
+	if !strings.HasPrefix(content, "---\nname: evidra\n") {
+		t.Fatalf("smart skill missing YAML frontmatter: %s", content)
+	}
+	if !strings.Contains(content, "`run_command`") {
+		t.Fatalf("smart skill should prefer run_command workflow: %s", content)
+	}
+	if strings.Contains(content, "`evidra_prescribe_smart`") {
+		t.Fatalf("smart skill should use current MCP tool names: %s", content)
+	}
+}
+
+func TestReadSkillFull_ReturnsFullPrescribeContent(t *testing.T) {
+	t.Parallel()
+
+	content, err := Read("skill/SKILL_FULL.md")
+	if err != nil {
+		t.Fatalf("Read(%q): %v", "skill/SKILL_FULL.md", err)
+	}
+	if !strings.HasPrefix(content, "---\nname: evidra\n") {
+		t.Fatalf("full skill missing YAML frontmatter: %s", content)
+	}
+	if !strings.Contains(content, "`prescribe_full`") {
+		t.Fatalf("full skill should include prescribe_full guidance: %s", content)
+	}
+}
+
 func TestReadMCPPrescribeFullDescription_IsArtifactSpecific(t *testing.T) {
 	t.Parallel()
 

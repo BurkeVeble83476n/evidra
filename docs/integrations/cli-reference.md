@@ -238,6 +238,7 @@ The legacy score-band alias is not part of the v1 output contract.
 | `--target` | Target platform: `claude` (default: `claude`) |
 | `--scope` | Installation scope: `global` (default) or `project` |
 | `--project-dir` | Project directory for `--scope project` (default: `.`) |
+| `--full-prescribe` | Install the full-prescribe skill variant |
 
 Global installs to `~/.claude/skills/evidra/SKILL.md`. Project installs to `.claude/skills/evidra/SKILL.md` in the specified directory.
 
