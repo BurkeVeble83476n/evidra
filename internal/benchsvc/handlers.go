@@ -42,6 +42,7 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("GET /v1/bench/runs/{id}/timeline", authMw(http.HandlerFunc(handleGetTimeline(svc))))
 	mux.Handle("GET /v1/bench/stats", authMw(http.HandlerFunc(handleStats(svc))))
 	mux.Handle("GET /v1/bench/catalog", authMw(http.HandlerFunc(handleCatalog(svc))))
+	mux.Handle("GET /v1/bench/models", authMw(http.HandlerFunc(handleListModels(svc))))
 	mux.Handle("GET /v1/bench/runs/{id}/scorecard", authMw(http.HandlerFunc(handleGetScorecard(svc))))
 	mux.Handle("GET /v1/bench/compare/runs", authMw(http.HandlerFunc(handleCompareRuns(svc))))
 	mux.Handle("GET /v1/bench/compare/models", authMw(http.HandlerFunc(handleCompareModels(svc))))
@@ -318,6 +319,21 @@ func handleGetScorecard(svc *Service) http.HandlerFunc {
 		w.Header().Set("Content-Type", contentType)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(data)
+	}
+}
+
+func handleListModels(svc *Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := auth.TenantID(r.Context())
+		models, err := svc.ListEnabledModels(r.Context(), tenantID)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if models == nil {
+			models = []EnabledModel{}
+		}
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": models})
 	}
 }
 

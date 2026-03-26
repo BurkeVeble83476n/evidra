@@ -239,6 +239,49 @@ func TestHandleLeaderboard_503WhenNoPublicTenant(t *testing.T) {
 	}
 }
 
+// ---------- Models ----------
+
+func TestHandleListModels_ReturnsModels(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		enabledModels: []EnabledModel{
+			{
+				ID:                "gemini-2.5-flash",
+				DisplayName:       "Gemini 2.5 Flash",
+				Provider:          "google",
+				InputCostPerMtok:  0.15,
+				OutputCostPerMtok: 0.60,
+			},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/models", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		Models []EnabledModel `json:"models"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Models) != 1 {
+		t.Fatalf("len(models) = %d, want 1", len(body.Models))
+	}
+	if body.Models[0].ID != "gemini-2.5-flash" {
+		t.Fatalf("id = %q, want gemini-2.5-flash", body.Models[0].ID)
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+}
+
 // ---------- List Runs ----------
 
 func TestHandleListRuns_ReturnsItems(t *testing.T) {
