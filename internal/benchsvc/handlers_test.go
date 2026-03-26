@@ -396,15 +396,12 @@ func TestHandleLeaderboard_DefaultsToProxy(t *testing.T) {
 func TestHandleLeaderboard_EvidenceModeFiltersAndAggregates(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{
-		runs: []bench.RunRecord{
-			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true, Duration: 10, EstimatedCost: 1.0},
-			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false, Duration: 20, EstimatedCost: 2.0},
-			{ID: "evidra-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "smart", Passed: true, Duration: 30, EstimatedCost: 3.0},
-			{ID: "evidra-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "direct", Passed: false, Duration: 40, EstimatedCost: 4.0},
-		},
+	sharedRuns := []bench.RunRecord{
+		{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true, Duration: 10, EstimatedCost: 1.0},
+		{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false, Duration: 20, EstimatedCost: 2.0},
+		{ID: "evidra-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "smart", Passed: true, Duration: 30, EstimatedCost: 3.0},
+		{ID: "evidra-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "direct", Passed: false, Duration: 40, EstimatedCost: 4.0},
 	}
-	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
 
 	tests := []struct {
 		name         string
@@ -419,6 +416,8 @@ func TestHandleLeaderboard_EvidenceModeFiltersAndAggregates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			repo := &handlerRepo{runs: sharedRuns}
+			mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/bench/leaderboard?evidence_mode="+tt.mode, nil)
@@ -661,15 +660,12 @@ func TestHandleListRuns_ParsesFilters(t *testing.T) {
 func TestHandleListRuns_EvidenceModeFiltersItems(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{
-		runs: []bench.RunRecord{
-			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none"},
-			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none"},
-			{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart"},
-			{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct"},
-		},
+	sharedRuns := []bench.RunRecord{
+		{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none"},
+		{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none"},
+		{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart"},
+		{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct"},
 	}
-	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	tests := []struct {
 		name    string
@@ -683,6 +679,8 @@ func TestHandleListRuns_EvidenceModeFiltersItems(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			repo := &handlerRepo{runs: sharedRuns}
+			mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/bench/runs?evidence_mode="+tt.mode, nil)
@@ -981,15 +979,12 @@ func TestHandleStats_ReturnsAggregates(t *testing.T) {
 func TestHandleStats_EvidenceModeFiltersTotals(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{
-		runs: []bench.RunRecord{
-			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true},
-			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false},
-			{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart", Passed: true},
-			{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct", Passed: false},
-		},
+	sharedRuns := []bench.RunRecord{
+		{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true},
+		{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false},
+		{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart", Passed: true},
+		{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct", Passed: false},
 	}
-	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	tests := []struct {
 		name      string
@@ -1005,6 +1000,8 @@ func TestHandleStats_EvidenceModeFiltersTotals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			repo := &handlerRepo{runs: sharedRuns}
+			mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/bench/stats?evidence_mode="+tt.mode, nil)
