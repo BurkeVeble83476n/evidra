@@ -1,6 +1,7 @@
 package api
 
 import (
+	"path/filepath"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -39,23 +40,24 @@ func TestOpenAPIBenchRoutesDocumentSupportedSurface(t *testing.T) {
 func TestOpenAPIBenchFilterContractDocumentsEvidenceModeSemantics(t *testing.T) {
 	t.Parallel()
 
-	spec := loadOpenAPISpec(t)
-
 	wantSnippets := []string{
 		"Empty means all runs.",
 		"`none` returns baseline runs only.",
 		"`evidra` returns all non-`none` runs.",
 	}
 
-	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/leaderboard", "get", "evidence_mode", wantSnippets...)
-	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/stats", "get", "evidence_mode", wantSnippets...)
-	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/compare/models", "get", "evidence_mode", wantSnippets...)
-	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/signals", "get", "evidence_mode", wantSnippets...)
+	specs := []*yaml.Node{
+		loadOpenAPISpec(t),
+		loadOpenAPISpecFromPath(t, filepath.Join("..", "..", "ui", "public", "openapi.yaml")),
+	}
+	paths := []string{"/v1/bench/leaderboard", "/v1/bench/runs", "/v1/bench/stats", "/v1/bench/compare/models", "/v1/bench/signals"}
 
-	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/leaderboard", "get", "evidence_mode")
-	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/stats", "get", "evidence_mode")
-	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/compare/models", "get", "evidence_mode")
-	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/signals", "get", "evidence_mode")
+	for _, spec := range specs {
+		for _, path := range paths {
+			assertQueryParameterDescriptionContains(t, spec, path, "get", "evidence_mode", wantSnippets...)
+			assertQueryParameterHasNoStaleProxyContract(t, spec, path, "get", "evidence_mode")
+		}
+	}
 }
 
 func assertPathMissing(t *testing.T, spec *yaml.Node, path string) {

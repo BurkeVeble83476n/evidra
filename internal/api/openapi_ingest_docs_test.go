@@ -58,8 +58,12 @@ func TestOpenAPIIngestRoutesDocumentContracts(t *testing.T) {
 
 func loadOpenAPISpec(t *testing.T) *yaml.Node {
 	t.Helper()
+	return loadOpenAPISpecFromPath(t, filepath.Join("..", "..", "cmd", "evidra-api", "static", "openapi.yaml"))
+}
 
-	path := filepath.Join("..", "..", "cmd", "evidra-api", "static", "openapi.yaml")
+func loadOpenAPISpecFromPath(t *testing.T, path string) *yaml.Node {
+	t.Helper()
+
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read openapi spec: %v", err)

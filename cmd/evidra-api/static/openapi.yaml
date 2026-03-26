@@ -718,6 +718,11 @@ paths:
         - name: evidence_mode
           in: query
           schema: { type: string }
+          description: |
+            Empty means all runs.
+            `none` returns baseline runs only.
+            `evidra` returns all non-`none` runs.
+            Other exact stored values may still exist for internal callers.
         - name: limit
           in: query
           schema: { type: integer, default: 50 }
