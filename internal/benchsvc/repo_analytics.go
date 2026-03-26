@@ -14,10 +14,10 @@ import (
 func (s *PgStore) SignalSummary(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.SignalAggregation, error) {
 	where, args := buildWhere(tenantID, f)
 
-	// Join bench_runs with bench_artifacts to get scorecard data in a single query.
+	// Left join so runs without scorecard artifacts still appear in totals.
 	query := `SELECT r.id, a.data
 		FROM bench_runs r
-		JOIN bench_artifacts a ON a.run_id = r.id AND a.artifact_type = 'scorecard'` +
+		LEFT JOIN bench_artifacts a ON a.run_id = r.id AND a.artifact_type = 'scorecard'` +
 		where +
 		` ORDER BY r.created_at DESC LIMIT 1000`
 
@@ -40,13 +40,17 @@ func (s *PgStore) SignalSummary(ctx context.Context, tenantID string, f bench.Ru
 	var scoreSum float64
 	for rows.Next() {
 		var runID string
-		var data []byte
+		var data *[]byte // nullable for LEFT JOIN
 		if err := rows.Scan(&runID, &data); err != nil {
 			return nil, fmt.Errorf("bench.SignalSummary: scan: %w", err)
 		}
 
+		if data == nil || len(*data) == 0 {
+			continue // run without scorecard artifact
+		}
+
 		var sc scorecard
-		if json.Unmarshal(data, &sc) != nil {
+		if json.Unmarshal(*data, &sc) != nil {
 			continue
 		}
 
