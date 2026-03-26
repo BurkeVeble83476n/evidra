@@ -34,6 +34,10 @@ type Repository interface {
 	ArchiveRuns(ctx context.Context, tenantID string, req ArchiveRequest) (int, error)
 	FilteredStats(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.StatsResult, error)
 	Catalog(ctx context.Context, tenantID string) (*bench.RunCatalog, error)
+	ListEnabledModels(ctx context.Context, tenantID string) ([]EnabledModel, error)
+	UpsertTenantProvider(ctx context.Context, tenantID, modelID string, cfg TenantProviderConfig) error
+	DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error
+	UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
@@ -218,6 +222,26 @@ func (s *Service) FilteredStats(ctx context.Context, tenantID string, f bench.Ru
 // Catalog returns distinct models and providers for the given tenant.
 func (s *Service) Catalog(ctx context.Context, tenantID string) (*bench.RunCatalog, error) {
 	return s.repo.Catalog(ctx, tenantID)
+}
+
+// ListEnabledModels returns models available to the given tenant.
+func (s *Service) ListEnabledModels(ctx context.Context, tenantID string) ([]EnabledModel, error) {
+	return s.repo.ListEnabledModels(ctx, tenantID)
+}
+
+// UpsertTenantProvider creates or updates a tenant-specific model provider override.
+func (s *Service) UpsertTenantProvider(ctx context.Context, tenantID, modelID string, cfg TenantProviderConfig) error {
+	return s.repo.UpsertTenantProvider(ctx, tenantID, modelID, cfg)
+}
+
+// DeleteTenantProvider removes a tenant-specific model provider override.
+func (s *Service) DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error {
+	return s.repo.DeleteTenantProvider(ctx, tenantID, modelID)
+}
+
+// UpdateGlobalModel updates platform-level defaults for a model.
+func (s *Service) UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error {
+	return s.repo.UpdateGlobalModel(ctx, modelID, cfg)
 }
 
 // GetArtifact retrieves an artifact for a run, scoped to the given tenant.

@@ -28,6 +28,8 @@ type handlerRepo struct {
 	statsErr   error
 	catalog    *bench.RunCatalog
 	catalogErr error
+	enabledModels    []EnabledModel
+	enabledModelsErr error
 	leaders    []bench.LeaderboardEntry
 	leadersErr error
 	scenarios  []bench.ScenarioSummary
@@ -86,6 +88,21 @@ func (r *handlerRepo) FilteredStats(_ context.Context, tenant string, f bench.Ru
 func (r *handlerRepo) Catalog(_ context.Context, tenant string) (*bench.RunCatalog, error) {
 	r.lastTenant = tenant
 	return r.catalog, r.catalogErr
+}
+func (r *handlerRepo) ListEnabledModels(_ context.Context, tenant string) ([]EnabledModel, error) {
+	r.lastTenant = tenant
+	return r.enabledModels, r.enabledModelsErr
+}
+func (r *handlerRepo) UpsertTenantProvider(_ context.Context, tenantID, modelID string, _ TenantProviderConfig) error {
+	r.lastTenant = tenantID
+	return nil
+}
+func (r *handlerRepo) DeleteTenantProvider(_ context.Context, tenantID, modelID string) error {
+	r.lastTenant = tenantID
+	return nil
+}
+func (r *handlerRepo) UpdateGlobalModel(_ context.Context, _ string, _ GlobalModelConfig) error {
+	return nil
 }
 func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
 	r.lastTenant = tenant

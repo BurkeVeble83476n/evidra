@@ -18,6 +18,12 @@ type fakeRepo struct {
 	leaderboardMode   string
 	beginTxErr        error
 	tx                pgx.Tx
+	enabledModels     []EnabledModel
+	enabledModelsErr  error
+	lastTenant        string
+	lastModelID       string
+	lastProviderCfg   TenantProviderConfig
+	lastGlobalCfg     GlobalModelConfig
 }
 
 func (f *fakeRepo) ListRuns(_ context.Context, _ string, _ bench.RunFilters) ([]bench.RunRecord, int, error) {
@@ -68,6 +74,26 @@ func (f *fakeRepo) FailureAnalysis(_ context.Context, _ string, _ string) (*benc
 func (f *fakeRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
 	return 0, nil
 }
+func (f *fakeRepo) ListEnabledModels(_ context.Context, tenantID string) ([]EnabledModel, error) {
+	f.lastTenant = tenantID
+	return f.enabledModels, f.enabledModelsErr
+}
+func (f *fakeRepo) UpsertTenantProvider(_ context.Context, tenantID, modelID string, cfg TenantProviderConfig) error {
+	f.lastTenant = tenantID
+	f.lastModelID = modelID
+	f.lastProviderCfg = cfg
+	return nil
+}
+func (f *fakeRepo) DeleteTenantProvider(_ context.Context, tenantID, modelID string) error {
+	f.lastTenant = tenantID
+	f.lastModelID = modelID
+	return nil
+}
+func (f *fakeRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg GlobalModelConfig) error {
+	f.lastModelID = modelID
+	f.lastGlobalCfg = cfg
+	return nil
+}
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr
@@ -114,6 +140,54 @@ func TestServiceLeaderboard_UsesPublicTenant(t *testing.T) {
 	_, _ = svc2.Leaderboard(context.Background(), "proxy")
 	if repo.leaderboardTenant != "bench-public" {
 		t.Fatalf("leaderboardTenant = %q, want bench-public", repo.leaderboardTenant)
+	}
+}
+
+func TestServiceModelConfigMethods_DelegateToRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepo{
+		enabledModels: []EnabledModel{
+			{ID: "gemini-2.5-flash"},
+		},
+	}
+	svc := NewService(repo, ServiceConfig{})
+
+	models, err := svc.ListEnabledModels(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("ListEnabledModels: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("len(models) = %d, want 1", len(models))
+	}
+	if repo.lastTenant != "tenant-a" {
+		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	}
+
+	providerCfg := TenantProviderConfig{APIKeyEnc: "sk-secret", RateLimit: 10}
+	if err := svc.UpsertTenantProvider(context.Background(), "tenant-a", "gemini-2.5-flash", providerCfg); err != nil {
+		t.Fatalf("UpsertTenantProvider: %v", err)
+	}
+	if repo.lastModelID != "gemini-2.5-flash" {
+		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
+	}
+	if repo.lastProviderCfg.APIKeyEnc != "sk-secret" {
+		t.Fatalf("APIKeyEnc = %q, want sk-secret", repo.lastProviderCfg.APIKeyEnc)
+	}
+
+	if err := svc.DeleteTenantProvider(context.Background(), "tenant-a", "gemini-2.5-flash"); err != nil {
+		t.Fatalf("DeleteTenantProvider: %v", err)
+	}
+	if repo.lastTenant != "tenant-a" || repo.lastModelID != "gemini-2.5-flash" {
+		t.Fatalf("delete captured tenant/model = %q/%q, want tenant-a/gemini-2.5-flash", repo.lastTenant, repo.lastModelID)
+	}
+
+	globalCfg := GlobalModelConfig{APIKeyEnv: "CUSTOM_API_KEY"}
+	if err := svc.UpdateGlobalModel(context.Background(), "gemini-2.5-flash", globalCfg); err != nil {
+		t.Fatalf("UpdateGlobalModel: %v", err)
+	}
+	if repo.lastGlobalCfg.APIKeyEnv != "CUSTOM_API_KEY" {
+		t.Fatalf("APIKeyEnv = %q, want CUSTOM_API_KEY", repo.lastGlobalCfg.APIKeyEnv)
 	}
 }
 
