@@ -30,8 +30,6 @@ const (
 )
 
 var ErrChainInvalid = errors.New("evidence_chain_invalid")
-var ErrCursorSegmentNotFound = errors.New("cursor_segment_not_found")
-var ErrCursorLineOutOfRange = errors.New("cursor_line_out_of_range")
 
 const (
 	ErrorCodeStoreBusy               = "evidence_store_busy"
@@ -66,11 +64,6 @@ func ErrorCode(err error) string {
 		return se.Code
 	}
 	return ""
-}
-
-// IsStoreBusyError reports whether err is a store-busy error.
-func IsStoreBusyError(err error) bool {
-	return ErrorCode(err) == ErrorCodeStoreBusy
 }
 
 // ChainValidationError describes a hash-chain validation failure at a specific record index.

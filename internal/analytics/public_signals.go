@@ -4,8 +4,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-
-	"samebits.com/evidra/internal/score"
 )
 
 type publicSignalManifest struct {
@@ -18,9 +16,7 @@ var publicSignalFiles embed.FS
 var stablePublicSignalNames = mustLoadPublicSignalManifest()
 
 // PublicSignalNames returns the stable public signal order used by analytics views and API responses.
-func PublicSignalNames(profile score.Profile) []string {
-	_ = profile
-
+func PublicSignalNames() []string {
 	names := make([]string, len(stablePublicSignalNames))
 	copy(names, stablePublicSignalNames)
 	return names

@@ -604,7 +604,7 @@ func TestHandleListRuns_ReturnsItems(t *testing.T) {
 	}
 
 	var body struct {
-		Items  []bench.RunRecord `json:"items"`
+		Items  []bench.RunRecord `json:"runs"`
 		Total  int               `json:"total"`
 		Limit  int               `json:"limit"`
 		Offset int               `json:"offset"`
@@ -690,7 +690,7 @@ func TestHandleListRuns_EvidenceModeFiltersItems(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
 			var body struct {
-				Items []bench.RunRecord `json:"items"`
+				Items []bench.RunRecord `json:"runs"`
 				Total int               `json:"total"`
 			}
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -740,7 +740,7 @@ func TestHandleGetRun_ReturnsRecord(t *testing.T) {
 func TestHandleGetRun_404ForMissing(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{runErr: pgx.ErrNoRows}
+	repo := &handlerRepo{runErr: ErrNotFound}
 	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	rec := httptest.NewRecorder()
@@ -831,8 +831,8 @@ func TestHandleIngestBatch_ImportsRuns(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
@@ -875,7 +875,7 @@ func TestHandleGetTranscript_ReturnsText(t *testing.T) {
 func TestHandleGetTranscript_404WhenMissing(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{artErr: pgx.ErrNoRows}
+	repo := &handlerRepo{artErr: ErrNotFound}
 	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	rec := httptest.NewRecorder()
@@ -934,7 +934,7 @@ func TestHandleGetTimeline_ComputesPhases(t *testing.T) {
 func TestHandleGetTimeline_404WhenNoToolCalls(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{artErr: pgx.ErrNoRows}
+	repo := &handlerRepo{artErr: ErrNotFound}
 	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	rec := httptest.NewRecorder()
@@ -1134,7 +1134,7 @@ func TestHandleDeleteRun_Returns204(t *testing.T) {
 func TestHandleDeleteRun_404ForMissing(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{deleteErr: pgx.ErrNoRows}
+	repo := &handlerRepo{deleteErr: ErrNotFound}
 	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	rec := httptest.NewRecorder()

@@ -94,7 +94,7 @@ func toScorecardAPIResponse(out analytics.ScorecardOutput, profile score.Profile
 	}
 
 	summary := make(map[string]SignalSummaryEntry)
-	for _, name := range analytics.PublicSignalNames(profile) {
+	for _, name := range analytics.PublicSignalNames() {
 		count := out.Signals[name]
 		summary[name] = SignalSummaryEntry{
 			Detected: count > 0,

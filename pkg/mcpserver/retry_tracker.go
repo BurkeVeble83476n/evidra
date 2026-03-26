@@ -80,20 +80,6 @@ func (rt *RetryTracker) Record(intentDigest, shapeHash string) int {
 	return entry.Count
 }
 
-// RetryCount returns the current count for an intent+shape pair. Returns 0
-// if not tracked or expired.
-func (rt *RetryTracker) RetryCount(intentDigest, shapeHash string) int {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-
-	key := intentDigest + ":" + shapeHash
-	entry, ok := rt.entries[key]
-	if !ok || time.Since(entry.FirstSeen) > rt.ttl {
-		return 0
-	}
-	return entry.Count
-}
-
 // Cleanup removes all expired entries.
 func (rt *RetryTracker) Cleanup() {
 	rt.mu.Lock()

@@ -380,11 +380,11 @@ Response:
 
 `pass_k` is the pass^k reliability score (0-100): for each scenario with >= k trials, compute POWER(pass_rate, k), then average across qualifying scenarios. `sufficient_scenarios` shows how many scenarios had enough trials.
 
+### Authenticated Endpoints
+
 #### GET /v1/bench/scenarios
 
-Scenario catalog.
-
-### Authenticated Endpoints
+Scenario catalog. Requires Bearer auth.
 
 #### POST /v1/bench/runs
 
@@ -407,6 +407,14 @@ List runs with filters: `model`, `scenario`, `evidence_mode` (all|none|evidra), 
 #### GET /v1/bench/runs/{id}
 
 Get single run detail.
+
+#### DELETE /v1/bench/runs/{id}
+
+Delete a single run. Response: `204 No Content`. Returns `404` if the run does not exist.
+
+#### POST /v1/bench/runs/archive
+
+Archive runs matching a filter. Accepts a JSON body with optional `before` (RFC3339 timestamp) and/or `ids` (array of run IDs). Response: `200 OK` with `{"archived": <count>}`.
 
 #### GET /v1/bench/runs/{id}/transcript
 

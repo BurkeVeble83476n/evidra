@@ -136,9 +136,6 @@ func (s *TriggerStore) Update(u ProgressUpdate) bool {
 		job.Failed++
 	case "error":
 		job.Failed++
-		if u.RunID != "" {
-			job.RunIDs = append(job.RunIDs, u.RunID)
-		}
 	case "running":
 		job.CurrentScenario = u.Scenario
 	}

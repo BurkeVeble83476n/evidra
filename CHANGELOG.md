@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## v0.5.15 — 2026-03-26
+
+### Bug Fixes
+- Fix double RunID append for error-status runs in trigger executor
+- `handleCatalog` now returns 500 on store errors instead of silently returning empty 200
+- `handleCompareRuns` now distinguishes not-found from internal errors (was mapping all errors to 404)
+- Unified not-found sentinel: all benchsvc queries return `ErrNotFound` instead of leaking `pgx.ErrNoRows`
+
+### Consistency
+- Batch ingest returns 201 Created (matching single ingest)
+- Per-run validation added to batch ingest endpoint
+- List runs response key changed from `items` to `runs` (matching all other list endpoints)
+
+### Dead Code Removal
+- Removed unused: `ErrCursorSegmentNotFound`, `ErrCursorLineOutOfRange`, `IsStoreBusyError`, `HasResource`, `DefaultWeights`, `RetryCount`, `IsReachabilityError`, `FallbackPolicy`
+- Removed unused `profile` parameter from `PublicSignalNames()`
+
+### Documentation
+- Fixed MCP tools list in CLAUDE.md (3 → 8 tools)
+- Added `export` and `skill` CLI commands to CLAUDE.md
+- Fixed archive directory reference in CLAUDE.md
+- Scenarios endpoint correctly marked as authenticated in OpenAPI and api-reference
+- Disabled provider endpoints marked `deprecated` in OpenAPI
+- Added `DELETE /v1/bench/runs/{id}` and `POST /v1/bench/runs/archive` to api-reference
+
 ## v0.5.14 — 2026-03-26
 
 ### Bench Model Configuration

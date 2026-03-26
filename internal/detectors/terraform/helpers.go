@@ -47,11 +47,6 @@ func ResourcesByType(plan *Plan, resourceType string) []*ResourceChange {
 	return out
 }
 
-// HasResource returns true if plan includes any change with type.
-func HasResource(plan *Plan, resourceType string) bool {
-	return len(ResourcesByType(plan, resourceType)) > 0
-}
-
 // AfterValue returns value from change.after.
 func AfterValue(rc *ResourceChange, key string) (interface{}, bool) {
 	if rc == nil || rc.Change == nil || rc.Change.After == nil {

@@ -109,7 +109,7 @@ func cmdScorecard(args []string, stdout, stderr io.Writer) int {
 }
 
 func buildScorecardView(sc score.Scorecard, profile score.Profile, signalEntries []signal.Entry, actorID, sessionID, period string) scorecardView {
-	publicSignals := analytics.PublicSignalNames(profile)
+	publicSignals := analytics.PublicSignalNames()
 	rows := make([]scorecardSignalRow, 0, len(publicSignals))
 	for _, name := range publicSignals {
 		count := sc.Signals[name]

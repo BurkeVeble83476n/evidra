@@ -12,9 +12,3 @@ var (
 	ErrServerError  = errors.New("server_error")
 	ErrInvalidInput = errors.New("invalid_input")
 )
-
-// IsReachabilityError returns true for errors that can trigger fallback-offline.
-// Auth errors (401/403), validation (422), and rate limit (429) always fail immediately.
-func IsReachabilityError(err error) bool {
-	return errors.Is(err, ErrUnreachable) || errors.Is(err, ErrServerError)
-}

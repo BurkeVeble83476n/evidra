@@ -12,9 +12,8 @@ import (
 
 // Resolved holds the resolved mode and runtime config.
 type Resolved struct {
-	IsOnline       bool
-	Client         *client.Client
-	FallbackPolicy string // "closed" (default) or "offline"
+	IsOnline bool
+	Client   *client.Client
 }
 
 // Config holds all mode-resolution inputs.
@@ -29,10 +28,8 @@ type Config struct {
 // Resolve determines the operating mode. Does NOT ping the API.
 // Returns error only for invalid configuration (e.g. URL set but no API key).
 func Resolve(cfg Config) (Resolved, error) {
-	fallback := normalizeFallback(cfg.FallbackPolicy)
-
 	if cfg.ForceOffline || strings.TrimSpace(cfg.URL) == "" {
-		return Resolved{IsOnline: false, FallbackPolicy: fallback}, nil
+		return Resolved{IsOnline: false}, nil
 	}
 
 	if strings.TrimSpace(cfg.APIKey) == "" {
@@ -46,15 +43,7 @@ func Resolve(cfg Config) (Resolved, error) {
 	})
 
 	return Resolved{
-		IsOnline:       true,
-		Client:         c,
-		FallbackPolicy: fallback,
+		IsOnline: true,
+		Client:   c,
 	}, nil
-}
-
-func normalizeFallback(v string) string {
-	if strings.ToLower(strings.TrimSpace(v)) == "offline" {
-		return "offline"
-	}
-	return "closed"
 }

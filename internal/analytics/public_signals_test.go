@@ -33,12 +33,7 @@ func TestDecodePublicSignalManifest_PreservesDeclaredOrder(t *testing.T) {
 func TestPublicSignalNames_ReturnsStableContractOrder(t *testing.T) {
 	t.Parallel()
 
-	profile, err := score.ResolveProfile("")
-	if err != nil {
-		t.Fatalf("ResolveProfile: %v", err)
-	}
-
-	names := PublicSignalNames(profile)
+	names := PublicSignalNames()
 	want := []string{
 		"protocol_violation",
 		"artifact_drift",
@@ -54,20 +49,13 @@ func TestPublicSignalNames_ReturnsStableContractOrder(t *testing.T) {
 	}
 }
 
-func TestPublicSignalNames_IgnoresProfileWeightOrdering(t *testing.T) {
+func TestPublicSignalNames_ReturnsSameOrderOnRepeatedCalls(t *testing.T) {
 	t.Parallel()
 
-	profile, err := score.ResolveProfile("")
-	if err != nil {
-		t.Fatalf("ResolveProfile: %v", err)
-	}
-	profile.Weights["repair_loop"] = 10.0
-	profile.Weights["protocol_violation"] = 0.01
-
-	got := PublicSignalNames(profile)
-	want := PublicSignalNames(score.Profile{})
+	got := PublicSignalNames()
+	want := PublicSignalNames()
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("public signal order should ignore profile weights, got %v want %v", got, want)
+		t.Fatalf("public signal order should be stable across calls, got %v want %v", got, want)
 	}
 }
 
@@ -84,7 +72,7 @@ func TestPublicSignalNames_AreRegisteredAndWeighted(t *testing.T) {
 		registered[name] = struct{}{}
 	}
 
-	for _, name := range PublicSignalNames(profile) {
+	for _, name := range PublicSignalNames() {
 		if _, ok := registered[name]; !ok {
 			t.Fatalf("public signal %q is not registered", name)
 		}

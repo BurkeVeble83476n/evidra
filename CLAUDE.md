@@ -32,7 +32,7 @@ Evidra Benchmark is a **flight recorder for infrastructure automation** — it o
 
 ### Binaries
 
-- `cmd/evidra/` — CLI for prescribe, report, scorecard, explain, compare, record, import, validate, import-findings, prompts, detectors, keygen, and version commands
+- `cmd/evidra/` — CLI for prescribe, report, scorecard, explain, compare, record, import, export, validate, import-findings, prompts, detectors, keygen, skill, and version commands
 - `cmd/evidra-mcp/` — MCP server with two modes: direct (agent calls prescribe/report) and proxy (wraps upstream MCP server, auto-records mutations)
 - `cmd/evidra-api/` — Self-hosted API server with embedded UI, webhooks, and database-backed storage
 
@@ -70,11 +70,11 @@ exit code + prescription_id → Report → signal detectors → Scorecard
 
 **MCP & API:**
 
-- **`pkg/mcpserver/`** — MCP server implementation. Tools: `prescribe`, `report`, `get_event`. JSON schemas embedded from `pkg/mcpserver/schemas/`.
+- **`pkg/mcpserver/`** — MCP server implementation. Tools: `prescribe_full`, `prescribe_smart`, `report`, `get_event`, `run_command`, `collect_diagnostics`, `write_file`, `describe_tool`. JSON schemas embedded from `pkg/mcpserver/schemas/`.
 - **`pkg/proxy/`** — MCP stdio proxy: mutation detection, JSON-RPC interception, evidence auto-recording
 - **`internal/api/`** — HTTP API router and handlers for benchmarks, entries, scorecards, webhooks, and auth.
 - **`internal/auth/`** — Authentication middleware for API keys and tenant context.
-- **`internal/store/`** — Database store for entries, keys, and benchmarks.
+- **`internal/store/`** — Database store for entries and API keys.
 - **`internal/db/`** — PostgreSQL connection pooling and schema migration.
 - **`internal/analyticsdb/`** — Decodes stored JSON payloads from database rows for analytics replay.
 - **`pkg/client/`** — HTTP client for Evidra API with retry and error handling.
@@ -99,7 +99,7 @@ exit code + prescription_id → Report → signal detectors → Scorecard
 ### Architecture reference
 
 `docs/ARCHITECTURE.md` is the **single architecture reference**.
-It consolidates key decisions, invariants, and known gaps from the former review and recommendation docs (now archived in `docs/system-design/done/`).
+It consolidates key decisions, invariants, and known gaps from the former review and recommendation docs (now archived in `docs/plans/done/`).
 
 ### Conventions
 

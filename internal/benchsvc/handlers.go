@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
 	"samebits.com/evidra/internal/apiutil"
 	"samebits.com/evidra/internal/auth"
 	bench "samebits.com/evidra/pkg/bench"
@@ -149,6 +147,10 @@ func handleIngestBatch(svc *Service) http.HandlerFunc {
 			return
 		}
 		for i := range req.Runs {
+			if req.Runs[i].ID == "" || req.Runs[i].ScenarioID == "" || req.Runs[i].Model == "" {
+				apiutil.WriteError(w, http.StatusBadRequest, "each run requires id, scenario_id, and model")
+				return
+			}
 			req.Runs[i].TenantID = tenantID
 		}
 		count, err := svc.IngestRunBatch(r.Context(), tenantID, req.Runs)
@@ -156,7 +158,7 @@ func handleIngestBatch(svc *Service) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusInternalServerError, "batch insert: "+err.Error())
 			return
 		}
-		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
+		apiutil.WriteJSON(w, http.StatusCreated, map[string]any{
 			"ok":       true,
 			"imported": count,
 			"total":    len(req.Runs),
@@ -201,7 +203,7 @@ func handleListRuns(svc *Service) http.HandlerFunc {
 			runs = []bench.RunRecord{}
 		}
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
-			"items":  runs,
+			"runs":   runs,
 			"total":  total,
 			"limit":  limit,
 			"offset": offset,
@@ -215,7 +217,7 @@ func handleGetRun(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		run, err := svc.GetRun(r.Context(), tenantID, id)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "run not found")
 			} else {
 				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
@@ -252,7 +254,7 @@ func handleGetTranscript(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "transcript")
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "transcript not found")
 				return
 			}
@@ -271,7 +273,7 @@ func handleGetToolCalls(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "tool_calls")
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found")
 				return
 			}
@@ -290,7 +292,7 @@ func handleGetTimeline(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		data, _, err := svc.GetArtifact(r.Context(), tenantID, id, "tool_calls")
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "tool calls not found (needed for timeline)")
 				return
 			}
@@ -314,7 +316,7 @@ func handleCatalog(svc *Service) http.HandlerFunc {
 		tenantID := auth.TenantID(r.Context())
 		cat, err := svc.Catalog(r.Context(), tenantID)
 		if err != nil {
-			apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": []string{}, "providers": []string{}})
+			apiutil.WriteError(w, http.StatusInternalServerError, "catalog query failed")
 			return
 		}
 		apiutil.WriteJSON(w, http.StatusOK, cat)
@@ -327,7 +329,7 @@ func handleGetScorecard(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		data, contentType, err := svc.GetArtifact(r.Context(), tenantID, id, "scorecard")
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "scorecard not found")
 				return
 			}
@@ -447,7 +449,11 @@ func handleCompareRuns(svc *Service) http.HandlerFunc {
 		}
 		result, err := svc.CompareRuns(r.Context(), tenantID, a, b)
 		if err != nil {
-			apiutil.WriteError(w, http.StatusNotFound, err.Error())
+			if errors.Is(err, ErrNotFound) {
+				apiutil.WriteError(w, http.StatusNotFound, "one or both runs not found")
+			} else {
+				apiutil.WriteError(w, http.StatusInternalServerError, "comparison failed")
+			}
 			return
 		}
 		apiutil.WriteJSON(w, http.StatusOK, result)
@@ -554,7 +560,7 @@ func handleDeleteRun(svc *Service) http.HandlerFunc {
 		id := r.PathValue("id")
 		err := svc.DeleteRun(r.Context(), tenantID, id)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, ErrNotFound) {
 				apiutil.WriteError(w, http.StatusNotFound, "run not found")
 			} else {
 				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())

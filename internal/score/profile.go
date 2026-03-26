@@ -57,8 +57,6 @@ var embeddedDefaultProfile = mustLoadDefaultProfile()
 
 var MinOperations = embeddedDefaultProfile.MinOperations
 
-var DefaultWeights = cloneWeights(embeddedDefaultProfile.Weights)
-
 func LoadDefaultProfile() (Profile, error) {
 	return loadEmbeddedProfile(fmt.Sprintf("profiles/default.%s.json", version.ScoringVersion))
 }

@@ -69,16 +69,3 @@ func TestPing_Success(t *testing.T) {
 		t.Fatalf("Ping: %v", err)
 	}
 }
-
-func TestIsReachabilityError(t *testing.T) {
-	t.Parallel()
-	if !IsReachabilityError(ErrUnreachable) {
-		t.Error("ErrUnreachable should be reachability error")
-	}
-	if !IsReachabilityError(ErrServerError) {
-		t.Error("ErrServerError should be reachability error")
-	}
-	if IsReachabilityError(ErrUnauthorized) {
-		t.Error("ErrUnauthorized should NOT be reachability error")
-	}
-}

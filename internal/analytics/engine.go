@@ -201,7 +201,7 @@ func countPrescriptions(entries []signal.Entry) int {
 }
 
 func buildScorecardView(sc score.Scorecard, profile score.Profile, signalEntries []signal.Entry, actorID, sessionID, period string, now time.Time) ScorecardView {
-	publicSignals := PublicSignalNames(profile)
+	publicSignals := PublicSignalNames()
 	rows := make([]ScorecardSignalRow, 0, len(publicSignals))
 	for _, name := range publicSignals {
 		count := sc.Signals[name]

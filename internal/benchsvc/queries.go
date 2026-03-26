@@ -198,7 +198,7 @@ func (s *PgStore) GetRun(ctx context.Context, tenantID string, id string) (*benc
 	r, err := pgx.CollectExactlyOneRow(rows, scanRunRecord)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, pgx.ErrNoRows
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("bench.GetRun: %w", err)
 	}
@@ -539,6 +539,9 @@ func (s *PgStore) GetArtifact(ctx context.Context, tenantID string, runID, artif
 	var ct string
 	err := s.db.QueryRow(ctx, query, tenantID, runID, artifactType).Scan(&data, &ct)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", ErrNotFound
+		}
 		return nil, "", fmt.Errorf("bench.GetArtifact: %w", err)
 	}
 	return data, ct, nil
@@ -553,7 +556,7 @@ func (s *PgStore) DeleteRun(ctx context.Context, tenantID, runID string) error {
 		return fmt.Errorf("bench.DeleteRun: %w", err)
 	}
 	if ct.RowsAffected() == 0 {
-		return pgx.ErrNoRows
+		return ErrNotFound
 	}
 	return nil
 }

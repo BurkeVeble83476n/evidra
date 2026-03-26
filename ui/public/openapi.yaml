@@ -718,9 +718,10 @@ paths:
 
   /v1/bench/scenarios:
     get:
-      summary: Scenario catalog (public, no auth)
+      summary: Scenario catalog
       tags: [Bench]
-      security: []
+      security:
+        - bearerAuth: []
       responses:
         '200':
           description: List of scenarios
@@ -937,6 +938,8 @@ paths:
   /v1/bench/models/{model_id}/provider:
     put:
       summary: Create or update a tenant-specific provider override for a model
+      description: "Not yet enabled — requires AES-256-GCM key encryption."
+      deprecated: true
       tags: [Bench]
       parameters:
         - name: model_id
@@ -973,6 +976,8 @@ paths:
                 $ref: '#/components/schemas/Error'
     delete:
       summary: Delete a tenant-specific provider override for a model
+      description: "Not yet enabled — requires AES-256-GCM key encryption."
+      deprecated: true
       tags: [Bench]
       parameters:
         - name: model_id
