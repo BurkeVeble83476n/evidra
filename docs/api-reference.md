@@ -605,29 +605,40 @@ Response:
 
 ### Bench Trigger
 
-Start and monitor benchmark runs via a pluggable executor.
+Start and monitor benchmark runs via either a direct executor or the persisted
+runner queue.
 See [Executor Contract v1.0.0](contracts/EXECUTOR_CONTRACT_V1.md) for
-implementing custom executors.
+implementing custom executors, and
+[Bench Runner Control Plane Contract v1](contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md)
+for the poll-based runner surface.
 
 #### POST /v1/bench/trigger
 
-Start a benchmark run. Requires `model` and `scenarios` in the request body. Returns a job ID for progress tracking.
+Start a benchmark run. Requires `model` and `scenarios` in the request body.
+Returns a job ID for progress tracking. When a healthy runner is available,
+Evidra may enqueue the job instead of starting a direct executor immediately.
 
 Request:
 ```json
 {
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "runner_id": "01K...",
   "scenarios": ["broken-deployment", "repair-loop-escalation"]
 }
 ```
 
-Response (`202 Accepted`):
+Response (`202 Accepted`, direct executor):
 ```json
 { "id": "job_01JD...", "status": "pending" }
 ```
 
-Errors: `400` (missing model/scenarios), `401` (unauthorized), `501` (no executor configured).
+Response (`202 Accepted`, queued for poll-based runner):
+```json
+{ "id": "job_01JD...", "status": "pending", "mode": "runner" }
+```
+
+Errors: `400` (missing model/scenarios, or unavailable pinned runner), `401` (unauthorized), `501` (no executor configured and no eligible runner).
 
 #### GET /v1/bench/trigger/{id}
 
@@ -638,22 +649,30 @@ Response (`200 OK`):
 {
   "id": "job_01JD...",
   "status": "running",
+  "model": "deepseek-chat",
+  "provider": "deepseek",
   "completed": 2,
+  "passed": 1,
+  "failed": 1,
   "total": 5,
-  "scenarios": [
-    { "id": "broken-deployment", "status": "passed", "run_id": "run_01..." },
-    { "id": "repair-loop-escalation", "status": "running" }
-  ]
+  "current_scenario": "repair-loop-escalation",
+  "run_ids": ["run_01..."],
+  "progress": [
+    { "scenario": "broken-deployment", "status": "passed", "run_id": "run_01..." },
+    { "scenario": "repair-loop-escalation", "status": "running" }
+  ],
+  "created_at": "2026-03-26T12:00:00Z"
 }
 ```
 
 #### POST /v1/bench/trigger/{id}/progress
 
-Webhook called by the bench executor to report scenario completion.
+Webhook called by the bench executor or runner bridge to report scenario completion.
 
 Request:
 ```json
 {
+  "contract_version": "v1.0.0",
   "scenario": "broken-deployment",
   "status": "passed",
   "run_id": "run_01...",
@@ -663,6 +682,101 @@ Request:
 ```
 
 Response: `200 OK`.
+
+### Runner Control Plane
+
+Poll-based runners register capabilities, claim queued jobs, and complete them
+through `/v1/runners/*`.
+
+#### POST /v1/runners/register
+
+Register a runner and advertise its supported models.
+
+Request:
+```json
+{
+  "name": "eu-west-runner-a",
+  "models": ["deepseek-chat", "qwen-plus"],
+  "provider": "bifrost",
+  "region": "eu-west",
+  "max_parallel": 2,
+  "labels": { "cluster": "kind-a" }
+}
+```
+
+Response (`201 Created`):
+```json
+{ "runner_id": "01K...", "poll_interval": 5 }
+```
+
+#### GET /v1/runners
+
+List registered runners for the authenticated tenant.
+
+Response (`200 OK`):
+```json
+{
+  "runners": [
+    {
+      "id": "01K...",
+      "tenant_id": "default",
+      "name": "eu-west-runner-a",
+      "region": "eu-west",
+      "status": "healthy",
+      "config": {
+        "models": ["deepseek-chat", "qwen-plus"],
+        "provider": "bifrost",
+        "max_parallel": 2,
+        "poll_interval": 5,
+        "labels": { "cluster": "kind-a" }
+      },
+      "created_at": "2026-03-26T12:00:00Z",
+      "updated_at": "2026-03-26T12:00:05Z"
+    }
+  ]
+}
+```
+
+#### DELETE /v1/runners/{id}
+
+Delete a runner registration. Response: `204 No Content`.
+
+#### GET /v1/runners/jobs
+
+Runner poll endpoint. Requires `runner_id` as a query parameter. Polling also
+acts as the runner heartbeat.
+
+Response when a job is available (`200 OK`):
+```json
+{
+  "job_id": "01K...",
+  "model": "deepseek-chat",
+  "provider": "deepseek",
+  "scenarios": ["broken-deployment", "repair-loop-escalation"],
+  "timeout": 300
+}
+```
+
+Response when no job is available: `204 No Content`.
+
+Errors: `400` (missing `runner_id`), `404` (runner not found or not healthy).
+
+#### POST /v1/runners/jobs/{id}/complete
+
+Mark a claimed job as complete.
+
+Request:
+```json
+{
+  "runner_id": "01K...",
+  "status": "completed",
+  "passed": 2,
+  "failed": 0,
+  "message": ""
+}
+```
+
+Response: `204 No Content`.
 
 #### POST /v1/bench/scenarios/sync
 

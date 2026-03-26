@@ -11,7 +11,11 @@ reports results back to Evidra. Evidra provides the analytics
 execution (clusters, agents, verification).
 
 Any service implementing this contract can be used with Evidra's
-`POST /v1/bench/trigger` endpoint.
+direct-executor `POST /v1/bench/trigger` path.
+
+Poll-based runner registration, queue claim, and completion use a separate
+control-plane contract:
+[Bench Runner Control Plane Contract v1](BENCH_RUNNER_CONTROL_PLANE_V1.md).
 
 ## Contract Version
 

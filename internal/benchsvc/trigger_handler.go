@@ -3,6 +3,7 @@ package benchsvc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,120 +14,35 @@ import (
 	"samebits.com/evidra/internal/auth"
 )
 
+var errPinnedRunnerUnavailable = errors.New("pinned runner unavailable")
+
 // handleTrigger returns a handler that starts a new bench trigger job.
 // POST /v1/bench/trigger
 func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantID := auth.TenantID(r.Context())
 
-		var req TriggerRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-			return
-		}
-		if req.Model == "" {
-			apiutil.WriteError(w, http.StatusBadRequest, "model is required")
-			return
-		}
-		if len(req.Scenarios) == 0 {
-			apiutil.WriteError(w, http.StatusBadRequest, "scenarios is required")
+		req, ok := decodeTriggerRequest(w, r)
+		if !ok {
 			return
 		}
 
-		// Resolve provider and validate API key from model catalog.
-		provider := req.Provider
-		info, err := svc.ResolveModelProvider(r.Context(), req.Model)
-		if err != nil {
-			apiutil.WriteError(w, http.StatusBadRequest, "unknown model: "+req.Model)
-			return
-		}
-		if provider == "" {
-			provider = info.Provider
-		}
-		if info.APIKeyEnv != "" && os.Getenv(info.APIKeyEnv) == "" {
-			apiutil.WriteError(w, http.StatusBadRequest, "no API key configured for model: "+req.Model)
+		provider, ok := resolveTriggerProvider(w, r, svc, req)
+		if !ok {
 			return
 		}
 
-		// V2b: check for a registered runner that supports this model.
-		if svc.cfg.Dispatcher != nil {
-			runner, findErr := svc.repo.FindRunnerForModel(r.Context(), tenantID, req.Model)
-			if findErr != nil {
-				apiutil.WriteError(w, http.StatusInternalServerError, "runner lookup failed: "+findErr.Error())
-				return
-			}
-			if runner != nil {
-				// Validate runner_id pinning: if caller specifies a runner,
-				// verify it exists, is healthy, and supports the requested model.
-				if req.RunnerID != "" {
-					runners, listErr := svc.ListRunners(r.Context(), tenantID)
-					if listErr != nil {
-						apiutil.WriteError(w, http.StatusInternalServerError, "runner list failed: "+listErr.Error())
-						return
-					}
-					var pinned *Runner
-					for i := range runners {
-						if runners[i].ID == req.RunnerID && runners[i].Status == "healthy" {
-							for _, m := range runners[i].Config.Models {
-								if m == req.Model {
-									pinned = &runners[i]
-									break
-								}
-							}
-						}
-					}
-					if pinned == nil {
-						apiutil.WriteError(w, http.StatusBadRequest, "runner "+req.RunnerID+" is not available for model "+req.Model)
-						return
-					}
-				}
-				cfg := JobConfig{
-					Scenarios: req.Scenarios,
-					RunnerID:  req.RunnerID,
-				}
-				benchJob, enqErr := svc.repo.EnqueueJob(r.Context(), tenantID, req.Model, provider, cfg)
-				if enqErr != nil {
-					apiutil.WriteError(w, http.StatusInternalServerError, "enqueue job: "+enqErr.Error())
-					return
-				}
-				if dispErr := svc.cfg.Dispatcher.Dispatch(r.Context(), benchJob, runner); dispErr != nil {
-					log.Printf("[bench-trigger] dispatcher failed for job %s: %v", benchJob.ID, dispErr)
-				}
-
-				// Create a TriggerJob for SSE tracking.
-				progress := make([]ScenarioProgress, len(req.Scenarios))
-				for i, s := range req.Scenarios {
-					progress[i] = ScenarioProgress{Scenario: s, Status: "pending"}
-				}
-				triggerJob := &TriggerJob{
-					ID:        benchJob.ID,
-					Status:    "pending",
-					Model:     req.Model,
-					Provider:  provider,
-					Total:     len(req.Scenarios),
-					Progress:  progress,
-					CreatedAt: time.Now(),
-				}
-				store.Create(triggerJob)
-
-				apiutil.WriteJSON(w, http.StatusAccepted, map[string]any{
-					"id":     benchJob.ID,
-					"status": "pending",
-					"mode":   "runner",
-				})
-				return
-			}
+		handled, ok := maybeHandleRunnerTrigger(w, r, svc, store, tenantID, req, provider)
+		if handled {
+			return
+		}
+		if !ok {
+			return
 		}
 
-		// V1: local/remote executor path.
 		if executor == nil {
 			apiutil.WriteError(w, http.StatusNotImplemented, "bench trigger not configured: no executor")
 			return
-		}
-
-		progress := make([]ScenarioProgress, len(req.Scenarios))
-		for i, s := range req.Scenarios {
-			progress[i] = ScenarioProgress{Scenario: s, Status: "pending"}
 		}
 
 		job := &TriggerJob{
@@ -135,7 +51,7 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			Model:     req.Model,
 			Provider:  provider,
 			Total:     len(req.Scenarios),
-			Progress:  progress,
+			Progress:  pendingScenarioProgress(req.Scenarios),
 			CreatedAt: time.Now(),
 		}
 		store.Create(job)
@@ -161,6 +77,143 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			"status": job.Status,
 		})
 	}
+}
+
+func decodeTriggerRequest(w http.ResponseWriter, r *http.Request) (TriggerRequest, bool) {
+	var req TriggerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return TriggerRequest{}, false
+	}
+	if req.Model == "" {
+		apiutil.WriteError(w, http.StatusBadRequest, "model is required")
+		return TriggerRequest{}, false
+	}
+	if len(req.Scenarios) == 0 {
+		apiutil.WriteError(w, http.StatusBadRequest, "scenarios is required")
+		return TriggerRequest{}, false
+	}
+	return req, true
+}
+
+func resolveTriggerProvider(w http.ResponseWriter, r *http.Request, svc *Service, req TriggerRequest) (string, bool) {
+	provider := req.Provider
+	info, err := svc.ResolveModelProvider(r.Context(), req.Model)
+	if err != nil {
+		apiutil.WriteError(w, http.StatusBadRequest, "unknown model: "+req.Model)
+		return "", false
+	}
+	if provider == "" {
+		provider = info.Provider
+	}
+	if info.APIKeyEnv != "" && os.Getenv(info.APIKeyEnv) == "" {
+		apiutil.WriteError(w, http.StatusBadRequest, "no API key configured for model: "+req.Model)
+		return "", false
+	}
+	return provider, true
+}
+
+func maybeHandleRunnerTrigger(w http.ResponseWriter, r *http.Request, svc *Service, store *TriggerStore, tenantID string, req TriggerRequest, provider string) (handled bool, ok bool) {
+	if svc.cfg.Dispatcher == nil {
+		return false, true
+	}
+
+	runner, err := resolveRunnerForTrigger(r.Context(), svc, tenantID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, errPinnedRunnerUnavailable):
+			apiutil.WriteError(w, http.StatusBadRequest, err.Error())
+		default:
+			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+		}
+		return true, false
+	}
+	if runner == nil {
+		return false, true
+	}
+
+	jobID, err := enqueueRunnerTrigger(r.Context(), svc, store, tenantID, req, provider, runner)
+	if err != nil {
+		apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
+		return true, false
+	}
+
+	apiutil.WriteJSON(w, http.StatusAccepted, map[string]any{
+		"id":     jobID,
+		"status": "pending",
+		"mode":   "runner",
+	})
+	return true, true
+}
+
+func resolveRunnerForTrigger(ctx context.Context, svc *Service, tenantID string, req TriggerRequest) (*Runner, error) {
+	if req.RunnerID != "" {
+		runner, err := findPinnedRunner(ctx, svc, tenantID, req.RunnerID, req.Model)
+		if err != nil {
+			return nil, err
+		}
+		if runner == nil {
+			return nil, fmt.Errorf("%w: runner %s is not available for model %s", errPinnedRunnerUnavailable, req.RunnerID, req.Model)
+		}
+		return runner, nil
+	}
+
+	runner, err := svc.repo.FindRunnerForModel(ctx, tenantID, req.Model)
+	if err != nil {
+		return nil, fmt.Errorf("runner lookup failed: %w", err)
+	}
+	return runner, nil
+}
+
+func findPinnedRunner(ctx context.Context, svc *Service, tenantID, runnerID, model string) (*Runner, error) {
+	runners, err := svc.ListRunners(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("runner list failed: %w", err)
+	}
+	for i := range runners {
+		if runners[i].ID != runnerID || runners[i].Status != "healthy" {
+			continue
+		}
+		for _, candidate := range runners[i].Config.Models {
+			if candidate == model {
+				return &runners[i], nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func enqueueRunnerTrigger(ctx context.Context, svc *Service, store *TriggerStore, tenantID string, req TriggerRequest, provider string, runner *Runner) (string, error) {
+	cfg := JobConfig{
+		Scenarios: req.Scenarios,
+		RunnerID:  req.RunnerID,
+	}
+	benchJob, err := svc.repo.EnqueueJob(ctx, tenantID, req.Model, provider, cfg)
+	if err != nil {
+		return "", fmt.Errorf("enqueue job: %w", err)
+	}
+	if err := svc.cfg.Dispatcher.Dispatch(ctx, benchJob, runner); err != nil {
+		log.Printf("[bench-trigger] dispatcher failed for job %s: %v", benchJob.ID, err)
+	}
+
+	store.Create(&TriggerJob{
+		ID:        benchJob.ID,
+		Status:    "pending",
+		Model:     req.Model,
+		Provider:  provider,
+		Total:     len(req.Scenarios),
+		Progress:  pendingScenarioProgress(req.Scenarios),
+		CreatedAt: time.Now(),
+	})
+	return benchJob.ID, nil
+}
+
+func pendingScenarioProgress(scenarios []string) []ScenarioProgress {
+	progress := make([]ScenarioProgress, len(scenarios))
+	for i, scenario := range scenarios {
+		progress[i] = ScenarioProgress{Scenario: scenario, Status: "pending"}
+	}
+	return progress
 }
 
 // handleTriggerStatus returns a handler for GET /v1/bench/trigger/{id}.

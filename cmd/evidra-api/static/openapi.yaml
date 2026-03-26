@@ -1175,7 +1175,7 @@ paths:
     post:
       tags: [Bench]
       summary: Start a benchmark run
-      description: Triggers scenario execution via configured executor. Returns job ID for progress tracking.
+      description: Starts a benchmark run via the configured executor or enqueues it for a healthy poll-based runner. Returns a job ID for progress tracking.
       security:
         - bearerAuth: []
       requestBody:
@@ -1192,6 +1192,10 @@ paths:
                 provider:
                   type: string
                   example: deepseek
+                runner_id:
+                  type: string
+                  description: Optional runner pin. When set, the request is accepted only if that healthy runner supports the requested model.
+                  example: 01KMN4V5WAT59TV06DP5FE0NAJ
                 scenarios:
                   type: array
                   items:
@@ -1209,6 +1213,11 @@ paths:
                     type: string
                   status:
                     type: string
+                    example: pending
+                  mode:
+                    type: string
+                    description: Present when the job was queued for the poll-based runner path.
+                    enum: [runner]
         '400':
           description: Invalid input
         '401':
@@ -1232,6 +1241,34 @@ paths:
       responses:
         '200':
           description: Job state (JSON snapshot or SSE stream)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  status: { type: string, enum: [pending, running, completed, failed] }
+                  model: { type: string }
+                  provider: { type: string }
+                  total: { type: integer }
+                  completed: { type: integer }
+                  passed: { type: integer }
+                  failed: { type: integer }
+                  current_scenario: { type: string }
+                  run_ids:
+                    type: array
+                    items: { type: string }
+                  progress:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scenario: { type: string }
+                        status: { type: string, enum: [pending, running, passed, failed, error, skipped] }
+                        run_id: { type: string }
+                  created_at:
+                    type: string
+                    format: date-time
         '404':
           description: Job not found
 
@@ -1255,6 +1292,9 @@ paths:
             schema:
               type: object
               properties:
+                contract_version:
+                  type: string
+                  example: v1.0.0
                 scenario:
                   type: string
                 status:
@@ -1271,6 +1311,201 @@ paths:
           description: Progress recorded
         '404':
           description: Job not found
+
+  /v1/runners/register:
+    post:
+      tags: [Bench]
+      summary: Register a poll-based runner
+      description: Registers a runner in the control plane and advertises its supported models.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [models]
+              properties:
+                name:
+                  type: string
+                  example: eu-west-runner-a
+                models:
+                  type: array
+                  items: { type: string }
+                  example: [deepseek-chat, qwen-plus]
+                provider:
+                  type: string
+                  example: bifrost
+                region:
+                  type: string
+                  example: eu-west
+                max_parallel:
+                  type: integer
+                  example: 2
+                labels:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        '201':
+          description: Runner registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runner_id: { type: string }
+                  poll_interval: { type: integer }
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /v1/runners:
+    get:
+      tags: [Bench]
+      summary: List registered runners
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Registered runners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runners:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        tenant_id: { type: string }
+                        name: { type: string }
+                        region: { type: string }
+                        status: { type: string }
+                        config:
+                          type: object
+                          properties:
+                            models:
+                              type: array
+                              items: { type: string }
+                            provider: { type: string }
+                            max_parallel: { type: integer }
+                            poll_interval: { type: integer }
+                            labels:
+                              type: object
+                              additionalProperties:
+                                type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        updated_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: Unauthorized
+
+  /v1/runners/{id}:
+    delete:
+      tags: [Bench]
+      summary: Delete a registered runner
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Runner deleted
+        '401':
+          description: Unauthorized
+        '404':
+          description: Runner not found
+
+  /v1/runners/jobs:
+    get:
+      tags: [Bench]
+      summary: Poll for the next runner job
+      description: Polls the persisted bench job queue. The poll also acts as the runner heartbeat.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: runner_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string }
+                  model: { type: string }
+                  provider: { type: string }
+                  scenarios:
+                    type: array
+                    items: { type: string }
+                  timeout:
+                    type: integer
+        '204':
+          description: No matching job available
+        '400':
+          description: Missing runner_id
+        '401':
+          description: Unauthorized
+        '404':
+          description: Runner not found or not healthy
+
+  /v1/runners/jobs/{id}/complete:
+    post:
+      tags: [Bench]
+      summary: Complete a claimed runner job
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [runner_id, status]
+              properties:
+                runner_id:
+                  type: string
+                status:
+                  type: string
+                  enum: [completed, failed]
+                passed:
+                  type: integer
+                failed:
+                  type: integer
+                message:
+                  type: string
+      responses:
+        '204':
+          description: Job completion recorded
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '404':
+          description: Job not found or not owned by this runner
 
   /v1/bench/scenarios/sync:
     post:
@@ -1329,7 +1564,7 @@ components:
 
     EnabledModel:
       type: object
-      required: [id, display_name, provider, available, input_cost_per_mtok, output_cost_per_mtok]
+      required: [id, display_name, provider, input_cost_per_mtok, output_cost_per_mtok]
       properties:
         id:
           type: string
@@ -1344,10 +1579,6 @@ components:
           type: string
           description: Provider API base URL (empty when using default)
           example: https://generativelanguage.googleapis.com/v1beta/openai
-        available:
-          type: boolean
-          description: Whether the platform has an API key configured for this model
-          example: true
         input_cost_per_mtok:
           type: number
           example: 0.15

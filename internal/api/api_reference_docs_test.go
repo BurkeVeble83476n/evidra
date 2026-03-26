@@ -19,6 +19,9 @@ func TestMarkdownAPIReference_CoversLiveExternalIngestSurface(t *testing.T) {
 		"### `POST /v1/evidence/ingest/report`",
 		"### `HEAD /auth/check`",
 		"`{\"status\":\"ok\"}`",
+		"#### POST /v1/bench/trigger",
+		"#### GET /v1/runners/jobs",
+		"#### POST /v1/runners/jobs/{id}/complete",
 	}
 	for _, snippet := range requiredSnippets {
 		if !strings.Contains(doc, snippet) {

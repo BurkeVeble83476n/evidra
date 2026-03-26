@@ -58,6 +58,7 @@ type handlerRepo struct {
 	// runner
 	registeredRunner *Runner
 	foundRunner      *Runner
+	runners          []Runner
 	enqueuedJob      *BenchJob
 
 	// capture
@@ -165,7 +166,7 @@ func (r *handlerRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSumma
 func (r *handlerRepo) RegisterRunner(_ context.Context, _ string, _ RegisterRunnerRequest) (*Runner, error) {
 	return r.registeredRunner, nil
 }
-func (r *handlerRepo) ListRunners(context.Context, string) ([]Runner, error) { return nil, nil }
+func (r *handlerRepo) ListRunners(context.Context, string) ([]Runner, error) { return r.runners, nil }
 func (r *handlerRepo) DeleteRunner(context.Context, string, string) error    { return nil }
 func (r *handlerRepo) TouchRunner(context.Context, string, string) error     { return nil }
 func (r *handlerRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
@@ -1501,5 +1502,44 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 	}
 	if resp["mode"] != "runner" {
 		t.Fatalf("mode = %v, want runner", resp["mode"])
+	}
+}
+
+func TestHandleTrigger_WithPinnedRunnerUnavailable_Returns400AndSkipsExecutor(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	spy := &spyExecutor{}
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+		// No healthy runner for this model. This used to fall through to V1.
+		runners: []Runner{
+			{
+				ID:     "runner-other",
+				Status: "healthy",
+				Config: RunnerConfig{Models: []string{"other-model"}},
+			},
+		},
+	}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     spy,
+		Dispatcher:   &PoolDispatcher{},
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"sonnet","runner_id":"runner-missing","scenarios":["s1"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if spy.started {
+		t.Fatal("executor should not start when pinned runner is unavailable")
 	}
 }
