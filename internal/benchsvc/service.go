@@ -65,6 +65,7 @@ type ServiceConfig struct {
 	PublicTenant string        // tenant for unauthenticated leaderboard/scenarios
 	TriggerStore *TriggerStore // in-memory trigger job store (nil disables trigger endpoints)
 	Executor     RunExecutor   // executor for bench trigger jobs (nil returns 501)
+	Dispatcher   JobDispatcher // V2b: dispatches queued jobs to runners (nil skips runner path)
 }
 
 // Service provides request-scoped bench operations over a tenant-agnostic repository.

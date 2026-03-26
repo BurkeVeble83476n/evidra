@@ -15,6 +15,7 @@ const ExecutorContractVersion = "v1.0.0"
 type TriggerRequest struct {
 	Model     string   `json:"model"`
 	Provider  string   `json:"provider,omitempty"`
+	RunnerID  string   `json:"runner_id,omitempty"`
 	Scenarios []string `json:"scenarios"`
 }
 

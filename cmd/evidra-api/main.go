@@ -336,6 +336,7 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 		PublicTenant: envOr("EVIDRA_BENCH_PUBLIC_TENANT", defaultTenant),
 		TriggerStore: triggerStore,
 		Executor:     executor,
+		Dispatcher:   &benchsvc.PoolDispatcher{},
 	})
 	return persistenceResources{
 			Pinger:       pool,

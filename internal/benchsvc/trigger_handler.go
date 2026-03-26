@@ -10,16 +10,14 @@ import (
 	"time"
 
 	"samebits.com/evidra/internal/apiutil"
+	"samebits.com/evidra/internal/auth"
 )
 
 // handleTrigger returns a handler that starts a new bench trigger job.
 // POST /v1/bench/trigger
 func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if executor == nil {
-			apiutil.WriteError(w, http.StatusNotImplemented, "bench trigger not configured: no executor")
-			return
-		}
+		tenantID := auth.TenantID(r.Context())
 
 		var req TriggerRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -47,6 +45,54 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 		}
 		if info.APIKeyEnv != "" && os.Getenv(info.APIKeyEnv) == "" {
 			apiutil.WriteError(w, http.StatusBadRequest, "no API key configured for model: "+req.Model)
+			return
+		}
+
+		// V2b: check for a registered runner that supports this model.
+		if svc.cfg.Dispatcher != nil {
+			runner, findErr := svc.repo.FindRunnerForModel(r.Context(), tenantID, req.Model)
+			if findErr == nil && runner != nil {
+				cfg := JobConfig{
+					Scenarios: req.Scenarios,
+					RunnerID:  req.RunnerID,
+				}
+				benchJob, enqErr := svc.repo.EnqueueJob(r.Context(), tenantID, req.Model, provider, cfg)
+				if enqErr != nil {
+					apiutil.WriteError(w, http.StatusInternalServerError, "enqueue job: "+enqErr.Error())
+					return
+				}
+				if dispErr := svc.cfg.Dispatcher.Dispatch(r.Context(), benchJob, runner); dispErr != nil {
+					log.Printf("[bench-trigger] dispatcher failed for job %s: %v", benchJob.ID, dispErr)
+				}
+
+				// Create a TriggerJob for SSE tracking.
+				progress := make([]ScenarioProgress, len(req.Scenarios))
+				for i, s := range req.Scenarios {
+					progress[i] = ScenarioProgress{Scenario: s, Status: "pending"}
+				}
+				triggerJob := &TriggerJob{
+					ID:        benchJob.ID,
+					Status:    "pending",
+					Model:     req.Model,
+					Provider:  provider,
+					Total:     len(req.Scenarios),
+					Progress:  progress,
+					CreatedAt: time.Now(),
+				}
+				store.Create(triggerJob)
+
+				apiutil.WriteJSON(w, http.StatusAccepted, map[string]any{
+					"id":     benchJob.ID,
+					"status": "pending",
+					"mode":   "runner",
+				})
+				return
+			}
+		}
+
+		// V1: local/remote executor path.
+		if executor == nil {
+			apiutil.WriteError(w, http.StatusNotImplemented, "bench trigger not configured: no executor")
 			return
 		}
 

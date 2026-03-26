@@ -56,6 +56,8 @@ type handlerRepo struct {
 
 	// runner
 	registeredRunner *Runner
+	foundRunner      *Runner
+	enqueuedJob      *BenchJob
 
 	// capture
 	lastTenant       string
@@ -119,6 +121,9 @@ func (r *handlerRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg G
 	return nil
 }
 func (r *handlerRepo) ResolveModelProvider(_ context.Context, modelID string) (*ModelProviderInfo, error) {
+	if r.modelProvider == nil && r.modelProviderErr == nil {
+		return nil, fmt.Errorf("model not found: %s", modelID)
+	}
 	return r.modelProvider, r.modelProviderErr
 }
 func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
@@ -162,17 +167,20 @@ func (r *handlerRepo) RegisterRunner(_ context.Context, _ string, _ RegisterRunn
 func (r *handlerRepo) ListRunners(context.Context, string) ([]Runner, error) { return nil, nil }
 func (r *handlerRepo) DeleteRunner(context.Context, string, string) error    { return nil }
 func (r *handlerRepo) TouchRunner(context.Context, string, string) error     { return nil }
-func (r *handlerRepo) EnqueueJob(context.Context, string, string, string, JobConfig) (*BenchJob, error) {
-	return nil, nil
-}
 func (r *handlerRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
 	return nil, nil
 }
 func (r *handlerRepo) CompleteJob(context.Context, string, string, string, string, int, int, string) error {
 	return nil
 }
-func (r *handlerRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {
-	return nil, nil
+func (r *handlerRepo) FindRunnerForModel(_ context.Context, _ string, _ string) (*Runner, error) {
+	return r.foundRunner, nil
+}
+func (r *handlerRepo) EnqueueJob(_ context.Context, _ string, _ string, _ string, _ JobConfig) (*BenchJob, error) {
+	if r.enqueuedJob != nil {
+		return r.enqueuedJob, nil
+	}
+	return &BenchJob{ID: "job-enq-1", Status: "queued"}, nil
 }
 func (r *handlerRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	return nil, fmt.Errorf("handlerRepo: no real tx")
@@ -1269,7 +1277,9 @@ func TestHandleTrigger_NoExecutor_Returns501(t *testing.T) {
 	t.Parallel()
 
 	store := NewTriggerStore()
-	repo := &handlerRepo{}
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
 	svc := NewService(repo, ServiceConfig{
 		PublicTenant: "pub",
 		TriggerStore: store,
@@ -1431,5 +1441,55 @@ func TestHandleRegisterRunner_MissingModels(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+// ---------- Trigger with Runner ----------
+
+func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+		foundRunner: &Runner{
+			ID:     "runner-1",
+			Status: "healthy",
+			Config: RunnerConfig{Models: []string{"sonnet"}},
+		},
+		enqueuedJob: &BenchJob{
+			ID:       "job-q-1",
+			Status:   "queued",
+			Model:    "sonnet",
+			Provider: "bifrost",
+		},
+	}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Dispatcher:   &PoolDispatcher{},
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"sonnet","scenarios":["s1"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusAccepted, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["id"] != "job-q-1" {
+		t.Fatalf("id = %v, want job-q-1", resp["id"])
+	}
+	if resp["mode"] != "runner" {
+		t.Fatalf("mode = %v, want runner", resp["mode"])
 	}
 }
