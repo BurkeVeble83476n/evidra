@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -192,5 +193,14 @@ func (r *routerBenchRepo) CompleteJob(context.Context, string, string, string, s
 }
 func (r *routerBenchRepo) FindRunnerForModel(context.Context, string, string) (*benchsvc.Runner, error) {
 	return nil, nil
+}
+func (r *routerBenchRepo) MarkUnhealthyRunners(_ context.Context, _ time.Duration) (int, error) {
+	return 0, nil
+}
+func (r *routerBenchRepo) ResetStaleJobs(_ context.Context, _ time.Duration) (int, error) {
+	return 0, nil
+}
+func (r *routerBenchRepo) UpdateJobProgress(_ context.Context, _ string, _, _, _ int) error {
+	return nil
 }
 func (r *routerBenchRepo) BeginTx(context.Context) (pgx.Tx, error) { return nil, nil }

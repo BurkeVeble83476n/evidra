@@ -198,7 +198,7 @@ func handleTriggerStatus(store *TriggerStore) http.HandlerFunc {
 
 // handleTriggerProgress returns a handler for POST /v1/bench/trigger/{id}/progress.
 // This is the webhook endpoint called by the bench service.
-func handleTriggerProgress(store *TriggerStore) http.HandlerFunc {
+func handleTriggerProgress(svc *Service, store *TriggerStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 
@@ -219,6 +219,9 @@ func handleTriggerProgress(store *TriggerStore) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusNotFound, "job not found")
 			return
 		}
+
+		// Also update bench_jobs for persistence and janitor tracking.
+		_ = svc.repo.UpdateJobProgress(r.Context(), update.JobID, update.Completed, 0, 0)
 
 		w.WriteHeader(http.StatusOK)
 	}

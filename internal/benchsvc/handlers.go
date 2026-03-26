@@ -59,7 +59,7 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	if svc.cfg.TriggerStore != nil {
 		mux.Handle("POST /v1/bench/trigger", authMw(http.HandlerFunc(handleTrigger(svc, svc.cfg.TriggerStore, svc.cfg.Executor))))
 		mux.Handle("GET /v1/bench/trigger/{id}", authMw(http.HandlerFunc(handleTriggerStatus(svc.cfg.TriggerStore))))
-		mux.Handle("POST /v1/bench/trigger/{id}/progress", authMw(http.HandlerFunc(handleTriggerProgress(svc.cfg.TriggerStore))))
+		mux.Handle("POST /v1/bench/trigger/{id}/progress", authMw(http.HandlerFunc(handleTriggerProgress(svc, svc.cfg.TriggerStore))))
 	}
 
 	// Runner routes — V2b multi-runner support.

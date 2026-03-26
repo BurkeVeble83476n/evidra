@@ -857,6 +857,49 @@ func (s *PgStore) CompleteJob(ctx context.Context, tenantID, runnerID, jobID, st
 	return nil
 }
 
+// MarkUnhealthyRunners marks runners as unhealthy if they haven't checked in within the threshold.
+func (s *PgStore) MarkUnhealthyRunners(ctx context.Context, threshold time.Duration) (int, error) {
+	result, err := s.db.Exec(ctx, `
+		UPDATE bench_infra SET status = 'unhealthy'
+		WHERE executor = 'remote' AND status = 'healthy'
+		  AND updated_at < NOW() - $1::interval
+	`, threshold.String())
+	if err != nil {
+		return 0, fmt.Errorf("benchsvc.MarkUnhealthyRunners: %w", err)
+	}
+	return int(result.RowsAffected()), nil
+}
+
+// ResetStaleJobs resets claimed jobs back to queued if they haven't made progress.
+func (s *PgStore) ResetStaleJobs(ctx context.Context, threshold time.Duration) (int, error) {
+	result, err := s.db.Exec(ctx, `
+		UPDATE bench_jobs SET status = 'queued', infra_id = NULL, started_at = NULL, last_progress_at = NULL
+		WHERE status = 'claimed'
+		  AND COALESCE(last_progress_at, started_at) < NOW() - $1::interval
+	`, threshold.String())
+	if err != nil {
+		return 0, fmt.Errorf("benchsvc.ResetStaleJobs: %w", err)
+	}
+	return int(result.RowsAffected()), nil
+}
+
+// UpdateJobProgress updates a job's progress counters and last_progress_at timestamp.
+func (s *PgStore) UpdateJobProgress(ctx context.Context, jobID string, completed, passed, failed int) error {
+	_, err := s.db.Exec(ctx, `
+		UPDATE bench_jobs SET
+			status = 'running',
+			completed = $2,
+			passed = $3,
+			failed = $4,
+			last_progress_at = NOW()
+		WHERE id = $1 AND status IN ('claimed', 'running')
+	`, jobID, completed, passed, failed)
+	if err != nil {
+		return fmt.Errorf("benchsvc.UpdateJobProgress: %w", err)
+	}
+	return nil
+}
+
 // FindRunnerForModel finds a healthy runner that supports the given model.
 func (s *PgStore) FindRunnerForModel(ctx context.Context, tenantID, model string) (*Runner, error) {
 	var r Runner

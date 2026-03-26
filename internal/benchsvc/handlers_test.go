@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -175,6 +176,15 @@ func (r *handlerRepo) CompleteJob(context.Context, string, string, string, strin
 }
 func (r *handlerRepo) FindRunnerForModel(_ context.Context, _ string, _ string) (*Runner, error) {
 	return r.foundRunner, nil
+}
+func (r *handlerRepo) MarkUnhealthyRunners(_ context.Context, _ time.Duration) (int, error) {
+	return 0, nil
+}
+func (r *handlerRepo) ResetStaleJobs(_ context.Context, _ time.Duration) (int, error) {
+	return 0, nil
+}
+func (r *handlerRepo) UpdateJobProgress(_ context.Context, _ string, _, _, _ int) error {
+	return nil
 }
 func (r *handlerRepo) EnqueueJob(_ context.Context, _ string, _ string, _ string, _ JobConfig) (*BenchJob, error) {
 	if r.enqueuedJob != nil {

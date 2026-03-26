@@ -51,6 +51,7 @@ type persistenceResources struct {
 	EntryStore   *store.EntryStore
 	KeyStore     *store.KeyStore
 	BenchService *benchsvc.Service
+	BenchRepo    benchsvc.Repository
 }
 
 type runDeps struct {
@@ -131,6 +132,10 @@ func runWithDeps(args []string, deps runDeps) int {
 				deps.logf("argocd controller error: %v", err)
 			}
 		}()
+	}
+
+	if setup.resources.BenchRepo != nil {
+		go benchsvc.StartRunnerJanitor(ctx, setup.resources.BenchRepo, 10*time.Second)
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -343,6 +348,7 @@ func defaultSetupPersistence(databaseURL string) (persistenceResources, func(), 
 			EntryStore:   es,
 			KeyStore:     store.NewKeyStore(pool),
 			BenchService: benchService,
+			BenchRepo:    repo,
 		}, func() {
 			pool.Close()
 		}, nil

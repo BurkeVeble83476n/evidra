@@ -47,6 +47,9 @@ type Repository interface {
 	ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error)
 	CompleteJob(ctx context.Context, tenantID, runnerID, jobID, status string, passed, failed int, errMsg string) error
 	FindRunnerForModel(ctx context.Context, tenantID, model string) (*Runner, error)
+	MarkUnhealthyRunners(ctx context.Context, threshold time.Duration) (int, error)
+	ResetStaleJobs(ctx context.Context, threshold time.Duration) (int, error)
+	UpdateJobProgress(ctx context.Context, jobID string, completed, passed, failed int) error
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error

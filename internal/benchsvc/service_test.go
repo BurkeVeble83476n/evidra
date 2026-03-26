@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -114,6 +115,13 @@ func (f *fakeRepo) CompleteJob(context.Context, string, string, string, string, 
 }
 func (f *fakeRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {
 	return nil, nil
+}
+func (f *fakeRepo) MarkUnhealthyRunners(_ context.Context, _ time.Duration) (int, error) {
+	return 0, nil
+}
+func (f *fakeRepo) ResetStaleJobs(_ context.Context, _ time.Duration) (int, error) { return 0, nil }
+func (f *fakeRepo) UpdateJobProgress(_ context.Context, _ string, _, _, _ int) error {
+	return nil
 }
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
