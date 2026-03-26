@@ -853,3 +853,29 @@ func (s *PgStore) CompleteJob(ctx context.Context, tenantID, jobID, status strin
 	}
 	return nil
 }
+
+// FindRunnerForModel finds a healthy runner that supports the given model.
+func (s *PgStore) FindRunnerForModel(ctx context.Context, tenantID, model string) (*Runner, error) {
+	var r Runner
+	var cfgJSON []byte
+	err := s.db.QueryRow(ctx, `
+		SELECT id, tenant_id, name, region, status, config_json, created_at, updated_at
+		FROM bench_infra
+		WHERE tenant_id = $1
+		  AND executor = 'remote'
+		  AND status = 'healthy'
+		  AND config_json->'models' ? $2
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`, tenantID, model).Scan(&r.ID, &r.TenantID, &r.Name, &r.Region, &r.Status, &cfgJSON, &r.CreatedAt, &r.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.FindRunnerForModel: %w", err)
+	}
+	if len(cfgJSON) > 0 {
+		_ = json.Unmarshal(cfgJSON, &r.Config)
+	}
+	return &r, nil
+}

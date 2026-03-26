@@ -153,6 +153,24 @@ func (r *handlerRepo) FailureAnalysis(_ context.Context, tenant string, _ string
 func (r *handlerRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummary) (int, error) {
 	return 0, nil
 }
+func (r *handlerRepo) RegisterRunner(context.Context, string, RegisterRunnerRequest) (*Runner, error) {
+	return nil, nil
+}
+func (r *handlerRepo) ListRunners(context.Context, string) ([]Runner, error) { return nil, nil }
+func (r *handlerRepo) DeleteRunner(context.Context, string, string) error    { return nil }
+func (r *handlerRepo) TouchRunner(context.Context, string, string) error     { return nil }
+func (r *handlerRepo) EnqueueJob(context.Context, string, string, string, JobConfig) (*BenchJob, error) {
+	return nil, nil
+}
+func (r *handlerRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
+	return nil, nil
+}
+func (r *handlerRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+	return nil
+}
+func (r *handlerRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {
+	return nil, nil
+}
 func (r *handlerRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	return nil, fmt.Errorf("handlerRepo: no real tx")
 }

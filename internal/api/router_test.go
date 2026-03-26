@@ -173,4 +173,24 @@ func (r *routerBenchRepo) UpsertScenarios(context.Context, []bench.ScenarioSumma
 func (r *routerBenchRepo) ResolveModelProvider(context.Context, string) (*benchsvc.ModelProviderInfo, error) {
 	return nil, nil
 }
+func (r *routerBenchRepo) RegisterRunner(context.Context, string, benchsvc.RegisterRunnerRequest) (*benchsvc.Runner, error) {
+	return nil, nil
+}
+func (r *routerBenchRepo) ListRunners(context.Context, string) ([]benchsvc.Runner, error) {
+	return nil, nil
+}
+func (r *routerBenchRepo) DeleteRunner(context.Context, string, string) error { return nil }
+func (r *routerBenchRepo) TouchRunner(context.Context, string, string) error  { return nil }
+func (r *routerBenchRepo) EnqueueJob(context.Context, string, string, string, benchsvc.JobConfig) (*benchsvc.BenchJob, error) {
+	return nil, nil
+}
+func (r *routerBenchRepo) ClaimJob(context.Context, string, string, []string) (*benchsvc.BenchJob, error) {
+	return nil, nil
+}
+func (r *routerBenchRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+	return nil
+}
+func (r *routerBenchRepo) FindRunnerForModel(context.Context, string, string) (*benchsvc.Runner, error) {
+	return nil, nil
+}
 func (r *routerBenchRepo) BeginTx(context.Context) (pgx.Tx, error) { return nil, nil }

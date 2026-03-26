@@ -39,6 +39,14 @@ type Repository interface {
 	DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error
 	UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error
 	ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error)
+	RegisterRunner(ctx context.Context, tenantID string, req RegisterRunnerRequest) (*Runner, error)
+	ListRunners(ctx context.Context, tenantID string) ([]Runner, error)
+	DeleteRunner(ctx context.Context, tenantID, runnerID string) error
+	TouchRunner(ctx context.Context, tenantID, runnerID string) error
+	EnqueueJob(ctx context.Context, tenantID, model, provider string, cfg JobConfig) (*BenchJob, error)
+	ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error)
+	CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error
+	FindRunnerForModel(ctx context.Context, tenantID, model string) (*Runner, error)
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
@@ -248,6 +256,31 @@ func (s *Service) UpdateGlobalModel(ctx context.Context, modelID string, cfg Glo
 // ResolveModelProvider looks up a model's provider and base URL from the catalog.
 func (s *Service) ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error) {
 	return s.repo.ResolveModelProvider(ctx, modelID)
+}
+
+// RegisterRunner registers a new remote runner.
+func (s *Service) RegisterRunner(ctx context.Context, tenantID string, req RegisterRunnerRequest) (*Runner, error) {
+	return s.repo.RegisterRunner(ctx, tenantID, req)
+}
+
+// ListRunners returns all remote runners for a tenant.
+func (s *Service) ListRunners(ctx context.Context, tenantID string) ([]Runner, error) {
+	return s.repo.ListRunners(ctx, tenantID)
+}
+
+// DeleteRunner removes a runner.
+func (s *Service) DeleteRunner(ctx context.Context, tenantID, runnerID string) error {
+	return s.repo.DeleteRunner(ctx, tenantID, runnerID)
+}
+
+// ClaimJob atomically claims the next queued job for a runner.
+func (s *Service) ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error) {
+	return s.repo.ClaimJob(ctx, tenantID, runnerID, models)
+}
+
+// CompleteJob marks a job as completed or failed.
+func (s *Service) CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error {
+	return s.repo.CompleteJob(ctx, tenantID, jobID, status, passed, failed, errMsg)
 }
 
 // GetArtifact retrieves an artifact for a run, scoped to the given tenant.

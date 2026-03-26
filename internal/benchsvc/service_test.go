@@ -97,6 +97,24 @@ func (f *fakeRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg Glob
 func (f *fakeRepo) ResolveModelProvider(_ context.Context, _ string) (*ModelProviderInfo, error) {
 	return nil, nil
 }
+func (f *fakeRepo) RegisterRunner(context.Context, string, RegisterRunnerRequest) (*Runner, error) {
+	return nil, nil
+}
+func (f *fakeRepo) ListRunners(context.Context, string) ([]Runner, error) { return nil, nil }
+func (f *fakeRepo) DeleteRunner(context.Context, string, string) error    { return nil }
+func (f *fakeRepo) TouchRunner(context.Context, string, string) error     { return nil }
+func (f *fakeRepo) EnqueueJob(context.Context, string, string, string, JobConfig) (*BenchJob, error) {
+	return nil, nil
+}
+func (f *fakeRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
+	return nil, nil
+}
+func (f *fakeRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+	return nil
+}
+func (f *fakeRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {
+	return nil, nil
+}
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr
