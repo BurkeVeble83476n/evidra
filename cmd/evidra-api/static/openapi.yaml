@@ -1089,8 +1089,11 @@ paths:
           in: query
           schema:
             type: string
-            enum: [proxy, smart]
-            default: proxy
+          description: |
+            Empty means all runs.
+            `none` returns baseline runs only.
+            `evidra` returns all non-`none` runs.
+            Other exact stored values may still exist for internal callers.
         - name: since
           in: query
           schema: { type: string, format: date-time }

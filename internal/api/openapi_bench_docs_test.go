@@ -50,6 +50,12 @@ func TestOpenAPIBenchFilterContractDocumentsEvidenceModeSemantics(t *testing.T) 
 	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/leaderboard", "get", "evidence_mode", wantSnippets...)
 	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/stats", "get", "evidence_mode", wantSnippets...)
 	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/compare/models", "get", "evidence_mode", wantSnippets...)
+	assertQueryParameterDescriptionContains(t, spec, "/v1/bench/signals", "get", "evidence_mode", wantSnippets...)
+
+	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/leaderboard", "get", "evidence_mode")
+	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/stats", "get", "evidence_mode")
+	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/compare/models", "get", "evidence_mode")
+	assertQueryParameterHasNoStaleProxyContract(t, spec, "/v1/bench/signals", "get", "evidence_mode")
 }
 
 func assertPathMissing(t *testing.T, spec *yaml.Node, path string) {

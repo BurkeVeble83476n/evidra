@@ -110,6 +110,37 @@ func assertQueryParameterDescriptionContains(t *testing.T, spec *yaml.Node, path
 	t.Fatalf("%s %s missing query parameter %s", strings.ToUpper(method), path, paramName)
 }
 
+func assertQueryParameterHasNoStaleProxyContract(t *testing.T, spec *yaml.Node, path, method, paramName string) {
+	t.Helper()
+
+	params := operationParameters(t, spec, path, method)
+	for _, param := range params.Content {
+		name := findMappingValueOptional(param, "name")
+		in := findMappingValueOptional(param, "in")
+		if name == nil || in == nil || name.Value != paramName || in.Value != "query" {
+			continue
+		}
+
+		schema := findMappingValueOptional(param, "schema")
+		if schema == nil {
+			t.Fatalf("%s %s query param %s missing schema", strings.ToUpper(method), path, paramName)
+		}
+		if def := findMappingValueOptional(schema, "default"); def != nil && def.Value == "proxy" {
+			t.Fatalf("%s %s query param %s still defaults to proxy", strings.ToUpper(method), path, paramName)
+		}
+		if enum := findMappingValueOptional(schema, "enum"); enum != nil {
+			for _, item := range enum.Content {
+				if item.Value == "proxy" || item.Value == "smart" {
+					t.Fatalf("%s %s query param %s enum still contains stale value %q", strings.ToUpper(method), path, paramName, item.Value)
+				}
+			}
+		}
+		return
+	}
+
+	t.Fatalf("%s %s missing query parameter %s", strings.ToUpper(method), path, paramName)
+}
+
 func assertQueryParameterDefaults(t *testing.T, spec *yaml.Node, path, paramName, wantDefault, wantMaximum string) {
 	t.Helper()
 
