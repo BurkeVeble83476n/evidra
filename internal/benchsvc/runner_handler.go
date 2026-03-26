@@ -119,8 +119,7 @@ func handlePollJob(svc *Service) http.HandlerFunc {
 			return
 		}
 		if cfg.EvidenceMode == "" {
-			apiutil.WriteError(w, http.StatusBadRequest, "job config_json evidence_mode is required")
-			return
+			cfg.EvidenceMode = "none" // default for legacy jobs without evidence_mode
 		}
 
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{

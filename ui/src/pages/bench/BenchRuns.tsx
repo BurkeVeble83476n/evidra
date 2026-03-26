@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApi } from "../../hooks/useApi";
 import { applyEvidenceMode, evidenceModeParam, normalizeCatalog, type CatalogResponse } from "../../lib/catalogData.mts";
-import { useEvidenceMode } from "../../hooks/useEvidenceMode";
+import { useEvidenceMode, formatEvidenceModeLabel } from "../../hooks/useEvidenceMode";
 
 interface RunRecord {
   id: string;
@@ -71,22 +71,6 @@ function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function formatEvidenceModeLabel(mode?: string): string {
-  switch (mode) {
-    case "none":
-      return "Baseline";
-    case "smart":
-      return "Evidra Smart";
-    case "proxy":
-      return "Evidra Proxy";
-    case "direct":
-      return "Evidra Direct";
-    case "evidra":
-      return "Evidra";
-    default:
-      return mode || "Unknown";
-  }
-}
 
 function SortArrow({ field, sort }: { field: SortField; sort: { field: SortField; dir: SortDir } }) {
   if (sort.field !== field) return <span className="text-fg-muted/30 ml-0.5">{"\u2195"}</span>;

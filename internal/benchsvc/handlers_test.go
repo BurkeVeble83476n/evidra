@@ -2042,17 +2042,43 @@ func TestHandlePollJob_ReturnsEvidenceMode(t *testing.T) {
 	}
 }
 
-func TestHandlePollJob_RejectsMissingOrMalformedEvidenceMode(t *testing.T) {
+func TestHandlePollJob_DefaultsEvidenceModeForLegacyJobs(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		runners: []Runner{
+			{ID: "runner-1", Status: "healthy", Config: RunnerConfig{Models: []string{"sonnet"}}},
+		},
+		claimedJob: &BenchJob{
+			ID: "job-legacy", TenantID: "pub", Model: "sonnet", Provider: "bifrost",
+			Status: "queued", ConfigJSON: json.RawMessage(`{"scenarios":["s1"]}`),
+		},
+	}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/runners/jobs?runner_id=runner-1", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp["evidence_mode"] != "none" {
+		t.Fatalf("evidence_mode = %v, want none", resp["evidence_mode"])
+	}
+}
+
+func TestHandlePollJob_RejectsMalformedConfigJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name       string
 		configJSON string
 	}{
-		{
-			name:       "missing evidence mode",
-			configJSON: `{"scenarios":["s1"]}`,
-		},
 		{
 			name:       "malformed config json",
 			configJSON: `{"scenarios":["s1"],"evidence_mode":`,

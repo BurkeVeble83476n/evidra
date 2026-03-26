@@ -46,3 +46,20 @@ export function EvidenceModeProvider({ children }: { children: ReactNode }) {
 export function useEvidenceMode() {
   return useContext(EvidenceModeContext);
 }
+
+export function formatEvidenceModeLabel(mode?: string): string {
+  switch (mode) {
+    case "none":
+      return "Baseline";
+    case "smart":
+      return "Evidra Smart";
+    case "proxy":
+      return "Evidra Proxy";
+    case "direct":
+      return "Evidra Direct";
+    case "evidra":
+      return "Evidra";
+    default:
+      return mode || "Unknown";
+  }
+}

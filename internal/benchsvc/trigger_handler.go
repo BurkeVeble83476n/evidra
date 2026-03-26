@@ -27,11 +27,6 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			return
 		}
 
-		if !isSupportedTriggerEvidenceMode(req.EvidenceMode) {
-			apiutil.WriteError(w, http.StatusBadRequest, "evidence_mode must be none or smart")
-			return
-		}
-
 		provider, ok := resolveTriggerProvider(w, r, svc, req)
 		if !ok {
 			return

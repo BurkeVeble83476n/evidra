@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router";
 import { useApi } from "../../hooks/useApi";
 import { useAuth } from "../../context/AuthContext";
 import { evidenceModeParam } from "../../lib/catalogData.mts";
+import { formatEvidenceModeLabel } from "../../hooks/useEvidenceMode";
 import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
 interface RunRecord {
@@ -106,22 +107,6 @@ function truncate(s: string, max: number): string {
   return s.slice(0, max) + "\u2026";
 }
 
-function formatEvidenceModeLabel(mode?: string): string {
-  switch (mode) {
-    case "none":
-      return "Baseline";
-    case "smart":
-      return "Evidra Smart";
-    case "proxy":
-      return "Evidra Proxy";
-    case "direct":
-      return "Evidra Direct";
-    case "evidra":
-      return "Evidra";
-    default:
-      return mode || "Unknown";
-  }
-}
 
 function highlightTranscript(text: string): (React.ReactElement | string)[] {
   const parts = text.split(/(\[(?:user|assistant|tool)\])/g);
