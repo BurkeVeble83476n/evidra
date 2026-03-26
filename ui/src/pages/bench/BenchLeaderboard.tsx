@@ -47,6 +47,12 @@ const SORT_OPTIONS: { key: SortKey; label: string; desc: boolean }[] = [
   { key: "scenarios", label: "Scenarios", desc: true },
 ];
 
+const EVIDENCE_MODE_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "none", label: "Baseline" },
+  { value: "evidra", label: "Evidra" },
+] as const;
+
 function formatDuration(s: number): string {
   if (s < 60) return `${s.toFixed(1)}s`;
   return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
@@ -165,17 +171,17 @@ export function BenchLeaderboard() {
           </p>
         </div>
         <div className="flex gap-1 text-[0.72rem] font-medium">
-          {(["all", "proxy", "smart", "direct"] as const).map((m) => (
+          {EVIDENCE_MODE_FILTERS.map((m) => (
             <button
-              key={m}
-              onClick={() => setMode(m)}
+              key={m.value}
+              onClick={() => setMode(m.value)}
               className={`px-2.5 py-1 rounded-md transition-colors ${
-                mode === m
+                mode === m.value
                   ? "bg-accent text-white"
                   : "bg-bg-alt text-fg-muted hover:text-fg"
               }`}
             >
-              {m === "all" ? "All" : m}
+              {m.label}
             </button>
           ))}
         </div>

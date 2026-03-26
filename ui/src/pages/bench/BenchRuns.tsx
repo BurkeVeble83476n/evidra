@@ -10,6 +10,7 @@ interface RunRecord {
   model: string;
   provider: string;
   adapter: string;
+  evidence_mode?: string;
   passed: boolean;
   duration_seconds: number;
   exit_code: number;
@@ -68,6 +69,23 @@ function formatDuration(s: number): string {
 
 function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
+}
+
+function formatEvidenceModeLabel(mode?: string): string {
+  switch (mode) {
+    case "none":
+      return "Baseline";
+    case "smart":
+      return "Evidra Smart";
+    case "proxy":
+      return "Evidra Proxy";
+    case "direct":
+      return "Evidra Direct";
+    case "evidra":
+      return "Evidra";
+    default:
+      return mode || "Unknown";
+  }
 }
 
 function SortArrow({ field, sort }: { field: SortField; sort: { field: SortField; dir: SortDir } }) {
@@ -318,6 +336,9 @@ export function BenchRuns() {
                   <th className={thClass} onClick={() => handleSort("provider")}>
                     Provider <SortArrow field="provider" sort={sort} />
                   </th>
+                  <th className={thClass}>
+                    Mode
+                  </th>
                   <th className={thClass} onClick={() => handleSort("duration_seconds")}>
                     Duration <SortArrow field="duration_seconds" sort={sort} />
                   </th>
@@ -361,6 +382,11 @@ export function BenchRuns() {
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[0.78rem] text-fg-body">{run.model}</td>
                     <td className="px-3 py-2.5 font-mono text-[0.78rem] text-fg-body">{run.provider}</td>
+                    <td className="px-3 py-2.5">
+                      <span className="inline-flex items-center rounded-md border border-border bg-bg-alt px-2 py-0.5 text-[0.72rem] font-semibold text-fg">
+                        {formatEvidenceModeLabel(run.evidence_mode)}
+                      </span>
+                    </td>
                     <td className="px-3 py-2.5 font-mono text-[0.78rem] text-fg-muted">
                       {formatDuration(run.duration_seconds)}
                     </td>

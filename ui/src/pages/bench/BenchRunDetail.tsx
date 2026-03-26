@@ -10,6 +10,7 @@ interface RunRecord {
   scenario_id: string;
   model: string;
   provider: string;
+  evidence_mode?: string;
   passed: boolean;
   duration_seconds: number;
   turns: number;
@@ -103,6 +104,23 @@ function formatTokens(n: number): string {
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return s.slice(0, max) + "\u2026";
+}
+
+function formatEvidenceModeLabel(mode?: string): string {
+  switch (mode) {
+    case "none":
+      return "Baseline";
+    case "smart":
+      return "Evidra Smart";
+    case "proxy":
+      return "Evidra Proxy";
+    case "direct":
+      return "Evidra Direct";
+    case "evidra":
+      return "Evidra";
+    default:
+      return mode || "Unknown";
+  }
 }
 
 function highlightTranscript(text: string): (React.ReactElement | string)[] {
@@ -277,6 +295,9 @@ export function BenchRunDetail() {
           }`}
         >
           {run.passed ? "Pass" : "Fail"}
+        </span>
+        <span className="inline-flex items-center rounded-md border border-border bg-bg-alt px-2 py-0.5 text-[0.72rem] font-semibold text-fg">
+          {formatEvidenceModeLabel(run.evidence_mode)}
         </span>
         <span className="font-mono text-fg-muted text-[0.75rem] ml-auto">
           {run.id}

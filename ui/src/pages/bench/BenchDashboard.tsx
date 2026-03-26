@@ -7,6 +7,7 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 /* ── Types ── */
 
 type Period = "24h" | "7d" | "30d" | "90d" | "all";
+type TriggerEvidenceMode = "none" | "smart";
 
 interface ScenarioSummary {
   id: string;
@@ -136,6 +137,7 @@ export function BenchDashboard() {
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [triggerModel, setTriggerModel] = useState("");
   const [triggerProvider, setTriggerProvider] = useState("");
+  const [triggerEvidenceMode, setTriggerEvidenceMode] = useState<TriggerEvidenceMode>("smart");
   const [triggerScenarios, setTriggerScenarios] = useState<Set<string>>(
     new Set(),
   );
@@ -200,6 +202,7 @@ export function BenchDashboard() {
         body: JSON.stringify({
           model: triggerModel,
           provider: triggerProvider,
+          evidence_mode: triggerEvidenceMode,
           scenarios,
         }),
       });
@@ -725,6 +728,34 @@ export function BenchDashboard() {
                   className="mt-1 w-full rounded-md border border-border bg-bg px-3 py-1.5 text-[0.85rem] text-fg focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>
+              <fieldset>
+                <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Evidence Mode</legend>
+                <div className="flex gap-2">
+                  {[
+                    { value: "none", label: "Baseline" },
+                    { value: "smart", label: "Evidra" },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[0.82rem] font-medium cursor-pointer transition-colors ${
+                        triggerEvidenceMode === option.value
+                          ? "border-accent bg-accent-tint text-accent"
+                          : "border-border bg-bg text-fg-muted hover:text-fg"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="trigger-evidence-mode"
+                        value={option.value}
+                        checked={triggerEvidenceMode === option.value}
+                        onChange={() => setTriggerEvidenceMode(option.value as TriggerEvidenceMode)}
+                        className="sr-only"
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <fieldset>
                 <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Scenarios</legend>
                 <div className="space-y-1">

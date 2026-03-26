@@ -1,13 +1,24 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type EvidenceMode = "all" | "proxy" | "smart" | "direct";
+export type EvidenceMode = "all" | "none" | "evidra";
 
 interface EvidenceModeCtx {
   mode: EvidenceMode;
   setMode: (m: EvidenceMode) => void;
 }
 
-const VALID_MODES: EvidenceMode[] = ["all", "proxy", "smart", "direct"];
+const VALID_MODES: EvidenceMode[] = ["all", "none", "evidra"];
+const LEGACY_EVIDRA_MODES = new Set(["proxy", "smart", "direct"]);
+
+function normalizeEvidenceMode(mode: string | null): EvidenceMode {
+  if (mode && VALID_MODES.includes(mode as EvidenceMode)) {
+    return mode as EvidenceMode;
+  }
+  if (mode && LEGACY_EVIDRA_MODES.has(mode)) {
+    return "evidra";
+  }
+  return "all";
+}
 
 const EvidenceModeContext = createContext<EvidenceModeCtx>({
   mode: "all",
@@ -17,8 +28,7 @@ const EvidenceModeContext = createContext<EvidenceModeCtx>({
 export function EvidenceModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<EvidenceMode>(() => {
     const saved = localStorage.getItem("evidra-bench-evidence-mode");
-    if (saved && VALID_MODES.includes(saved as EvidenceMode)) return saved as EvidenceMode;
-    return "all";
+    return normalizeEvidenceMode(saved);
   });
 
   const setMode = (m: EvidenceMode) => {
