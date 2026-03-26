@@ -109,7 +109,7 @@ func (f *fakeRepo) EnqueueJob(context.Context, string, string, string, JobConfig
 func (f *fakeRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
 	return nil, nil
 }
-func (f *fakeRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+func (f *fakeRepo) CompleteJob(context.Context, string, string, string, string, int, int, string) error {
 	return nil
 }
 func (f *fakeRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {

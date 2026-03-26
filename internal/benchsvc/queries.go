@@ -798,6 +798,7 @@ func (s *PgStore) EnqueueJob(ctx context.Context, tenantID, model, provider stri
 }
 
 // ClaimJob atomically claims the next queued job matching the runner's models.
+// If a job has a runner_id pinned in config_json, only that runner can claim it.
 // Returns nil if no job is available.
 func (s *PgStore) ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error) {
 	var job BenchJob
@@ -812,6 +813,7 @@ func (s *PgStore) ClaimJob(ctx context.Context, tenantID, runnerID string, model
 			WHERE tenant_id = $1
 			  AND status = 'queued'
 			  AND model = ANY($2)
+			  AND (config_json->>'runner_id' = '' OR config_json->>'runner_id' IS NULL OR config_json->>'runner_id' = $3)
 			ORDER BY created_at
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
@@ -834,17 +836,18 @@ func (s *PgStore) ClaimJob(ctx context.Context, tenantID, runnerID string, model
 }
 
 // CompleteJob marks a job as completed or failed with final counts.
-func (s *PgStore) CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error {
+// The infra_id (runner) must match to prevent stale runners from overwriting state.
+func (s *PgStore) CompleteJob(ctx context.Context, tenantID, runnerID, jobID, status string, passed, failed int, errMsg string) error {
 	result, err := s.db.Exec(ctx, `
 		UPDATE bench_jobs SET
-			status = $3,
-			completed = passed + failed,
-			passed = $4,
-			failed = $5,
-			error_message = $6,
+			status = $4,
+			completed = $5 + $6,
+			passed = $5,
+			failed = $6,
+			error_message = $7,
 			completed_at = NOW()
-		WHERE id = $1 AND tenant_id = $2
-	`, jobID, tenantID, status, passed, failed, errMsg)
+		WHERE id = $1 AND tenant_id = $2 AND infra_id = $3
+	`, jobID, tenantID, runnerID, status, passed, failed, errMsg)
 	if err != nil {
 		return fmt.Errorf("benchsvc.CompleteJob: %w", err)
 	}

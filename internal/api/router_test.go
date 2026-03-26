@@ -187,7 +187,7 @@ func (r *routerBenchRepo) EnqueueJob(context.Context, string, string, string, be
 func (r *routerBenchRepo) ClaimJob(context.Context, string, string, []string) (*benchsvc.BenchJob, error) {
 	return nil, nil
 }
-func (r *routerBenchRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+func (r *routerBenchRepo) CompleteJob(context.Context, string, string, string, string, int, int, string) error {
 	return nil
 }
 func (r *routerBenchRepo) FindRunnerForModel(context.Context, string, string) (*benchsvc.Runner, error) {

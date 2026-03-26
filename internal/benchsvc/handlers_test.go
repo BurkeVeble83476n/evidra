@@ -165,7 +165,7 @@ func (r *handlerRepo) EnqueueJob(context.Context, string, string, string, JobCon
 func (r *handlerRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
 	return nil, nil
 }
-func (r *handlerRepo) CompleteJob(context.Context, string, string, string, int, int, string) error {
+func (r *handlerRepo) CompleteJob(context.Context, string, string, string, string, int, int, string) error {
 	return nil
 }
 func (r *handlerRepo) FindRunnerForModel(context.Context, string, string) (*Runner, error) {

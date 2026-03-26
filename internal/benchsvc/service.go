@@ -45,7 +45,7 @@ type Repository interface {
 	TouchRunner(ctx context.Context, tenantID, runnerID string) error
 	EnqueueJob(ctx context.Context, tenantID, model, provider string, cfg JobConfig) (*BenchJob, error)
 	ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error)
-	CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error
+	CompleteJob(ctx context.Context, tenantID, runnerID, jobID, status string, passed, failed int, errMsg string) error
 	FindRunnerForModel(ctx context.Context, tenantID, model string) (*Runner, error)
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
@@ -278,9 +278,9 @@ func (s *Service) ClaimJob(ctx context.Context, tenantID, runnerID string, model
 	return s.repo.ClaimJob(ctx, tenantID, runnerID, models)
 }
 
-// CompleteJob marks a job as completed or failed.
-func (s *Service) CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error {
-	return s.repo.CompleteJob(ctx, tenantID, jobID, status, passed, failed, errMsg)
+// CompleteJob marks a job as completed or failed. RunnerID must match the claiming runner.
+func (s *Service) CompleteJob(ctx context.Context, tenantID, runnerID, jobID, status string, passed, failed int, errMsg string) error {
+	return s.repo.CompleteJob(ctx, tenantID, runnerID, jobID, status, passed, failed, errMsg)
 }
 
 // GetArtifact retrieves an artifact for a run, scoped to the given tenant.
