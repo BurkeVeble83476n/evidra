@@ -126,14 +126,6 @@ type prescribeFullHandler struct {
 	service *MCPService
 }
 
-type prescribeSmartHandler struct {
-	service *MCPService
-}
-
-type reportHandler struct {
-	service *MCPService
-}
-
 // MCPService provides prescribe and report operations.
 type MCPService struct {
 	evidencePath      string
@@ -310,15 +302,6 @@ func defaultServerVersion(input string) string {
 		return v
 	}
 	return version.Version
-}
-
-func (h *reportHandler) Handle(
-	ctx context.Context,
-	_ *mcp.CallToolRequest,
-	input ReportInput,
-) (*mcp.CallToolResult, ReportOutput, error) {
-	output := h.service.ReportCtx(ctx, input)
-	return &mcp.CallToolResult{}, output, nil
 }
 
 func (s *MCPService) newLifecycleService() *lifecycle.Service {

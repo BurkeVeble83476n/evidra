@@ -1,11 +1,5 @@
 package mcpserver
 
-import (
-	"context"
-
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-)
-
 // PrescribeSmartInput is the input schema for the prescribe_smart tool.
 type PrescribeSmartInput struct {
 	Actor           InputActor        `json:"actor"`
@@ -21,15 +15,6 @@ type PrescribeSmartInput struct {
 	SpanID          string            `json:"span_id,omitempty"`
 	ParentSpanID    string            `json:"parent_span_id,omitempty"`
 	ScopeDimensions map[string]string `json:"scope_dimensions,omitempty"`
-}
-
-func (h *prescribeSmartHandler) Handle(
-	ctx context.Context,
-	_ *mcp.CallToolRequest,
-	input PrescribeSmartInput,
-) (*mcp.CallToolResult, PrescribeOutput, error) {
-	output := h.service.PrescribeCtx(ctx, input.toPrescribeInput())
-	return &mcp.CallToolResult{}, output, nil
 }
 
 func (input PrescribeSmartInput) toPrescribeInput() PrescribeInput {

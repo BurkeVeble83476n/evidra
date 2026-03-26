@@ -341,44 +341,6 @@ func handleListModels(svc *Service) http.HandlerFunc {
 	}
 }
 
-func handleUpsertTenantProvider(svc *Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tenantID := auth.TenantID(r.Context())
-		modelID := r.PathValue("model_id")
-
-		var cfg TenantProviderConfig
-		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
-			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-			return
-		}
-		if cfg.APIKeyEnc == "" && cfg.APIBaseURL == "" && cfg.RateLimit == 0 && cfg.MonthlyBudget == 0 {
-			apiutil.WriteError(w, http.StatusBadRequest, "at least one field (api_key, api_base_url, rate_limit, monthly_budget) is required")
-			return
-		}
-		if err := svc.UpsertTenantProvider(r.Context(), tenantID, modelID, cfg); err != nil {
-			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-func handleDeleteTenantProvider(svc *Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tenantID := auth.TenantID(r.Context())
-		modelID := r.PathValue("model_id")
-		if err := svc.DeleteTenantProvider(r.Context(), tenantID, modelID); err != nil {
-			if errors.Is(err, ErrNotFound) {
-				apiutil.WriteError(w, http.StatusNotFound, "tenant provider not found")
-				return
-			}
-			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
 // HandleUpdateGlobalModel updates platform-level defaults for a model.
 // This handler is intended to be wrapped by an invite-secret gate in the API router.
 func HandleUpdateGlobalModel(svc *Service) http.HandlerFunc {

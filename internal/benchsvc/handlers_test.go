@@ -296,7 +296,7 @@ func TestHandleListModels_ReturnsModels(t *testing.T) {
 	}
 }
 
-func TestHandleUpsertTenantProvider_Returns204(t *testing.T) {
+func TestHandleUpsertTenantProvider_Returns404WhileDisabled(t *testing.T) {
 	t.Parallel()
 
 	repo := &handlerRepo{}
@@ -307,24 +307,18 @@ func TestHandleUpsertTenantProvider_Returns204(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
-	if repo.lastTenant != "tenant-a" {
-		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	if repo.lastTenant != "" {
+		t.Fatalf("tenant = %q, want empty because route is disabled", repo.lastTenant)
 	}
-	if repo.lastModelID != "gemini-2.5-flash" {
-		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
-	}
-	if repo.lastProviderCfg.APIKeyEnc != "sk-secret" {
-		t.Fatalf("api_key = %q, want sk-secret", repo.lastProviderCfg.APIKeyEnc)
-	}
-	if repo.lastProviderCfg.RateLimit != 10 {
-		t.Fatalf("rate_limit = %d, want 10", repo.lastProviderCfg.RateLimit)
+	if repo.lastModelID != "" {
+		t.Fatalf("modelID = %q, want empty because route is disabled", repo.lastModelID)
 	}
 }
 
-func TestHandleDeleteTenantProvider_Returns204(t *testing.T) {
+func TestHandleDeleteTenantProvider_Returns404WhileDisabled(t *testing.T) {
 	t.Parallel()
 
 	repo := &handlerRepo{}
@@ -334,14 +328,14 @@ func TestHandleDeleteTenantProvider_Returns204(t *testing.T) {
 	req := httptest.NewRequest("DELETE", "/v1/bench/models/gemini-2.5-flash/provider", nil)
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
-	if repo.lastTenant != "tenant-a" {
-		t.Fatalf("tenant = %q, want tenant-a", repo.lastTenant)
+	if repo.lastTenant != "" {
+		t.Fatalf("tenant = %q, want empty because route is disabled", repo.lastTenant)
 	}
-	if repo.lastModelID != "gemini-2.5-flash" {
-		t.Fatalf("modelID = %q, want gemini-2.5-flash", repo.lastModelID)
+	if repo.lastModelID != "" {
+		t.Fatalf("modelID = %q, want empty because route is disabled", repo.lastModelID)
 	}
 }
 
