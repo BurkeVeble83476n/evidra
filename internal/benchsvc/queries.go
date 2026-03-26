@@ -107,9 +107,10 @@ type BenchJob struct {
 
 // JobConfig holds the scenario list and options stored in bench_jobs.config_json.
 type JobConfig struct {
-	Scenarios []string `json:"scenarios"`
-	Timeout   int      `json:"timeout,omitempty"`
-	RunnerID  string   `json:"runner_id,omitempty"` // manual pinning
+	Scenarios    []string `json:"scenarios"`
+	Timeout      int      `json:"timeout,omitempty"`
+	RunnerID     string   `json:"runner_id,omitempty"` // manual pinning
+	EvidenceMode string   `json:"evidence_mode,omitempty"`
 }
 
 // scanRunRecord scans a row into a bench.RunRecord.

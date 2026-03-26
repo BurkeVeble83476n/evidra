@@ -27,6 +27,11 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			return
 		}
 
+		if !isSupportedTriggerEvidenceMode(req.EvidenceMode) {
+			apiutil.WriteError(w, http.StatusBadRequest, "evidence_mode must be none or smart")
+			return
+		}
+
 		provider, ok := resolveTriggerProvider(w, r, svc, req)
 		if !ok {
 			return
@@ -46,13 +51,14 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 		}
 
 		job := &TriggerJob{
-			ID:        NewJobID(),
-			Status:    "pending",
-			Model:     req.Model,
-			Provider:  provider,
-			Total:     len(req.Scenarios),
-			Progress:  pendingScenarioProgress(req.Scenarios),
-			CreatedAt: time.Now(),
+			ID:           NewJobID(),
+			Status:       "pending",
+			Model:        req.Model,
+			Provider:     provider,
+			EvidenceMode: req.EvidenceMode,
+			Total:        len(req.Scenarios),
+			Progress:     pendingScenarioProgress(req.Scenarios),
+			CreatedAt:    time.Now(),
 		}
 		store.Create(job)
 
@@ -93,7 +99,19 @@ func decodeTriggerRequest(w http.ResponseWriter, r *http.Request) (TriggerReques
 		apiutil.WriteError(w, http.StatusBadRequest, "scenarios is required")
 		return TriggerRequest{}, false
 	}
+	if req.EvidenceMode == "" {
+		apiutil.WriteError(w, http.StatusBadRequest, "evidence_mode is required")
+		return TriggerRequest{}, false
+	}
+	if !isSupportedTriggerEvidenceMode(req.EvidenceMode) {
+		apiutil.WriteError(w, http.StatusBadRequest, "evidence_mode must be none or smart")
+		return TriggerRequest{}, false
+	}
 	return req, true
+}
+
+func isSupportedTriggerEvidenceMode(mode string) bool {
+	return mode == "none" || mode == "smart"
 }
 
 func resolveTriggerProvider(w http.ResponseWriter, r *http.Request, svc *Service, req TriggerRequest) (string, bool) {
@@ -185,8 +203,9 @@ func findPinnedRunner(ctx context.Context, svc *Service, tenantID, runnerID, mod
 
 func enqueueRunnerTrigger(ctx context.Context, svc *Service, store *TriggerStore, tenantID string, req TriggerRequest, provider string, runner *Runner) (string, error) {
 	cfg := JobConfig{
-		Scenarios: req.Scenarios,
-		RunnerID:  req.RunnerID,
+		Scenarios:    req.Scenarios,
+		RunnerID:     req.RunnerID,
+		EvidenceMode: req.EvidenceMode,
 	}
 	benchJob, err := svc.repo.EnqueueJob(ctx, tenantID, req.Model, provider, cfg)
 	if err != nil {
@@ -197,13 +216,14 @@ func enqueueRunnerTrigger(ctx context.Context, svc *Service, store *TriggerStore
 	}
 
 	store.Create(&TriggerJob{
-		ID:        benchJob.ID,
-		Status:    "pending",
-		Model:     req.Model,
-		Provider:  provider,
-		Total:     len(req.Scenarios),
-		Progress:  pendingScenarioProgress(req.Scenarios),
-		CreatedAt: time.Now(),
+		ID:           benchJob.ID,
+		Status:       "pending",
+		Model:        req.Model,
+		Provider:     provider,
+		EvidenceMode: req.EvidenceMode,
+		Total:        len(req.Scenarios),
+		Progress:     pendingScenarioProgress(req.Scenarios),
+		CreatedAt:    time.Now(),
 	})
 	return benchJob.ID, nil
 }

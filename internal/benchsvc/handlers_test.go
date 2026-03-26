@@ -60,6 +60,8 @@ type handlerRepo struct {
 	foundRunner      *Runner
 	runners          []Runner
 	enqueuedJob      *BenchJob
+	lastEnqueueCfg   JobConfig
+	claimedJob       *BenchJob
 
 	// capture
 	lastTenant       string
@@ -169,8 +171,8 @@ func (r *handlerRepo) RegisterRunner(_ context.Context, _ string, _ RegisterRunn
 func (r *handlerRepo) ListRunners(context.Context, string) ([]Runner, error) { return r.runners, nil }
 func (r *handlerRepo) DeleteRunner(context.Context, string, string) error    { return nil }
 func (r *handlerRepo) TouchRunner(context.Context, string, string) error     { return nil }
-func (r *handlerRepo) ClaimJob(context.Context, string, string, []string) (*BenchJob, error) {
-	return nil, nil
+func (r *handlerRepo) ClaimJob(_ context.Context, _ string, _ string, _ []string) (*BenchJob, error) {
+	return r.claimedJob, nil
 }
 func (r *handlerRepo) CompleteJob(context.Context, string, string, string, string, int, int, string) error {
 	return nil
@@ -187,7 +189,8 @@ func (r *handlerRepo) ResetStaleJobs(_ context.Context, _ time.Duration) (int, e
 func (r *handlerRepo) UpdateJobProgress(_ context.Context, _ string, _, _, _ int) error {
 	return nil
 }
-func (r *handlerRepo) EnqueueJob(_ context.Context, _ string, _ string, _ string, _ JobConfig) (*BenchJob, error) {
+func (r *handlerRepo) EnqueueJob(_ context.Context, _ string, _ string, _ string, cfg JobConfig) (*BenchJob, error) {
+	r.lastEnqueueCfg = cfg
 	if r.enqueuedJob != nil {
 		return r.enqueuedJob, nil
 	}
@@ -1277,10 +1280,17 @@ func (r *matrixRepo) UpsertScenarios(_ context.Context, _ []bench.ScenarioSummar
 // spyExecutor records whether Start was called.
 type spyExecutor struct {
 	started bool
+	job     *TriggerJob
+	startedCh chan struct{}
 }
 
-func (e *spyExecutor) Start(_ context.Context, _ *TriggerJob, _, _ string) error {
+func (e *spyExecutor) Start(_ context.Context, job *TriggerJob, _, _ string) error {
 	e.started = true
+	e.job = job
+	if e.startedCh != nil {
+		close(e.startedCh)
+		e.startedCh = nil
+	}
 	return nil
 }
 
@@ -1300,7 +1310,7 @@ func TestHandleTrigger_NoExecutor_Returns501(t *testing.T) {
 	RegisterRoutes(mux, svc, passthroughAuth("t1"))
 
 	rec := httptest.NewRecorder()
-	body := `{"model":"test-model","scenarios":["s1"]}`
+	body := `{"model":"test-model","evidence_mode":"smart","scenarios":["s1"]}`
 	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
@@ -1310,11 +1320,63 @@ func TestHandleTrigger_NoExecutor_Returns501(t *testing.T) {
 	}
 }
 
+func TestHandleTrigger_RequiresEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     &spyExecutor{},
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"test-model","scenarios":["s1","s2"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestHandleTrigger_RejectsInvalidEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     &spyExecutor{},
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"test-model","evidence_mode":"proxy","scenarios":["s1"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	t.Parallel()
 
 	store := NewTriggerStore()
-	spy := &spyExecutor{}
+	spy := &spyExecutor{startedCh: make(chan struct{})}
 	repo := &handlerRepo{
 		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
 	}
@@ -1327,7 +1389,7 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	RegisterRoutes(mux, svc, passthroughAuth("t1"))
 
 	rec := httptest.NewRecorder()
-	body := `{"model":"test-model","scenarios":["s1","s2"]}`
+	body := `{"model":"test-model","evidence_mode":"smart","scenarios":["s1","s2"]}`
 	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
@@ -1342,6 +1404,16 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	}
 	if _, ok := resp["id"]; !ok {
 		t.Fatal("response missing 'id' key")
+	}
+	stored := store.Get(resp["id"].(string))
+	if stored == nil {
+		t.Fatal("stored trigger job missing")
+	}
+	if stored.EvidenceMode != "smart" {
+		t.Fatalf("stored evidence mode = %q, want smart", stored.EvidenceMode)
+	}
+	if spy.job != nil && spy.job.EvidenceMode != "smart" {
+		t.Fatalf("job evidence mode = %q, want smart", spy.job.EvidenceMode)
 	}
 }
 
@@ -1474,6 +1546,14 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 			Model:    "sonnet",
 			Provider: "bifrost",
 		},
+		claimedJob: &BenchJob{
+			ID:         "job-q-1",
+			TenantID:   "pub",
+			Model:      "sonnet",
+			Provider:   "bifrost",
+			Status:     "queued",
+			ConfigJSON: json.RawMessage(`{"scenarios":["s1"],"evidence_mode":"smart"}`),
+		},
 	}
 	svc := NewService(repo, ServiceConfig{
 		PublicTenant: "pub",
@@ -1484,7 +1564,7 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 	RegisterRoutes(mux, svc, passthroughAuth("t1"))
 
 	rec := httptest.NewRecorder()
-	body := `{"model":"sonnet","scenarios":["s1"]}`
+	body := `{"model":"sonnet","evidence_mode":"smart","scenarios":["s1"]}`
 	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
@@ -1502,6 +1582,16 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 	}
 	if resp["mode"] != "runner" {
 		t.Fatalf("mode = %v, want runner", resp["mode"])
+	}
+	if repo.lastEnqueueCfg.EvidenceMode != "smart" {
+		t.Fatalf("enqueue evidence mode = %q, want smart", repo.lastEnqueueCfg.EvidenceMode)
+	}
+	stored := store.Get("job-q-1")
+	if stored == nil {
+		t.Fatal("stored runner trigger job missing")
+	}
+	if stored.EvidenceMode != "smart" {
+		t.Fatalf("stored evidence mode = %q, want smart", stored.EvidenceMode)
 	}
 }
 
@@ -1541,5 +1631,53 @@ func TestHandleTrigger_WithPinnedRunnerUnavailable_Returns400AndSkipsExecutor(t 
 	}
 	if spy.started {
 		t.Fatal("executor should not start when pinned runner is unavailable")
+	}
+}
+
+func TestHandlePollJob_ReturnsEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{
+		runners: []Runner{
+			{
+				ID:     "runner-1",
+				Status: "healthy",
+				Config: RunnerConfig{Models: []string{"sonnet"}},
+			},
+		},
+		claimedJob: &BenchJob{
+			ID:       "job-q-2",
+			TenantID: "pub",
+			Model:    "sonnet",
+			Provider: "bifrost",
+			Status:   "queued",
+			ConfigJSON: json.RawMessage(`{
+				"scenarios":["s1"],
+				"runner_id":"runner-1",
+				"evidence_mode":"smart"
+			}`),
+		},
+	}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/runners/jobs?runner_id=runner-1", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["provider"] != "bifrost" {
+		t.Fatalf("provider = %v, want bifrost", resp["provider"])
+	}
+	if resp["evidence_mode"] != "smart" {
+		t.Fatalf("evidence_mode = %v, want smart", resp["evidence_mode"])
 	}
 }

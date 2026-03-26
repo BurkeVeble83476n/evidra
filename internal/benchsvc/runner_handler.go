@@ -115,11 +115,12 @@ func handlePollJob(svc *Service) http.HandlerFunc {
 		}
 
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{
-			"job_id":    job.ID,
-			"model":     job.Model,
-			"provider":  job.Provider,
-			"scenarios": cfg.Scenarios,
-			"timeout":   cfg.Timeout,
+			"job_id":        job.ID,
+			"model":         job.Model,
+			"provider":      job.Provider,
+			"scenarios":     cfg.Scenarios,
+			"timeout":       cfg.Timeout,
+			"evidence_mode": cfg.EvidenceMode,
 		})
 	}
 }

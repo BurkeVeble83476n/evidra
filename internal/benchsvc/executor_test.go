@@ -1,6 +1,9 @@
 package benchsvc
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -11,12 +14,13 @@ func TestTriggerStore_CreateAndGet(t *testing.T) {
 	store := NewTriggerStore()
 
 	job := &TriggerJob{
-		ID:        "job-001",
-		Status:    "pending",
-		Model:     "sonnet-4",
-		Provider:  "anthropic",
-		Total:     2,
-		CreatedAt: time.Now(),
+		ID:           "job-001",
+		Status:       "pending",
+		Model:        "sonnet-4",
+		Provider:     "anthropic",
+		EvidenceMode: "smart",
+		Total:        2,
+		CreatedAt:    time.Now(),
 		Progress: []ScenarioProgress{
 			{Scenario: "cka-01", Status: "pending"},
 			{Scenario: "cka-02", Status: "pending"},
@@ -31,6 +35,9 @@ func TestTriggerStore_CreateAndGet(t *testing.T) {
 	}
 	if got.Model != "sonnet-4" {
 		t.Errorf("model = %q, want %q", got.Model, "sonnet-4")
+	}
+	if got.EvidenceMode != "smart" {
+		t.Errorf("evidence_mode = %q, want smart", got.EvidenceMode)
 	}
 	if got.Total != 2 {
 		t.Errorf("total = %d, want 2", got.Total)
@@ -104,5 +111,50 @@ func TestTriggerStore_UpdateNotifiesSubscriber(t *testing.T) {
 	// Update for unknown job returns false.
 	if store.Update(ProgressUpdate{JobID: "unknown"}) {
 		t.Error("expected false for unknown job update")
+	}
+}
+
+func TestRemoteExecutor_StartSendsEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	var payload map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/v1/certify" {
+			t.Fatalf("path = %s, want /v1/certify", r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	exec := NewRemoteExecutor(srv.URL)
+	job := &TriggerJob{
+		ID:           "job-123",
+		Status:       "pending",
+		Model:        "sonnet",
+		Provider:     "bifrost",
+		EvidenceMode: "smart",
+		Total:        1,
+		Progress: []ScenarioProgress{
+			{Scenario: "s1", Status: "pending"},
+		},
+		CreatedAt: time.Now(),
+	}
+
+	if err := exec.Start(t.Context(), job, "https://evidra.example", "Bearer token"); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	cfg, ok := payload["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("config missing or wrong type: %#v", payload["config"])
+	}
+	if got := cfg["evidence_mode"]; got != "smart" {
+		t.Fatalf("evidence_mode = %v, want smart", got)
 	}
 }

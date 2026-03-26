@@ -55,6 +55,7 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 		Scenarios:       scenarios,
 		Config: map[string]any{
 			"timeout_per_scenario": 300,
+			"evidence_mode":        job.EvidenceMode,
 		},
 		Callback: certifyCallback{
 			ProgressURL:  evidraURL + "/v1/bench/trigger/" + job.ID + "/progress",
