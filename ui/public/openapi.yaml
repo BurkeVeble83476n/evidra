@@ -684,11 +684,13 @@ paths:
       parameters:
         - name: evidence_mode
           in: query
-          description: Top-level bench filter alias (All | Baseline | Evidra).
           schema:
             type: string
-            enum: [all, none, evidra]
-            default: all
+          description: |
+            Empty means all runs.
+            `none` returns baseline runs only.
+            `evidra` returns all non-`none` runs.
+            Other exact stored values may still exist for internal callers.
       responses:
         '200':
           description: Leaderboard data
@@ -715,11 +717,7 @@ paths:
           schema: { type: string }
         - name: evidence_mode
           in: query
-          description: Top-level bench filter alias (All | Baseline | Evidra).
-          schema:
-            type: string
-            enum: [all, none, evidra]
-            default: all
+          schema: { type: string }
         - name: limit
           in: query
           schema: { type: integer, default: 50 }
@@ -869,6 +867,16 @@ paths:
     get:
       summary: Aggregate statistics
       tags: [Bench]
+      parameters:
+        - name: evidence_mode
+          in: query
+          schema:
+            type: string
+          description: |
+            Empty means all runs.
+            `none` returns baseline runs only.
+            `evidra` returns all non-`none` runs.
+            Other exact stored values may still exist for internal callers.
       responses:
         '200':
           description: Stats
@@ -1062,8 +1070,11 @@ paths:
           in: query
           schema:
             type: string
-            enum: [all, none, evidra]
-            default: all
+          description: |
+            Empty means all runs.
+            `none` returns baseline runs only.
+            `evidra` returns all non-`none` runs.
+            Other exact stored values may still exist for internal callers.
       responses:
         '200':
           description: Pairwise comparison or model matrix grid
@@ -1078,8 +1089,8 @@ paths:
           in: query
           schema:
             type: string
-            enum: [all, none, evidra]
-            default: all
+            enum: [proxy, smart]
+            default: proxy
         - name: since
           in: query
           schema: { type: string, format: date-time }
@@ -1180,7 +1191,7 @@ paths:
     post:
       tags: [Bench]
       summary: Start a benchmark run
-      description: Starts a benchmark run via the configured executor or enqueues it for a healthy poll-based runner. Returns a job ID for progress tracking. The request requires evidence_mode and only accepts none or smart.
+      description: Starts a benchmark run via the configured executor or enqueues it for a healthy poll-based runner. Returns a job ID for progress tracking.
       security:
         - bearerAuth: []
       requestBody:
@@ -1189,7 +1200,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [model, scenarios, evidence_mode]
+              required: [model, scenarios]
               properties:
                 model:
                   type: string
@@ -1197,10 +1208,6 @@ paths:
                 provider:
                   type: string
                   example: deepseek
-                evidence_mode:
-                  type: string
-                  description: Required trigger evidence mode. Allowed values are none or smart.
-                  enum: [none, smart]
                 runner_id:
                   type: string
                   description: Optional runner pin. When set, the request is accepted only if that healthy runner supports the requested model.
@@ -1441,7 +1448,7 @@ paths:
     get:
       tags: [Bench]
       summary: Poll for the next runner job
-      description: Polls the persisted bench job queue. The poll also acts as the runner heartbeat. Claimed jobs include evidence_mode.
+      description: Polls the persisted bench job queue. The poll also acts as the runner heartbeat.
       security:
         - bearerAuth: []
       parameters:
@@ -1461,10 +1468,6 @@ paths:
                   job_id: { type: string }
                   model: { type: string }
                   provider: { type: string }
-                  evidence_mode:
-                    type: string
-                    description: Evidence mode requested when the job was triggered.
-                    enum: [none, smart]
                   scenarios:
                     type: array
                     items: { type: string }

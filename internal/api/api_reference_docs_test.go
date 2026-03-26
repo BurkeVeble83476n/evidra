@@ -84,6 +84,32 @@ func assertOperationHasQueryParameter(t *testing.T, spec *yaml.Node, path, metho
 	t.Fatalf("%s %s missing query parameter %s", strings.ToUpper(method), path, paramName)
 }
 
+func assertQueryParameterDescriptionContains(t *testing.T, spec *yaml.Node, path, method, paramName string, snippets ...string) {
+	t.Helper()
+
+	params := operationParameters(t, spec, path, method)
+	for _, param := range params.Content {
+		name := findMappingValueOptional(param, "name")
+		in := findMappingValueOptional(param, "in")
+		if name == nil || in == nil || name.Value != paramName || in.Value != "query" {
+			continue
+		}
+
+		description := findMappingValueOptional(param, "description")
+		if description == nil {
+			t.Fatalf("%s %s query param %s missing description", strings.ToUpper(method), path, paramName)
+		}
+		for _, snippet := range snippets {
+			if !strings.Contains(description.Value, snippet) {
+				t.Fatalf("%s %s query param %s description = %q, want %q", strings.ToUpper(method), path, paramName, description.Value, snippet)
+			}
+		}
+		return
+	}
+
+	t.Fatalf("%s %s missing query parameter %s", strings.ToUpper(method), path, paramName)
+}
+
 func assertQueryParameterDefaults(t *testing.T, spec *yaml.Node, path, paramName, wantDefault, wantMaximum string) {
 	t.Helper()
 
