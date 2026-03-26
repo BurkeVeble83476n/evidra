@@ -232,6 +232,33 @@ call_named_tool() {
   esac
 }
 
+call_named_tool_text() {
+  local tool="$1" args_json="$2" env_label="${3:-}"
+  case "$MODE" in
+    local-mcp)
+      inspector_call_tool "$tool" "$args_json" "$env_label" | jq -r '.content[0].text // empty'
+      ;;
+    hosted-mcp)
+      _hosted_call_tool_raw "$tool" "$args_json" | jq -r '.result.content[0].text // .content[0].text // empty'
+      ;;
+  esac
+}
+
+describe_tool_schema_required() {
+  local tool="$1"
+  local args
+  args=$(jq -n --arg name "$tool" '{name:$name}')
+
+  local describe_text schema_json
+  describe_text=$(call_named_tool_text "describe_tool" "$args")
+  schema_json=$(printf '%s\n' "$describe_text" | sed -n '/^Input Schema:$/,$p' | sed '1d')
+  if [[ -z "$schema_json" ]]; then
+    return 1
+  fi
+
+  printf '%s\n' "$schema_json" | jq -c '.required // []'
+}
+
 lookup_event_from_local_store() {
   local local_event_id="$1"
   local segments_dir="$EVIDENCE_DIR/segments"

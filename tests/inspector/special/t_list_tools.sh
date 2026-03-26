@@ -5,7 +5,7 @@ raw_tools=$(call_list_tools) || {
   return
 }
 
-for t in run_command collect_diagnostics write_file prescribe_full prescribe_smart report get_event; do
+for t in run_command collect_diagnostics write_file prescribe_full prescribe_smart report get_event describe_tool; do
   has_tool=$(echo "$raw_tools" | jq --arg t "$t" '[.tools[]? | select(.name == $t)] | length')
   if [[ "$has_tool" -gt 0 ]]; then
     pass "list_tools/${t}_registered"
@@ -19,6 +19,20 @@ if [[ "$legacy_prescribe" == "0" ]]; then
   pass "list_tools/legacy_prescribe_absent"
 else
   fail "list_tools/legacy_prescribe_absent" "legacy prescribe tool should not be registered"
+fi
+
+prescribe_smart_tool=$(tool_from_list "$raw_tools" "prescribe_smart")
+if [[ "$(echo "$prescribe_smart_tool" | jq -r '.description // empty')" == *"Use describe_tool for the full schema"* ]]; then
+  pass "list_tools/prescribe_smart_describe_tool_guidance"
+else
+  fail "list_tools/prescribe_smart_describe_tool_guidance" "missing deferred schema guidance"
+fi
+
+report_tool=$(tool_from_list "$raw_tools" "report")
+if [[ "$(echo "$report_tool" | jq -r '.description // empty')" == *"Use describe_tool for the full schema"* ]]; then
+  pass "list_tools/report_describe_tool_guidance"
+else
+  fail "list_tools/report_describe_tool_guidance" "missing deferred schema guidance"
 fi
 
 run_command_tool=$(tool_from_list "$raw_tools" "run_command")
@@ -64,7 +78,10 @@ for field in tool operation raw_artifact actor; do
   fi
 done
 
-prescribe_smart_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "prescribe_smart")][0].inputSchema.required // []')
+prescribe_smart_required=$(describe_tool_schema_required "prescribe_smart") || {
+  fail "list_tools/prescribe_smart_describe_tool_schema" "describe_tool did not return a schema"
+  prescribe_smart_required='[]'
+}
 for field in tool operation resource actor; do
   found=$(echo "$prescribe_smart_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
   if [[ "$found" -gt 0 ]]; then
@@ -74,7 +91,10 @@ for field in tool operation resource actor; do
   fi
 done
 
-report_required=$(echo "$raw_tools" | jq -c '[.tools[]? | select(.name == "report")][0].inputSchema.required // []')
+report_required=$(describe_tool_schema_required "report") || {
+  fail "list_tools/report_describe_tool_schema" "describe_tool did not return a schema"
+  report_required='[]'
+}
 for field in prescription_id verdict; do
   found=$(echo "$report_required" | jq --arg f "$field" '[.[]? | select(. == $f)] | length')
   if [[ "$found" -gt 0 ]]; then
