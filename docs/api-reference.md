@@ -351,20 +351,34 @@ TODO: exact-match stored subtype filtering for internal modes like `proxy`,
 
 #### GET /v1/bench/leaderboard
 
-Model ranking by pass rate.
+Model ranking by pass rate with pass^k reliability metric.
 
-Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly)
+Query params:
+- `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly)
+- `k` (integer, 1-10, default 3) — number of trials for pass^k reliability metric
 
 Response:
 ```json
 {
   "models": [
-    {"model": "claude-sonnet-4", "scenarios": 33, "runs": 40, "pass_rate": 97.5, "avg_duration": 72.0, "avg_cost": 0.24, "total_cost": 8.07}
+    {
+      "model": "claude-sonnet-4",
+      "scenarios": 33,
+      "runs": 40,
+      "pass_rate": 97.5,
+      "avg_duration": 72.0,
+      "avg_cost": 0.24,
+      "total_cost": 8.07,
+      "pass_k": 85.2,
+      "pass_k_trials": 3,
+      "sufficient_scenarios": 28
+    }
   ],
-  "evidence_mode": ""
   "evidence_mode": ""
 }
 ```
+
+`pass_k` is the pass^k reliability score (0-100): for each scenario with >= k trials, compute POWER(pass_rate, k), then average across qualifying scenarios. `sufficient_scenarios` shows how many scenarios had enough trials.
 
 #### GET /v1/bench/scenarios
 

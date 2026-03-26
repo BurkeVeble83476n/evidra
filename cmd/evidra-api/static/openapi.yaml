@@ -686,15 +686,35 @@ paths:
           in: query
           schema:
             type: string
+            enum: [all, none, evidra]
           description: |
             Top-level bench filter alias (All | Baseline | Evidra).
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
             Non-empty, non-`evidra` values are exact-match filters against stored modes.
+        - name: k
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+          description: Number of trials for pass^k reliability metric
       responses:
         '200':
-          description: Leaderboard data
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeaderboardEntry'
+                  evidence_mode:
+                    type: string
 
   /v1/bench/scenarios:
     get:
@@ -1597,6 +1617,34 @@ components:
         error:
           type: string
       required: [error]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        model:
+          type: string
+        scenarios:
+          type: integer
+        runs:
+          type: integer
+        pass_rate:
+          type: number
+          description: Run-weighted pass rate (0-100)
+        avg_duration:
+          type: number
+        avg_cost:
+          type: number
+        total_cost:
+          type: number
+        pass_k:
+          type: number
+          description: "pass^k reliability — probability all k trials pass per scenario, averaged across qualifying scenarios (0-100)"
+        pass_k_trials:
+          type: integer
+          description: k value used
+        sufficient_scenarios:
+          type: integer
+          description: Scenarios with >= k trials
 
     EnabledModel:
       type: object
