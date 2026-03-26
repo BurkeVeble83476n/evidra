@@ -35,15 +35,19 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			return
 		}
 
-		// Resolve provider from model catalog when not explicitly supplied.
+		// Resolve provider and validate API key from model catalog.
 		provider := req.Provider
+		info, err := svc.ResolveModelProvider(r.Context(), req.Model)
+		if err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "unknown model: "+req.Model)
+			return
+		}
 		if provider == "" {
-			info, err := svc.ResolveModelProvider(r.Context(), req.Model)
-			if err != nil {
-				apiutil.WriteError(w, http.StatusBadRequest, "unknown model: "+req.Model)
-				return
-			}
 			provider = info.Provider
+		}
+		if info.APIKeyEnv != "" && os.Getenv(info.APIKeyEnv) == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "no API key configured for model: "+req.Model)
+			return
 		}
 
 		progress := make([]ScenarioProgress, len(req.Scenarios))

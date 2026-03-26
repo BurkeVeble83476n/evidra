@@ -27,6 +27,8 @@ type EnabledModel struct {
 	ID                string  `json:"id"`
 	DisplayName       string  `json:"display_name"`
 	Provider          string  `json:"provider"`
+	APIBaseURL        string  `json:"api_base_url,omitempty"`
+	APIKeyEnv         string  `json:"-"` // never exposed to clients
 	InputCostPerMtok  float64 `json:"input_cost_per_mtok"`
 	OutputCostPerMtok float64 `json:"output_cost_per_mtok"`
 }
@@ -44,6 +46,7 @@ type TenantProviderConfig struct {
 type ModelProviderInfo struct {
 	Provider   string `json:"provider"`
 	APIBaseURL string `json:"api_base_url"`
+	APIKeyEnv  string `json:"-"`
 }
 
 // GlobalModelConfig holds platform-level configuration for a model.
@@ -301,7 +304,7 @@ func (s *PgStore) Catalog(ctx context.Context, tenantID string) (*bench.RunCatal
 // the tenant has an enabled provider entry for that model.
 func (s *PgStore) ListEnabledModels(ctx context.Context, tenantID string) ([]EnabledModel, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT m.id, m.display_name, m.provider,
+		SELECT m.id, m.display_name, m.provider, m.api_base_url, m.api_key_env,
 		       m.input_cost_per_mtok, m.output_cost_per_mtok
 		FROM bench_models m
 		LEFT JOIN bench_tenant_providers tp
@@ -321,6 +324,8 @@ func (s *PgStore) ListEnabledModels(ctx context.Context, tenantID string) ([]Ena
 			&model.ID,
 			&model.DisplayName,
 			&model.Provider,
+			&model.APIBaseURL,
+			&model.APIKeyEnv,
 			&model.InputCostPerMtok,
 			&model.OutputCostPerMtok,
 		); err != nil {
@@ -390,8 +395,8 @@ func (s *PgStore) UpdateGlobalModel(ctx context.Context, modelID string, cfg Glo
 func (s *PgStore) ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error) {
 	var info ModelProviderInfo
 	err := s.db.QueryRow(ctx,
-		`SELECT provider, api_base_url FROM bench_models WHERE id = $1`, modelID,
-	).Scan(&info.Provider, &info.APIBaseURL)
+		`SELECT provider, api_base_url, api_key_env FROM bench_models WHERE id = $1`, modelID,
+	).Scan(&info.Provider, &info.APIBaseURL, &info.APIKeyEnv)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("benchsvc.ResolveModelProvider: model %q: %w", modelID, ErrNotFound)
 	}

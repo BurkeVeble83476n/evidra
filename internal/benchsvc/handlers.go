@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -334,10 +335,30 @@ func handleListModels(svc *Service) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if models == nil {
-			models = []EnabledModel{}
+
+		type modelResponse struct {
+			ID                string  `json:"id"`
+			DisplayName       string  `json:"display_name"`
+			Provider          string  `json:"provider"`
+			APIBaseURL        string  `json:"api_base_url,omitempty"`
+			Available         bool    `json:"available"`
+			InputCostPerMtok  float64 `json:"input_cost_per_mtok"`
+			OutputCostPerMtok float64 `json:"output_cost_per_mtok"`
 		}
-		apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": models})
+
+		result := make([]modelResponse, 0, len(models))
+		for _, m := range models {
+			result = append(result, modelResponse{
+				ID:                m.ID,
+				DisplayName:       m.DisplayName,
+				Provider:          m.Provider,
+				APIBaseURL:        m.APIBaseURL,
+				Available:         os.Getenv(m.APIKeyEnv) != "",
+				InputCostPerMtok:  m.InputCostPerMtok,
+				OutputCostPerMtok: m.OutputCostPerMtok,
+			})
+		}
+		apiutil.WriteJSON(w, http.StatusOK, map[string]any{"models": result})
 	}
 }
 
