@@ -8,13 +8,16 @@ import (
 
 // LeaderboardEntry represents one model's aggregate benchmark performance.
 type LeaderboardEntry struct {
-	Model       string  `json:"model"`
-	Scenarios   int     `json:"scenarios"`
-	Runs        int     `json:"runs"`
-	PassRate    float64 `json:"pass_rate"`
-	AvgDuration float64 `json:"avg_duration"`
-	AvgCost     float64 `json:"avg_cost"`
-	TotalCost   float64 `json:"total_cost"`
+	Model               string  `json:"model"`
+	Scenarios           int     `json:"scenarios"`
+	Runs                int     `json:"runs"`
+	PassRate            float64 `json:"pass_rate"`
+	AvgDuration         float64 `json:"avg_duration"`
+	AvgCost             float64 `json:"avg_cost"`
+	TotalCost           float64 `json:"total_cost"`
+	PassK               float64 `json:"pass_k"`               // pass^k reliability (0-100)
+	PassKTrials         int     `json:"pass_k_trials"`        // k value used
+	SufficientScenarios int     `json:"sufficient_scenarios"` // scenarios with >= k trials
 }
 
 // RunRecord represents a single benchmark run stored in bench_runs.
