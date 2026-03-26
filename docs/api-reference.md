@@ -431,6 +431,10 @@ Response:
 
 #### PUT /v1/bench/models/{model_id}/provider
 
+> **Not yet enabled.** Per-tenant API key storage requires AES-256-GCM encryption
+> (tracked as a prerequisite for SaaS). Currently all tenants share platform-level
+> credentials configured via environment variables.
+
 Create or update a tenant-specific provider override for a model.
 
 Request body:
@@ -450,6 +454,8 @@ Errors:
 - `500` — provider update failed
 
 #### DELETE /v1/bench/models/{model_id}/provider
+
+> **Not yet enabled.** See PUT above.
 
 Delete the tenant-specific provider override for a model.
 
