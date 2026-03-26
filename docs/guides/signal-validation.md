@@ -7,6 +7,7 @@
 
 Evidra ships a deterministic signal-validation harness for checking whether the
 behavioral signal engine still differentiates meaningful operation patterns.
+This is the retained signal/scoring harness used for local calibration and CI.
 
 ## What It Covers
 
@@ -26,6 +27,7 @@ The harness exercises these behavioral patterns:
 
 - uses only the local `evidra` CLI plus `jq`
 - writes evidence into a temporary local store
+- writes run artifacts under `/tmp/evidra-signal-validation-results/<timestamp>/`
 - runs scripted prescribe/report sequences
 - validates observed signals and score bands against `expected-bands.json`
 

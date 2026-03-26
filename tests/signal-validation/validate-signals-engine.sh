@@ -16,7 +16,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 EXPECTED_BANDS_FILE="${EXPECTED_BANDS_FILE:-$SCRIPT_DIR/expected-bands.json}"
 SCORECARD_MIN_OPERATIONS="${SCORECARD_MIN_OPERATIONS:-1}"
 export SCORECARD_MIN_OPERATIONS
@@ -41,7 +40,7 @@ if [ ! -f "$EXPECTED_BANDS_FILE" ]; then
 fi
 
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-RESULTS_DIR="${RESULTS_DIR:-$REPO_ROOT/experiments/results/signals/$RUN_STAMP}"
+RESULTS_DIR="${RESULTS_DIR:-/tmp/evidra-signal-validation-results/$RUN_STAMP}"
 mkdir -p "$RESULTS_DIR"
 SUMMARY_JSONL="$RESULTS_DIR/summary.jsonl"
 : > "$SUMMARY_JSONL"

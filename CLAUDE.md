@@ -35,7 +35,6 @@ Evidra Benchmark is a **flight recorder for infrastructure automation** — it o
 - `cmd/evidra/` — CLI for prescribe, report, scorecard, explain, compare, record, import, validate, import-findings, prompts, detectors, keygen, and version commands
 - `cmd/evidra-mcp/` — MCP server with two modes: direct (agent calls prescribe/report) and proxy (wraps upstream MCP server, auto-records mutations)
 - `cmd/evidra-api/` — Self-hosted API server with embedded UI, webhooks, and database-backed storage
-- `cmd/evidra-exp/` — Experiment runner for agent evaluation and risk prediction benchmarks
 
 ### Core pipeline
 
@@ -87,10 +86,9 @@ exit code + prescription_id → Report → signal detectors → Scorecard
 - **`internal/automationevent/`** — Defines v1 ingestion contract for completed automation executions.
 - **`internal/sarif/`** — Parses SARIF security analysis reports into evidence format.
 
-**Experiments & prompts:**
+**Prompts:**
 
-- **`internal/experiments/`** — Artifact evaluation and risk prediction metrics (precision, recall, F1).
-- **`internal/promptfactory/`** — Loads prompt bundles (CONTRACT, CLASSIFICATION, OUTPUT_CONTRACTS) from YAML.
+- **`internal/promptfactory/`** — Loads prompt bundles from the source contract tree (`CONTRACT`, `CLASSIFICATION`) and generates the active MCP server, MCP prompt-reference, and skill outputs.
 
 **Infra:**
 

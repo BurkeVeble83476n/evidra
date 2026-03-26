@@ -30,8 +30,6 @@ require_pattern() {
 require_pattern "README.md" "EVIDRA_SIGNING_MODE"
 require_pattern "README.md" "make test-mcp-inspector"
 require_pattern "README.md" "docs/integrations/cli-reference.md"
-require_pattern "docs/integrations/cli-reference.md" "evidra-exp artifact run"
-require_pattern "docs/integrations/cli-reference.md" "--delay-between-runs"
 require_pattern "docs/integrations/cli-reference.md" "evidra-mcp"
 require_pattern "docs/integrations/cli-reference.md" "evidra prescribe"
 require_pattern "docs/integrations/scanner-sarif-quickstart.md" "--signing-mode optional"
@@ -51,8 +49,6 @@ cat >"$tmpdir/artifact.json" <<'JSON'
 JSON
 
 go run ./cmd/evidra-mcp --help >/dev/null
-go run ./cmd/evidra-exp --help >/dev/null
-go run ./cmd/evidra-exp artifact --help >/dev/null
 
 prescribe_out="$(go run ./cmd/evidra prescribe \
   --tool terraform \

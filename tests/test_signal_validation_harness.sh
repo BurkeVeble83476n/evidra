@@ -25,11 +25,24 @@ grep -Fq 'check_sequence_coverage()' tests/signal-validation/validate-signals-en
 grep -Fq 'register_sequence "I_escalation"' tests/signal-validation/validate-signals-engine.sh \
   || fail "validation harness should execute risk escalation sequence"
 
+grep -Fq 'RESULTS_DIR="${RESULTS_DIR:-/tmp/evidra-signal-validation-results/$RUN_STAMP}"' tests/signal-validation/validate-signals-engine.sh \
+  || fail "validation harness should write results to /tmp by default"
+
 grep -Fq 'backdate_evidence_entries "$SEQ_C_DIR" 120' tests/signal-validation/validate-signals-engine.sh \
   || fail "protocol violation sequence should backdate evidence instead of relying on wall clock timing"
 
 grep -Fq 'docs/guides/signal-validation.md' tests/signal-validation/README.md \
   || fail "signal validation README should point at the public guide"
+
+grep -Fq 'retained signal/scoring harness' tests/signal-validation/README.md \
+  || fail "signal validation README should describe the retained harness accurately"
+
+if grep -Eq 'removed experiments harness|experiments decommissioning' tests/signal-validation/README.md docs/guides/signal-validation.md docs/system-design/EVIDRA_ARCHITECTURE_V1.md; then
+  fail "public docs should not mention the removed experiments surface"
+fi
+
+grep -Fq '/tmp/evidra-signal-validation-results/<timestamp>/' tests/signal-validation/README.md \
+  || fail "signal validation README should document the /tmp results directory"
 
 grep -Eq '^test-signals: build$' Makefile \
   || fail "make test-signals should rebuild the CLI before running the harness"

@@ -45,6 +45,35 @@ func TestLoadBundle_LatestContractVersion(t *testing.T) {
 	}
 }
 
+func TestLoadBundle_AllowsMissingAuxiliaryContractFile(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	versionDir := filepath.Join(rootDir, "prompts", "source", "contracts", "v1.0.1")
+	if err := os.MkdirAll(versionDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+
+	repoRootDir := repoRoot(t)
+	for _, name := range []string{"CONTRACT.yaml", "CLASSIFICATION.yaml"} {
+		src, err := os.ReadFile(filepath.Join(repoRootDir, "prompts", "source", "contracts", "v1.0.1", name))
+		if err != nil {
+			t.Fatalf("ReadFile(%s): %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(versionDir, name), src, 0o644); err != nil {
+			t.Fatalf("WriteFile(%s): %v", name, err)
+		}
+	}
+
+	bundle, err := LoadBundle(rootDir, "v1.0.1")
+	if err != nil {
+		t.Fatalf("LoadBundle without OUTPUT_CONTRACTS.yaml: %v", err)
+	}
+	if bundle.Contract.Version != "v1.0.1" {
+		t.Fatalf("contract version = %q, want v1.0.1", bundle.Contract.Version)
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 

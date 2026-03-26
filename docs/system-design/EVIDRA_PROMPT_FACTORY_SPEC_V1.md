@@ -12,10 +12,9 @@ Evidra has multiple prompt surfaces:
 - MCP server prompts (`prompts/mcpserver/*`)
 - MCP prompt references (`prompts/mcp/*`)
 - Skill definitions (`prompts/skill/*`)
-- Runtime experiment prompts (`prompts/experiments/runtime/*`)
 - Framework-specific integrations (future)
 
-If these prompts evolve independently, protocol behavior drifts and experiment results become non-comparable.
+If these prompts evolve independently, protocol behavior drifts and validation results become non-comparable.
 
 We need one canonical prompt contract artifact and deterministic generation to all target surfaces.
 
@@ -27,7 +26,7 @@ We need one canonical prompt contract artifact and deterministic generation to a
 2. Deterministic generation for different agents, runtimes, and protocols.
 3. Shared contract version across generated outputs.
 4. Explicit traceability: every generated prompt maps to one source contract artifact.
-5. Backward compatibility with existing runtime file paths.
+5. Backward compatibility with existing active prompt file paths.
 
 ---
 
@@ -46,7 +45,6 @@ Canonical source is a versioned contract artifact:
 - Contract semantics (normative rules/invariants)
 - Command classification (mutate vs read-only)
 - Required failure-path rules
-- Output contract requirements (when target requires strict JSON output)
 - Target template bindings
 
 Generated prompts are artifacts, not hand-authored source.
@@ -68,7 +66,6 @@ prompts/
       v1.3.0/                              # active contract
         CONTRACT.yaml                      # canonical rules and invariants
         CLASSIFICATION.yaml                # mutate/read-only command taxonomy
-        OUTPUT_CONTRACTS.yaml              # strict output schemas by target mode
         CHANGELOG.md
         templates/
           mcp/
@@ -82,9 +79,6 @@ prompts/
             prompt_prescribe_full.tmpl
             prompt_prescribe_smart.tmpl
             prompt_diagnosis.tmpl
-          runtime/
-            system_instructions.tmpl
-            agent_contract.tmpl
           skill/
             SKILL.tmpl
             SKILL_SMART.tmpl
@@ -106,10 +100,6 @@ prompts/
         prompt_prescribe_full.md
         prompt_prescribe_smart.md
         prompt_diagnosis.md
-      experiments/
-        runtime/
-          system_instructions.txt
-          agent_contract_v1.md
       skill/
         SKILL.md
         SKILL_SMART.md
@@ -121,14 +111,13 @@ prompts/
     v1.2.0.json
     v1.3.0.json                            # active manifest
 
-  mcpserver/                               # active runtime location (compat)
+  mcpserver/                               # active MCP server location (compat)
   mcp/                                     # active prompt reference location (compat)
   skill/                                   # active skill definitions (compat)
-  experiments/runtime/                     # active runtime location (compat)
 ```
 
 Compatibility rule:
-- Runtime and embedded prompt readers continue reading current active paths (`prompts/mcpserver/*`, `prompts/mcp/*`, `prompts/skill/*`, `prompts/experiments/runtime/*`).
+- Prompt readers continue reading current active paths (`prompts/mcpserver/*`, `prompts/mcp/*`, `prompts/skill/*`).
 - Generation pipeline MUST materialize outputs into those active paths.
 - Some render specs are optional across contract versions. Legacy bundles may
   generate fewer active files, such as `tools/prescribe_description.txt` in
@@ -141,9 +130,8 @@ Compatibility rule:
 Inputs:
 1. `CONTRACT.yaml`
 2. `CLASSIFICATION.yaml`
-3. `OUTPUT_CONTRACTS.yaml`
-4. target templates
-5. profile (optional)
+3. target templates
+4. profile (optional)
 
 Outputs:
 1. Generated prompt files for each target surface.
@@ -216,22 +204,12 @@ Must preserve:
 - same core invariants as MCP
 - tool selection guidance (full vs smart)
 
-### Runtime Harness (Artifact Assessment + Execution Harness)
-
-Generated files:
-- `system_instructions.txt`
-- `agent_contract_v1.md`
-
-Must preserve:
-- same core invariants as MCP
-- strict output contract in assessment mode
-
 ### Future targets
 
 Templates may be added for:
 - OpenAI tool runtimes
 - LangChain/LangGraph wrappers
-- REST/hosted harness instruction formats
+- REST/hosted instruction formats
 
 ---
 
@@ -281,4 +259,3 @@ Single source contract ownership:
 Review requirement for contract changes:
 1. protocol correctness review
 2. benchmark comparability review
-3. experiment harness compatibility review

@@ -16,7 +16,6 @@ type renderData struct {
 	SkillVersion    string
 	Contract        Contract
 	Classification  Classification
-	Output          OutputContracts
 }
 
 type renderSpec struct {
@@ -90,7 +89,6 @@ func RenderFiles(rootDir string, bundle Bundle) ([]RenderedFile, error) {
 		SkillVersion:    promptdata.ParseSkillVersionFromContractVersion(bundle.Contract.Version),
 		Contract:        bundle.Contract,
 		Classification:  bundle.Classification,
-		Output:          bundle.Output,
 	}
 
 	out := make([]RenderedFile, 0, len(specs))
@@ -147,18 +145,6 @@ func requiredRenderSpecs(contractVersion string) []renderSpec {
 			template:  "templates/mcp/agent_contract.tmpl",
 			generated: filepath.Join("prompts", "generated", contractVersion, "mcpserver", "resources", "content", "agent_contract_v1.md"),
 			active:    filepath.Join("prompts", "mcpserver", "resources", "content", "agent_contract_v1.md"),
-		},
-		{
-			id:        "runtime.system",
-			template:  "templates/runtime/system_instructions.tmpl",
-			generated: filepath.Join("prompts", "generated", contractVersion, "experiments", "runtime", "system_instructions.txt"),
-			active:    filepath.Join("prompts", "experiments", "runtime", "system_instructions.txt"),
-		},
-		{
-			id:        "runtime.agent_contract",
-			template:  "templates/runtime/agent_contract.tmpl",
-			generated: filepath.Join("prompts", "generated", contractVersion, "experiments", "runtime", "agent_contract_v1.md"),
-			active:    filepath.Join("prompts", "experiments", "runtime", "agent_contract_v1.md"),
 		},
 		{
 			id:        "skill.skill",

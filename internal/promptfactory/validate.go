@@ -14,13 +14,7 @@ func ValidateBundle(bundle Bundle, expectedVersion string) error {
 	if err := validateMCPContract(bundle.Contract.MCP); err != nil {
 		return err
 	}
-	if err := validateRuntimeContract(bundle.Contract.Runtime); err != nil {
-		return err
-	}
 	if err := validateClassification(bundle.Classification); err != nil {
-		return err
-	}
-	if err := validateOutputContracts(bundle.Output); err != nil {
 		return err
 	}
 	if err := validateAgentContract(bundle.Contract.AgentContract); err != nil {
@@ -140,35 +134,12 @@ func validatePrescribeContracts(mcp MCPContract) error {
 	return nil
 }
 
-func validateRuntimeContract(contract RuntimeContract) error {
-	if len(contract.SystemIntro) == 0 {
-		return fmt.Errorf("runtime.system_intro is required")
-	}
-	if len(contract.ExecutionModeRules) == 0 {
-		return fmt.Errorf("runtime.execution_mode_rules is required")
-	}
-	if len(contract.AssessmentModeRequirements) == 0 {
-		return fmt.Errorf("runtime.assessment_mode_requirements is required")
-	}
-	return nil
-}
-
 func validateClassification(classification Classification) error {
 	if len(classification.MutateExamples) == 0 {
 		return fmt.Errorf("classification.mutate_examples is required")
 	}
 	if len(classification.ReadOnlyExamples) == 0 {
 		return fmt.Errorf("classification.read_only_examples is required")
-	}
-	return nil
-}
-
-func validateOutputContracts(output OutputContracts) error {
-	if output.AssessmentJSON.LevelField == "" || output.AssessmentJSON.DetailsField == "" {
-		return fmt.Errorf("output_contracts.assessment_json fields are required")
-	}
-	if len(output.AssessmentJSON.AllowedLevel) == 0 {
-		return fmt.Errorf("output_contracts.assessment_json.allowed_levels is required")
 	}
 	return nil
 }
@@ -185,9 +156,6 @@ func validateAgentContract(contract AgentContract) error {
 	}
 	if len(contract.ExecutionRules) == 0 {
 		return fmt.Errorf("agent_contract.execution_rules is required")
-	}
-	if len(contract.OutputRules) == 0 {
-		return fmt.Errorf("agent_contract.output_rules is required")
 	}
 	return nil
 }

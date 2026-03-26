@@ -15,7 +15,7 @@ Every infrastructure mutation must follow two calls:
 1. `prescribe_full` or `prescribe_smart` before execution
 2. `report` after execution
 
-This contract standardizes MCP and experiment prompts around the same prescribe/report protocol semantics.
+This contract standardizes MCP prompts around the same prescribe/report protocol semantics.
 Evidra records execution behavior; it does not block operations.
 
 

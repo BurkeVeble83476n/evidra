@@ -3,6 +3,8 @@
 **Zero dependencies beyond `evidra` binary and `jq`.**
 No cluster. No LLM. No API keys. No external data.
 
+This retained signal/scoring harness keeps the signal engine calibrated locally and in CI.
+
 Detailed guide:
 - [`docs/guides/signal-validation.md`](../../docs/guides/signal-validation.md)
 
@@ -70,7 +72,7 @@ tests/signal-validation/
 ## After Running
 
 Evidence chains are preserved in `/tmp/evidra-signal-validation/evidence-*/`.
-Run artifacts are written to `experiments/results/signals/<timestamp>/`.
+Run artifacts are written to `/tmp/evidra-signal-validation-results/<timestamp>/`.
 Inspect manually:
 
 ```bash

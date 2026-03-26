@@ -1,9 +1,0 @@
-assessment_json:
-  level_field: "predicted_risk_level"
-  details_field: "predicted_risk_details"
-  allowed_levels:
-    - "low"
-    - "medium"
-    - "high"
-    - "critical"
-    - "unknown"

@@ -18,7 +18,7 @@
 3. For explicit control, call `prescribe_smart` before execution and `report` after execution or explicit refusal.
 4. Use `prescribe_full` only when enabled and you have artifact bytes.
 
-This contract standardizes MCP and experiment prompts around a run_command-first workflow, with explicit prescribe/report available on demand.
+This contract standardizes MCP prompts around a run_command-first workflow, with explicit prescribe/report available on demand.
 Evidra records execution behavior; it does not block operations.
 
 

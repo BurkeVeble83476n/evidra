@@ -20,7 +20,7 @@ make test          # unit tests
 make lint          # golangci-lint
 make fmt           # gofmt
 make e2e           # end-to-end tests (requires build)
-make test-signals  # signal validation scenarios
+make test-signals  # retained signal/scoring calibration harness
 ```
 
 ## Code Style

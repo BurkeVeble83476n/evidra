@@ -233,7 +233,7 @@ Architecture principle: **graph-ready, graph-free.** Signals work on `[]Entry` s
 |-----------|----------|--------|
 | Detector architecture (registry, metadata, producer chain) | V1_ARCHITECTURE (this doc) | Delivered |
 | Docker adapter + Docker detectors | V1_ARCHITECTURE (this doc) | Delivered |
-| Signal validation harness (A-G scenarios) | V1_ARCHITECTURE (this doc) | Delivered (score sufficiency still gated by operation count) |
+| Signal validation harness (A-I scenarios) | V1_ARCHITECTURE (this doc) | Delivered (calibrated separately from production sufficiency threshold) |
 | Self-hosted API | [self-hosted-setup.md](../guides/self-hosted-setup.md) | Delivered for evidence ingestion, browsing, and tenant-wide scorecard/explain |
 | Signal validation | `tests/signal-validation/` scripts | Running in CI/manual flows |
 
@@ -269,7 +269,7 @@ GitOps controllers / webhooks ---> mapped or controller-observed evidence ---^
 |-----------|----------------|
 | Community contribution + percentiles | Planned. No checked-in design doc yet. |
 | Benchmark dataset (corpus + cases) | Planned. No checked-in design doc yet. |
-| Agent experiment (multi-model) | Planned. No checked-in design doc yet. |
+| Agent experiment (multi-model) | Not planned in this snapshot. |
 | Fault injection CI job | Planned. No checked-in design doc yet. |
 | Scanner mapping lifecycle (Trivy/Checkov/Kubescape) | Planned. Current notes live in this document; no dedicated checked-in design doc yet. |
 
@@ -357,7 +357,7 @@ Score model additions:
 - `thrashing` penalty (positive weight, increases penalty)
 - `signal_profiles` map (`none|low|medium|high`) for each signal
 
-Scoring confidence/min-operations behavior remains unchanged (`MinOperations=100`).
+Scoring confidence/min-operations behavior remains unchanged (`MinOperations=100`) for production scorecard evaluation. The signal-validation harness calibrates its declared bands with `SCORECARD_MIN_OPERATIONS=1`, so its comparable output does not depend on the production sufficiency threshold.
 
 ### Validation Gate
 
@@ -366,8 +366,8 @@ Operational validation scripts:
 - `tests/signal-validation/helpers.sh`
 - `tests/signal-validation/validate-signals-engine.sh`
 
-The sequence harness covers A-G scenarios, including explicit repair and thrashing.
-Score comparison between scenarios is meaningful only when operation count reaches scorecard sufficiency (`MinOperations`).
+The sequence harness covers A-I scenarios, including explicit repair, thrashing, artifact drift, and risk escalation.
+Score comparison between scenarios is meaningful only when the harness coverage is complete and the declared calibration threshold is met; compare against the signal-validation bands rather than the production sufficiency threshold.
 
 ### Remaining Scope (not delivered in this snapshot)
 

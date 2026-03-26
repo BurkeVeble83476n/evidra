@@ -17,7 +17,7 @@ Real-world artifact-backed acceptance is the authoritative top-level e2e layer.
 | `tests/contracts` | Synthetic contract and integration validation | Small handcrafted fixtures in `tests/contracts/fixtures/` | CLI workflow contracts, output shape, signing, explain/compare, session filtering, scanner ingest |
 | `tests/inspector` | MCP Inspector and transport integration | Curated JSON cases + transport fixtures | Inspector runner behavior, stdio/REST/hosted transport coverage |
 | `tests/benchmark` | Dataset and benchmark contract validation | Benchmark cases, contract snapshots, and corpus metadata | Dataset integrity, benchmark contract drift, coverage reporting |
-| `tests/signal-validation` | Scripted behavioral signal calibration | Local evidence sequences, no external infra | Signal differentiation and scoring sanity |
+| `tests/signal-validation` | Retained signal/scoring calibration harness | Local evidence sequences, no external infra | Signal differentiation and scoring sanity |
 | Package tests under `cmd/`, `internal/`, `pkg/` | Narrow local behavior | Temp files, unit fixtures | Parser behavior, detector logic, scoring math, command-specific contracts |
 
 ## Current Suite Inventory
@@ -68,8 +68,9 @@ its contract surfaces:
 
 ### `tests/signal-validation`
 
-This suite is not product e2e either. It validates the behavioral signal engine
-through scripted evidence sequences and score relationships.
+This suite is not product e2e either. It is the retained signal/scoring
+calibration harness, and it validates the behavioral signal engine through
+scripted evidence sequences and score relationships.
 
 ## Package-Level Tests That Still Matter
 
@@ -175,7 +176,7 @@ real-world artifact coverage over time:
 | `make e2e` | real-world acceptance (`tests/e2e`) |
 | `make test-contracts` | synthetic contract suite (`tests/contracts`) |
 | `make test-mcp-inspector-ci` | inspector/transport suite |
-| `make test-signals` | signal validation |
+| `make test-signals` | retained signal/scoring calibration |
 | `make benchmark-validate` | benchmark dataset validation |
 | `make benchmark-check-contracts` | benchmark contract drift checks |
 | `make benchmark-coverage` | benchmark coverage report |

@@ -23,7 +23,6 @@ const (
 	SkillPath                        = "skill/SKILL.md"
 	SkillSmartPath                   = "skill/SKILL_SMART.md"
 	SkillFullPath                    = "skill/SKILL_FULL.md"
-	RuntimeExperimentContractPath    = "prompts/experiments/runtime/agent_contract_v1.md"
 
 	DefaultContractVersion      = "v1.3.0"
 	DefaultContractSkillVersion = "1.3.0"
@@ -32,7 +31,7 @@ const (
 var (
 	contractVersionPattern = regexp.MustCompile(`^v?[0-9]+(\.[0-9]+){1,2}$`)
 
-	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/run_command_description.txt mcpserver/tools/prescribe_full_description.txt mcpserver/tools/prescribe_smart_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md experiments/runtime/agent_contract_v1.md skill/SKILL.md skill/SKILL_SMART.md skill/SKILL_FULL.md mcp/prompt_prescribe_smart.md mcp/prompt_prescribe_full.md mcp/prompt_diagnosis.md manifests/*.json
+	//go:embed mcpserver/initialize/instructions.txt mcpserver/tools/run_command_description.txt mcpserver/tools/prescribe_full_description.txt mcpserver/tools/prescribe_smart_description.txt mcpserver/tools/report_description.txt mcpserver/tools/get_event_description.txt mcpserver/resources/content/agent_contract_v1.md skill/SKILL.md skill/SKILL_SMART.md skill/SKILL_FULL.md mcp/prompt_prescribe_smart.md mcp/prompt_prescribe_full.md mcp/prompt_diagnosis.md manifests/*.json
 	files embed.FS
 )
 
@@ -100,6 +99,9 @@ func ResolvePromptMetadata(path string) (Metadata, error) {
 	normalized := normalizePromptPath(path)
 	if normalized == "" {
 		return Metadata{}, fmt.Errorf("prompt path is required")
+	}
+	if strings.HasPrefix(normalized, "prompts/experiments/runtime/") || strings.Contains(normalized, "/experiments/runtime/") {
+		return Metadata{}, fmt.Errorf("prompt path %q is no longer supported", path)
 	}
 
 	content, err := readPromptContent(path, normalized)
@@ -206,6 +208,7 @@ func normalizePromptPath(path string) string {
 	switch {
 	case strings.HasPrefix(normalized, "experiments/"),
 		strings.HasPrefix(normalized, "generated/"),
+		strings.HasPrefix(normalized, "mcp/"),
 		strings.HasPrefix(normalized, "mcpserver/"),
 		strings.HasPrefix(normalized, "skill/"):
 		return "prompts/" + normalized

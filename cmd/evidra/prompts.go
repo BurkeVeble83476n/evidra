@@ -36,7 +36,7 @@ func runPromptsGenerate(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	contractVersion := fs.String("contract", promptdata.DefaultContractVersion, "Contract version to generate")
 	root := fs.String("root", ".", "Repository root containing prompts/")
-	writeActive := fs.Bool("write-active", true, "Write active runtime prompt paths under prompts/mcpserver and prompts/experiments")
+	writeActive := fs.Bool("write-active", true, "Write active prompt paths under prompts/mcpserver, prompts/mcp, and prompts/skill")
 	writeGenerated := fs.Bool("write-generated", true, "Write generated prompt artifacts under prompts/generated/<contract>/")
 	writeManifest := fs.Bool("write-manifest", true, "Write prompt manifest under prompts/manifests/<contract>.json")
 	if err := fs.Parse(args); err != nil {

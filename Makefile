@@ -2,7 +2,7 @@
 	benchmark-validate benchmark-coverage benchmark-process-artifact benchmark-refresh-contracts benchmark-check-contracts \
 	benchmark-detect-duplicates bench-add \
 	test-contracts test-mcp-inspector test-mcp-inspector-ci test-mcp-inspector-hosted \
-	prompts-generate prompts-verify test-experiments test-signals \
+	prompts-generate prompts-verify test-signals \
 	ui-build build-api
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0-dev)
@@ -17,11 +17,6 @@ build:
 
 test:
 	go test ./... -v -count=1
-
-test-experiments:
-	go test ./internal/experiments -count=1
-	bash tests/experiments/runners/run_agent_experiments_clean_out_dir_test.sh
-	bash tests/experiments/runners/run_agent_execution_experiments_test.sh
 
 test-signals: build
 	PATH="$(PWD)/bin:$$PATH" bash tests/signal-validation/validate-signals-engine.sh

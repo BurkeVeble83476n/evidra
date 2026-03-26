@@ -3,7 +3,6 @@ package promptfactory
 type Bundle struct {
 	Contract       Contract        `yaml:"contract"`
 	Classification Classification  `yaml:"classification"`
-	Output         OutputContracts `yaml:"output_contracts"`
 }
 
 type Contract struct {
@@ -13,8 +12,6 @@ type Contract struct {
 	DevOps DevOpsContract `yaml:"devops"`
 
 	MCP MCPContract `yaml:"mcp"`
-
-	Runtime RuntimeContract `yaml:"runtime"`
 
 	AgentContract AgentContract `yaml:"agent_contract"`
 }
@@ -142,19 +139,12 @@ type GetEventContract struct {
 	Returns  []string `yaml:"returns"`
 }
 
-type RuntimeContract struct {
-	SystemIntro                []string `yaml:"system_intro"`
-	ExecutionModeRules         []string `yaml:"execution_mode_rules"`
-	AssessmentModeRequirements []string `yaml:"assessment_mode_requirements"`
-}
-
 type AgentContract struct {
 	Title          string           `yaml:"title"`
 	VersionPolicy  string           `yaml:"version_policy"`
 	Changelog      []ChangelogEntry `yaml:"changelog"`
 	Purpose        []string         `yaml:"purpose"`
 	ExecutionRules []string         `yaml:"execution_rules"`
-	OutputRules    []string         `yaml:"output_rules"`
 }
 
 type ChangelogEntry struct {
@@ -166,16 +156,6 @@ type ChangelogEntry struct {
 type Classification struct {
 	MutateExamples   []string `yaml:"mutate_examples"`
 	ReadOnlyExamples []string `yaml:"read_only_examples"`
-}
-
-type OutputContracts struct {
-	AssessmentJSON AssessmentJSONContract `yaml:"assessment_json"`
-}
-
-type AssessmentJSONContract struct {
-	LevelField   string   `yaml:"level_field"`
-	DetailsField string   `yaml:"details_field"`
-	AllowedLevel []string `yaml:"allowed_levels"`
 }
 
 type RenderedFile struct {

@@ -1,6 +1,7 @@
 package prompts
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -175,26 +176,50 @@ func TestStripContractHeader(t *testing.T) {
 	}
 }
 
-func TestResolvePromptMetadata_RuntimeContract(t *testing.T) {
+func TestResolvePromptMetadata_RuntimeContractPathsAreNotSupported(t *testing.T) {
 	t.Parallel()
 
-	absPath, err := filepath.Abs("experiments/runtime/agent_contract_v1.md")
-	if err != nil {
-		t.Fatalf("filepath.Abs: %v", err)
+	tests := []string{
+		"prompts/experiments/runtime/agent_contract_v1.md",
+		"prompts/generated/v1.3.0/experiments/runtime/agent_contract_v1.md",
 	}
 
-	meta, err := ResolvePromptMetadata(absPath)
+	for _, relPath := range tests {
+		relPath := relPath
+		t.Run(relPath, func(t *testing.T) {
+			t.Parallel()
+
+			rootDir := t.TempDir()
+			absPath := filepath.Join(rootDir, filepath.FromSlash(relPath))
+			if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+				t.Fatalf("MkdirAll: %v", err)
+			}
+			if err := os.WriteFile(absPath, []byte("# contract: v1.3.0\nruntime"), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+
+			if _, err := ResolvePromptMetadata(absPath); err == nil || !strings.Contains(err.Error(), "no longer supported") {
+				t.Fatalf("ResolvePromptMetadata(%q) error = %v, want unsupported-path error", relPath, err)
+			}
+		})
+	}
+}
+
+func TestResolvePromptMetadata_MCPPromptRelativePath(t *testing.T) {
+	t.Parallel()
+
+	meta, err := ResolvePromptMetadata(MCPPromptPrescribeSmartPath)
 	if err != nil {
 		t.Fatalf("ResolvePromptMetadata: %v", err)
+	}
+	if meta.Path != "prompts/"+MCPPromptPrescribeSmartPath {
+		t.Fatalf("path = %q, want %q", meta.Path, "prompts/"+MCPPromptPrescribeSmartPath)
 	}
 	if meta.ContractVersion != DefaultContractVersion {
 		t.Fatalf("contract_version = %q, want %q", meta.ContractVersion, DefaultContractVersion)
 	}
 	if meta.SkillVersion != DefaultContractSkillVersion {
 		t.Fatalf("skill_version = %q, want %q", meta.SkillVersion, DefaultContractSkillVersion)
-	}
-	if meta.Path != "prompts/experiments/runtime/agent_contract_v1.md" {
-		t.Fatalf("path = %q, want %q", meta.Path, "prompts/experiments/runtime/agent_contract_v1.md")
 	}
 	if meta.PromptVersion == "" {
 		t.Fatal("prompt_version is empty")
