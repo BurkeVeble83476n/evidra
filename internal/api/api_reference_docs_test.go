@@ -22,11 +22,18 @@ func TestMarkdownAPIReference_CoversLiveExternalIngestSurface(t *testing.T) {
 		"#### POST /v1/bench/trigger",
 		"#### GET /v1/runners/jobs",
 		"#### POST /v1/runners/jobs/{id}/complete",
+		"All | Baseline | Evidra",
+		"`all|none|evidra`",
+		"Requires `model`, `scenarios`, and `evidence_mode` in the request body.",
+		"claimed job payload includes `evidence_mode`",
 	}
 	for _, snippet := range requiredSnippets {
 		if !strings.Contains(doc, snippet) {
 			t.Fatalf("api reference missing %q", snippet)
 		}
+	}
+	if strings.Contains(doc, "proxy|smart") {
+		t.Fatal("api reference still uses proxy|smart wording for top-level bench filters")
 	}
 }
 

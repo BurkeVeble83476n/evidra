@@ -87,7 +87,7 @@ Evidra supports two benchmark execution paths:
 LocalExecutor provides basic trigger flow. Full scenario orchestration (seed, agent, verify) requires RemoteExecutor with an external bench service.
 
 ```text
-POST /v1/bench/trigger { model, provider?, scenarios[] }
+POST /v1/bench/trigger { model, provider?, evidence_mode, scenarios[] }
         ↓
   RunExecutor.Start()
         ↓
@@ -111,7 +111,7 @@ The runner control plane persists execution in PostgreSQL:
 - `last_progress_at` allows stale claimed jobs to be re-queued if a runner stops reporting
 
 ```text
-POST /v1/bench/trigger { model, provider?, runner_id?, scenarios[] }
+POST /v1/bench/trigger { model, provider?, runner_id?, evidence_mode, scenarios[] }
         ↓
   bench_jobs row inserted with status=queued
         ↓
@@ -130,10 +130,16 @@ POST /v1/bench/trigger { model, provider?, runner_id?, scenarios[] }
 
 Control-plane invariants:
 
+- `evidence_mode` on `POST /v1/bench/trigger` is required and limited to `none|smart`
 - only healthy runners can poll and claim work
 - `runner_id` on `POST /v1/bench/trigger` pins a job to one specific runner
+- runner poll payloads include the requested `evidence_mode`
 - a runner can only complete a job it currently owns
 - the janitor marks silent runners unhealthy and re-queues stale claimed jobs
+
+Public dashboard filters use the coarse `All | Baseline | Evidra` aliases
+(`all|none|evidra`). Exact-match stored subtypes such as `proxy`, `direct`,
+and `mcp` stay internal until the advanced filter story is documented.
 
 See [Bench Runner Control Plane Contract v1](contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md).
 

@@ -33,6 +33,7 @@ Request:
 {
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
   "runner_id": "01K...",
   "scenarios": ["broken-deployment", "repair-loop-escalation"]
 }
@@ -40,11 +41,15 @@ Request:
 
 Notes:
 
+- `evidence_mode` is required and must be `none` or `smart`
 - `runner_id` is optional. When present, the job is pinned to that runner.
 - If `runner_id` is present, the control plane rejects the request unless that
   runner is healthy and advertises the requested model.
 - If no healthy runner is available and no direct executor is configured,
   Evidra returns `501 Not Implemented`.
+- TODO: document advanced exact-match subtype filtering for stored modes in the
+  admin/debug query surface. The public trigger contract only uses the coarse
+  `none|smart` aliases.
 
 Runner-mode response:
 
@@ -52,7 +57,8 @@ Runner-mode response:
 {
   "id": "01K...",
   "status": "pending",
-  "mode": "runner"
+  "mode": "runner",
+  "evidence_mode": "smart"
 }
 ```
 
@@ -136,6 +142,7 @@ Response when a job is claimed:
   "job_id": "01K...",
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
   "scenarios": ["broken-deployment", "repair-loop-escalation"],
   "timeout": 300
 }

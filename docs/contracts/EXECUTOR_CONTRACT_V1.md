@@ -39,6 +39,7 @@ Start a benchmark run.
   "job_id": "trigger-01KMH...",
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
   "scenarios": ["broken-deployment", "repair-loop-escalation"],
   "config": {
     "timeout_per_scenario": 300,
@@ -58,6 +59,7 @@ Start a benchmark run.
 | `job_id` | string | yes | Unique job ID assigned by Evidra |
 | `model` | string | yes | LLM model name |
 | `provider` | string | no | LLM provider name |
+| `evidence_mode` | string | yes | Request-level mode. Allowed values: `none` or `smart`. Overrides the worker default. |
 | `scenarios` | string[] | yes | Scenario IDs to run |
 | `config.timeout_per_scenario` | int | no | Timeout in seconds per scenario (default: 300) |
 | `config.adapter` | string | no | Agent adapter type (default: executor's choice) |
@@ -225,6 +227,8 @@ EVIDRA_BENCH_SERVICE_URL=https://bench-service.internal:8090
 ```
 
 When set, Evidra's `POST /v1/bench/trigger` calls the executor.
+The request-level `evidence_mode` wins over the worker default and is limited
+to `none` or `smart`.
 When not set, the trigger endpoint returns `501 Not Implemented`.
 
 ## Reference Implementation
