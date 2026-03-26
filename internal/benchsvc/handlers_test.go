@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -77,7 +78,11 @@ type handlerRepo struct {
 func (r *handlerRepo) ListRuns(_ context.Context, tenant string, f bench.RunFilters) ([]bench.RunRecord, int, error) {
 	r.lastTenant = tenant
 	r.lastFilter = f
-	return r.runs, r.runsTotal, r.runsErr
+	if r.runsErr != nil {
+		return nil, 0, r.runsErr
+	}
+	filtered := filterRunsByEvidenceMode(r.runs, f.EvidenceMode)
+	return filtered, len(filtered), nil
 }
 func (r *handlerRepo) GetRun(_ context.Context, tenant, id string) (*bench.RunRecord, error) {
 	r.lastTenant = tenant
@@ -98,7 +103,13 @@ func (r *handlerRepo) InsertRunBatch(_ context.Context, _ string, _ []bench.RunR
 func (r *handlerRepo) FilteredStats(_ context.Context, tenant string, f bench.RunFilters) (*bench.StatsResult, error) {
 	r.lastTenant = tenant
 	r.lastFilter = f
-	return r.stats, r.statsErr
+	if r.statsErr != nil {
+		return nil, r.statsErr
+	}
+	if r.stats != nil {
+		return r.stats, nil
+	}
+	return aggregateStatsRuns(filterRunsByEvidenceMode(r.runs, f.EvidenceMode)), nil
 }
 func (r *handlerRepo) Catalog(_ context.Context, tenant string) (*bench.RunCatalog, error) {
 	r.lastTenant = tenant
@@ -133,7 +144,13 @@ func (r *handlerRepo) ResolveModelProvider(_ context.Context, modelID string) (*
 func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
 	r.lastTenant = tenant
 	r.lastMode = mode
-	return r.leaders, r.leadersErr
+	if r.leadersErr != nil {
+		return nil, r.leadersErr
+	}
+	if r.leaders != nil {
+		return r.leaders, nil
+	}
+	return aggregateLeaderboardRuns(filterRunsByEvidenceMode(r.runs, mode)), nil
 }
 func (r *handlerRepo) ListScenarios(_ context.Context) ([]bench.ScenarioSummary, error) {
 	return r.scenarios, r.scenErr
@@ -218,6 +235,98 @@ func setupMux(repo *handlerRepo, cfg ServiceConfig, tenantID string) *http.Serve
 	return mux
 }
 
+func evidenceModeMatchesQuery(mode, stored string) bool {
+	switch mode {
+	case "":
+		return true
+	case "evidra":
+		return stored != "none"
+	default:
+		return stored == mode
+	}
+}
+
+func filterRunsByEvidenceMode(runs []bench.RunRecord, mode string) []bench.RunRecord {
+	filtered := make([]bench.RunRecord, 0, len(runs))
+	for _, run := range runs {
+		if evidenceModeMatchesQuery(mode, run.EvidenceMode) {
+			filtered = append(filtered, run)
+		}
+	}
+	return filtered
+}
+
+func aggregateLeaderboardRuns(runs []bench.RunRecord) []bench.LeaderboardEntry {
+	type agg struct {
+		scenarios map[string]struct{}
+		runs      int
+		passed    int
+		duration  float64
+		cost      float64
+	}
+
+	byModel := make(map[string]*agg)
+	for _, run := range runs {
+		entry := byModel[run.Model]
+		if entry == nil {
+			entry = &agg{scenarios: make(map[string]struct{})}
+			byModel[run.Model] = entry
+		}
+		entry.scenarios[run.ScenarioID] = struct{}{}
+		entry.runs++
+		if run.Passed {
+			entry.passed++
+		}
+		entry.duration += run.Duration
+		entry.cost += run.EstimatedCost
+	}
+
+	out := make([]bench.LeaderboardEntry, 0, len(byModel))
+	for model, entry := range byModel {
+		runsCount := entry.runs
+		passRate := 0.0
+		if runsCount > 0 {
+			passRate = 100.0 * float64(entry.passed) / float64(runsCount)
+		}
+		avgDuration := 0.0
+		avgCost := 0.0
+		if runsCount > 0 {
+			avgDuration = entry.duration / float64(runsCount)
+			avgCost = entry.cost / float64(runsCount)
+		}
+		out = append(out, bench.LeaderboardEntry{
+			Model:       model,
+			Scenarios:   len(entry.scenarios),
+			Runs:        runsCount,
+			PassRate:    passRate,
+			AvgDuration: avgDuration,
+			AvgCost:     avgCost,
+			TotalCost:   entry.cost,
+		})
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].PassRate != out[j].PassRate {
+			return out[i].PassRate > out[j].PassRate
+		}
+		return out[i].Model < out[j].Model
+	})
+	return out
+}
+
+func aggregateStatsRuns(runs []bench.RunRecord) *bench.StatsResult {
+	out := &bench.StatsResult{}
+	for _, run := range runs {
+		out.TotalRuns++
+		if run.Passed {
+			out.PassCount++
+		} else {
+			out.FailCount++
+		}
+	}
+	return out
+}
+
 // ---------- Leaderboard ----------
 
 func TestHandleLeaderboard_ReturnsModels(t *testing.T) {
@@ -272,38 +381,75 @@ func TestHandleLeaderboard_DefaultsToProxy(t *testing.T) {
 		t.Fatalf("evidence_mode = %q, want empty (all)", repo.lastMode)
 	}
 
-	var body map[string]string
+	var body struct {
+		EvidenceMode string `json:"evidence_mode"`
+	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body["evidence_mode"] != "" {
-		t.Fatalf("response evidence_mode = %q, want empty", body["evidence_mode"])
+	if body.EvidenceMode != "" {
+		t.Fatalf("response evidence_mode = %q, want empty", body.EvidenceMode)
 	}
 }
 
-func TestHandleLeaderboard_EvidenceModeAliasEchoes(t *testing.T) {
+func TestHandleLeaderboard_EvidenceModeFiltersAndAggregates(t *testing.T) {
 	t.Parallel()
 
-	repo := &handlerRepo{}
+	repo := &handlerRepo{
+		runs: []bench.RunRecord{
+			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true, Duration: 10, EstimatedCost: 1.0},
+			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false, Duration: 20, EstimatedCost: 2.0},
+			{ID: "evidra-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "smart", Passed: true, Duration: 30, EstimatedCost: 3.0},
+			{ID: "evidra-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "direct", Passed: false, Duration: 40, EstimatedCost: 4.0},
+		},
+	}
 	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/v1/bench/leaderboard?evidence_mode=evidra", nil)
-	mux.ServeHTTP(rec, req)
+	tests := []struct {
+		name         string
+		mode         string
+		wantRuns     int
+		wantPassRate float64
+	}{
+		{name: "baseline only", mode: "none", wantRuns: 2, wantPassRate: 50.0},
+		{name: "non-baseline alias", mode: "evidra", wantRuns: 2, wantPassRate: 50.0},
+	}
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if repo.lastMode != "evidra" {
-		t.Fatalf("evidence_mode = %q, want evidra", repo.lastMode)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	var body map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("decode body: %v", err)
-	}
-	if body["evidence_mode"] != "evidra" {
-		t.Fatalf("response evidence_mode = %q, want evidra", body["evidence_mode"])
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/bench/leaderboard?evidence_mode="+tt.mode, nil)
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			var body struct {
+				Models       []bench.LeaderboardEntry `json:"models"`
+				EvidenceMode string                   `json:"evidence_mode"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			if body.EvidenceMode != tt.mode {
+				t.Fatalf("response evidence_mode = %q, want %q", body.EvidenceMode, tt.mode)
+			}
+			if len(body.Models) != 1 {
+				t.Fatalf("len(models) = %d, want 1", len(body.Models))
+			}
+			if body.Models[0].Model != "sonnet" {
+				t.Fatalf("model = %q, want sonnet", body.Models[0].Model)
+			}
+			if body.Models[0].Runs != tt.wantRuns {
+				t.Fatalf("runs = %d, want %d", body.Models[0].Runs, tt.wantRuns)
+			}
+			if body.Models[0].PassRate != tt.wantPassRate {
+				t.Fatalf("pass_rate = %v, want %v", body.Models[0].PassRate, tt.wantPassRate)
+			}
+		})
 	}
 }
 
@@ -511,60 +657,56 @@ func TestHandleListRuns_ParsesFilters(t *testing.T) {
 	}
 }
 
-func TestHandleListRuns_EvidenceModeSemantics(t *testing.T) {
+func TestHandleListRuns_EvidenceModeFiltersItems(t *testing.T) {
 	t.Parallel()
 
+	repo := &handlerRepo{
+		runs: []bench.RunRecord{
+			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none"},
+			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none"},
+			{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart"},
+			{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct"},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
 	tests := []struct {
-		name      string
-		mode      string
-		wantWhere string
-		wantArg   string
+		name    string
+		mode    string
+		wantIDs []string
 	}{
-		{
-			name:      "baseline",
-			mode:      "none",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
-			wantArg:   "none",
-		},
-		{
-			name:      "evidra alias",
-			mode:      "evidra",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode <> $2",
-			wantArg:   "none",
-		},
-		{
-			name:      "exact stored value",
-			mode:      "smart",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
-			wantArg:   "smart",
-		},
-		{
-			name:      "empty means all",
-			mode:      "",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL",
-			wantArg:   "",
-		},
+		{name: "baseline only", mode: "none", wantIDs: []string{"baseline-1", "baseline-2"}},
+		{name: "non-baseline alias", mode: "evidra", wantIDs: []string{"evidra-1", "evidra-2"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			where, args := buildWhere("tenant-a", bench.RunFilters{EvidenceMode: tt.mode})
-			if where != tt.wantWhere {
-				t.Fatalf("where = %q, want %q", where, tt.wantWhere)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/bench/runs?evidence_mode="+tt.mode, nil)
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
-			if tt.wantArg == "" {
-				if len(args) != 1 {
-					t.Fatalf("args len = %d, want 1", len(args))
+			var body struct {
+				Items []bench.RunRecord `json:"items"`
+				Total int               `json:"total"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			if body.Total != len(tt.wantIDs) {
+				t.Fatalf("total = %d, want %d", body.Total, len(tt.wantIDs))
+			}
+			if len(body.Items) != len(tt.wantIDs) {
+				t.Fatalf("len(items) = %d, want %d", len(body.Items), len(tt.wantIDs))
+			}
+			for i, wantID := range tt.wantIDs {
+				if body.Items[i].ID != wantID {
+					t.Fatalf("items[%d].ID = %q, want %q", i, body.Items[i].ID, wantID)
 				}
-				return
-			}
-			if len(args) != 2 {
-				t.Fatalf("args len = %d, want 2", len(args))
-			}
-			if args[1] != tt.wantArg {
-				t.Fatalf("args[1] = %v, want %q", args[1], tt.wantArg)
 			}
 		})
 	}
@@ -835,42 +977,53 @@ func TestHandleStats_ReturnsAggregates(t *testing.T) {
 	}
 }
 
-func TestHandleStats_EvidenceModeSemantics(t *testing.T) {
+func TestHandleStats_EvidenceModeFiltersTotals(t *testing.T) {
 	t.Parallel()
+
+	repo := &handlerRepo{
+		runs: []bench.RunRecord{
+			{ID: "baseline-1", ScenarioID: "s1", Model: "sonnet", EvidenceMode: "none", Passed: true},
+			{ID: "baseline-2", ScenarioID: "s2", Model: "sonnet", EvidenceMode: "none", Passed: false},
+			{ID: "evidra-1", ScenarioID: "s3", Model: "sonnet", EvidenceMode: "smart", Passed: true},
+			{ID: "evidra-2", ScenarioID: "s4", Model: "sonnet", EvidenceMode: "direct", Passed: false},
+		},
+	}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
 
 	tests := []struct {
 		name      string
 		mode      string
-		wantWhere string
-		wantArg   string
+		wantTotal int
+		wantPass  int
+		wantFail  int
 	}{
-		{
-			name:      "baseline",
-			mode:      "none",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
-			wantArg:   "none",
-		},
-		{
-			name:      "evidra alias",
-			mode:      "evidra",
-			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode <> $2",
-			wantArg:   "none",
-		},
+		{name: "baseline only", mode: "none", wantTotal: 2, wantPass: 1, wantFail: 1},
+		{name: "non-baseline alias", mode: "evidra", wantTotal: 2, wantPass: 1, wantFail: 1},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			where, args := buildWhere("tenant-a", bench.RunFilters{EvidenceMode: tt.mode})
-			if where != tt.wantWhere {
-				t.Fatalf("where = %q, want %q", where, tt.wantWhere)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/bench/stats?evidence_mode="+tt.mode, nil)
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
-			if len(args) != 2 {
-				t.Fatalf("args len = %d, want 2", len(args))
+			var body bench.StatsResult
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode body: %v", err)
 			}
-			if args[1] != tt.wantArg {
-				t.Fatalf("args[1] = %v, want %q", args[1], tt.wantArg)
+			if body.TotalRuns != tt.wantTotal {
+				t.Fatalf("TotalRuns = %d, want %d", body.TotalRuns, tt.wantTotal)
+			}
+			if body.PassCount != tt.wantPass {
+				t.Fatalf("PassCount = %d, want %d", body.PassCount, tt.wantPass)
+			}
+			if body.FailCount != tt.wantFail {
+				t.Fatalf("FailCount = %d, want %d", body.FailCount, tt.wantFail)
 			}
 		})
 	}
