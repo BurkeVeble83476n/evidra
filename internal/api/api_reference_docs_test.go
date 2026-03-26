@@ -54,20 +54,21 @@ func TestMarkdownAPIReference_BenchEvidenceModeContract(t *testing.T) {
 	doc := loadMarkdownAPIReference(t)
 
 	required := []string{
-		"Query params: `evidence_mode` (`\"\"` = all, `none` = baseline only, `evidra` = non-`none`)",
+		"Query params: `evidence_mode` (`\"\"` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly)",
 		"`evidence_mode` follows the bench contract:",
 		"- empty means all runs",
 		"- `none` returns baseline runs only",
 		"- `evidra` returns all non-`none` runs",
+		"- any other non-empty value is an exact-match filter against stored modes",
 		"Both pairwise and matrix modes honor `evidence_mode` with the same contract as leaderboard/runs/stats.",
-		"Query params: `evidence_mode` (`\"\"` = all, `none` = baseline only, `evidra` = non-`none`), `since` (RFC3339).",
+		"Query params: `evidence_mode` (`\"\"` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly), `since` (RFC3339).",
 	}
 	for _, snippet := range required {
 		if !strings.Contains(doc, snippet) {
 			t.Fatalf("markdown api reference missing %q", snippet)
 		}
 	}
-	if strings.Contains(doc, "proxy|smart") || strings.Contains(doc, "default: proxy") {
+	if strings.Contains(doc, "proxy|smart") || strings.Contains(doc, "default: proxy") || strings.Contains(doc, "internal callers") {
 		t.Fatal("markdown api reference still contains stale proxy-based evidence_mode contract")
 	}
 }

@@ -348,7 +348,7 @@ Infrastructure agent benchmark results and analytics.
 
 Model ranking by pass rate.
 
-Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`)
+Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly)
 
 Response:
 ```json
@@ -382,7 +382,7 @@ List runs with filters: `model`, `scenario`, `evidence_mode`, `since`, `passed`,
 - empty means all runs
 - `none` returns baseline runs only
 - `evidra` returns all non-`none` runs
-- other exact stored values may still appear in data for internal callers
+- any other non-empty value is an exact-match filter against stored modes
 
 #### GET /v1/bench/runs/{id}
 
@@ -550,7 +550,7 @@ Matrix response:
 
 Aggregated signal counts across runs. Parses scorecard artifacts.
 
-Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`), `since` (RFC3339).
+Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly), `since` (RFC3339).
 
 Response:
 ```json

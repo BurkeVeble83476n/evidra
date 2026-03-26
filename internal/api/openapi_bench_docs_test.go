@@ -44,6 +44,7 @@ func TestOpenAPIBenchFilterContractDocumentsEvidenceModeSemantics(t *testing.T) 
 		"Empty means all runs.",
 		"`none` returns baseline runs only.",
 		"`evidra` returns all non-`none` runs.",
+		"Non-empty, non-`evidra` values are exact-match filters against stored modes.",
 	}
 
 	specs := []*yaml.Node{

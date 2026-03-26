@@ -690,7 +690,7 @@ paths:
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
-            Other exact stored values may still exist for internal callers.
+            Non-empty, non-`evidra` values are exact-match filters against stored modes.
       responses:
         '200':
           description: Leaderboard data
@@ -722,7 +722,7 @@ paths:
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
-            Other exact stored values may still exist for internal callers.
+            Non-empty, non-`evidra` values are exact-match filters against stored modes.
         - name: limit
           in: query
           schema: { type: integer, default: 50 }
@@ -881,7 +881,7 @@ paths:
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
-            Other exact stored values may still exist for internal callers.
+            Non-empty, non-`evidra` values are exact-match filters against stored modes.
       responses:
         '200':
           description: Stats
@@ -1079,7 +1079,7 @@ paths:
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
-            Other exact stored values may still exist for internal callers.
+            Non-empty, non-`evidra` values are exact-match filters against stored modes.
       responses:
         '200':
           description: Pairwise comparison or model matrix grid
@@ -1098,7 +1098,7 @@ paths:
             Empty means all runs.
             `none` returns baseline runs only.
             `evidra` returns all non-`none` runs.
-            Other exact stored values may still exist for internal callers.
+            Non-empty, non-`evidra` values are exact-match filters against stored modes.
         - name: since
           in: query
           schema: { type: string, format: date-time }
