@@ -603,9 +603,9 @@ func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
 		args = append(args, f.Provider)
 		clauses = append(clauses, fmt.Sprintf("provider = $%d", len(args)))
 	}
-	if f.EvidenceMode != "" {
-		args = append(args, f.EvidenceMode)
-		clauses = append(clauses, fmt.Sprintf("evidence_mode = $%d", len(args)))
+	if clause, clauseArgs := evidenceModeClause(len(args)+1, f.EvidenceMode); clause != "" {
+		clauses = append(clauses, clause)
+		args = append(args, clauseArgs...)
 	}
 	if f.PassedOnly {
 		clauses = append(clauses, "passed = TRUE")
@@ -621,6 +621,20 @@ func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
 	return " WHERE " + strings.Join(clauses, " AND "), args
 }
 
+// evidenceModeClause returns a SQL predicate for the evidence_mode filter.
+// evidra is a query alias for all non-baseline runs, while other non-empty
+// values continue to match their exact stored subtype.
+func evidenceModeClause(argPos int, evidenceMode string) (string, []any) {
+	switch evidenceMode {
+	case "":
+		return "", nil
+	case "evidra":
+		return fmt.Sprintf("evidence_mode <> $%d", argPos), []any{"none"}
+	default:
+		return fmt.Sprintf("evidence_mode = $%d", argPos), []any{evidenceMode}
+	}
+}
+
 // nullableJSONB returns nil for empty strings (maps to SQL NULL for JSONB columns),
 // or the string pointer for non-empty JSON.
 func nullableJSONB(s string) *string {
@@ -633,6 +647,8 @@ func nullableJSONB(s string) *string {
 // CompareModels returns per-scenario stats for two models side-by-side.
 // Single query with conditional aggregation.
 func (s *PgStore) CompareModels(ctx context.Context, tenantID, modelA, modelB, evidenceMode string) ([]ScenarioModelComparison, error) {
+	evidenceClause, evidenceArgs := evidenceModeClause(4, evidenceMode)
+
 	query := `
 		SELECT scenario_id,
 			COALESCE(100.0 * SUM(CASE WHEN model = $2 AND passed THEN 1 ELSE 0 END) /
@@ -644,14 +660,21 @@ func (s *PgStore) CompareModels(ctx context.Context, tenantID, modelA, modelB, e
 			COALESCE(AVG(CASE WHEN model = $2 THEN estimated_cost_usd END), 0) AS a_cost,
 			COALESCE(AVG(CASE WHEN model = $3 THEN estimated_cost_usd END), 0) AS b_cost
 		FROM bench_runs
-		WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $4
+		WHERE tenant_id = $1 AND archived_at IS NULL`
+	if evidenceClause != "" {
+		query += " AND " + evidenceClause
+	}
+	query += `
 			AND model IN ($2, $3)
 		GROUP BY scenario_id
 		HAVING SUM(CASE WHEN model = $2 THEN 1 ELSE 0 END) > 0
 			AND SUM(CASE WHEN model = $3 THEN 1 ELSE 0 END) > 0
 		ORDER BY scenario_id`
 
-	rows, err := s.db.Query(ctx, query, tenantID, modelA, modelB, evidenceMode)
+	args := []any{tenantID, modelA, modelB}
+	args = append(args, evidenceArgs...)
+
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("bench.CompareModels: %w", err)
 	}

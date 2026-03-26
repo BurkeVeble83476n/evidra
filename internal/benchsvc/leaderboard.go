@@ -24,9 +24,9 @@ func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode
 
 	args := []any{tenantID}
 
-	if evidenceMode != "" {
-		query += ` AND evidence_mode = $2`
-		args = append(args, evidenceMode)
+	if clause, clauseArgs := evidenceModeClause(len(args)+1, evidenceMode); clause != "" {
+		query += ` AND ` + clause
+		args = append(args, clauseArgs...)
 	}
 
 	query += `

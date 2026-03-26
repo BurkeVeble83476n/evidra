@@ -281,6 +281,32 @@ func TestHandleLeaderboard_DefaultsToProxy(t *testing.T) {
 	}
 }
 
+func TestHandleLeaderboard_EvidenceModeAliasEchoes(t *testing.T) {
+	t.Parallel()
+
+	repo := &handlerRepo{}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "t1")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/leaderboard?evidence_mode=evidra", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if repo.lastMode != "evidra" {
+		t.Fatalf("evidence_mode = %q, want evidra", repo.lastMode)
+	}
+
+	var body map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["evidence_mode"] != "evidra" {
+		t.Fatalf("response evidence_mode = %q, want evidra", body["evidence_mode"])
+	}
+}
+
 func TestHandleLeaderboard_503WhenNoPublicTenant(t *testing.T) {
 	t.Parallel()
 
@@ -482,6 +508,65 @@ func TestHandleListRuns_ParsesFilters(t *testing.T) {
 	}
 	if f.Offset != 5 {
 		t.Errorf("Offset = %d, want 5", f.Offset)
+	}
+}
+
+func TestHandleListRuns_EvidenceModeSemantics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mode      string
+		wantWhere string
+		wantArg   string
+	}{
+		{
+			name:      "baseline",
+			mode:      "none",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
+			wantArg:   "none",
+		},
+		{
+			name:      "evidra alias",
+			mode:      "evidra",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode <> $2",
+			wantArg:   "none",
+		},
+		{
+			name:      "exact stored value",
+			mode:      "smart",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
+			wantArg:   "smart",
+		},
+		{
+			name:      "empty means all",
+			mode:      "",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL",
+			wantArg:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			where, args := buildWhere("tenant-a", bench.RunFilters{EvidenceMode: tt.mode})
+			if where != tt.wantWhere {
+				t.Fatalf("where = %q, want %q", where, tt.wantWhere)
+			}
+			if tt.wantArg == "" {
+				if len(args) != 1 {
+					t.Fatalf("args len = %d, want 1", len(args))
+				}
+				return
+			}
+			if len(args) != 2 {
+				t.Fatalf("args len = %d, want 2", len(args))
+			}
+			if args[1] != tt.wantArg {
+				t.Fatalf("args[1] = %v, want %q", args[1], tt.wantArg)
+			}
+		})
 	}
 }
 
@@ -747,6 +832,47 @@ func TestHandleStats_ReturnsAggregates(t *testing.T) {
 	}
 	if body.TotalRuns != 42 {
 		t.Fatalf("TotalRuns = %d, want 42", body.TotalRuns)
+	}
+}
+
+func TestHandleStats_EvidenceModeSemantics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mode      string
+		wantWhere string
+		wantArg   string
+	}{
+		{
+			name:      "baseline",
+			mode:      "none",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode = $2",
+			wantArg:   "none",
+		},
+		{
+			name:      "evidra alias",
+			mode:      "evidra",
+			wantWhere: " WHERE tenant_id = $1 AND archived_at IS NULL AND evidence_mode <> $2",
+			wantArg:   "none",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			where, args := buildWhere("tenant-a", bench.RunFilters{EvidenceMode: tt.mode})
+			if where != tt.wantWhere {
+				t.Fatalf("where = %q, want %q", where, tt.wantWhere)
+			}
+			if len(args) != 2 {
+				t.Fatalf("args len = %d, want 2", len(args))
+			}
+			if args[1] != tt.wantArg {
+				t.Fatalf("args[1] = %v, want %q", args[1], tt.wantArg)
+			}
+		})
 	}
 }
 
