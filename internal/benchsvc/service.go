@@ -273,6 +273,11 @@ func (s *Service) DeleteRunner(ctx context.Context, tenantID, runnerID string) e
 	return s.repo.DeleteRunner(ctx, tenantID, runnerID)
 }
 
+// TouchRunner updates the runner's heartbeat timestamp.
+func (s *Service) TouchRunner(ctx context.Context, tenantID, runnerID string) error {
+	return s.repo.TouchRunner(ctx, tenantID, runnerID)
+}
+
 // ClaimJob atomically claims the next queued job for a runner.
 func (s *Service) ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error) {
 	return s.repo.ClaimJob(ctx, tenantID, runnerID, models)

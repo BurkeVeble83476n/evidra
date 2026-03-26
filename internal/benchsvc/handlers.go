@@ -66,6 +66,8 @@ func RegisterRoutes(mux *http.ServeMux, svc *Service, authMw func(http.Handler) 
 	mux.Handle("POST /v1/runners/register", authMw(http.HandlerFunc(handleRegisterRunner(svc))))
 	mux.Handle("GET /v1/runners", authMw(http.HandlerFunc(handleListRunners(svc))))
 	mux.Handle("DELETE /v1/runners/{id}", authMw(http.HandlerFunc(handleDeleteRunner(svc))))
+	mux.Handle("GET /v1/runners/jobs", authMw(http.HandlerFunc(handlePollJob(svc))))
+	mux.Handle("POST /v1/runners/jobs/{id}/complete", authMw(http.HandlerFunc(handleCompleteJob(svc))))
 }
 
 // parseSince parses a "since" query parameter as RFC3339 or date string.
