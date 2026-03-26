@@ -141,7 +141,7 @@ func (r *handlerRepo) ResolveModelProvider(_ context.Context, modelID string) (*
 	}
 	return r.modelProvider, r.modelProviderErr
 }
-func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
+func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string, _ int) ([]bench.LeaderboardEntry, error) {
 	r.lastTenant = tenant
 	r.lastMode = mode
 	if r.leadersErr != nil {

@@ -141,7 +141,7 @@ func (r *routerBenchRepo) UpdateGlobalModel(_ context.Context, modelID string, c
 	r.updatedCfg = cfg
 	return nil
 }
-func (r *routerBenchRepo) Leaderboard(context.Context, string, string) ([]bench.LeaderboardEntry, error) {
+func (r *routerBenchRepo) Leaderboard(context.Context, string, string, int) ([]bench.LeaderboardEntry, error) {
 	return nil, nil
 }
 func (r *routerBenchRepo) ListScenarios(context.Context) ([]bench.ScenarioSummary, error) {

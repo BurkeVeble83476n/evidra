@@ -89,7 +89,13 @@ func parseSince(s string) *time.Time {
 func handleLeaderboard(svc *Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mode := r.URL.Query().Get("evidence_mode")
-		entries, err := svc.Leaderboard(r.Context(), mode)
+		k := 3
+		if kStr := r.URL.Query().Get("k"); kStr != "" {
+			if kVal, err := strconv.Atoi(kStr); err == nil && kVal >= 1 && kVal <= 10 {
+				k = kVal
+			}
+		}
+		entries, err := svc.Leaderboard(r.Context(), mode, k)
 		if err != nil {
 			if errors.Is(err, ErrPublicTenantUnavailable) {
 				apiutil.WriteError(w, http.StatusServiceUnavailable, err.Error())
