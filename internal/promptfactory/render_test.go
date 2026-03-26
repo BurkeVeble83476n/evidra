@@ -74,14 +74,14 @@ func TestRenderFiles_ExpectedTargets_V110(t *testing.T) {
 	}
 
 	wantIDs := map[string]bool{
-		"mcp.initialize":     true,
-		"mcp.prescribe_full": true,
+		"mcp.initialize":      true,
+		"mcp.prescribe_full":  true,
 		"mcp.prescribe_smart": true,
-		"mcp.report":         true,
-		"mcp.get_event":      true,
-		"mcp.agent_contract": true,
-		"skill.skill":        true,
-		"skill.skill_smart":  true,
+		"mcp.report":          true,
+		"mcp.get_event":       true,
+		"mcp.agent_contract":  true,
+		"skill.skill":         true,
+		"skill.skill_smart":   true,
 	}
 	if len(files) != len(wantIDs) {
 		t.Fatalf("rendered files = %d, want %d", len(files), len(wantIDs))

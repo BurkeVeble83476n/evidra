@@ -1,8 +1,8 @@
 package promptfactory
 
 type Bundle struct {
-	Contract       Contract        `yaml:"contract"`
-	Classification Classification  `yaml:"classification"`
+	Contract       Contract       `yaml:"contract"`
+	Classification Classification `yaml:"classification"`
 }
 
 type Contract struct {
