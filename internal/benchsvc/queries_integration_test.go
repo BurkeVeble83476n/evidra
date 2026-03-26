@@ -110,3 +110,83 @@ func TestPgStore_ListEnabledModels(t *testing.T) {
 		t.Fatalf("len(models) = %d, want 2", len(models))
 	}
 }
+
+func TestPgStore_UpsertTenantProvider(t *testing.T) {
+	pool := setupTestDB(t)
+	store := NewPgStore(pool)
+	tenantID := testID("tnt")
+	modelID := testID("model")
+
+	seedTenant(t, pool, tenantID)
+	seedModel(t, pool, modelID)
+
+	err := store.UpsertTenantProvider(context.Background(), tenantID, modelID, TenantProviderConfig{
+		APIKeyEnc:  "sk-first",
+		APIBaseURL: "https://custom.example.com",
+		RateLimit:  10,
+	})
+	if err != nil {
+		t.Fatalf("UpsertTenantProvider insert: %v", err)
+	}
+
+	err = store.UpsertTenantProvider(context.Background(), tenantID, modelID, TenantProviderConfig{
+		APIKeyEnc: "sk-updated",
+	})
+	if err != nil {
+		t.Fatalf("UpsertTenantProvider update: %v", err)
+	}
+
+	models, err := store.ListEnabledModels(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("ListEnabledModels: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("len(models) = %d, want 1", len(models))
+	}
+
+	var count int
+	var apiKey string
+	err = pool.QueryRow(context.Background(),
+		`SELECT COUNT(*), MAX(api_key_enc)
+		 FROM bench_tenant_providers
+		 WHERE tenant_id = $1 AND model_id = $2`,
+		tenantID, modelID,
+	).Scan(&count, &apiKey)
+	if err != nil {
+		t.Fatalf("select tenant provider: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("count = %d, want 1", count)
+	}
+	if apiKey != "sk-updated" {
+		t.Fatalf("api_key_enc = %q, want sk-updated", apiKey)
+	}
+}
+
+func TestPgStore_DeleteTenantProvider(t *testing.T) {
+	pool := setupTestDB(t)
+	store := NewPgStore(pool)
+	tenantID := testID("tnt")
+	modelID := testID("model")
+
+	seedTenant(t, pool, tenantID)
+	seedModel(t, pool, modelID)
+
+	if err := store.UpsertTenantProvider(context.Background(), tenantID, modelID, TenantProviderConfig{
+		APIKeyEnc: "sk-delete-me",
+	}); err != nil {
+		t.Fatalf("UpsertTenantProvider: %v", err)
+	}
+
+	if err := store.DeleteTenantProvider(context.Background(), tenantID, modelID); err != nil {
+		t.Fatalf("DeleteTenantProvider: %v", err)
+	}
+
+	models, err := store.ListEnabledModels(context.Background(), tenantID)
+	if err != nil {
+		t.Fatalf("ListEnabledModels: %v", err)
+	}
+	if len(models) != 0 {
+		t.Fatalf("len(models) = %d, want 0", len(models))
+	}
+}

@@ -28,6 +28,14 @@ type EnabledModel struct {
 	OutputCostPerMtok float64 `json:"output_cost_per_mtok"`
 }
 
+// TenantProviderConfig holds mutable tenant-specific provider settings.
+type TenantProviderConfig struct {
+	APIKeyEnc     string  `json:"api_key"`
+	APIBaseURL    string  `json:"api_base_url,omitempty"`
+	RateLimit     int     `json:"rate_limit,omitempty"`
+	MonthlyBudget float64 `json:"monthly_budget,omitempty"`
+}
+
 // scanRunRecord scans a row into a bench.RunRecord.
 func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 	var r bench.RunRecord
@@ -308,6 +316,37 @@ func (s *PgStore) ListEnabledModels(ctx context.Context, tenantID string) ([]Ena
 		return nil, fmt.Errorf("benchsvc.ListEnabledModels rows: %w", err)
 	}
 	return models, nil
+}
+
+// UpsertTenantProvider inserts or updates a tenant provider override for a model.
+func (s *PgStore) UpsertTenantProvider(ctx context.Context, tenantID, modelID string, cfg TenantProviderConfig) error {
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO bench_tenant_providers (tenant_id, model_id, api_key_enc, api_base_url, rate_limit, monthly_budget, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, true)
+		ON CONFLICT (tenant_id, model_id) DO UPDATE SET
+			api_key_enc = CASE WHEN $3 != '' THEN $3 ELSE bench_tenant_providers.api_key_enc END,
+			api_base_url = CASE WHEN $4 != '' THEN $4 ELSE bench_tenant_providers.api_base_url END,
+			rate_limit = CASE WHEN $5 > 0 THEN $5 ELSE bench_tenant_providers.rate_limit END,
+			monthly_budget = CASE WHEN $6 > 0 THEN $6 ELSE bench_tenant_providers.monthly_budget END,
+			enabled = true,
+			updated_at = NOW()
+	`, tenantID, modelID, cfg.APIKeyEnc, cfg.APIBaseURL, cfg.RateLimit, cfg.MonthlyBudget)
+	if err != nil {
+		return fmt.Errorf("benchsvc.UpsertTenantProvider: %w", err)
+	}
+	return nil
+}
+
+// DeleteTenantProvider removes a tenant-specific provider override for a model.
+func (s *PgStore) DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error {
+	_, err := s.db.Exec(ctx, `
+		DELETE FROM bench_tenant_providers
+		WHERE tenant_id = $1 AND model_id = $2
+	`, tenantID, modelID)
+	if err != nil {
+		return fmt.Errorf("benchsvc.DeleteTenantProvider: %w", err)
+	}
+	return nil
 }
 
 // ListScenarios returns all scenarios from the global catalog.
