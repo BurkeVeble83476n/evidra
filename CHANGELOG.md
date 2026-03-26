@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Bench Model Configuration
+- `GET /v1/bench/models` — list tenant-visible models resolved from platform defaults plus tenant overrides
+- `PUT /v1/bench/models/{model_id}/provider` and `DELETE /v1/bench/models/{model_id}/provider` — manage tenant-specific model provider settings
+- `PUT /v1/admin/bench/models/{model_id}` — invite-gated platform route for updating global model defaults used by tenant model resolution
+
 ## v0.5.13 
 
 ### CI

@@ -876,6 +876,139 @@ paths:
         '200':
           description: Catalog
 
+  /v1/bench/models:
+    get:
+      summary: List models enabled for the authenticated tenant
+      tags: [Bench]
+      responses:
+        '200':
+          description: Models available through platform defaults or tenant overrides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnabledModelsResponse'
+        '500':
+          description: Query failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/bench/models/{model_id}/provider:
+    put:
+      summary: Create or update a tenant-specific provider override for a model
+      tags: [Bench]
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Bench model ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantProviderConfig'
+            example:
+              api_key: sk-secret
+              api_base_url: https://gateway.example.com/v1
+              rate_limit: 10
+              monthly_budget: 100
+      responses:
+        '204':
+          description: Tenant override saved
+        '400':
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete a tenant-specific provider override for a model
+      tags: [Bench]
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Bench model ID
+      responses:
+        '204':
+          description: Tenant override deleted
+        '500':
+          description: Delete failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/admin/bench/models/{model_id}:
+    put:
+      tags: [Bench]
+      summary: Update platform-level defaults for a bench model
+      description: |
+        Invite-gated administrative route for setting model defaults that apply
+        across tenants. This route is not protected by Bearer auth; it requires
+        the `X-Invite-Secret` header instead.
+      security: []
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Bench model ID
+        - name: X-Invite-Secret
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalModelConfig'
+            example:
+              api_base_url: https://gateway.example.com/v1
+              api_key_env: CUSTOM_API_KEY
+      responses:
+        '204':
+          description: Model defaults updated
+        '400':
+          description: Invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Missing or invalid invite secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Invite secret not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /v1/bench/compare/runs:
     get:
       summary: Compare two runs with computed delta
@@ -1193,6 +1326,61 @@ components:
         error:
           type: string
       required: [error]
+
+    EnabledModel:
+      type: object
+      required: [id, display_name, provider, input_cost_per_mtok, output_cost_per_mtok]
+      properties:
+        id:
+          type: string
+          example: gemini-2.5-flash
+        display_name:
+          type: string
+          example: Gemini 2.5 Flash
+        provider:
+          type: string
+          example: google
+        input_cost_per_mtok:
+          type: number
+          example: 0.15
+        output_cost_per_mtok:
+          type: number
+          example: 0.60
+
+    EnabledModelsResponse:
+      type: object
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnabledModel'
+
+    TenantProviderConfig:
+      type: object
+      properties:
+        api_key:
+          type: string
+          description: Encrypted provider key payload supplied by the tenant
+        api_base_url:
+          type: string
+          description: Optional tenant-specific provider base URL override
+        rate_limit:
+          type: integer
+          description: Optional per-tenant provider rate limit
+        monthly_budget:
+          type: number
+          description: Optional per-tenant monthly spend budget
+
+    GlobalModelConfig:
+      type: object
+      properties:
+        api_base_url:
+          type: string
+          description: Optional platform-level base URL override
+        api_key_env:
+          type: string
+          description: Environment variable name holding the platform API key
 
     ForwardResponse:
       type: object
@@ -1588,4 +1776,3 @@ components:
           type: string
         id:
           type: string
-

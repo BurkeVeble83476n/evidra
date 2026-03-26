@@ -406,6 +406,82 @@ Aggregate statistics. Same filters as runs list.
 
 Distinct models and providers.
 
+#### GET /v1/bench/models
+
+List models available to the authenticated tenant.
+
+A model is returned when either:
+- the platform has configured a global `api_key_env` for it, or
+- the tenant has an enabled override in `bench_tenant_providers`.
+
+Response:
+```json
+{
+  "models": [
+    {
+      "id": "gemini-2.5-flash",
+      "display_name": "Gemini 2.5 Flash",
+      "provider": "google",
+      "input_cost_per_mtok": 0.15,
+      "output_cost_per_mtok": 0.6
+    }
+  ]
+}
+```
+
+#### PUT /v1/bench/models/{model_id}/provider
+
+Create or update a tenant-specific provider override for a model.
+
+Request body:
+```json
+{
+  "api_key": "sk-secret",
+  "api_base_url": "https://gateway.example.com/v1",
+  "rate_limit": 10,
+  "monthly_budget": 100
+}
+```
+
+Response: `204 No Content`
+
+Errors:
+- `400` — invalid JSON
+- `500` — provider update failed
+
+#### DELETE /v1/bench/models/{model_id}/provider
+
+Delete the tenant-specific provider override for a model.
+
+Response: `204 No Content`
+
+#### PUT /v1/admin/bench/models/{model_id}
+
+Invite-gated administrative route for updating platform-level model defaults.
+This route uses `X-Invite-Secret`, not Bearer auth.
+
+**Headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `X-Invite-Secret` | Yes | Must match the server invite secret |
+
+Request body:
+```json
+{
+  "api_base_url": "https://gateway.example.com/v1",
+  "api_key_env": "CUSTOM_API_KEY"
+}
+```
+
+Response: `204 No Content`
+
+Errors:
+- `400` — invalid JSON
+- `403` — missing or invalid invite secret
+- `500` — update failed
+- `503` — invite secret not configured
+
 #### GET /v1/bench/compare/runs
 
 Compare two runs side-by-side with computed delta.
