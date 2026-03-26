@@ -1376,7 +1376,8 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	t.Parallel()
 
 	store := NewTriggerStore()
-	spy := &spyExecutor{startedCh: make(chan struct{})}
+	startedCh := make(chan struct{})
+	spy := &spyExecutor{startedCh: startedCh}
 	repo := &handlerRepo{
 		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
 	}
@@ -1406,7 +1407,7 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 		t.Fatal("response missing 'id' key")
 	}
 	select {
-	case <-spy.startedCh:
+	case <-startedCh:
 	case <-time.After(time.Second):
 		t.Fatal("executor Start was not called")
 	}
