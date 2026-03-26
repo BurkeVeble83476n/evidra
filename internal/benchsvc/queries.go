@@ -2,12 +2,14 @@ package benchsvc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/oklog/ulid/v2"
 
 	bench "samebits.com/evidra/pkg/bench"
 )
@@ -53,6 +55,37 @@ type ModelProviderInfo struct {
 type GlobalModelConfig struct {
 	APIBaseURL string `json:"api_base_url,omitempty"`
 	APIKeyEnv  string `json:"api_key_env,omitempty"`
+}
+
+// RunnerConfig holds the capabilities a runner reports at registration.
+type RunnerConfig struct {
+	Models       []string          `json:"models"`
+	Provider     string            `json:"provider,omitempty"`
+	MaxParallel  int               `json:"max_parallel,omitempty"`
+	PollInterval int               `json:"poll_interval,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+}
+
+// Runner represents a registered runner from bench_infra.
+type Runner struct {
+	ID        string       `json:"id"`
+	TenantID  string       `json:"tenant_id"`
+	Name      string       `json:"name"`
+	Region    string       `json:"region"`
+	Status    string       `json:"status"`
+	Config    RunnerConfig `json:"config"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// RegisterRunnerRequest is the payload for POST /v1/runners/register.
+type RegisterRunnerRequest struct {
+	Name        string            `json:"name"`
+	Models      []string          `json:"models"`
+	Provider    string            `json:"provider,omitempty"`
+	Region      string            `json:"region,omitempty"`
+	MaxParallel int               `json:"max_parallel,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
 }
 
 // scanRunRecord scans a row into a bench.RunRecord.
@@ -609,4 +642,107 @@ func (s *PgStore) CompareModels(ctx context.Context, tenantID, modelA, modelB, e
 		results = append(results, sc)
 	}
 	return results, rows.Err()
+}
+
+// RegisterRunner inserts a new remote runner into bench_infra.
+func (s *PgStore) RegisterRunner(ctx context.Context, tenantID string, req RegisterRunnerRequest) (*Runner, error) {
+	id := ulid.Make().String()
+	cfg := RunnerConfig{
+		Models:       req.Models,
+		Provider:     req.Provider,
+		MaxParallel:  req.MaxParallel,
+		PollInterval: 5,
+		Labels:       req.Labels,
+	}
+	if cfg.MaxParallel < 1 {
+		cfg.MaxParallel = 1
+	}
+
+	cfgJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.RegisterRunner: marshal config: %w", err)
+	}
+
+	name := req.Name
+	if name == "" {
+		name = id[:8]
+	}
+	region := req.Region
+	if region == "" {
+		region = "local"
+	}
+
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO bench_infra (id, tenant_id, type, name, region, executor, config_json, status)
+		VALUES ($1, $2, 'kind', $3, $4, 'remote', $5, 'healthy')
+	`, id, tenantID, name, region, cfgJSON)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.RegisterRunner: %w", err)
+	}
+
+	return &Runner{
+		ID:       id,
+		TenantID: tenantID,
+		Name:     name,
+		Region:   region,
+		Status:   "healthy",
+		Config:   cfg,
+	}, nil
+}
+
+// ListRunners returns all remote runners for a tenant.
+func (s *PgStore) ListRunners(ctx context.Context, tenantID string) ([]Runner, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, tenant_id, name, region, status, config_json, created_at, updated_at
+		FROM bench_infra
+		WHERE tenant_id = $1 AND executor = 'remote'
+		ORDER BY created_at DESC
+	`, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.ListRunners: %w", err)
+	}
+	defer rows.Close()
+
+	var runners []Runner
+	for rows.Next() {
+		var r Runner
+		var cfgJSON []byte
+		if err := rows.Scan(&r.ID, &r.TenantID, &r.Name, &r.Region, &r.Status, &cfgJSON, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("benchsvc.ListRunners scan: %w", err)
+		}
+		if len(cfgJSON) > 0 {
+			_ = json.Unmarshal(cfgJSON, &r.Config)
+		}
+		runners = append(runners, r)
+	}
+	return runners, rows.Err()
+}
+
+// DeleteRunner removes a runner from bench_infra.
+func (s *PgStore) DeleteRunner(ctx context.Context, tenantID, runnerID string) error {
+	result, err := s.db.Exec(ctx, `
+		DELETE FROM bench_infra WHERE id = $1 AND tenant_id = $2
+	`, runnerID, tenantID)
+	if err != nil {
+		return fmt.Errorf("benchsvc.DeleteRunner: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// TouchRunner updates the runner's updated_at (implicit heartbeat on each poll).
+func (s *PgStore) TouchRunner(ctx context.Context, tenantID, runnerID string) error {
+	result, err := s.db.Exec(ctx, `
+		UPDATE bench_infra SET updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND status != 'draining'
+	`, runnerID, tenantID)
+	if err != nil {
+		return fmt.Errorf("benchsvc.TouchRunner: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
