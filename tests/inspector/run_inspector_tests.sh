@@ -9,6 +9,8 @@ CONFIG="$SCRIPT_DIR/mcp-config.json"
 EVIDENCE_DIR="/tmp/evidra-inspector-evidence"
 MODE="${EVIDRA_TEST_MODE:-local-mcp}"
 INSPECTOR_STRICT_NETWORK="${EVIDRA_INSPECTOR_STRICT_NETWORK:-0}"
+INSPECTOR_MAX_ATTEMPTS="${EVIDRA_INSPECTOR_RETRIES:-3}"
+INSPECTOR_RETRY_DELAY_SECONDS="${EVIDRA_INSPECTOR_RETRY_DELAY_SECONDS:-1}"
 
 PASS=0
 FAIL=0
@@ -161,17 +163,44 @@ inspector_call_tool() {
     cmd+=( --tool-arg "${key}=${val}" )
   done < <(echo "$args_json" | jq -r 'keys[]')
 
-  if [[ "$keep_stderr" == "1" ]]; then
-    "${cmd[@]}"
-  else
-    "${cmd[@]}" 2>/dev/null
-  fi
+  run_inspector_cli "$keep_stderr" "${cmd[@]}"
 }
 
 inspector_list_tools() {
-  npx -y @modelcontextprotocol/inspector --cli \
+  run_inspector_cli 0 \
+    npx -y @modelcontextprotocol/inspector --cli \
     --config "$CONFIG" --server evidra \
-    --method tools/list 2>/dev/null
+    --method tools/list
+}
+
+run_inspector_cli() {
+  local keep_stderr="$1"
+  shift
+
+  local attempt rc raw last_raw=""
+  for ((attempt = 1; attempt <= INSPECTOR_MAX_ATTEMPTS; attempt++)); do
+    set +e
+    if [[ "$keep_stderr" == "1" ]]; then
+      raw="$("$@" 2>&1)"
+    else
+      raw="$("$@" 2>/dev/null)"
+    fi
+    rc=$?
+    set -e
+
+    if [[ $rc -eq 0 ]]; then
+      printf '%s\n' "$raw"
+      return 0
+    fi
+
+    last_raw="$raw"
+    if [[ $attempt -lt INSPECTOR_MAX_ATTEMPTS ]]; then
+      sleep "$INSPECTOR_RETRY_DELAY_SECONDS"
+    fi
+  done
+
+  printf '%s\n' "$last_raw"
+  return "$rc"
 }
 
 HOSTED_JSONRPC_ID=0
@@ -224,10 +253,32 @@ call_named_tool() {
   local tool="$1" args_json="$2" env_label="${3:-}"
   case "$MODE" in
     local-mcp)
-      inspector_call_tool "$tool" "$args_json" "$env_label" | extract_body
+      local raw body rc
+      set +e
+      raw=$(inspector_call_tool "$tool" "$args_json" "$env_label")
+      rc=$?
+      set -e
+
+      body=$(printf '%s\n' "$raw" | extract_body || true)
+      if [[ -n "$body" ]]; then
+        printf '%s\n' "$body"
+        return 0
+      fi
+      return "$rc"
       ;;
     hosted-mcp)
-      _hosted_call_tool_raw "$tool" "$args_json" | extract_body
+      local raw body rc
+      set +e
+      raw=$(_hosted_call_tool_raw "$tool" "$args_json")
+      rc=$?
+      set -e
+
+      body=$(printf '%s\n' "$raw" | extract_body || true)
+      if [[ -n "$body" ]]; then
+        printf '%s\n' "$body"
+        return 0
+      fi
+      return "$rc"
       ;;
   esac
 }
@@ -279,15 +330,32 @@ call_get_event() {
   args=$(jq -n --arg eid "$event_id" '{event_id:$eid}')
   case "$MODE" in
     local-mcp)
-      local raw
+      local raw body
       if raw=$(inspector_call_tool "get_event" "$args" "" "0"); then
-        printf '%s\n' "$raw" | extract_body
+        body=$(printf '%s\n' "$raw" | extract_body || true)
+        if [[ -n "$body" ]]; then
+          printf '%s\n' "$body"
+          return 0
+        fi
+      elif body=$(printf '%s\n' "$raw" | extract_body || true) && [[ -n "$body" ]]; then
+        printf '%s\n' "$body"
         return 0
       fi
       lookup_event_from_local_store "$event_id"
       ;;
     hosted-mcp)
-      _hosted_call_tool_raw "get_event" "$args" | extract_body
+      local raw body rc
+      set +e
+      raw=$(_hosted_call_tool_raw "get_event" "$args")
+      rc=$?
+      set -e
+
+      body=$(printf '%s\n' "$raw" | extract_body || true)
+      if [[ -n "$body" ]]; then
+        printf '%s\n' "$body"
+        return 0
+      fi
+      return "$rc"
       ;;
   esac
 }
