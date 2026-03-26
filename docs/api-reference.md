@@ -342,6 +342,11 @@ Validate a Bearer token. `GET` returns `200` with tenant metadata if valid, `401
 
 Infrastructure agent benchmark results and analytics.
 
+Top-level bench filters use the public labels All | Baseline | Evidra.
+The API alias values are `all|none|evidra`.
+TODO: exact-match stored subtype filtering for internal modes like `proxy`,
+`direct`, and `mcp` stays behind the advanced query surface.
+
 ### Public Endpoints (No Auth)
 
 #### GET /v1/bench/leaderboard
@@ -356,6 +361,7 @@ Response:
   "models": [
     {"model": "claude-sonnet-4", "scenarios": 33, "runs": 40, "pass_rate": 97.5, "avg_duration": 72.0, "avg_cost": 0.24, "total_cost": 8.07}
   ],
+  "evidence_mode": ""
   "evidence_mode": ""
 }
 ```
@@ -376,7 +382,7 @@ Batch submit runs. Body: `{"runs": [...]}`. Idempotent (ON CONFLICT DO NOTHING).
 
 #### GET /v1/bench/runs
 
-List runs with filters: `model`, `scenario`, `evidence_mode`, `since`, `passed`, `limit`, `offset`, `sort_by`, `sort_order`.
+List runs with filters: `model`, `scenario`, `evidence_mode` (all|none|evidra), `since`, `passed`, `limit`, `offset`, `sort_by`, `sort_order`.
 
 `evidence_mode` follows the bench contract:
 - empty means all runs
@@ -551,6 +557,7 @@ Matrix response:
 Aggregated signal counts across runs. Parses scorecard artifacts.
 
 Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly), `since` (RFC3339).
+Query params: `evidence_mode` (`""` = all, `none` = baseline only, `evidra` = non-`none`, other non-empty values match stored modes exactly), `since` (RFC3339).
 
 Response:
 ```json
@@ -622,15 +629,14 @@ for the poll-based runner surface.
 
 #### POST /v1/bench/trigger
 
-Start a benchmark run. Requires `model` and `scenarios` in the request body.
-Returns a job ID for progress tracking. When a healthy runner is available,
-Evidra may enqueue the job instead of starting a direct executor immediately.
+Start a benchmark run. Requires `model`, `scenarios`, and `evidence_mode` in the request body. `evidence_mode` accepts only `none` or `smart`. Returns a job ID for progress tracking. When a healthy runner is available, Evidra may enqueue the job instead of starting a direct executor immediately.
 
 Request:
 ```json
 {
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
   "runner_id": "01K...",
   "scenarios": ["broken-deployment", "repair-loop-escalation"]
 }
@@ -752,7 +758,7 @@ Delete a runner registration. Response: `204 No Content`.
 #### GET /v1/runners/jobs
 
 Runner poll endpoint. Requires `runner_id` as a query parameter. Polling also
-acts as the runner heartbeat.
+acts as the runner heartbeat. claimed job payload includes `evidence_mode`.
 
 Response when a job is available (`200 OK`):
 ```json
@@ -760,6 +766,7 @@ Response when a job is available (`200 OK`):
   "job_id": "01K...",
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
   "scenarios": ["broken-deployment", "repair-loop-escalation"],
   "timeout": 300
 }
