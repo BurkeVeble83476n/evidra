@@ -163,7 +163,8 @@ func (r *handlerRepo) GetArtifact(_ context.Context, tenant, runID, artType stri
 func (r *handlerRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
 	return nil, nil
 }
-func (r *handlerRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+func (r *handlerRepo) ModelMatrix(_ context.Context, _ string, _, _ []string, evidenceMode string) (*bench.ModelMatrix, error) {
+	r.lastMode = evidenceMode
 	return r.matrix, r.matrixErr
 }
 func (r *handlerRepo) SignalSummary(_ context.Context, tenant string, f bench.RunFilters) (*bench.SignalAggregation, error) {
@@ -1311,6 +1312,31 @@ func TestHandleCompareModels_ReturnsComparison(t *testing.T) {
 	}
 }
 
+func TestHandleCompareModels_MatrixPassesEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	repo := &matrixRepo{
+		matrix: &bench.ModelMatrix{
+			Models:    []string{"sonnet"},
+			Scenarios: []string{"broken-deployment"},
+		},
+	}
+	svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("tenant-a"))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/compare/models?models=sonnet&scenarios=broken-deployment&evidence_mode=evidra", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if repo.lastMode != "evidra" {
+		t.Fatalf("evidence_mode = %q, want evidra", repo.lastMode)
+	}
+}
+
 // compareModelsRepo is a fake that returns canned CompareModels data.
 type compareModelsRepo struct {
 	handlerRepo
@@ -1321,7 +1347,8 @@ func (r *compareModelsRepo) CompareModels(_ context.Context, _, _, _, evidenceMo
 	r.lastMode = evidenceMode
 	return r.scenarios, nil
 }
-func (r *compareModelsRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+func (r *compareModelsRepo) ModelMatrix(_ context.Context, _ string, _, _ []string, evidenceMode string) (*bench.ModelMatrix, error) {
+	r.lastMode = evidenceMode
 	return nil, nil
 }
 func (r *compareModelsRepo) SignalSummary(_ context.Context, _ string, _ bench.RunFilters) (*bench.SignalAggregation, error) {
@@ -1536,10 +1563,12 @@ func TestHandleCompareModels_RejectsNoParams(t *testing.T) {
 // matrixRepo is a fake that returns canned ModelMatrix data.
 type matrixRepo struct {
 	handlerRepo
-	matrix *bench.ModelMatrix
+	matrix   *bench.ModelMatrix
+	lastMode string
 }
 
-func (r *matrixRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+func (r *matrixRepo) ModelMatrix(_ context.Context, _ string, _, _ []string, evidenceMode string) (*bench.ModelMatrix, error) {
+	r.lastMode = evidenceMode
 	return r.matrix, nil
 }
 func (r *matrixRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {

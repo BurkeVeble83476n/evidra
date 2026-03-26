@@ -18,6 +18,7 @@ type fakeRepo struct {
 	leaderboardTenant string
 	leaderboardMode   string
 	compareMode       string
+	matrixMode        string
 	beginTxErr        error
 	tx                pgx.Tx
 	enabledModels     []EnabledModel
@@ -62,7 +63,8 @@ func (f *fakeRepo) CompareModels(_ context.Context, _, _, _, evidenceMode string
 	f.compareMode = evidenceMode
 	return nil, nil
 }
-func (f *fakeRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
+func (f *fakeRepo) ModelMatrix(_ context.Context, _ string, _, _ []string, evidenceMode string) (*bench.ModelMatrix, error) {
+	f.matrixMode = evidenceMode
 	return nil, nil
 }
 func (f *fakeRepo) SignalSummary(_ context.Context, _ string, _ bench.RunFilters) (*bench.SignalAggregation, error) {
@@ -186,6 +188,21 @@ func TestServiceCompareModels_PreservesEmptyEvidenceMode(t *testing.T) {
 	}
 	if repo.compareMode != "" {
 		t.Fatalf("compareMode = %q, want empty", repo.compareMode)
+	}
+}
+
+func TestServiceModelMatrix_PreservesEmptyEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepo{}
+	svc := NewService(repo, ServiceConfig{})
+
+	_, err := svc.ModelMatrix(context.Background(), "tenant-a", []string{"sonnet"}, nil, "")
+	if err != nil {
+		t.Fatalf("ModelMatrix: %v", err)
+	}
+	if repo.matrixMode != "" {
+		t.Fatalf("matrixMode = %q, want empty", repo.matrixMode)
 	}
 }
 

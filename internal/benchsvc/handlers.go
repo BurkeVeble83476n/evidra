@@ -461,7 +461,8 @@ func handleCompareModels(svc *Service) http.HandlerFunc {
 			if scenariosStr := q.Get("scenarios"); scenariosStr != "" {
 				scenarios = strings.Split(scenariosStr, ",")
 			}
-			matrix, err := svc.ModelMatrix(r.Context(), tenantID, models, scenarios)
+			mode := q.Get("evidence_mode")
+			matrix, err := svc.ModelMatrix(r.Context(), tenantID, models, scenarios, mode)
 			if err != nil {
 				apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 				return

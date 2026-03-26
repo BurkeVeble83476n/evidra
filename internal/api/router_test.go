@@ -156,7 +156,7 @@ func (r *routerBenchRepo) GetArtifact(context.Context, string, string, string) (
 func (r *routerBenchRepo) CompareModels(context.Context, string, string, string, string) ([]benchsvc.ScenarioModelComparison, error) {
 	return nil, nil
 }
-func (r *routerBenchRepo) ModelMatrix(context.Context, string, []string, []string) (*bench.ModelMatrix, error) {
+func (r *routerBenchRepo) ModelMatrix(context.Context, string, []string, []string, string) (*bench.ModelMatrix, error) {
 	return nil, nil
 }
 func (r *routerBenchRepo) SignalSummary(context.Context, string, bench.RunFilters) (*bench.SignalAggregation, error) {

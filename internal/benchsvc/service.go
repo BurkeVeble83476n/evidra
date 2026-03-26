@@ -55,7 +55,7 @@ type Repository interface {
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
 	GetArtifact(ctx context.Context, tenantID string, runID, artifactType string) ([]byte, string, error)
 	CompareModels(ctx context.Context, tenantID, modelA, modelB, evidenceMode string) ([]ScenarioModelComparison, error)
-	ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string) (*bench.ModelMatrix, error)
+	ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string, evidenceMode string) (*bench.ModelMatrix, error)
 	SignalSummary(ctx context.Context, tenantID string, f bench.RunFilters) (*bench.SignalAggregation, error)
 	Regressions(ctx context.Context, tenantID string) ([]bench.Regression, error)
 	FailureAnalysis(ctx context.Context, tenantID string, scenarioID string) (*bench.FailureInsights, error)
@@ -348,6 +348,6 @@ func (s *Service) FailureAnalysis(ctx context.Context, tenantID string, scenario
 }
 
 // ModelMatrix returns a multi-model comparison grid.
-func (s *Service) ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string) (*bench.ModelMatrix, error) {
-	return s.repo.ModelMatrix(ctx, tenantID, models, scenarios)
+func (s *Service) ModelMatrix(ctx context.Context, tenantID string, models, scenarios []string, evidenceMode string) (*bench.ModelMatrix, error) {
+	return s.repo.ModelMatrix(ctx, tenantID, models, scenarios, evidenceMode)
 }

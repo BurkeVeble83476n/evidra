@@ -8,11 +8,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/oklog/ulid/v2"
 
 	"samebits.com/evidra/internal/db"
+	bench "samebits.com/evidra/pkg/bench"
 )
 
 func setupTestDB(t *testing.T) *pgxpool.Pool {
@@ -229,5 +231,80 @@ func TestPgStore_UpdateGlobalModel(t *testing.T) {
 	}
 	if apiKeyEnv != "CUSTOM_API_KEY" {
 		t.Fatalf("api_key_env = %q, want CUSTOM_API_KEY", apiKeyEnv)
+	}
+}
+
+func TestPgStore_ModelMatrix_EvidenceModeSemantics(t *testing.T) {
+	pool := setupTestDB(t)
+	store := NewPgStore(pool)
+	tenantID := testID("tnt")
+
+	seedTenant(t, pool, tenantID)
+
+	runs := []bench.RunRecord{
+		{
+			ID:            testID("run"),
+			TenantID:      tenantID,
+			ScenarioID:    "broken-deployment",
+			Model:         "sonnet",
+			EvidenceMode:  "none",
+			Passed:        true,
+			Duration:      10,
+			EstimatedCost: 1.0,
+			CreatedAt:     time.Now(),
+		},
+		{
+			ID:            testID("run"),
+			TenantID:      tenantID,
+			ScenarioID:    "broken-deployment",
+			Model:         "sonnet",
+			EvidenceMode:  "smart",
+			Passed:        false,
+			Duration:      20,
+			EstimatedCost: 2.0,
+			CreatedAt:     time.Now(),
+		},
+		{
+			ID:            testID("run"),
+			TenantID:      tenantID,
+			ScenarioID:    "broken-deployment",
+			Model:         "opus",
+			EvidenceMode:  "direct",
+			Passed:        true,
+			Duration:      30,
+			EstimatedCost: 3.0,
+			CreatedAt:     time.Now(),
+		},
+	}
+
+	for _, run := range runs {
+		if err := store.InsertRun(context.Background(), tenantID, run); err != nil {
+			t.Fatalf("InsertRun %s: %v", run.ID, err)
+		}
+	}
+
+	baseline, err := store.ModelMatrix(context.Background(), tenantID, nil, nil, "none")
+	if err != nil {
+		t.Fatalf("ModelMatrix baseline: %v", err)
+	}
+	if len(baseline.Models) != 1 || baseline.Models[0] != "sonnet" {
+		t.Fatalf("baseline models = %v, want [sonnet]", baseline.Models)
+	}
+	if cell := baseline.Cells["broken-deployment"]["sonnet"]; cell.Runs != 1 || cell.Passed != 1 || cell.PassRate != 100 {
+		t.Fatalf("baseline cell = %+v, want one passed run", cell)
+	}
+
+	evidra, err := store.ModelMatrix(context.Background(), tenantID, nil, nil, "evidra")
+	if err != nil {
+		t.Fatalf("ModelMatrix evidra: %v", err)
+	}
+	if len(evidra.Models) != 2 {
+		t.Fatalf("evidra models = %v, want 2 models", evidra.Models)
+	}
+	if cell := evidra.Cells["broken-deployment"]["sonnet"]; cell.Runs != 1 || cell.Passed != 0 {
+		t.Fatalf("evidra sonnet cell = %+v, want one failed non-baseline run", cell)
+	}
+	if cell := evidra.Cells["broken-deployment"]["opus"]; cell.Runs != 1 || cell.Passed != 1 {
+		t.Fatalf("evidra opus cell = %+v, want one passed non-baseline run", cell)
 	}
 }
