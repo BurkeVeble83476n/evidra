@@ -80,9 +80,11 @@ func TestPrintHelp_DescribesDefaultToolSurfaceAndOptionalFullPrescribe(t *testin
 	for _, needle := range []string{
 		"--full-prescribe",
 		"write_file",
+		"describe_tool",
 		"prescribe_smart",
 		"run_command",
 		"collect_diagnostics",
+		"auto-evidence",
 	} {
 		if !strings.Contains(help, needle) {
 			t.Fatalf("help missing %q: %s", needle, help)
@@ -90,5 +92,8 @@ func TestPrintHelp_DescribesDefaultToolSurfaceAndOptionalFullPrescribe(t *testin
 	}
 	if strings.Contains(help, "Agent calls prescribe_full/prescribe_smart/report tools explicitly") {
 		t.Fatalf("help should not claim prescribe_full is part of the default direct surface: %s", help)
+	}
+	if !strings.Contains(help, "Use run_command for the normal workflow") {
+		t.Fatalf("help should describe run_command as the default workflow: %s", help)
 	}
 }

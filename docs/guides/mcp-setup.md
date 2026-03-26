@@ -109,24 +109,25 @@ Full guide: [Skill Setup](skill-setup.md)
 
 Ask your agent: *"What tools do you have from Evidra?"*
 
-You should see six default tools: `run_command`, `collect_diagnostics`, `write_file`, `prescribe_smart`, `report`, and `get_event`. Start `evidra-mcp` with `--full-prescribe` when you also want `prescribe_full`.
+You should see seven default tools: `run_command`, `collect_diagnostics`, `write_file`, `describe_tool`, `prescribe_smart`, `report`, and `get_event`. Start `evidra-mcp` with `--full-prescribe` when you also want `prescribe_full`.
 
-Try: *"Apply this deployment to staging"* — the agent should call `run_command` for the direct path, or `prescribe_full` / `prescribe_smart` followed by `report` when you want the explicit protocol.
+Try: *"Apply this deployment to staging"* — the agent should usually call `run_command` for the direct path. Use `describe_tool`, then `prescribe_smart` / `report`, only when you want the explicit protocol.
 
 ---
 
 ## DevOps Server Mode (new)
 
 evidra-mcp provides DevOps tooling with built-in evidence recording.
-The default direct surface is 6 tools; `--full-prescribe` adds `prescribe_full` as an optional seventh tool.
+The default direct surface is 7 tools; `--full-prescribe` adds `prescribe_full` as an optional eighth tool.
 
 | Tool | Description |
 |---|---|
 | `run_command` | Execute kubectl, helm, terraform, aws with smart output |
 | `collect_diagnostics` | Run one bundled Kubernetes diagnosis pass for a workload |
 | `write_file` | Write config or manifest files under the workspace or temp directories |
-| `prescribe_smart` | Record intent (lightweight) |
-| `report` | Record outcome |
+| `describe_tool` | Show the full schema for deferred protocol tools when you need explicit control |
+| `prescribe_smart` | Record intent (lightweight); full schema is loaded on demand via `describe_tool` |
+| `report` | Record outcome; full schema is loaded on demand via `describe_tool` |
 | `get_event` | Look up evidence |
 
 Enable `--full-prescribe` when you also want `prescribe_full` for artifact-aware explicit intent capture.
@@ -171,7 +172,7 @@ One MCP connection for both infrastructure commands and evidence recording.
 
 ## How It Works
 
-By default Evidra exposes six MCP tools, plus optional `prescribe_full` when the server is started with `--full-prescribe`:
+By default Evidra exposes seven MCP tools, plus optional `prescribe_full` when the server is started with `--full-prescribe`:
 
 **`run_command`** — Execute infrastructure commands (kubectl, helm, terraform, aws) with token-efficient smart output. Mutations are auto-recorded as evidence. Command allowlist prevents dangerous operations.
 
@@ -179,17 +180,17 @@ By default Evidra exposes six MCP tools, plus optional `prescribe_full` when the
 
 **`write_file`** — Write files under the current workspace or temp directories. Use it for agent-authored YAML, Terraform snippets, or scripts without exposing system directories. Evidra blocks system paths and `~/.ssh`.
 
+**`describe_tool`** — Return the full schema for deferred protocol tools. Most agents do not need it. Use it when you want explicit `prescribe_smart` / `report` control instead of the default `run_command` auto-evidence path.
+
 **`prescribe_full`** — Record intent BEFORE an infrastructure mutation when artifact bytes are available. It analyzes the artifact, returns a `prescription_id`, and supports native detector coverage plus artifact drift detection.
 
-**`prescribe_smart`** — Record intent BEFORE an infrastructure mutation when you know the target operation and resource but do not have artifact bytes. It returns a `prescription_id` and computes matrix risk from tool, operation, and target context.
+**`prescribe_smart`** — Record intent BEFORE an infrastructure mutation when you know the target operation and resource but do not have artifact bytes. It returns a `prescription_id` and computes matrix risk from tool, operation, and target context. In the default tool surface its schema is deferred; call `describe_tool` first if you want the full explicit schema.
 
-**`report`** — Record the terminal verdict for the prescription. Executed operations report `success`, `failure`, or `error` with an exit code. Intentional refusals report `declined` with a short operational reason.
+**`report`** — Record the terminal verdict for the prescription. Executed operations report `success`, `failure`, or `error` with an exit code. Intentional refusals report `declined` with a short operational reason. In the default tool surface its schema is deferred; call `describe_tool` first if you want the full explicit schema.
 
 **`get_event`** — Retrieve a previous evidence record by event ID for debugging or audit.
 
-When using `run_command`, evidence is recorded automatically. When using
-`prescribe_*` and `report` directly, the agent controls the evidence flow
-explicitly. Both approaches produce the same evidence chain.
+When using `run_command`, evidence is recorded automatically. That is the default path and the recommended path for cheaper models. When using `describe_tool` plus `prescribe_*` / `report` directly, the agent controls the evidence flow explicitly. Both approaches produce the same evidence chain.
 
 ### The workflow
 

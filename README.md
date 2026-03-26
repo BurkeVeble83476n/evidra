@@ -30,7 +30,7 @@ CLI and MCP are the authoritative analytics surfaces today.
 }
 ```
 
-Your agent gets six default DevOps tools: `run_command`, `collect_diagnostics`, `write_file`, `prescribe_smart`, `report`, and `get_event`, with automatic evidence recording for mutations. Add `--full-prescribe` when you also want artifact-aware `prescribe_full`.
+Your agent gets seven default DevOps tools: `run_command`, `collect_diagnostics`, `write_file`, `describe_tool`, `prescribe_smart`, `report`, and `get_event`. The normal path is still `run_command` with automatic evidence recording for mutations. Use `describe_tool` only when you want the full explicit-control schema for `prescribe_smart` or `report`. Add `--full-prescribe` when you also want artifact-aware `prescribe_full`.
 
 ## Quick Start — CLI (No MCP)
 
@@ -87,26 +87,27 @@ operational discipline: diagnosis before fix, safety boundaries, domain-specific
 patterns. Skills are tested on 62 real scenarios via [infra-bench](https://lab.evidra.cc)
 before shipping — skills that hurt performance don't ship.
 
-### 6 default tools, plus optional Full Prescribe
+### 7 default tools, plus optional Full Prescribe
 
 | Tool | Description |
 |---|---|
 | `run_command` | Execute kubectl, helm, terraform, aws — with smart output |
 | `collect_diagnostics` | Gather pods, describe output, events, and recent logs for one workload |
 | `write_file` | Write config or manifest files under the current workspace or temp directories |
-| `prescribe_smart` | Smart Prescribe: record intent before mutation with lightweight target context |
-| `report` | Record outcome (optional, auto-recorded in proxy mode) |
+| `describe_tool` | Show the full schema for deferred protocol tools when you want explicit control |
+| `prescribe_smart` | Smart Prescribe with deferred schema loading; use `describe_tool` first when needed |
+| `report` | Record outcome; full explicit schema available via `describe_tool` |
 | `get_event` | Look up evidence |
 
 Enable `--full-prescribe` to add **Full Prescribe** when your agent has artifact bytes and you want artifact-aware explicit intent capture.
 
-Most agents only need `run_command`. Use `collect_diagnostics` when the model would otherwise spend multiple turns on `get` / `describe` / `events` / `logs`. Use `write_file` for agent-authored manifests or Terraform snippets without leaving the MCP surface.
+Most agents only need `run_command`. Use `collect_diagnostics` when the model would otherwise spend multiple turns on `get` / `describe` / `events` / `logs`. Use `write_file` for agent-authored manifests or Terraform snippets without leaving the MCP surface. Use `describe_tool` only when you deliberately want the explicit `prescribe_smart` / `report` flow instead of the default auto-evidence path.
 
 ## Why Not Just kubectl-mcp-server?
 
 | | kubectl-mcp-server | evidra-mcp |
 |---|---|---|
-| Tools | 270 specialized | 6 default tools + optional Full Prescribe |
+| Tools | 270 specialized | 7 default tools + optional Full Prescribe |
 | Output | Raw JSON (~2400 tokens) | Smart summary (~40 tokens) |
 | Evidence | None | Auto prescribe/report for mutations |
 | Security | Open | Command allowlist + blocked subcommands |

@@ -18,8 +18,11 @@ When running `evidra-mcp` in DevOps server mode, the MCP surface stays intention
 - `run_command` for direct kubectl, helm, terraform, and aws operations
 - `collect_diagnostics` for one bundled Kubernetes diagnosis pass over a workload
 - `write_file` for agent-authored manifests or config files under the workspace or temp directories
+- `describe_tool` for loading the full schema of deferred protocol tools on demand
 - `prescribe_smart`, `report`, and `get_event` for explicit evidence control
 - optional `prescribe_full` when the server is started with `--full-prescribe`
+
+The default workflow is still `run_command` plus auto-evidence. `prescribe_smart` and `report` remain available in the default tool list, but their full schemas are deferred until the agent calls `describe_tool`.
 
 `collect_diagnostics` is not a new artifact adapter. It is a read-only MCP helper that reduces repeated `get` / `describe` / `events` / `logs` turns for common Kubernetes debugging workflows.
 

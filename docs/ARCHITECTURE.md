@@ -44,13 +44,13 @@ At the MCP layer, Full Prescribe, Smart Prescribe, and Proxy Observed are differ
 
 | Mode | How Evidra connects | Prescribe | Assessment |
 |------|-------------------|-----------|------------|
-| **MCP direct** | Agent calls `prescribe_full`/`prescribe_smart` + `report` | Yes — full intent + artifact | Full pipeline |
+| **MCP direct** | Agent usually calls `run_command`; explicit `prescribe_*` + `report` remain available | Yes — direct path or explicit protocol | Full pipeline |
 | **MCP proxy** | `evidra-mcp --proxy` wraps upstream MCP server, classifies `run_command` and mutation-style `tools/call` requests heuristically | Implicit | Observed only |
 | **OTLP bridge** | Reads AgentGateway OTLP traces, translates to prescribe/report | Implicit | Observed only |
 | **Webhooks** | ArgoCD/generic webhook → mapped prescribe/report | Translated | Full pipeline |
 | **Ext-authz** (future) | Gateway calls Evidra assessment endpoint before forwarding | Yes — via gateway | Full pipeline |
 
-MCP direct gives the richest evidence. Proxy and bridge are passive taps. Proxy observation is heuristic: it records `run_command` and generic mutation-style MCP tool names it can classify, but it does not build a full upstream tool catalog.
+MCP direct gives the richest evidence. In the default direct surface, `run_command` remains the primary cheap-model path. `prescribe_smart` and `report` stay available, but their full schemas are loaded on demand via `describe_tool` so the default tool surface stays smaller. Proxy and bridge are passive taps. Proxy observation is heuristic: it records `run_command` and generic mutation-style MCP tool names it can classify, but it does not build a full upstream tool catalog.
 Ext-authz combines both: the gateway consults Evidra for risk assessment,
 the agent never changes.
 
