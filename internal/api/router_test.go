@@ -125,7 +125,9 @@ func (r *routerBenchRepo) ArchiveRuns(context.Context, string, benchsvc.ArchiveR
 func (r *routerBenchRepo) FilteredStats(context.Context, string, bench.RunFilters) (*bench.StatsResult, error) {
 	return nil, nil
 }
-func (r *routerBenchRepo) Catalog(context.Context, string) (*bench.RunCatalog, error) { return nil, nil }
+func (r *routerBenchRepo) Catalog(context.Context, string) (*bench.RunCatalog, error) {
+	return nil, nil
+}
 func (r *routerBenchRepo) ListEnabledModels(context.Context, string) ([]benchsvc.EnabledModel, error) {
 	return nil, nil
 }
@@ -141,7 +143,9 @@ func (r *routerBenchRepo) UpdateGlobalModel(_ context.Context, modelID string, c
 func (r *routerBenchRepo) Leaderboard(context.Context, string, string) ([]bench.LeaderboardEntry, error) {
 	return nil, nil
 }
-func (r *routerBenchRepo) ListScenarios(context.Context) ([]bench.ScenarioSummary, error) { return nil, nil }
+func (r *routerBenchRepo) ListScenarios(context.Context) ([]bench.ScenarioSummary, error) {
+	return nil, nil
+}
 func (r *routerBenchRepo) StoreArtifact(context.Context, string, string, string, []byte) error {
 	return nil
 }
@@ -157,7 +161,9 @@ func (r *routerBenchRepo) ModelMatrix(context.Context, string, []string, []strin
 func (r *routerBenchRepo) SignalSummary(context.Context, string, bench.RunFilters) (*bench.SignalAggregation, error) {
 	return nil, nil
 }
-func (r *routerBenchRepo) Regressions(context.Context, string) ([]bench.Regression, error) { return nil, nil }
+func (r *routerBenchRepo) Regressions(context.Context, string) ([]bench.Regression, error) {
+	return nil, nil
+}
 func (r *routerBenchRepo) FailureAnalysis(context.Context, string, string) (*bench.FailureInsights, error) {
 	return nil, nil
 }

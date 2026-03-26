@@ -19,24 +19,24 @@ import (
 // handlerRepo is an in-memory fake implementing Repository for handler tests.
 // Each field holds canned return values; tests set them before making requests.
 type handlerRepo struct {
-	runs       []bench.RunRecord
-	runsTotal  int
-	runsErr    error
-	run        *bench.RunRecord
-	runErr     error
-	stats      *bench.StatsResult
-	statsErr   error
-	catalog    *bench.RunCatalog
-	catalogErr error
+	runs             []bench.RunRecord
+	runsTotal        int
+	runsErr          error
+	run              *bench.RunRecord
+	runErr           error
+	stats            *bench.StatsResult
+	statsErr         error
+	catalog          *bench.RunCatalog
+	catalogErr       error
 	enabledModels    []EnabledModel
 	enabledModelsErr error
-	leaders    []bench.LeaderboardEntry
-	leadersErr error
-	scenarios  []bench.ScenarioSummary
-	scenErr    error
-	artifact   []byte
-	artCT      string
-	artErr     error
+	leaders          []bench.LeaderboardEntry
+	leadersErr       error
+	scenarios        []bench.ScenarioSummary
+	scenErr          error
+	artifact         []byte
+	artCT            string
+	artErr           error
 
 	// delete / archive
 	deleteErr    error
