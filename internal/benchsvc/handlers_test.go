@@ -1306,6 +1306,9 @@ func TestHandleCompareModels_ReturnsComparison(t *testing.T) {
 	if cmp.Summary.SharedScenarios != 1 {
 		t.Fatalf("SharedScenarios = %d, want 1", cmp.Summary.SharedScenarios)
 	}
+	if repo.lastMode != "" {
+		t.Fatalf("evidence_mode = %q, want empty", repo.lastMode)
+	}
 }
 
 // compareModelsRepo is a fake that returns canned CompareModels data.
@@ -1314,7 +1317,8 @@ type compareModelsRepo struct {
 	scenarios []ScenarioModelComparison
 }
 
-func (r *compareModelsRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+func (r *compareModelsRepo) CompareModels(_ context.Context, _, _, _, evidenceMode string) ([]ScenarioModelComparison, error) {
+	r.lastMode = evidenceMode
 	return r.scenarios, nil
 }
 func (r *compareModelsRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {

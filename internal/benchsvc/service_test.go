@@ -17,6 +17,7 @@ import (
 type fakeRepo struct {
 	leaderboardTenant string
 	leaderboardMode   string
+	compareMode       string
 	beginTxErr        error
 	tx                pgx.Tx
 	enabledModels     []EnabledModel
@@ -57,7 +58,8 @@ func (f *fakeRepo) StoreArtifact(_ context.Context, _, _, _ string, _ []byte) er
 func (f *fakeRepo) GetArtifact(_ context.Context, _, _, _ string) ([]byte, string, error) {
 	return nil, "", nil
 }
-func (f *fakeRepo) CompareModels(_ context.Context, _, _, _, _ string) ([]ScenarioModelComparison, error) {
+func (f *fakeRepo) CompareModels(_ context.Context, _, _, _, evidenceMode string) ([]ScenarioModelComparison, error) {
+	f.compareMode = evidenceMode
 	return nil, nil
 }
 func (f *fakeRepo) ModelMatrix(_ context.Context, _ string, _, _ []string) (*bench.ModelMatrix, error) {
@@ -169,6 +171,21 @@ func TestServiceLeaderboard_UsesPublicTenant(t *testing.T) {
 	_, _ = svc2.Leaderboard(context.Background(), "proxy")
 	if repo.leaderboardTenant != "bench-public" {
 		t.Fatalf("leaderboardTenant = %q, want bench-public", repo.leaderboardTenant)
+	}
+}
+
+func TestServiceCompareModels_PreservesEmptyEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepo{}
+	svc := NewService(repo, ServiceConfig{})
+
+	_, err := svc.CompareModels(context.Background(), "tenant-a", "sonnet", "opus", "")
+	if err != nil {
+		t.Fatalf("CompareModels: %v", err)
+	}
+	if repo.compareMode != "" {
+		t.Fatalf("compareMode = %q, want empty", repo.compareMode)
 	}
 }
 

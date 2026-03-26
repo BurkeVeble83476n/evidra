@@ -84,10 +84,6 @@ type ModelComparisonSummary struct {
 // CompareModels compares two models across all shared scenarios.
 // Single query: aggregates in SQL.
 func (s *Service) CompareModels(ctx context.Context, tenantID, modelA, modelB, evidenceMode string) (*ModelComparison, error) {
-	if evidenceMode == "" {
-		evidenceMode = "proxy"
-	}
-
 	scenarios, err := s.repo.CompareModels(ctx, tenantID, modelA, modelB, evidenceMode)
 	if err != nil {
 		return nil, fmt.Errorf("benchsvc.CompareModels: %w", err)
