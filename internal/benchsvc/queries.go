@@ -88,6 +88,30 @@ type RegisterRunnerRequest struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 }
 
+// BenchJob represents a queued or running benchmark job from bench_jobs.
+type BenchJob struct {
+	ID           string          `json:"id"`
+	TenantID     string          `json:"tenant_id"`
+	InfraID      string          `json:"infra_id,omitempty"`
+	Model        string          `json:"model"`
+	Provider     string          `json:"provider"`
+	Status       string          `json:"status"`
+	Total        int             `json:"total"`
+	Completed    int             `json:"completed"`
+	Passed       int             `json:"passed"`
+	Failed       int             `json:"failed"`
+	ErrorMessage string          `json:"error_message,omitempty"`
+	ConfigJSON   json.RawMessage `json:"config_json,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+}
+
+// JobConfig holds the scenario list and options stored in bench_jobs.config_json.
+type JobConfig struct {
+	Scenarios []string `json:"scenarios"`
+	Timeout   int      `json:"timeout,omitempty"`
+	RunnerID  string   `json:"runner_id,omitempty"` // manual pinning
+}
+
 // scanRunRecord scans a row into a bench.RunRecord.
 func scanRunRecord(row pgx.CollectableRow) (bench.RunRecord, error) {
 	var r bench.RunRecord
@@ -740,6 +764,89 @@ func (s *PgStore) TouchRunner(ctx context.Context, tenantID, runnerID string) er
 	`, runnerID, tenantID)
 	if err != nil {
 		return fmt.Errorf("benchsvc.TouchRunner: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// EnqueueJob inserts a new benchmark job into bench_jobs with status 'queued'.
+func (s *PgStore) EnqueueJob(ctx context.Context, tenantID, model, provider string, cfg JobConfig) (*BenchJob, error) {
+	id := ulid.Make().String()
+	cfgJSON, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.EnqueueJob: marshal: %w", err)
+	}
+
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO bench_jobs (id, tenant_id, model, provider, status, total, config_json)
+		VALUES ($1, $2, $3, $4, 'queued', $5, $6)
+	`, id, tenantID, model, provider, len(cfg.Scenarios), cfgJSON)
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.EnqueueJob: %w", err)
+	}
+
+	return &BenchJob{
+		ID:       id,
+		TenantID: tenantID,
+		Model:    model,
+		Provider: provider,
+		Status:   "queued",
+		Total:    len(cfg.Scenarios),
+	}, nil
+}
+
+// ClaimJob atomically claims the next queued job matching the runner's models.
+// Returns nil if no job is available.
+func (s *PgStore) ClaimJob(ctx context.Context, tenantID, runnerID string, models []string) (*BenchJob, error) {
+	var job BenchJob
+	var cfgJSON []byte
+	err := s.db.QueryRow(ctx, `
+		UPDATE bench_jobs SET
+			status = 'claimed',
+			infra_id = $3,
+			started_at = NOW()
+		WHERE id = (
+			SELECT id FROM bench_jobs
+			WHERE tenant_id = $1
+			  AND status = 'queued'
+			  AND model = ANY($2)
+			ORDER BY created_at
+			FOR UPDATE SKIP LOCKED
+			LIMIT 1
+		)
+		RETURNING id, tenant_id, infra_id, model, provider, status, total,
+		          completed, passed, failed, error_message, config_json, created_at
+	`, tenantID, models, runnerID).Scan(
+		&job.ID, &job.TenantID, &job.InfraID, &job.Model, &job.Provider,
+		&job.Status, &job.Total, &job.Completed, &job.Passed, &job.Failed,
+		&job.ErrorMessage, &cfgJSON, &job.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil // no job available
+	}
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.ClaimJob: %w", err)
+	}
+	job.ConfigJSON = cfgJSON
+	return &job, nil
+}
+
+// CompleteJob marks a job as completed or failed with final counts.
+func (s *PgStore) CompleteJob(ctx context.Context, tenantID, jobID, status string, passed, failed int, errMsg string) error {
+	result, err := s.db.Exec(ctx, `
+		UPDATE bench_jobs SET
+			status = $3,
+			completed = passed + failed,
+			passed = $4,
+			failed = $5,
+			error_message = $6,
+			completed_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+	`, jobID, tenantID, status, passed, failed, errMsg)
+	if err != nil {
+		return fmt.Errorf("benchsvc.CompleteJob: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrNotFound

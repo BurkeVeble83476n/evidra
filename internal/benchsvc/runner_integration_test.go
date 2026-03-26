@@ -64,3 +64,51 @@ func TestPgStore_DeleteRunner(t *testing.T) {
 		t.Fatalf("len = %d, want 0", len(runners))
 	}
 }
+
+func TestPgStore_EnqueueAndClaimJob(t *testing.T) {
+	t.Parallel()
+	db := setupTestDB(t)
+	store := NewPgStore(db)
+	tenantID := testID("tnt")
+	seedTenant(t, db, tenantID)
+
+	job, err := store.EnqueueJob(context.Background(), tenantID, "deepseek-chat", "bifrost", JobConfig{
+		Scenarios: []string{"broken-deployment", "privileged-pod"},
+	})
+	if err != nil {
+		t.Fatalf("EnqueueJob: %v", err)
+	}
+	if job.Status != "queued" {
+		t.Fatalf("status = %q, want queued", job.Status)
+	}
+
+	// Claim with matching model.
+	claimed, err := store.ClaimJob(context.Background(), tenantID, "runner-1", []string{"deepseek-chat"})
+	if err != nil {
+		t.Fatalf("ClaimJob: %v", err)
+	}
+	if claimed == nil {
+		t.Fatal("expected a job, got nil")
+	}
+	if claimed.Status != "claimed" {
+		t.Fatalf("status = %q, want claimed", claimed.Status)
+	}
+
+	// Second claim returns nil (no more queued jobs).
+	second, err := store.ClaimJob(context.Background(), tenantID, "runner-2", []string{"deepseek-chat"})
+	if err != nil {
+		t.Fatalf("ClaimJob 2: %v", err)
+	}
+	if second != nil {
+		t.Fatal("expected nil, got a job")
+	}
+
+	// Claim with non-matching model returns nil.
+	third, err := store.ClaimJob(context.Background(), tenantID, "runner-3", []string{"gpt-4.1"})
+	if err != nil {
+		t.Fatalf("ClaimJob 3: %v", err)
+	}
+	if third != nil {
+		t.Fatal("expected nil for non-matching model")
+	}
+}
