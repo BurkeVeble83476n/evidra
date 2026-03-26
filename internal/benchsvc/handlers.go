@@ -349,6 +349,10 @@ func handleUpsertTenantProvider(svc *Service) http.HandlerFunc {
 			apiutil.WriteError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 			return
 		}
+		if cfg.APIKeyEnc == "" && cfg.APIBaseURL == "" && cfg.RateLimit == 0 && cfg.MonthlyBudget == 0 {
+			apiutil.WriteError(w, http.StatusBadRequest, "at least one field (api_key, api_base_url, rate_limit, monthly_budget) is required")
+			return
+		}
 		if err := svc.UpsertTenantProvider(r.Context(), tenantID, modelID, cfg); err != nil {
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
