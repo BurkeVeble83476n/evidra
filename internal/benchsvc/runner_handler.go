@@ -110,8 +110,17 @@ func handlePollJob(svc *Service) http.HandlerFunc {
 		}
 
 		var cfg JobConfig
-		if len(job.ConfigJSON) > 0 {
-			_ = json.Unmarshal(job.ConfigJSON, &cfg)
+		if len(job.ConfigJSON) == 0 {
+			apiutil.WriteError(w, http.StatusBadRequest, "job config_json is required")
+			return
+		}
+		if err := json.Unmarshal(job.ConfigJSON, &cfg); err != nil {
+			apiutil.WriteError(w, http.StatusBadRequest, "invalid job config_json: "+err.Error())
+			return
+		}
+		if cfg.EvidenceMode == "" {
+			apiutil.WriteError(w, http.StatusBadRequest, "job config_json evidence_mode is required")
+			return
 		}
 
 		apiutil.WriteJSON(w, http.StatusOK, map[string]any{

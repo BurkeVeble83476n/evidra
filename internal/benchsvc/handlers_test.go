@@ -1405,6 +1405,11 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	if _, ok := resp["id"]; !ok {
 		t.Fatal("response missing 'id' key")
 	}
+	select {
+	case <-spy.startedCh:
+	case <-time.After(time.Second):
+		t.Fatal("executor Start was not called")
+	}
 	stored := store.Get(resp["id"].(string))
 	if stored == nil {
 		t.Fatal("stored trigger job missing")
@@ -1412,7 +1417,10 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	if stored.EvidenceMode != "smart" {
 		t.Fatalf("stored evidence mode = %q, want smart", stored.EvidenceMode)
 	}
-	if spy.job != nil && spy.job.EvidenceMode != "smart" {
+	if spy.job == nil {
+		t.Fatal("executor job missing")
+	}
+	if spy.job.EvidenceMode != "smart" {
 		t.Fatalf("job evidence mode = %q, want smart", spy.job.EvidenceMode)
 	}
 }
@@ -1660,7 +1668,7 @@ func TestHandleTrigger_WithPinnedRunnerUnavailable_Returns400AndSkipsExecutor(t 
 	RegisterRoutes(mux, svc, passthroughAuth("t1"))
 
 	rec := httptest.NewRecorder()
-	body := `{"model":"sonnet","runner_id":"runner-missing","scenarios":["s1"]}`
+	body := `{"model":"sonnet","runner_id":"runner-missing","evidence_mode":"smart","scenarios":["s1"]}`
 	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
@@ -1718,5 +1726,58 @@ func TestHandlePollJob_ReturnsEvidenceMode(t *testing.T) {
 	}
 	if resp["evidence_mode"] != "smart" {
 		t.Fatalf("evidence_mode = %v, want smart", resp["evidence_mode"])
+	}
+}
+
+func TestHandlePollJob_RejectsMissingOrMalformedEvidenceMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		configJSON string
+	}{
+		{
+			name:       "missing evidence mode",
+			configJSON: `{"scenarios":["s1"]}`,
+		},
+		{
+			name:       "malformed config json",
+			configJSON: `{"scenarios":["s1"],"evidence_mode":`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := &handlerRepo{
+				runners: []Runner{
+					{
+						ID:     "runner-1",
+						Status: "healthy",
+						Config: RunnerConfig{Models: []string{"sonnet"}},
+					},
+				},
+				claimedJob: &BenchJob{
+					ID:         "job-q-2",
+					TenantID:   "pub",
+					Model:      "sonnet",
+					Provider:   "bifrost",
+					Status:     "queued",
+					ConfigJSON: json.RawMessage(tt.configJSON),
+				},
+			}
+			svc := NewService(repo, ServiceConfig{PublicTenant: "pub"})
+			mux := http.NewServeMux()
+			RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/runners/jobs?runner_id=runner-1", nil)
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+			}
+		})
 	}
 }
