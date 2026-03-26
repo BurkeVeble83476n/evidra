@@ -756,11 +756,13 @@ func (s *PgStore) DeleteRunner(ctx context.Context, tenantID, runnerID string) e
 	return nil
 }
 
-// TouchRunner updates the runner's updated_at (implicit heartbeat on each poll).
+// TouchRunner updates the runner's updated_at and restores healthy status.
+// Rejects runners that are draining or unhealthy. An unhealthy runner must
+// re-register; a poll from an unhealthy runner returns 404.
 func (s *PgStore) TouchRunner(ctx context.Context, tenantID, runnerID string) error {
 	result, err := s.db.Exec(ctx, `
 		UPDATE bench_infra SET updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2 AND status != 'draining'
+		WHERE id = $1 AND tenant_id = $2 AND status = 'healthy'
 	`, runnerID, tenantID)
 	if err != nil {
 		return fmt.Errorf("benchsvc.TouchRunner: %w", err)

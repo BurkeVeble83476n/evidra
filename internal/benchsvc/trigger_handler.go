@@ -51,7 +51,35 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 		// V2b: check for a registered runner that supports this model.
 		if svc.cfg.Dispatcher != nil {
 			runner, findErr := svc.repo.FindRunnerForModel(r.Context(), tenantID, req.Model)
-			if findErr == nil && runner != nil {
+			if findErr != nil {
+				apiutil.WriteError(w, http.StatusInternalServerError, "runner lookup failed: "+findErr.Error())
+				return
+			}
+			if runner != nil {
+				// Validate runner_id pinning: if caller specifies a runner,
+				// verify it exists, is healthy, and supports the requested model.
+				if req.RunnerID != "" {
+					runners, listErr := svc.ListRunners(r.Context(), tenantID)
+					if listErr != nil {
+						apiutil.WriteError(w, http.StatusInternalServerError, "runner list failed: "+listErr.Error())
+						return
+					}
+					var pinned *Runner
+					for i := range runners {
+						if runners[i].ID == req.RunnerID && runners[i].Status == "healthy" {
+							for _, m := range runners[i].Config.Models {
+								if m == req.Model {
+									pinned = &runners[i]
+									break
+								}
+							}
+						}
+					}
+					if pinned == nil {
+						apiutil.WriteError(w, http.StatusBadRequest, "runner "+req.RunnerID+" is not available for model "+req.Model)
+						return
+					}
+				}
 				cfg := JobConfig{
 					Scenarios: req.Scenarios,
 					RunnerID:  req.RunnerID,
@@ -220,8 +248,15 @@ func handleTriggerProgress(svc *Service, store *TriggerStore) http.HandlerFunc {
 			return
 		}
 
-		// Also update bench_jobs for persistence and janitor tracking.
-		_ = svc.repo.UpdateJobProgress(r.Context(), update.JobID, update.Completed, 0, 0)
+		// Update bench_jobs for persistence and janitor tracking.
+		// Read accumulated passed/failed from TriggerStore (it tracks per-scenario status).
+		current := store.Get(update.JobID)
+		passed, failed := 0, 0
+		if current != nil {
+			passed = current.Passed
+			failed = current.Failed
+		}
+		_ = svc.repo.UpdateJobProgress(r.Context(), update.JobID, update.Completed, passed, failed)
 
 		w.WriteHeader(http.StatusOK)
 	}
