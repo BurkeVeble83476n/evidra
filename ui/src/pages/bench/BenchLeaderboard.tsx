@@ -14,6 +14,9 @@ interface LeaderboardEntry {
   avg_duration: number;
   avg_cost: number;
   total_cost: number;
+  pass_k: number;
+  pass_k_trials: number;
+  sufficient_scenarios: number;
 }
 
 interface LeaderboardResponse {
@@ -32,6 +35,9 @@ interface ModelStats {
   totalCost: number;
   costPerRun: number;
   costPerPass: number;
+  passK: number;
+  passKTrials: number;
+  sufficientScenarios: number;
 }
 
 type SortKey = keyof Pick<
@@ -118,6 +124,9 @@ export function BenchLeaderboard() {
         totalCost: e.total_cost,
         costPerRun: e.avg_cost,
         costPerPass: passed > 0 ? e.total_cost / passed : Infinity,
+        passK: e.pass_k,
+        passKTrials: e.pass_k_trials,
+        sufficientScenarios: e.sufficient_scenarios,
       };
     });
   }, [entries]);
@@ -223,6 +232,9 @@ export function BenchLeaderboard() {
                   )}
                 </th>
               ))}
+              <th className="text-right text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted px-4 py-2.5 whitespace-nowrap">
+                Reliability
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -287,6 +299,20 @@ export function BenchLeaderboard() {
                 {/* Scenarios */}
                 <td className="px-4 py-3 text-right font-mono text-[0.78rem] text-fg-muted">
                   {m.scenarios}
+                </td>
+
+                {/* Reliability (pass^k) */}
+                <td className="px-4 py-3 text-right">
+                  <span className={`font-mono text-[0.82rem] font-semibold ${
+                    m.passK >= 70 ? "text-green-400" :
+                    m.passK >= 40 ? "text-accent" :
+                    "text-red-400"
+                  }`}>
+                    {m.passK.toFixed(1)}%
+                  </span>
+                  <div className="text-[0.62rem] text-fg-muted mt-0.5">
+                    k={m.passKTrials}, {m.sufficientScenarios}/{m.scenarios} qualifying
+                  </div>
                 </td>
               </tr>
             ))}
