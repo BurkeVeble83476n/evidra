@@ -35,6 +35,17 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			return
 		}
 
+		// Resolve provider from model catalog when not explicitly supplied.
+		provider := req.Provider
+		if provider == "" {
+			info, err := svc.ResolveModelProvider(r.Context(), req.Model)
+			if err != nil {
+				apiutil.WriteError(w, http.StatusBadRequest, "unknown model: "+req.Model)
+				return
+			}
+			provider = info.Provider
+		}
+
 		progress := make([]ScenarioProgress, len(req.Scenarios))
 		for i, s := range req.Scenarios {
 			progress[i] = ScenarioProgress{Scenario: s, Status: "pending"}
@@ -44,7 +55,7 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 			ID:        NewJobID(),
 			Status:    "pending",
 			Model:     req.Model,
-			Provider:  req.Provider,
+			Provider:  provider,
 			Total:     len(req.Scenarios),
 			Progress:  progress,
 			CreatedAt: time.Now(),

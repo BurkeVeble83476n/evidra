@@ -94,6 +94,9 @@ func (f *fakeRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg Glob
 	f.lastGlobalCfg = cfg
 	return nil
 }
+func (f *fakeRepo) ResolveModelProvider(_ context.Context, _ string) (*ModelProviderInfo, error) {
+	return nil, nil
+}
 func (f *fakeRepo) BeginTx(_ context.Context) (pgx.Tx, error) {
 	if f.beginTxErr != nil {
 		return nil, f.beginTxErr

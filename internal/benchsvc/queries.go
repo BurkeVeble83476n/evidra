@@ -39,6 +39,13 @@ type TenantProviderConfig struct {
 	MonthlyBudget float64 `json:"monthly_budget,omitempty"`
 }
 
+// ModelProviderInfo holds the provider and base URL for a model, used to
+// resolve credentials at trigger time.
+type ModelProviderInfo struct {
+	Provider   string `json:"provider"`
+	APIBaseURL string `json:"api_base_url"`
+}
+
 // GlobalModelConfig holds platform-level configuration for a model.
 type GlobalModelConfig struct {
 	APIBaseURL string `json:"api_base_url,omitempty"`
@@ -377,6 +384,21 @@ func (s *PgStore) UpdateGlobalModel(ctx context.Context, modelID string, cfg Glo
 		return fmt.Errorf("benchsvc.UpdateGlobalModel: model %q not found", modelID)
 	}
 	return nil
+}
+
+// ResolveModelProvider looks up a model's provider and base URL from the global catalog.
+func (s *PgStore) ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error) {
+	var info ModelProviderInfo
+	err := s.db.QueryRow(ctx,
+		`SELECT provider, api_base_url FROM bench_models WHERE id = $1`, modelID,
+	).Scan(&info.Provider, &info.APIBaseURL)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("benchsvc.ResolveModelProvider: model %q: %w", modelID, ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("benchsvc.ResolveModelProvider: %w", err)
+	}
+	return &info, nil
 }
 
 // ListScenarios returns all scenarios from the global catalog.

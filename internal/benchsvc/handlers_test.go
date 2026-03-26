@@ -55,12 +55,14 @@ type handlerRepo struct {
 	matrixErr   error
 
 	// capture
-	lastTenant      string
-	lastFilter      bench.RunFilters
-	lastMode        string
-	lastModelID     string
-	lastProviderCfg TenantProviderConfig
-	lastGlobalCfg   GlobalModelConfig
+	lastTenant       string
+	lastFilter       bench.RunFilters
+	lastMode         string
+	lastModelID      string
+	lastProviderCfg  TenantProviderConfig
+	lastGlobalCfg    GlobalModelConfig
+	modelProvider    *ModelProviderInfo
+	modelProviderErr error
 }
 
 func (r *handlerRepo) ListRuns(_ context.Context, tenant string, f bench.RunFilters) ([]bench.RunRecord, int, error) {
@@ -112,6 +114,9 @@ func (r *handlerRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg G
 	r.lastModelID = modelID
 	r.lastGlobalCfg = cfg
 	return nil
+}
+func (r *handlerRepo) ResolveModelProvider(_ context.Context, modelID string) (*ModelProviderInfo, error) {
+	return r.modelProvider, r.modelProviderErr
 }
 func (r *handlerRepo) Leaderboard(_ context.Context, tenant, mode string) ([]bench.LeaderboardEntry, error) {
 	r.lastTenant = tenant
@@ -1274,7 +1279,9 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 
 	store := NewTriggerStore()
 	spy := &spyExecutor{}
-	repo := &handlerRepo{}
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
 	svc := NewService(repo, ServiceConfig{
 		PublicTenant: "pub",
 		TriggerStore: store,

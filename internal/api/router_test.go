@@ -170,4 +170,7 @@ func (r *routerBenchRepo) FailureAnalysis(context.Context, string, string) (*ben
 func (r *routerBenchRepo) UpsertScenarios(context.Context, []bench.ScenarioSummary) (int, error) {
 	return 0, nil
 }
+func (r *routerBenchRepo) ResolveModelProvider(context.Context, string) (*benchsvc.ModelProviderInfo, error) {
+	return nil, nil
+}
 func (r *routerBenchRepo) BeginTx(context.Context) (pgx.Tx, error) { return nil, nil }

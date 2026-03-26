@@ -38,6 +38,7 @@ type Repository interface {
 	UpsertTenantProvider(ctx context.Context, tenantID, modelID string, cfg TenantProviderConfig) error
 	DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error
 	UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error
+	ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error)
 	Leaderboard(ctx context.Context, tenantID string, evidenceMode string) ([]bench.LeaderboardEntry, error)
 	ListScenarios(ctx context.Context) ([]bench.ScenarioSummary, error)
 	StoreArtifact(ctx context.Context, runID, artifactType, contentType string, data []byte) error
@@ -242,6 +243,11 @@ func (s *Service) DeleteTenantProvider(ctx context.Context, tenantID, modelID st
 // UpdateGlobalModel updates platform-level defaults for a model.
 func (s *Service) UpdateGlobalModel(ctx context.Context, modelID string, cfg GlobalModelConfig) error {
 	return s.repo.UpdateGlobalModel(ctx, modelID, cfg)
+}
+
+// ResolveModelProvider looks up a model's provider and base URL from the catalog.
+func (s *Service) ResolveModelProvider(ctx context.Context, modelID string) (*ModelProviderInfo, error) {
+	return s.repo.ResolveModelProvider(ctx, modelID)
 }
 
 // GetArtifact retrieves an artifact for a run, scoped to the given tenant.
