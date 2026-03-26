@@ -39,9 +39,10 @@ type handlerRepo struct {
 	artErr           error
 
 	// delete / archive
-	deleteErr    error
-	archiveCount int
-	archiveErr   error
+	deleteErr         error
+	deleteProviderErr error
+	archiveCount      int
+	archiveErr        error
 
 	// analytics
 	signals     *bench.SignalAggregation
@@ -105,7 +106,7 @@ func (r *handlerRepo) UpsertTenantProvider(_ context.Context, tenantID, modelID 
 func (r *handlerRepo) DeleteTenantProvider(_ context.Context, tenantID, modelID string) error {
 	r.lastTenant = tenantID
 	r.lastModelID = modelID
-	return nil
+	return r.deleteProviderErr
 }
 func (r *handlerRepo) UpdateGlobalModel(_ context.Context, modelID string, cfg GlobalModelConfig) error {
 	r.lastModelID = modelID

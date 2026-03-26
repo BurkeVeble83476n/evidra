@@ -12,6 +12,9 @@ import (
 	bench "samebits.com/evidra/pkg/bench"
 )
 
+// ErrNotFound is returned when a query matches zero rows.
+var ErrNotFound = errors.New("not found")
+
 // runRecordColumns is the SELECT column list for RunRecord scans.
 const runRecordColumns = `id, tenant_id, scenario_id, model, provider, adapter, evidence_mode, tool_server,
 	tool_server_version, scenario_version,
@@ -345,12 +348,15 @@ func (s *PgStore) UpsertTenantProvider(ctx context.Context, tenantID, modelID st
 
 // DeleteTenantProvider removes a tenant-specific provider override for a model.
 func (s *PgStore) DeleteTenantProvider(ctx context.Context, tenantID, modelID string) error {
-	_, err := s.db.Exec(ctx, `
+	result, err := s.db.Exec(ctx, `
 		DELETE FROM bench_tenant_providers
 		WHERE tenant_id = $1 AND model_id = $2
 	`, tenantID, modelID)
 	if err != nil {
 		return fmt.Errorf("benchsvc.DeleteTenantProvider: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
 	}
 	return nil
 }

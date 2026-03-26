@@ -366,6 +366,10 @@ func handleDeleteTenantProvider(svc *Service) http.HandlerFunc {
 		tenantID := auth.TenantID(r.Context())
 		modelID := r.PathValue("model_id")
 		if err := svc.DeleteTenantProvider(r.Context(), tenantID, modelID); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				apiutil.WriteError(w, http.StatusNotFound, "tenant provider not found")
+				return
+			}
 			apiutil.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
