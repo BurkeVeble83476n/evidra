@@ -46,14 +46,15 @@ func handleTrigger(svc *Service, store *TriggerStore, executor RunExecutor) http
 		}
 
 		job := &TriggerJob{
-			ID:           NewJobID(),
-			Status:       "pending",
-			Model:        req.Model,
-			Provider:     provider,
-			EvidenceMode: req.EvidenceMode,
-			Total:        len(req.Scenarios),
-			Progress:     pendingScenarioProgress(req.Scenarios),
-			CreatedAt:    time.Now(),
+			ID:            NewJobID(),
+			Status:        "pending",
+			Model:         req.Model,
+			Provider:      provider,
+			EvidenceMode:  req.EvidenceMode,
+			ExecutionMode: req.ExecutionMode,
+			Total:         len(req.Scenarios),
+			Progress:      pendingScenarioProgress(req.Scenarios),
+			CreatedAt:     time.Now(),
 		}
 		store.Create(job)
 
@@ -102,11 +103,28 @@ func decodeTriggerRequest(w http.ResponseWriter, r *http.Request) (TriggerReques
 		apiutil.WriteError(w, http.StatusBadRequest, "evidence_mode must be none or smart")
 		return TriggerRequest{}, false
 	}
+	var ok bool
+	req.ExecutionMode, ok = normalizeTriggerExecutionMode(req.ExecutionMode)
+	if !ok {
+		apiutil.WriteError(w, http.StatusBadRequest, "execution_mode must be provider or a2a")
+		return TriggerRequest{}, false
+	}
 	return req, true
 }
 
 func isSupportedTriggerEvidenceMode(mode string) bool {
 	return mode == "none" || mode == "smart"
+}
+
+func normalizeTriggerExecutionMode(mode string) (string, bool) {
+	switch mode {
+	case "", "provider":
+		return "provider", true
+	case "a2a":
+		return "a2a", true
+	default:
+		return "", false
+	}
 }
 
 func resolveTriggerProvider(w http.ResponseWriter, r *http.Request, svc *Service, req TriggerRequest) (string, bool) {

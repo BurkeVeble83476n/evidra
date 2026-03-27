@@ -1681,6 +1681,32 @@ func TestHandleTrigger_RejectsInvalidEvidenceMode(t *testing.T) {
 	}
 }
 
+func TestHandleTrigger_RejectsInvalidExecutionMode(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     &spyExecutor{},
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"test-model","execution_mode":"wat","evidence_mode":"smart","scenarios":["s1"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
 func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	t.Parallel()
 
@@ -1727,11 +1753,17 @@ func TestHandleTrigger_ValidRequest_Returns202(t *testing.T) {
 	if stored.EvidenceMode != "smart" {
 		t.Fatalf("stored evidence mode = %q, want smart", stored.EvidenceMode)
 	}
+	if stored.ExecutionMode != "provider" {
+		t.Fatalf("stored execution mode = %q, want provider", stored.ExecutionMode)
+	}
 	if spy.job == nil {
 		t.Fatal("executor job missing")
 	}
 	if spy.job.EvidenceMode != "smart" {
 		t.Fatalf("job evidence mode = %q, want smart", spy.job.EvidenceMode)
+	}
+	if spy.job.ExecutionMode != "provider" {
+		t.Fatalf("job execution mode = %q, want provider", spy.job.ExecutionMode)
 	}
 }
 
@@ -1771,6 +1803,54 @@ func TestHandleTrigger_ValidRequest_Returns202_WithEvidenceModeNone(t *testing.T
 	}
 	if stored.EvidenceMode != "none" {
 		t.Fatalf("stored evidence mode = %q, want none", stored.EvidenceMode)
+	}
+	if stored.ExecutionMode != "provider" {
+		t.Fatalf("stored execution mode = %q, want provider", stored.ExecutionMode)
+	}
+}
+
+func TestHandleTrigger_ValidRequest_Returns202_WithExecutionModeA2A(t *testing.T) {
+	t.Parallel()
+
+	store := NewTriggerStore()
+	repo := &handlerRepo{
+		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
+	}
+	spy := &spyExecutor{}
+	svc := NewService(repo, ServiceConfig{
+		PublicTenant: "pub",
+		TriggerStore: store,
+		Executor:     spy,
+	})
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, svc, passthroughAuth("t1"))
+
+	rec := httptest.NewRecorder()
+	body := `{"model":"sonnet","execution_mode":"a2a","evidence_mode":"smart","scenarios":["s1","s2"]}`
+	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusAccepted, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	stored := store.Get(resp["id"].(string))
+	if stored == nil {
+		t.Fatal("stored trigger job missing")
+	}
+	if stored.ExecutionMode != "a2a" {
+		t.Fatalf("stored execution mode = %q, want a2a", stored.ExecutionMode)
+	}
+	if spy.job == nil {
+		t.Fatal("executor job missing")
+	}
+	if spy.job.ExecutionMode != "a2a" {
+		t.Fatalf("job execution mode = %q, want a2a", spy.job.ExecutionMode)
 	}
 }
 

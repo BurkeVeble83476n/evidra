@@ -13,11 +13,12 @@ const ExecutorContractVersion = "v1.0.0"
 
 // TriggerRequest is the payload for POST /v1/bench/trigger.
 type TriggerRequest struct {
-	Model        string   `json:"model"`
-	Provider     string   `json:"provider,omitempty"`
-	RunnerID     string   `json:"runner_id,omitempty"`
-	EvidenceMode string   `json:"evidence_mode"`
-	Scenarios    []string `json:"scenarios"`
+	Model         string   `json:"model"`
+	Provider      string   `json:"provider,omitempty"`
+	RunnerID      string   `json:"runner_id,omitempty"`
+	EvidenceMode  string   `json:"evidence_mode"`
+	ExecutionMode string   `json:"execution_mode,omitempty"`
+	Scenarios     []string `json:"scenarios"`
 }
 
 // TriggerJob tracks a bench trigger execution.
@@ -27,6 +28,7 @@ type TriggerJob struct {
 	Model           string             `json:"model"`
 	Provider        string             `json:"provider,omitempty"`
 	EvidenceMode    string             `json:"evidence_mode,omitempty"`
+	ExecutionMode   string             `json:"execution_mode,omitempty"`
 	Total           int                `json:"total"`
 	Completed       int                `json:"completed"`
 	Passed          int                `json:"passed"`
