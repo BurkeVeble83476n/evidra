@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.5.17 — 2026-03-27
+
 ### Bench Hosted Execution
 - Added first-class hosted `execution_mode` support to `POST /v1/bench/trigger`, with optional `provider|a2a` selection and default `provider`
 - Threaded `execution_mode` through trigger state, runner job persistence, runner claim payloads, OpenAPI, and bench dashboard controls
