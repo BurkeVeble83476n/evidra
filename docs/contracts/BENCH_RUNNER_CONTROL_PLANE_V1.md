@@ -33,6 +33,7 @@ Request:
 {
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "execution_mode": "a2a",
   "evidence_mode": "smart",
   "runner_id": "01K...",
   "scenarios": ["broken-deployment", "repair-loop-escalation"]
@@ -42,6 +43,8 @@ Request:
 Notes:
 
 - `evidence_mode` is required and must be `none` or `smart`
+- `execution_mode` is optional and must be `provider` or `a2a`
+- omitted `execution_mode` defaults to `provider`
 - `runner_id` is optional. When present, the job is pinned to that runner.
 - If `runner_id` is present, the control plane rejects the request unless that
   runner is healthy and advertises the requested model.
@@ -57,8 +60,7 @@ Runner-mode response:
 {
   "id": "01K...",
   "status": "pending",
-  "mode": "runner",
-  "evidence_mode": "smart"
+  "mode": "runner"
 }
 ```
 
@@ -143,6 +145,7 @@ Response when a job is claimed:
   "model": "deepseek-chat",
   "provider": "deepseek",
   "evidence_mode": "smart",
+  "execution_mode": "a2a",
   "scenarios": ["broken-deployment", "repair-loop-escalation"],
   "timeout": 300
 }

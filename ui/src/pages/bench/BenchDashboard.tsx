@@ -8,6 +8,7 @@ import { useEvidenceMode } from "../../hooks/useEvidenceMode";
 
 type Period = "24h" | "7d" | "30d" | "90d" | "all";
 type TriggerEvidenceMode = "none" | "smart";
+type TriggerExecutionMode = "provider" | "a2a";
 
 interface ScenarioSummary {
   id: string;
@@ -74,6 +75,16 @@ const PERIOD_MS: Record<Exclude<Period, "all">, number> = {
   "90d": 90 * 86_400_000,
 };
 
+const TRIGGER_EXECUTION_MODES: { value: TriggerExecutionMode; label: string }[] = [
+  { value: "provider", label: "Provider" },
+  { value: "a2a", label: "A2A" },
+];
+
+const TRIGGER_EVIDENCE_MODES: { value: TriggerEvidenceMode; label: string }[] = [
+  { value: "none", label: "Baseline" },
+  { value: "smart", label: "Evidra" },
+];
+
 function periodToSince(p: Period): string | undefined {
   if (p === "all") return undefined;
   return new Date(Date.now() - PERIOD_MS[p]).toISOString();
@@ -137,6 +148,7 @@ export function BenchDashboard() {
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [triggerModel, setTriggerModel] = useState("");
   const [triggerProvider, setTriggerProvider] = useState("");
+  const [triggerExecutionMode, setTriggerExecutionMode] = useState<TriggerExecutionMode>("provider");
   const [triggerEvidenceMode, setTriggerEvidenceMode] = useState<TriggerEvidenceMode>("smart");
   const [triggerScenarios, setTriggerScenarios] = useState<Set<string>>(
     new Set(),
@@ -202,6 +214,7 @@ export function BenchDashboard() {
         body: JSON.stringify({
           model: triggerModel,
           provider: triggerProvider,
+          execution_mode: triggerExecutionMode,
           evidence_mode: triggerEvidenceMode,
           scenarios,
         }),
@@ -729,12 +742,34 @@ export function BenchDashboard() {
                 />
               </label>
               <fieldset>
+                <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Execution Mode</legend>
+                <div className="flex gap-2">
+                  {TRIGGER_EXECUTION_MODES.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[0.82rem] font-medium cursor-pointer transition-colors ${
+                        triggerExecutionMode === option.value
+                          ? "border-accent bg-accent-tint text-accent"
+                          : "border-border bg-bg text-fg-muted hover:text-fg"
+                      } focus-within:border-accent focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-bg-elevated`}
+                    >
+                      <input
+                        type="radio"
+                        name="trigger-execution-mode"
+                        value={option.value}
+                        checked={triggerExecutionMode === option.value}
+                        onChange={() => setTriggerExecutionMode(option.value)}
+                        className="sr-only"
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset>
                 <legend className="text-[0.78rem] font-semibold text-fg-muted mb-1">Evidence Mode</legend>
                 <div className="flex gap-2">
-                  {[
-                    { value: "none", label: "Baseline" },
-                    { value: "smart", label: "Evidra" },
-                  ].map((option) => (
+                  {TRIGGER_EVIDENCE_MODES.map((option) => (
                     <label
                       key={option.value}
                       className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[0.82rem] font-medium cursor-pointer transition-colors ${

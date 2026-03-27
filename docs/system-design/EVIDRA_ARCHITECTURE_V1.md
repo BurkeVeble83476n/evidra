@@ -539,7 +539,7 @@ Benchmark scenario execution is delegated to a pluggable `RunExecutor`:
 | LocalExecutor | Default | Runs in evidra-mcp process |
 | RemoteExecutor | `EVIDRA_BENCH_SERVICE_URL` | Calls external REST service |
 
-The trigger API (`POST /v1/bench/trigger`) accepts a model and scenario list, delegates to the configured executor, and returns a job ID. Progress is reported via `POST /v1/bench/trigger/{id}/progress` webhook and consumed via `GET /v1/bench/trigger/{id}` (JSON polling or SSE streaming).
+The trigger API (`POST /v1/bench/trigger`) accepts a model, scenario list, coarse `evidence_mode`, and optional hosted `execution_mode`. Evidra owns that control-plane field and carries it through trigger state plus poll-based runner claims. For direct executor runs, `execution_mode=a2a` is translated at the executor boundary into the bench contract's internal `config.adapter=a2a`. Progress is reported via `POST /v1/bench/trigger/{id}/progress` webhook and consumed via `GET /v1/bench/trigger/{id}` (JSON polling or SSE streaming).
 
 The executor contract (v1.0.0) is an open specification for third-party executors.
 See [Executor Contract v1.0.0](../contracts/EXECUTOR_CONTRACT_V1.md).

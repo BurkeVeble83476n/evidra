@@ -651,13 +651,14 @@ for the poll-based runner surface.
 
 #### POST /v1/bench/trigger
 
-Start a benchmark run. Requires `model`, `scenarios`, and `evidence_mode` in the request body. `evidence_mode` accepts only `none` or `smart`. Returns a job ID for progress tracking. When a healthy runner is available, Evidra may enqueue the job instead of starting a direct executor immediately.
+Start a benchmark run. Requires `model`, `scenarios`, and `evidence_mode` in the request body. `evidence_mode` accepts only `none` or `smart`. `execution_mode` is optional and accepts `provider` or `a2a`. `execution_mode` defaults to `provider` when omitted. Returns a job ID for progress tracking. When a healthy runner is available, Evidra may enqueue the job instead of starting a direct executor immediately.
 
 Request:
 ```json
 {
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "execution_mode": "a2a",
   "evidence_mode": "smart",
   "runner_id": "01K...",
   "scenarios": ["broken-deployment", "repair-loop-escalation"]
@@ -687,6 +688,8 @@ Response (`200 OK`):
   "status": "running",
   "model": "deepseek-chat",
   "provider": "deepseek",
+  "evidence_mode": "smart",
+  "execution_mode": "a2a",
   "completed": 2,
   "passed": 1,
   "failed": 1,
@@ -780,7 +783,7 @@ Delete a runner registration. Response: `204 No Content`.
 #### GET /v1/runners/jobs
 
 Runner poll endpoint. Requires `runner_id` as a query parameter. Polling also
-acts as the runner heartbeat. claimed job payload includes `evidence_mode`.
+acts as the runner heartbeat. claimed job payload includes `evidence_mode` and `execution_mode`.
 
 Response when a job is available (`200 OK`):
 ```json
@@ -789,6 +792,7 @@ Response when a job is available (`200 OK`):
   "model": "deepseek-chat",
   "provider": "deepseek",
   "evidence_mode": "smart",
+  "execution_mode": "a2a",
   "scenarios": ["broken-deployment", "repair-loop-escalation"],
   "timeout": 300
 }

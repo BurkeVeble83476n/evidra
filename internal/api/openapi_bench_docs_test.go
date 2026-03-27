@@ -34,8 +34,11 @@ func TestOpenAPIBenchRoutesDocumentSupportedSurface(t *testing.T) {
 	assertPathOperations(t, spec, "/v1/runners/jobs/{id}/complete", []string{"post"})
 
 	assertRequestBodyRequiredFields(t, spec, "/v1/bench/trigger", "post", []string{"model", "scenarios", "evidence_mode"})
+	assertRequestBodyDoesNotRequireField(t, spec, "/v1/bench/trigger", "post", "execution_mode")
 	assertRequestBodyPropertyEnumValues(t, spec, "/v1/bench/trigger", "post", "evidence_mode", []string{"none", "smart"})
+	assertRequestBodyPropertyEnumValues(t, spec, "/v1/bench/trigger", "post", "execution_mode", []string{"provider", "a2a"})
 	assertResponseSchemaHasProperty(t, spec, "/v1/runners/jobs", "get", "200", "evidence_mode")
+	assertResponseSchemaHasProperty(t, spec, "/v1/runners/jobs", "get", "200", "execution_mode")
 
 	assertPathMissing(t, spec, "/v1/benchmark/run")
 	assertPathMissing(t, spec, "/v1/benchmark/runs")

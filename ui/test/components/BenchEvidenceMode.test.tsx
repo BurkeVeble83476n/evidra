@@ -173,7 +173,9 @@ describe("Bench evidence mode UI", () => {
     await screen.findByRole("checkbox", { name: "Scenario 1" });
     expect(screen.getByRole("radio", { name: "Baseline" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Evidra" })).toBeInTheDocument();
-    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.getByRole("radio", { name: "Provider" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "A2A" })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
 
     await user.click(screen.getByRole("radio", { name: label }));
     await user.click(screen.getByRole("button", { name: "Start" }));
@@ -193,6 +195,85 @@ describe("Bench evidence mode UI", () => {
     expect(JSON.parse((options as RequestInit).body as string)).toEqual(
       expect.objectContaining({
         evidence_mode: expectedMode,
+        execution_mode: "provider",
+      }),
+    );
+  });
+
+  it("submits a2a as canonical execution_mode when selected", async () => {
+    const user = userEvent.setup();
+
+    requestMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/v1/bench/stats")) {
+        return {
+          total_runs: 0,
+          pass_count: 0,
+          fail_count: 0,
+          by_scenario: [],
+        };
+      }
+      if (path.startsWith("/v1/bench/runs?limit=8") || path.startsWith("/v1/bench/runs?limit=500")) {
+        return {
+          items: [],
+          total: 0,
+        };
+      }
+      if (path === "/v1/bench/scenarios") {
+        return {
+          scenarios: [
+            { id: "scenario-1", title: "Scenario 1", category: "demo" },
+          ],
+        };
+      }
+      if (path === "/v1/bench/trigger") {
+        return {
+          id: "trigger-1",
+          status: "completed",
+          total: 1,
+          completed: 1,
+          passed: 1,
+          failed: 0,
+          current_scenario: "",
+          progress: [],
+        };
+      }
+      if (path.startsWith("/v1/bench/trigger/")) {
+        return {
+          id: "trigger-1",
+          status: "completed",
+          total: 1,
+          completed: 1,
+          passed: 1,
+          failed: 0,
+          current_scenario: "",
+          progress: [],
+        };
+      }
+      throw new Error(`unexpected request: ${path}`);
+    });
+
+    renderWithRouter(<BenchDashboard />);
+
+    await user.click(screen.getByRole("button", { name: "Run Benchmark" }));
+    await screen.findByRole("checkbox", { name: "Scenario 1" });
+
+    await user.click(screen.getByRole("radio", { name: "A2A" }));
+    await user.click(screen.getByRole("button", { name: "Start" }));
+
+    await waitFor(() => {
+      expect(requestMock).toHaveBeenCalledWith(
+        "/v1/bench/trigger",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    const triggerCall = requestMock.mock.calls.find(([path]) => path === "/v1/bench/trigger");
+    expect(triggerCall).toBeDefined();
+
+    const [, options] = triggerCall ?? [];
+    expect(JSON.parse((options as RequestInit).body as string)).toEqual(
+      expect.objectContaining({
+        execution_mode: "a2a",
       }),
     );
   });

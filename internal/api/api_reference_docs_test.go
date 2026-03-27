@@ -25,7 +25,9 @@ func TestMarkdownAPIReference_CoversLiveExternalIngestSurface(t *testing.T) {
 		"All | Baseline | Evidra",
 		"`all|none|evidra`",
 		"Requires `model`, `scenarios`, and `evidence_mode` in the request body.",
-		"claimed job payload includes `evidence_mode`",
+		"`execution_mode`",
+		"`execution_mode` defaults to `provider` when omitted.",
+		"claimed job payload includes `evidence_mode` and `execution_mode`",
 	}
 	for _, snippet := range requiredSnippets {
 		if !strings.Contains(doc, snippet) {

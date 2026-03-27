@@ -1228,7 +1228,7 @@ paths:
     post:
       tags: [Bench]
       summary: Start a benchmark run
-      description: Starts a benchmark run via the configured executor or enqueues it for a healthy poll-based runner. Returns a job ID for progress tracking. The request requires evidence_mode and only accepts none or smart.
+      description: Starts a benchmark run via the configured executor or enqueues it for a healthy poll-based runner. Returns a job ID for progress tracking. The request requires evidence_mode, only accepts none or smart, and optionally accepts execution_mode (provider or a2a). Omitted execution_mode defaults to provider.
       security:
         - bearerAuth: []
       requestBody:
@@ -1249,6 +1249,10 @@ paths:
                   type: string
                   description: Required trigger evidence mode. Allowed values are none or smart.
                   enum: [none, smart]
+                execution_mode:
+                  type: string
+                  description: Optional hosted execution mode. Omitted requests default to provider.
+                  enum: [provider, a2a]
                 runner_id:
                   type: string
                   description: Optional runner pin. When set, the request is accepted only if that healthy runner supports the requested model.
@@ -1307,6 +1311,8 @@ paths:
                   status: { type: string, enum: [pending, running, completed, failed] }
                   model: { type: string }
                   provider: { type: string }
+                  evidence_mode: { type: string, enum: [none, smart] }
+                  execution_mode: { type: string, enum: [provider, a2a] }
                   total: { type: integer }
                   completed: { type: integer }
                   passed: { type: integer }
@@ -1489,7 +1495,7 @@ paths:
     get:
       tags: [Bench]
       summary: Poll for the next runner job
-      description: Polls the persisted bench job queue. The poll also acts as the runner heartbeat. Claimed jobs include evidence_mode.
+      description: Polls the persisted bench job queue. The poll also acts as the runner heartbeat. Claimed jobs include evidence_mode and execution_mode.
       security:
         - bearerAuth: []
       parameters:
@@ -1513,6 +1519,10 @@ paths:
                     type: string
                     description: Evidence mode requested when the job was triggered.
                     enum: [none, smart]
+                  execution_mode:
+                    type: string
+                    description: Hosted execution mode requested when the job was triggered. Legacy jobs default to provider.
+                    enum: [provider, a2a]
                   scenarios:
                     type: array
                     items: { type: string }
