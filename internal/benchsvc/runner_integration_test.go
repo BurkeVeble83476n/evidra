@@ -146,3 +146,36 @@ func TestPgStore_EnqueueAndClaimJob_PreservesEvidenceMode(t *testing.T) {
 		t.Fatalf("evidence_mode = %q, want smart", cfg.EvidenceMode)
 	}
 }
+
+func TestPgStore_EnqueueAndClaimJob_PreservesExecutionMode(t *testing.T) {
+	t.Parallel()
+
+	db := setupTestDB(t)
+	store := NewPgStore(db)
+	tenantID := testID("tnt")
+	seedTenant(t, db, tenantID)
+
+	_, err := store.EnqueueJob(context.Background(), tenantID, "deepseek-chat", "bifrost", JobConfig{
+		Scenarios:     []string{"broken-deployment"},
+		ExecutionMode: "a2a",
+	})
+	if err != nil {
+		t.Fatalf("EnqueueJob: %v", err)
+	}
+
+	claimed, err := store.ClaimJob(context.Background(), tenantID, "runner-1", []string{"deepseek-chat"})
+	if err != nil {
+		t.Fatalf("ClaimJob: %v", err)
+	}
+	if claimed == nil {
+		t.Fatal("expected a job, got nil")
+	}
+
+	var cfg JobConfig
+	if err := json.Unmarshal(claimed.ConfigJSON, &cfg); err != nil {
+		t.Fatalf("unmarshal config_json: %v", err)
+	}
+	if cfg.ExecutionMode != "a2a" {
+		t.Fatalf("execution_mode = %q, want a2a", cfg.ExecutionMode)
+	}
+}

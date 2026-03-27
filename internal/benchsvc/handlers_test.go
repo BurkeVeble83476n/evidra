@@ -1813,10 +1813,11 @@ func TestHandleTrigger_ValidRequest_Returns202_WithExecutionModeA2A(t *testing.T
 	t.Parallel()
 
 	store := NewTriggerStore()
+	startedCh := make(chan struct{})
 	repo := &handlerRepo{
 		modelProvider: &ModelProviderInfo{Provider: "bifrost"},
 	}
-	spy := &spyExecutor{}
+	spy := &spyExecutor{startedCh: startedCh}
 	svc := NewService(repo, ServiceConfig{
 		PublicTenant: "pub",
 		TriggerStore: store,
@@ -1845,6 +1846,11 @@ func TestHandleTrigger_ValidRequest_Returns202_WithExecutionModeA2A(t *testing.T
 	}
 	if stored.ExecutionMode != "a2a" {
 		t.Fatalf("stored execution mode = %q, want a2a", stored.ExecutionMode)
+	}
+	select {
+	case <-startedCh:
+	case <-time.After(time.Second):
+		t.Fatal("executor Start was not called")
 	}
 	if spy.job == nil {
 		t.Fatal("executor job missing")
@@ -1989,7 +1995,7 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 			Model:      "sonnet",
 			Provider:   "bifrost",
 			Status:     "queued",
-			ConfigJSON: json.RawMessage(`{"scenarios":["s1"],"evidence_mode":"smart"}`),
+			ConfigJSON: json.RawMessage(`{"scenarios":["s1"],"evidence_mode":"smart","execution_mode":"a2a"}`),
 		},
 	}
 	svc := NewService(repo, ServiceConfig{
@@ -2001,7 +2007,7 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 	RegisterRoutes(mux, svc, passthroughAuth("t1"))
 
 	rec := httptest.NewRecorder()
-	body := `{"model":"sonnet","evidence_mode":"smart","scenarios":["s1"]}`
+	body := `{"model":"sonnet","execution_mode":"a2a","evidence_mode":"smart","scenarios":["s1"]}`
 	req := httptest.NewRequest("POST", "/v1/bench/trigger", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	mux.ServeHTTP(rec, req)
@@ -2023,12 +2029,18 @@ func TestHandleTrigger_WithRunner_QueuesJob(t *testing.T) {
 	if repo.lastEnqueueCfg.EvidenceMode != "smart" {
 		t.Fatalf("enqueue evidence mode = %q, want smart", repo.lastEnqueueCfg.EvidenceMode)
 	}
+	if repo.lastEnqueueCfg.ExecutionMode != "a2a" {
+		t.Fatalf("enqueue execution mode = %q, want a2a", repo.lastEnqueueCfg.ExecutionMode)
+	}
 	stored := store.Get("job-q-1")
 	if stored == nil {
 		t.Fatal("stored runner trigger job missing")
 	}
 	if stored.EvidenceMode != "smart" {
 		t.Fatalf("stored evidence mode = %q, want smart", stored.EvidenceMode)
+	}
+	if stored.ExecutionMode != "a2a" {
+		t.Fatalf("stored execution mode = %q, want a2a", stored.ExecutionMode)
 	}
 }
 
@@ -2091,7 +2103,8 @@ func TestHandlePollJob_ReturnsEvidenceMode(t *testing.T) {
 			ConfigJSON: json.RawMessage(`{
 				"scenarios":["s1"],
 				"runner_id":"runner-1",
-				"evidence_mode":"smart"
+				"evidence_mode":"smart",
+				"execution_mode":"a2a"
 			}`),
 		},
 	}
@@ -2116,6 +2129,9 @@ func TestHandlePollJob_ReturnsEvidenceMode(t *testing.T) {
 	}
 	if resp["evidence_mode"] != "smart" {
 		t.Fatalf("evidence_mode = %v, want smart", resp["evidence_mode"])
+	}
+	if resp["execution_mode"] != "a2a" {
+		t.Fatalf("execution_mode = %v, want a2a", resp["execution_mode"])
 	}
 }
 
@@ -2148,6 +2164,9 @@ func TestHandlePollJob_DefaultsEvidenceModeForLegacyJobs(t *testing.T) {
 	}
 	if resp["evidence_mode"] != "none" {
 		t.Fatalf("evidence_mode = %v, want none", resp["evidence_mode"])
+	}
+	if resp["execution_mode"] != "provider" {
+		t.Fatalf("execution_mode = %v, want provider", resp["execution_mode"])
 	}
 }
 
