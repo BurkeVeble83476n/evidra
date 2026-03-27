@@ -193,6 +193,9 @@ func handleListRuns(svc *Service) http.HandlerFunc {
 		if q.Get("passed") == "false" {
 			f.FailedOnly = true
 		}
+		if q.Get("exclude_errors") == "true" {
+			f.ExcludeErrors = true
+		}
 
 		runs, total, err := svc.ListRuns(r.Context(), tenantID, f)
 		if err != nil {

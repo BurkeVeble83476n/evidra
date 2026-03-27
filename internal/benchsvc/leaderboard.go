@@ -32,6 +32,7 @@ func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode
 
 	query := fmt.Sprintf(`
 		-- Existing run-weighted aggregation (unchanged semantics).
+		-- Exclude infra errors (exit_code = -1) from all calculations.
 		WITH run_agg AS (
 			SELECT model,
 				COUNT(DISTINCT scenario_id) AS scenarios,
@@ -41,7 +42,7 @@ func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode
 				AVG(estimated_cost_usd) AS avg_cost,
 				SUM(estimated_cost_usd) AS total_cost
 			FROM bench_runs
-			WHERE tenant_id = $1 AND archived_at IS NULL%s
+			WHERE tenant_id = $1 AND archived_at IS NULL AND exit_code >= 0%s
 			GROUP BY model
 		),
 		-- Side CTE: per-scenario pass rates for pass^k.
@@ -50,7 +51,7 @@ func (s *PgStore) Leaderboard(ctx context.Context, tenantID string, evidenceMode
 				COUNT(*) AS trials,
 				AVG(CASE WHEN passed THEN 1.0 ELSE 0.0 END) AS pass_rate
 			FROM bench_runs
-			WHERE tenant_id = $1 AND archived_at IS NULL%s
+			WHERE tenant_id = $1 AND archived_at IS NULL AND exit_code >= 0%s
 			GROUP BY model, scenario_id
 		),
 		pass_k_agg AS (

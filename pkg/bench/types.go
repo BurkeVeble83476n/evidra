@@ -50,17 +50,18 @@ type RunRecord struct {
 
 // RunFilters specifies filters for listing runs.
 type RunFilters struct {
-	ScenarioID   string
-	Model        string
-	Provider     string
-	EvidenceMode string // proxy, direct, smart, none -- empty means all; evidra aliases non-none
-	PassedOnly   bool
-	FailedOnly   bool
-	Since        *time.Time // cutoff time — handler parses, store just uses
-	Limit        int
-	Offset       int
-	SortBy       string // column to sort by
-	SortOrder    string // asc or desc (default: desc)
+	ScenarioID    string
+	Model         string
+	Provider      string
+	EvidenceMode  string // proxy, direct, smart, none -- empty means all; evidra aliases non-none
+	PassedOnly    bool
+	FailedOnly    bool
+	Since         *time.Time // cutoff time — handler parses, store just uses
+	Limit         int
+	Offset        int
+	SortBy        string // column to sort by
+	SortOrder     string // asc or desc (default: desc)
+	ExcludeErrors bool   // exclude infra errors (exit_code < 0)
 }
 
 // RunCatalog holds distinct metadata values used for UI filters.

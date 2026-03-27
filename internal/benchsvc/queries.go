@@ -620,6 +620,9 @@ func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
 		args = append(args, *f.Since)
 		clauses = append(clauses, fmt.Sprintf("created_at >= $%d", len(args)))
 	}
+	if f.ExcludeErrors {
+		clauses = append(clauses, "exit_code >= 0")
+	}
 
 	return " WHERE " + strings.Join(clauses, " AND "), args
 }
