@@ -8,6 +8,8 @@
 
 **Tech Stack:** Go, React/Vite, OpenAPI YAML, Playwright
 
+**Compatibility Note:** `execution_mode` stays optional in the public API and OpenAPI schema. Omitted requests default to `provider`; do not add it to the request body's `required` array.
+
 ---
 
 ### Task 1: Add `execution_mode` To Evidra Trigger Models And Validation
@@ -19,7 +21,7 @@
 
 **Step 1: Write the failing tests**
 
-Add tests that prove the new public contract behavior:
+Add tests that prove the new public contract behavior. Extend the existing trigger test block in `handlers_test.go` and reuse the current local helpers there (`handlerRepo`, `spyExecutor`, `NewService`, `RegisterRoutes`) rather than creating parallel setup code elsewhere:
 
 ```go
 func TestHandleTrigger_DefaultsExecutionModeToProvider(t *testing.T) {
@@ -141,7 +143,15 @@ func normalizeTriggerExecutionMode(mode string) (string, bool) {
 }
 ```
 
-Set `req.ExecutionMode` to the normalized value before returning it.
+In `decodeTriggerRequest`, call that helper immediately after the existing `evidence_mode` validation block and before `return req, true`:
+
+```go
+req.ExecutionMode, ok = normalizeTriggerExecutionMode(req.ExecutionMode)
+if !ok {
+	apiutil.WriteError(w, http.StatusBadRequest, "execution_mode must be provider or a2a")
+	return TriggerRequest{}, false
+}
+```
 
 **Step 4: Re-run the tests**
 
@@ -300,6 +310,8 @@ git commit -m "feat(benchsvc): map execution mode to certify adapter"
 - Modify: `/Users/vitas/git/evidra/internal/benchsvc/runner_handler.go`
 - Test: `/Users/vitas/git/evidra/internal/benchsvc/handlers_test.go`
 - Test: `/Users/vitas/git/evidra/internal/benchsvc/runner_integration_test.go`
+
+**Fake Repo Note:** Adding `ExecutionMode` to `JobConfig` should not change any method signatures, but still run the package compile/tests early and update any affected Repository fakes if needed. Today the directly affected queue-related fakes are `handlerRepo` in `handlers_test.go` and `fakeRepo` in `service_test.go`; `compareModelsRepo` and `ingestRepo` embed `handlerRepo`.
 
 **Step 1: Write the failing tests**
 
@@ -510,10 +522,6 @@ git commit -m "feat(benchsvc): persist execution mode for runner jobs"
 - Modify: `/Users/vitas/git/evidra/ui/public/openapi.yaml`
 - Modify: `/Users/vitas/git/evidra/internal/api/openapi_bench_docs_test.go`
 - Modify: `/Users/vitas/git/evidra/internal/api/api_reference_docs_test.go`
-- Modify: `/Users/vitas/git/evidra/docs/api-reference.md`
-- Modify: `/Users/vitas/git/evidra/docs/ARCHITECTURE.md`
-- Modify: `/Users/vitas/git/evidra/docs/contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md`
-- Modify: `/Users/vitas/git/evidra/ui/src/pages/bench/BenchDashboard.tsx`
 
 **Step 1: Write the failing docs tests**
 
@@ -558,7 +566,7 @@ Expected: FAIL because the specs and markdown docs do not yet mention `execution
 
 **Step 3: Update OpenAPI and markdown/docs**
 
-Add the new property to both OpenAPI files:
+Add the new property to `cmd/evidra-api/static/openapi.yaml`:
 
 ```yaml
 execution_mode:
@@ -567,7 +575,99 @@ execution_mode:
   enum: [provider, a2a]
 ```
 
-Update markdown examples:
+Keep the `required` array unchanged at `[model, scenarios, evidence_mode]`.
+
+Then copy the updated spec:
+
+```bash
+cp /Users/vitas/git/evidra/cmd/evidra-api/static/openapi.yaml /Users/vitas/git/evidra/ui/public/openapi.yaml
+```
+
+Validate the YAML:
+
+```bash
+python3 -c "import yaml; yaml.safe_load(open('/Users/vitas/git/evidra/cmd/evidra-api/static/openapi.yaml'))"
+```
+
+**Step 4: Re-run the docs tests**
+
+Run:
+
+```bash
+go test ./internal/api -run 'Test(OpenAPIBenchRoutesDocumentSupportedSurface|MarkdownAPIReference_CoversLiveExternalIngestSurface)' -v
+```
+
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add /Users/vitas/git/evidra/cmd/evidra-api/static/openapi.yaml /Users/vitas/git/evidra/ui/public/openapi.yaml /Users/vitas/git/evidra/internal/api/openapi_bench_docs_test.go /Users/vitas/git/evidra/internal/api/api_reference_docs_test.go
+git commit -m "docs(api): add execution mode to hosted bench spec"
+```
+
+---
+
+### Task 5: Update The Trigger UI
+
+**Files:**
+- Modify: `/Users/vitas/git/evidra/ui/src/pages/bench/BenchDashboard.tsx`
+
+**Step 1: Add execution mode state and request wiring**
+
+Add a new UI state and request field in `BenchDashboard.tsx`:
+
+```tsx
+type TriggerExecutionMode = "provider" | "a2a";
+
+const [triggerExecutionMode, setTriggerExecutionMode] =
+  useState<TriggerExecutionMode>("provider");
+```
+
+Send it with the trigger request:
+
+```tsx
+body: JSON.stringify({
+  model: triggerModel,
+  provider: triggerProvider,
+  execution_mode: triggerExecutionMode,
+  evidence_mode: triggerEvidenceMode,
+  scenarios,
+}),
+```
+
+Add a fieldset with `Provider` and `A2A` options next to the existing evidence-mode control.
+
+**Step 2: Build the UI**
+
+Run:
+
+```bash
+cd /Users/vitas/git/evidra/ui && npm run build
+```
+
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add /Users/vitas/git/evidra/ui/src/pages/bench/BenchDashboard.tsx
+git commit -m "feat(ui): add hosted execution mode selection"
+```
+
+---
+
+### Task 6: Update Markdown Docs, Architecture Docs, And Changelog
+
+**Files:**
+- Modify: `/Users/vitas/git/evidra/docs/api-reference.md`
+- Modify: `/Users/vitas/git/evidra/docs/ARCHITECTURE.md`
+- Modify: `/Users/vitas/git/evidra/docs/contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md`
+- Modify: `/Users/vitas/git/evidra/CHANGELOG.md`
+
+**Step 1: Update the markdown API and architecture docs**
+
+Update trigger and runner examples so they show the public hosted field:
 
 ```json
 {
@@ -594,52 +694,29 @@ Update the runner claim docs to show:
 }
 ```
 
-**Step 4: Update the trigger UI**
+Add a short note that `execution_mode` is optional and defaults to `provider`.
 
-Add a new UI state and request field in `BenchDashboard.tsx`:
+**Step 2: Update `CHANGELOG.md`**
 
-```tsx
-type TriggerExecutionMode = "provider" | "a2a";
+Add an entry under `## Unreleased`:
 
-const [triggerExecutionMode, setTriggerExecutionMode] =
-  useState<TriggerExecutionMode>("provider");
+```md
+### Bench Trigger
+- Added hosted `execution_mode` support for bench trigger jobs and runner claim payloads, including A2A execution selection for bench-cli backed runs.
 ```
 
-Send it with the trigger request:
-
-```tsx
-body: JSON.stringify({
-  model: triggerModel,
-  provider: triggerProvider,
-  execution_mode: triggerExecutionMode,
-  evidence_mode: triggerEvidenceMode,
-  scenarios,
-}),
-```
-
-Add a fieldset with `Provider` and `A2A` options next to the existing evidence-mode control.
-
-**Step 5: Re-run docs and frontend verification**
-
-Run:
+**Step 3: Commit**
 
 ```bash
-go test ./internal/api -run 'Test(OpenAPIBenchRoutesDocumentSupportedSurface|MarkdownAPIReference_CoversLiveExternalIngestSurface)' -v
-cd /Users/vitas/git/evidra/ui && npm run build
-```
-
-Expected: PASS
-
-**Step 6: Commit**
-
-```bash
-git add /Users/vitas/git/evidra/cmd/evidra-api/static/openapi.yaml /Users/vitas/git/evidra/ui/public/openapi.yaml /Users/vitas/git/evidra/internal/api/openapi_bench_docs_test.go /Users/vitas/git/evidra/internal/api/api_reference_docs_test.go /Users/vitas/git/evidra/docs/api-reference.md /Users/vitas/git/evidra/docs/ARCHITECTURE.md /Users/vitas/git/evidra/docs/contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md /Users/vitas/git/evidra/ui/src/pages/bench/BenchDashboard.tsx
-git commit -m "feat(ui): add hosted execution mode selection"
+git add /Users/vitas/git/evidra/docs/api-reference.md /Users/vitas/git/evidra/docs/ARCHITECTURE.md /Users/vitas/git/evidra/docs/contracts/BENCH_RUNNER_CONTROL_PLANE_V1.md /Users/vitas/git/evidra/CHANGELOG.md
+git commit -m "docs: document hosted execution mode"
 ```
 
 ---
 
-### Task 5: Update `evidra-kagent-bench` E2E Coverage And Demo Docs
+### Task 7: Update `evidra-kagent-bench` E2E Coverage And Demo Docs
+
+**Mode:** manual cross-repo integration task after local `evidra` changes are built into images
 
 **Files:**
 - Modify: `/Users/vitas/git/evidra-kagent-bench/tests/e2e/full.spec.ts`
@@ -675,7 +752,7 @@ expect(run.adapter).toBe("a2a");
 expect(run.evidence_mode).toBe("smart");
 ```
 
-**Step 2: Run the full test against local dev images after the Evidra changes are built**
+**Step 2: Build local images after Tasks 1-6 are complete**
 
 Build the updated images locally:
 
@@ -717,7 +794,7 @@ git -C /Users/vitas/git/evidra-kagent-bench commit -m "test: verify hosted a2a t
 
 ---
 
-### Task 6: Run Cross-Repo Verification And Capture Any Unexpected Bench Gap
+### Task 8: Run Cross-Repo Verification And Capture Any Unexpected Bench Gap
 
 **Files:**
 - Verify: `/Users/vitas/git/evidra/internal/benchsvc/...`
