@@ -40,6 +40,17 @@ type certifyCallback struct {
 	EvidraAPIKey string `json:"evidra_api_key"`
 }
 
+func buildCertifyConfig(job *TriggerJob) map[string]any {
+	cfg := map[string]any{
+		"timeout_per_scenario": 300,
+		"evidence_mode":        job.EvidenceMode,
+	}
+	if job.ExecutionMode == "a2a" {
+		cfg["adapter"] = "a2a"
+	}
+	return cfg
+}
+
 // Start sends a POST to the bench service to begin scenario execution.
 func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL string, apiKey string) error {
 	scenarios := make([]string, len(job.Progress))
@@ -53,10 +64,7 @@ func (e *RemoteExecutor) Start(ctx context.Context, job *TriggerJob, evidraURL s
 		Model:           job.Model,
 		Provider:        job.Provider,
 		Scenarios:       scenarios,
-		Config: map[string]any{
-			"timeout_per_scenario": 300,
-			"evidence_mode":        job.EvidenceMode,
-		},
+		Config:          buildCertifyConfig(job),
 		Callback: certifyCallback{
 			ProgressURL:  evidraURL + "/v1/bench/trigger/" + job.ID + "/progress",
 			EvidraURL:    evidraURL,

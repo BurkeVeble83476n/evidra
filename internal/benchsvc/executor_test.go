@@ -158,3 +158,83 @@ func TestRemoteExecutor_StartSendsEvidenceMode(t *testing.T) {
 		t.Fatalf("evidence_mode = %v, want smart", got)
 	}
 }
+
+func TestRemoteExecutor_StartSendsA2AAdapterForA2AExecutionMode(t *testing.T) {
+	t.Parallel()
+
+	var payload map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	exec := NewRemoteExecutor(srv.URL)
+	job := &TriggerJob{
+		ID:            "job-123",
+		Status:        "pending",
+		Model:         "sonnet",
+		Provider:      "bifrost",
+		EvidenceMode:  "smart",
+		ExecutionMode: "a2a",
+		Total:         1,
+		Progress: []ScenarioProgress{
+			{Scenario: "s1", Status: "pending"},
+		},
+		CreatedAt: time.Now(),
+	}
+
+	if err := exec.Start(t.Context(), job, "https://evidra.example", "Bearer token"); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	cfg, ok := payload["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("config missing or wrong type: %#v", payload["config"])
+	}
+	if got := cfg["adapter"]; got != "a2a" {
+		t.Fatalf("adapter = %v, want a2a", got)
+	}
+}
+
+func TestRemoteExecutor_StartOmitsAdapterForProviderExecutionMode(t *testing.T) {
+	t.Parallel()
+
+	var payload map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	exec := NewRemoteExecutor(srv.URL)
+	job := &TriggerJob{
+		ID:            "job-123",
+		Status:        "pending",
+		Model:         "sonnet",
+		Provider:      "bifrost",
+		EvidenceMode:  "smart",
+		ExecutionMode: "provider",
+		Total:         1,
+		Progress: []ScenarioProgress{
+			{Scenario: "s1", Status: "pending"},
+		},
+		CreatedAt: time.Now(),
+	}
+
+	if err := exec.Start(t.Context(), job, "https://evidra.example", "Bearer token"); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	cfg, ok := payload["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("config missing or wrong type: %#v", payload["config"])
+	}
+	if _, ok := cfg["adapter"]; ok {
+		t.Fatalf("adapter override should be absent, got %v", cfg["adapter"])
+	}
+}
