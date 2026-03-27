@@ -87,7 +87,7 @@ Evidra supports two benchmark execution paths:
 LocalExecutor provides basic trigger flow. Full scenario orchestration (seed, agent, verify) requires RemoteExecutor with an external bench service.
 
 ```text
-POST /v1/bench/trigger { model, provider?, evidence_mode, scenarios[] }
+POST /v1/bench/trigger { model, provider?, execution_mode?, evidence_mode, scenarios[] }
         ↓
   RunExecutor.Start()
         ↓
@@ -111,7 +111,7 @@ The runner control plane persists execution in PostgreSQL:
 - `last_progress_at` allows stale claimed jobs to be re-queued if a runner stops reporting
 
 ```text
-POST /v1/bench/trigger { model, provider?, runner_id?, evidence_mode, scenarios[] }
+POST /v1/bench/trigger { model, provider?, runner_id?, execution_mode?, evidence_mode, scenarios[] }
         ↓
   bench_jobs row inserted with status=queued
         ↓
