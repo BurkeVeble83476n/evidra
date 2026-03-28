@@ -517,6 +517,11 @@ paths:
           schema:
             type: string
           description: Time period filter (e.g. 30d, 7d)
+        - name: actor
+          in: query
+          schema:
+            type: string
+          description: Filter by actor ID (e.g. claude-code, evidra-mcp)
       responses:
         '200':
           description: List of entries

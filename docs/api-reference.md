@@ -183,6 +183,7 @@ List evidence entries with pagination and optional filters.
 | `type` | string | — | Filter by entry type (`prescribe`, `report`, `finding`, etc.) |
 | `period` | string | — | Time window (`7d`, `30d`, `90d`) |
 | `session_id` | string | — | Filter by session ID |
+| `actor` | string | — | Filter by actor ID (e.g. `claude-code`, `evidra-mcp`) |
 
 **Response:**
 
