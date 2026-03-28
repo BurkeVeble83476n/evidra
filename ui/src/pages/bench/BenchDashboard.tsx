@@ -154,7 +154,16 @@ export function BenchDashboard() {
     new Set(),
   );
   const [triggerProgress, setTriggerProgress] = useState<TriggerProgress | null>(null);
+  const [triggerStartTime, setTriggerStartTime] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Elapsed time ticker for progress overlay.
+  useEffect(() => {
+    if (!triggerStartTime || (triggerProgress?.status === "completed" || triggerProgress?.status === "failed")) return;
+    const tick = setInterval(() => setElapsed(Math.floor((Date.now() - triggerStartTime) / 1000)), 1000);
+    return () => clearInterval(tick);
+  }, [triggerStartTime, triggerProgress?.status]);
 
   const fetchData = useCallback(() => {
     const since = periodToSince(period);
@@ -220,6 +229,7 @@ export function BenchDashboard() {
         }),
       });
       setTriggerProgress(res);
+      setTriggerStartTime(Date.now());
       startPolling(res.id);
     } catch {
       // trigger failed — nothing to poll
@@ -840,16 +850,43 @@ export function BenchDashboard() {
 
       {/* ── Progress Overlay ── */}
       {triggerProgress && triggerProgress.status !== "completed" && triggerProgress.status !== "failed" && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 bg-bg-elevated border border-border rounded-xl shadow-lg p-4 space-y-3">
-          <h3 className="text-[0.9rem] font-bold text-fg">Benchmark Running</h3>
-          <ul className="space-y-1">
+        <div className="fixed bottom-6 right-6 z-50 w-96 bg-bg-elevated border border-border rounded-xl shadow-lg p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[0.95rem] font-bold text-fg">Benchmark Running</h3>
+            <span className="text-[0.72rem] text-fg-muted tabular-nums">
+              {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div>
+            <div className="flex items-center justify-between text-[0.72rem] text-fg-muted mb-1">
+              <span>{triggerProgress.completed}/{triggerProgress.total} scenarios</span>
+              <span>{triggerProgress.total > 0 ? Math.round((triggerProgress.completed / triggerProgress.total) * 100) : 0}%</span>
+            </div>
+            <div className="h-2 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${triggerProgress.total > 0 ? (triggerProgress.completed / triggerProgress.total) * 100 : 0}%`,
+                  background: triggerProgress.failed > 0
+                    ? "linear-gradient(90deg, var(--accent) 0%, #ef4444 100%)"
+                    : "var(--accent)",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Scenario list */}
+          <ul className="space-y-1.5 max-h-48 overflow-y-auto">
             {triggerProgress.progress.map((p) => (
               <li key={p.scenario} className="flex items-center gap-2 text-[0.82rem]">
-                <span>
-                  {p.status === "pending" && "\u23F3"}
-                  {p.status === "running" && "\uD83D\uDD04"}
-                  {p.status === "passed" && "\u2705"}
-                  {p.status === "failed" && "\u274C"}
+                <span className="flex-shrink-0 w-4 text-center">
+                  {p.status === "pending" && <span className="text-fg-muted">{"\u23F3"}</span>}
+                  {p.status === "running" && <span className="animate-spin inline-block">{"\u23F3"}</span>}
+                  {p.status === "passed" && <span>{"\u2705"}</span>}
+                  {p.status === "failed" && <span>{"\u274C"}</span>}
+                  {p.status === "error" && <span className="text-fg-muted">{"\u26A0"}</span>}
                 </span>
                 <span className={p.status === "running" ? "text-fg font-medium" : "text-fg-muted"}>
                   {p.scenario}
@@ -857,9 +894,12 @@ export function BenchDashboard() {
               </li>
             ))}
           </ul>
-          <p className="text-[0.72rem] text-fg-muted">
-            {triggerProgress.completed}/{triggerProgress.total} completed
-          </p>
+
+          {/* Summary */}
+          <div className="flex gap-3 text-[0.72rem] text-fg-muted pt-1 border-t border-border">
+            {triggerProgress.passed > 0 && <span className="text-green-500">{triggerProgress.passed} passed</span>}
+            {triggerProgress.failed > 0 && <span className="text-red-500">{triggerProgress.failed} failed</span>}
+          </div>
         </div>
       )}
     </div>
