@@ -113,6 +113,8 @@ export function Evidence() {
   const [period, setPeriod] = useState("30d");
   const [actorFilter, setActorFilter] = useState("");
   const [actors, setActors] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<string>("created_at");
+  const [sortDesc, setSortDesc] = useState(true);
   const [loading, setLoading] = useState(true);
   const [keyInput, setKeyInput] = useState("");
 
@@ -265,17 +267,53 @@ export function Evidence() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-bg-alt text-left text-fg-muted">
-                <th className="py-2 px-3" title="When the operation was recorded">Time</th>
-                <th className="py-2 px-3" title="Operation type: prescribe (before mutation) or report (after mutation)">Type</th>
-                <th className="py-2 px-3" title="Infrastructure tool and operation (e.g. kubectl apply, helm install)">Tool / Operation</th>
-                <th className="py-2 px-3" title="Target resource affected by the operation">Resource</th>
-                <th className="py-2 px-3" title="Risk classification: critical, high, medium, or low — based on blast radius and reversibility">Risk</th>
-                <th className="py-2 px-3" title="Outcome verdict: success, failure, error, or declined">Verdict</th>
-                <th className="py-2 px-3" title="Entity that performed the operation (agent, human, or system)">Actor</th>
+                {([
+                  { field: "created_at", label: "Time", tip: "When the operation was recorded" },
+                  { field: "type", label: "Type", tip: "Operation type: prescribe (before mutation) or report (after mutation)" },
+                  { field: "tool", label: "Tool / Operation", tip: "Infrastructure tool and operation (e.g. kubectl apply, helm install)" },
+                  { field: "resource", label: "Resource", tip: "Target resource affected by the operation" },
+                  { field: "risk_level", label: "Risk", tip: "Risk classification: critical, high, medium, or low — based on blast radius and reversibility" },
+                  { field: "verdict", label: "Verdict", tip: "Outcome verdict: success, failure, error, or declined" },
+                  { field: "actor", label: "Actor", tip: "Entity that performed the operation (agent, human, or system)" },
+                ] as const).map((col) => (
+                  <th
+                    key={col.field}
+                    className="py-2 px-3 cursor-pointer hover:text-fg transition-colors select-none"
+                    title={col.tip}
+                    onClick={() => {
+                      if (sortField === col.field) {
+                        setSortDesc(!sortDesc);
+                      } else {
+                        setSortField(col.field);
+                        setSortDesc(col.field === "created_at");
+                      }
+                    }}
+                  >
+                    {col.label}{" "}
+                    {sortField === col.field ? (
+                      <span className="text-accent">{sortDesc ? "\u2193" : "\u2191"}</span>
+                    ) : (
+                      <span className="opacity-30">{"\u2195"}</span>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
+              {[...entries].sort((a, b) => {
+                const riskOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+                let cmp = 0;
+                if (sortField === "created_at") {
+                  cmp = a.created_at.localeCompare(b.created_at);
+                } else if (sortField === "risk_level") {
+                  cmp = (riskOrder[a.risk_level] || 0) - (riskOrder[b.risk_level] || 0);
+                } else {
+                  const aVal = (a as Record<string, unknown>)[sortField] as string || "";
+                  const bVal = (b as Record<string, unknown>)[sortField] as string || "";
+                  cmp = aVal.localeCompare(bVal);
+                }
+                return sortDesc ? -cmp : cmp;
+              }).map((e) => (
                 <tr
                   key={e.id}
                   className="border-b border-bg-alt/50 hover:bg-bg-alt/30 transition"
