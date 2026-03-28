@@ -2,39 +2,12 @@
 
 ## Unreleased
 
-## v0.5.17 — 2026-03-27
+## v0.5.18 — 2026-03-28
 
 ### Bench Hosted Execution
 - Added first-class hosted `execution_mode` support to `POST /v1/bench/trigger`, with optional `provider|a2a` selection and default `provider`
 - Threaded `execution_mode` through trigger state, runner job persistence, runner claim payloads, OpenAPI, and bench dashboard controls
 - Mapped hosted `execution_mode=a2a` to the bench executor's internal `config.adapter=a2a` for direct benchmark execution
-
-## v0.5.15 — 2026-03-26
-
-### Bug Fixes
-- Fix double RunID append for error-status runs in trigger executor
-- `handleCatalog` now returns 500 on store errors instead of silently returning empty 200
-- `handleCompareRuns` now distinguishes not-found from internal errors (was mapping all errors to 404)
-- Unified not-found sentinel: all benchsvc queries return `ErrNotFound` instead of leaking `pgx.ErrNoRows`
-
-### Consistency
-- Batch ingest returns 201 Created (matching single ingest)
-- Per-run validation added to batch ingest endpoint
-- List runs response key changed from `items` to `runs` (matching all other list endpoints)
-
-### Dead Code Removal
-- Removed unused: `ErrCursorSegmentNotFound`, `ErrCursorLineOutOfRange`, `IsStoreBusyError`, `HasResource`, `DefaultWeights`, `RetryCount`, `IsReachabilityError`, `FallbackPolicy`
-- Removed unused `profile` parameter from `PublicSignalNames()`
-
-### Documentation
-- Fixed MCP tools list in CLAUDE.md (3 → 8 tools)
-- Added `export` and `skill` CLI commands to CLAUDE.md
-- Fixed archive directory reference in CLAUDE.md
-- Scenarios endpoint correctly marked as authenticated in OpenAPI and api-reference
-- Disabled provider endpoints marked `deprecated` in OpenAPI
-- Added `DELETE /v1/bench/runs/{id}` and `POST /v1/bench/runs/archive` to api-reference
-
-## v0.5.14 — 2026-03-26
 
 ### Bench Model Configuration
 - `GET /v1/bench/models` — list tenant-visible models with `available` field based on platform env var presence
@@ -50,30 +23,8 @@
 - `run_command` path preferred in initialize instructions
 - MCP contract bumped to v1.3.0
 
-### Skill Install
-- Smart and full-prescribe install modes for on-demand protocol tool loading
-
-### Security
-- Per-tenant API key endpoints disabled pending AES-256-GCM encryption
 
 ## v0.5.13 
-
-### CI
-- UI pipeline: Node setup, npm test, vite build in CI
-- Doc alignment checks: trust positioning, mode labels, supported surface
-
-
-### UI
-- Glass morphism design refresh — aligned with bench UI
-- Glass variables, utility classes (.glass, .glass-card, .glow-accent, .text-gradient)
-- Dark theme: lighter bg, rgba borders/shadows, translucent cards
-- Landing page: glass-card sections, gradient hero title, glow CTA
-
-### Security
-- write_file: enhanced path validation with additional test coverage
-- `write_file`: path validation with blocklist (system dirs) and allowlist (cwd, /tmp), reject traversal attacks
-- `write_file`: 9 tests covering valid paths, traversal, blocklist, overwrite, directory auto-creation
-- `collect_diagnostics`: validate namespace/workload inputs against safe regex pattern
 
 ### Contract v1.2.0
 - Contract extended with DevOps operations (run_command, write_file, diagnosis protocol, safety rules)
@@ -98,54 +49,22 @@
 - Added authenticated external lifecycle ingest routes for adapter-driven `prescribe` and `report` creation, and routed webhook ingestion through the same shared service
 - Extended payload taxonomy so entries now carry execution flavor plus explicit `evidence.kind` and `source.system`
 
-### Documentation And Compatibility Cleanup
-- Reconciled API, protocol, landing page, and README wording with the live split-tool MCP surface
-- Migrated the inspector suite to the split prescribe tools and removed legacy single-`prescribe` prompt/embed leftovers
-- Restored a green default test baseline by fixing promptfactory contract-version rendering and related doc/test drift
 
-### Release Tooling
-- Updated the version bump helper to work with the current `BaseVersion` layout and changelog format
-
-
-## v0.4.11 — 2026-03-17
+## v0.4.11
 
 ### GitOps And Argo CD
 - Added controller-first Argo CD integration for self-hosted `evidra-api`, with zero-touch reconciliation capture and explicit `evidra.cc/*` correlation
 - Kept GitOps evidence on the standard `prescribe` / `report` lifecycle using `payload.flavor = reconcile`
 - Added shared automation event emission for mapped Argo CD webhook and controller-reported lifecycle entries
 - Split execution flavor from ingest taxonomy so payloads can also record `evidence.kind` and `source.system`, and renamed `pipeline_stage` to `workflow`
-
-### Documentation And Product Surface
-- Added the Argo CD GitOps integration guide and aligned architecture/system-design docs around the controller-first model
-- Updated landing page and static fallback copy to describe one evidence protocol across agents, pipelines, and controllers
-
-### Build And Runtime
 - Refactored `evidra-api` startup initialization to reduce complexity without changing startup behavior
 
-## v0.4.10 — 2026-03-15
-
-### Shared Execution Contracts
-- Extracted prescribe/report JSON schemas into `pkg/execcontract` for reuse across CLI, MCP server, and API clients
-- Added `ValidatePrescribeInput` and `ValidateReportInput` contract validation
-- Unified version output across all binaries via `version.BuildString`
+## v0.4.10 
 
 ### Benchmark API
 - Added benchmark table to landing page UI
 - Added input validation for benchmark run suite field
 - Capped benchmark list query limit to 100
-
-### Cleanup
-- Removed execution-mode experiments (moved to evidra-infra-bench)
-- Fixed `evidra-exp execution` subcommand to return exit 0 with migration notice
-
-## v0.4.9 — 2026-03-14
-
-### Phase 1 Risk Inputs
-- CLI `prescribe`, `record`, and `import` now expose `risk_inputs` and `effective_risk` instead of flat top-level prescribe risk fields
-- `--findings` replaces `--scanner-report` on prescribe/record for bundled SARIF inputs
-- MCP prescribe output, prompt contracts, mapped webhook prescriptions, and key system/user docs now align on the Phase 1 `risk_inputs` model
-
-## v0.4.8 — 2026-03-12
 
 ### Hosted Analytics And API Contracts
 - Replayed stored evidence chronologically in hosted scorecard/explain so self-hosted analytics matches CLI/local signal behavior for order-sensitive detectors
@@ -158,22 +77,9 @@
 - Fixed the `get_event` MCP tool output contract so stored report events can be returned without structured-output schema validation failure
 - Added explicit MCP output schema coverage for `get_event` payload shapes
 
-## v0.4.6 — 2026-03-06
-
-### CLI
-- Rebranded the public CLI surface from `run`/`record`/`ingest-findings` to `record`/`import`/`import-findings`
-- Added compact `-f` artifact support for `record` and `prescribe`
-- Added deterministic `record` inference for wrapped `kubectl`, `oc`, `helm`, `terraform`, `docker`, `argocd`, `kustomize`, and `pulumi` commands
-
-### Decision Tracking
-- Added explicit terminal `report verdict` handling across CLI, MCP, and forwarded evidence
-- Added `declined` decision recording with required trigger and bounded operational reason
-- Preserved the `one prescription -> one report` invariant while making refusal decisions first-class evidence
-
 ### MCP And Prompts
 - Updated MCP report schema, tool descriptions, prompt contracts, and generated prompt artifacts for explicit verdicts and declined decisions
 - MCP now records not only actions but also deliberate refusals with rationale
-
 
 ## v0.4.2
 
