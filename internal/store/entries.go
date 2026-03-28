@@ -52,6 +52,7 @@ type ListOptions struct {
 	EntryType string
 	Period    string
 	SessionID string
+	Actor     string
 }
 
 // Resolved returns a copy with default values applied (limit clamped to 1–1000, default 100).
@@ -176,6 +177,11 @@ func (es *EntryStore) ListEntries(ctx context.Context, tenantID string, opts Lis
 	if opts.SessionID != "" {
 		where = append(where, fmt.Sprintf("session_id = $%d", argIdx))
 		args = append(args, opts.SessionID)
+		argIdx++
+	}
+	if opts.Actor != "" {
+		where = append(where, fmt.Sprintf("payload->'actor'->>'id' = $%d", argIdx))
+		args = append(args, opts.Actor)
 		argIdx++
 	}
 	if opts.Period != "" {

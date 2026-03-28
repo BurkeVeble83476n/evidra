@@ -111,14 +111,16 @@ export function Evidence() {
   const [total, setTotal] = useState(0);
   const [scorecard, setScorecard] = useState<Scorecard | null>(null);
   const [period, setPeriod] = useState("30d");
+  const [actorFilter, setActorFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [keyInput, setKeyInput] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const actorParam = actorFilter ? `&actor=${encodeURIComponent(actorFilter)}` : "";
       const [entriesRes, scorecardRes] = await Promise.all([
-        request<EntriesResponse>(`/v1/evidence/entries?limit=100&period=${period}`),
+        request<EntriesResponse>(`/v1/evidence/entries?limit=100&period=${period}${actorParam}`),
         request<Scorecard>(`/v1/evidence/scorecard?period=${period}`),
       ]);
       setEntries(entriesRes.entries || []);
@@ -128,7 +130,7 @@ export function Evidence() {
       // Auth or API error — leave empty.
     }
     setLoading(false);
-  }, [request, period]);
+  }, [request, period, actorFilter]);
 
   useEffect(() => {
     if (apiKey) load();
@@ -182,6 +184,19 @@ export function Evidence() {
               {p.label}
             </button>
           ))}
+          <span className="mx-1 text-fg-muted">|</span>
+          <select
+            value={actorFilter}
+            onChange={(e) => setActorFilter(e.target.value)}
+            className="px-2 py-1 rounded text-sm bg-bg-alt text-fg border border-border-subtle"
+          >
+            <option value="">All actors</option>
+            <option value="claude-code">claude-code</option>
+            <option value="evidra-mcp">evidra-mcp</option>
+            <option value="human">human</option>
+            <option value="system">system</option>
+            <option value="ci">ci</option>
+          </select>
           <button
             onClick={load}
             className="ml-2 px-3 py-1 rounded text-sm bg-bg-alt text-fg-muted hover:text-fg"

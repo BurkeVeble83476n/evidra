@@ -30,6 +30,7 @@ func handleListEntries(es *store.EntryStore) http.HandlerFunc {
 			EntryType: q.Get("type"),
 			Period:    q.Get("period"),
 			SessionID: q.Get("session_id"),
+			Actor:     q.Get("actor"),
 		}
 		entries, total, err := es.ListEntries(r.Context(), tenantID, opts)
 		if err != nil {
