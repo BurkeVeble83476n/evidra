@@ -91,9 +91,13 @@ type ScenarioSummary struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description,omitempty"`
 	Category    string   `json:"category"`
+	Track       string   `json:"track,omitempty"`
+	Level       string   `json:"level,omitempty"`
+	Timeout     string   `json:"timeout,omitempty"`
 	Tags        []string `json:"tags"`
 	Chaos       bool     `json:"chaos"`
 	Evidra      bool     `json:"evidra"`
+	Skip        bool     `json:"skip,omitempty"`
 }
 
 // SignalAggregation holds aggregated signal counts across runs.
