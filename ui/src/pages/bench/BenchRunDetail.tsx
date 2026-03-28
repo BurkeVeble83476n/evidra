@@ -508,10 +508,10 @@ function ToolCallsTab({
       <table className="w-full text-[0.8rem]">
         <thead>
           <tr className="border-b border-border-subtle text-fg-muted text-left">
-            <th className="py-2 pr-3 font-semibold w-10">#</th>
-            <th className="py-2 pr-3 font-semibold">Tool</th>
-            <th className="py-2 pr-3 font-semibold">Arguments</th>
-            <th className="py-2 font-semibold">Result</th>
+            <th className="py-2 pr-3 font-semibold w-10" title="Tool call sequence number">#</th>
+            <th className="py-2 pr-3 font-semibold" title="Tool invoked by the agent (run_command, write_file, etc.)">Tool</th>
+            <th className="py-2 pr-3 font-semibold" title="Arguments passed to the tool call">Arguments</th>
+            <th className="py-2 font-semibold" title="Output returned by the tool execution">Result</th>
           </tr>
         </thead>
         <tbody>
@@ -664,9 +664,9 @@ function ScorecardTab({
           <table className="w-full text-[0.8rem]">
             <thead>
               <tr className="border-b border-border-subtle text-fg-muted text-left">
-                <th className="py-2 pr-3 font-semibold">Signal</th>
-                <th className="py-2 pr-3 font-semibold w-20">Count</th>
-                <th className="py-2 font-semibold w-28">Status</th>
+                <th className="py-2 pr-3 font-semibold" title="Behavioral signal detected during the run (e.g. repair_loop, thrashing, artifact_drift)">Signal</th>
+                <th className="py-2 pr-3 font-semibold w-20" title="Number of times this signal was detected">Count</th>
+                <th className="py-2 font-semibold w-28" title="Whether the signal was detected or clear">Status</th>
               </tr>
             </thead>
             <tbody>

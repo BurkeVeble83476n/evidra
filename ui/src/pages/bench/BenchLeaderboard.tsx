@@ -45,12 +45,12 @@ type SortKey = keyof Pick<
   "rate" | "runs" | "avgDuration" | "costPerRun" | "costPerPass" | "scenarios"
 >;
 
-const SORT_OPTIONS: { key: SortKey; label: string; desc: boolean }[] = [
-  { key: "rate", label: "Pass Rate", desc: true },
-  { key: "costPerPass", label: "Cost/Pass", desc: false },
-  { key: "avgDuration", label: "Duration", desc: false },
-  { key: "runs", label: "Runs", desc: true },
-  { key: "scenarios", label: "Scenarios", desc: true },
+const SORT_OPTIONS: { key: SortKey; label: string; desc: boolean; tip?: string }[] = [
+  { key: "rate", label: "Pass Rate", desc: true, tip: "Percentage of runs where the agent passed all verification checks" },
+  { key: "costPerPass", label: "Cost/Pass", desc: false, tip: "Average API cost per successful run in USD (lower is better)" },
+  { key: "avgDuration", label: "Duration", desc: false, tip: "Average wall-clock time per scenario run (lower is better)" },
+  { key: "runs", label: "Runs", desc: true, tip: "Total number of benchmark runs for this model" },
+  { key: "scenarios", label: "Scenarios", desc: true, tip: "Number of unique scenarios attempted by this model" },
 ];
 
 const EVIDENCE_MODE_FILTERS = [
@@ -223,6 +223,7 @@ export function BenchLeaderboard() {
                   key={opt.key}
                   className="text-right text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted px-4 py-2.5 cursor-pointer hover:text-accent transition-colors whitespace-nowrap"
                   onClick={() => handleSort(opt.key)}
+                  title={opt.tip}
                 >
                   {opt.label}{" "}
                   {sortKey === opt.key ? (
@@ -232,7 +233,10 @@ export function BenchLeaderboard() {
                   )}
                 </th>
               ))}
-              <th className="text-right text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted px-4 py-2.5 whitespace-nowrap">
+              <th
+                className="text-right text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted px-4 py-2.5 whitespace-nowrap"
+                title="pass^k — probability the model passes all k unique scenarios at least once. Penalizes models that pass some scenarios but fail others inconsistently"
+              >
                 Reliability
               </th>
             </tr>

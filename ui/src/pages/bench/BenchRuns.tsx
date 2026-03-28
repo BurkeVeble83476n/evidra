@@ -310,37 +310,37 @@ export function BenchRuns() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border">
-                  <th className={thClass} onClick={() => handleSort("passed")}>
+                  <th className={thClass} onClick={() => handleSort("passed")} title="PASS if all verification checks succeeded, FAIL otherwise">
                     Status <SortArrow field="passed" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("scenario_id")}>
+                  <th className={thClass} onClick={() => handleSort("scenario_id")} title="The infrastructure scenario the agent was tested against">
                     Scenario <SortArrow field="scenario_id" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("model")}>
+                  <th className={thClass} onClick={() => handleSort("model")} title="LLM model used for the benchmark run">
                     Model <SortArrow field="model" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("provider")}>
+                  <th className={thClass} onClick={() => handleSort("provider")} title="LLM API provider (bifrost, claude, etc.)">
                     Provider <SortArrow field="provider" sort={sort} />
                   </th>
-                  <th className={inertThClass}>
+                  <th className={inertThClass} title="Evidence mode: none (baseline), proxy (auto-evidence), mcp (MCP server), smart (lightweight prescribe)">
                     Mode
                   </th>
-                  <th className={thClass} onClick={() => handleSort("duration_seconds")}>
+                  <th className={thClass} onClick={() => handleSort("duration_seconds")} title="Wall-clock time from agent start to verification complete">
                     Duration <SortArrow field="duration_seconds" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("turns")}>
+                  <th className={thClass} onClick={() => handleSort("turns")} title="Number of agent conversation turns (tool calls + responses)">
                     Turns <SortArrow field="turns" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("tokens")}>
+                  <th className={thClass} onClick={() => handleSort("tokens")} title="Total tokens used (prompt + completion)">
                     Tokens <SortArrow field="tokens" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("estimated_cost_usd")}>
+                  <th className={thClass} onClick={() => handleSort("estimated_cost_usd")} title="Estimated API cost for this run in USD">
                     Cost <SortArrow field="estimated_cost_usd" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("checks")}>
+                  <th className={thClass} onClick={() => handleSort("checks")} title="Verification checks passed out of total (e.g. 3/4 = 3 passed, 1 failed)">
                     Checks <SortArrow field="checks" sort={sort} />
                   </th>
-                  <th className={thClass} onClick={() => handleSort("created_at")}>
+                  <th className={thClass} onClick={() => handleSort("created_at")} title="When this run was executed">
                     Date <SortArrow field="created_at" sort={sort} />
                   </th>
                 </tr>

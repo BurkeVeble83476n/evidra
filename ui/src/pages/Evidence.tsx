@@ -238,13 +238,13 @@ export function Evidence() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-bg-alt text-left text-fg-muted">
-                <th className="py-2 px-3">Time</th>
-                <th className="py-2 px-3">Type</th>
-                <th className="py-2 px-3">Tool / Operation</th>
-                <th className="py-2 px-3">Resource</th>
-                <th className="py-2 px-3">Risk</th>
-                <th className="py-2 px-3">Verdict</th>
-                <th className="py-2 px-3">Actor</th>
+                <th className="py-2 px-3" title="When the operation was recorded">Time</th>
+                <th className="py-2 px-3" title="Operation type: prescribe (before mutation) or report (after mutation)">Type</th>
+                <th className="py-2 px-3" title="Infrastructure tool and operation (e.g. kubectl apply, helm install)">Tool / Operation</th>
+                <th className="py-2 px-3" title="Target resource affected by the operation">Resource</th>
+                <th className="py-2 px-3" title="Risk classification: critical, high, medium, or low — based on blast radius and reversibility">Risk</th>
+                <th className="py-2 px-3" title="Outcome verdict: success, failure, error, or declined">Verdict</th>
+                <th className="py-2 px-3" title="Entity that performed the operation (agent, human, or system)">Actor</th>
               </tr>
             </thead>
             <tbody>
