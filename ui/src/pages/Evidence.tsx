@@ -124,15 +124,22 @@ export function Evidence() {
         request<EntriesResponse>(`/v1/evidence/entries?limit=100&period=${period}${actorParam}`),
         request<Scorecard>(`/v1/evidence/scorecard?period=${period}`),
       ]);
-      setEntries(entriesRes.entries || []);
-      setTotal(entriesRes.total);
-      setScorecard(scorecardRes);
+      const allEntries = entriesRes.entries || [];
 
-      // Build actor list from unfiltered data (only when no filter active).
+      // Build actor list from the full (unfiltered) set.
       if (!actorFilter) {
-        const unique = [...new Set((entriesRes.entries || []).map((e) => e.actor).filter(Boolean))].sort();
+        const unique = [...new Set(allEntries.map((e) => e.actor).filter(Boolean))].sort();
         setActors(unique);
       }
+
+      // Client-side filter fallback: if the API didn't filter (old deployment),
+      // apply the filter here so the UI always shows filtered results.
+      const filtered = actorFilter
+        ? allEntries.filter((e) => e.actor === actorFilter)
+        : allEntries;
+      setEntries(filtered);
+      setTotal(actorFilter ? filtered.length : entriesRes.total);
+      setScorecard(scorecardRes);
     } catch {
       // Auth or API error — leave empty.
     }
