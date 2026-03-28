@@ -112,6 +112,7 @@ export function Evidence() {
   const [scorecard, setScorecard] = useState<Scorecard | null>(null);
   const [period, setPeriod] = useState("30d");
   const [actorFilter, setActorFilter] = useState("");
+  const [actors, setActors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyInput, setKeyInput] = useState("");
 
@@ -126,6 +127,12 @@ export function Evidence() {
       setEntries(entriesRes.entries || []);
       setTotal(entriesRes.total);
       setScorecard(scorecardRes);
+
+      // Build actor list from unfiltered data (only when no filter active).
+      if (!actorFilter) {
+        const unique = [...new Set((entriesRes.entries || []).map((e) => e.actor).filter(Boolean))].sort();
+        setActors(unique);
+      }
     } catch {
       // Auth or API error — leave empty.
     }
@@ -191,11 +198,9 @@ export function Evidence() {
             className="px-2 py-1 rounded text-sm bg-bg-alt text-fg border border-border-subtle"
           >
             <option value="">All actors</option>
-            <option value="claude-code">claude-code</option>
-            <option value="evidra-mcp">evidra-mcp</option>
-            <option value="human">human</option>
-            <option value="system">system</option>
-            <option value="ci">ci</option>
+            {actors.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
           </select>
           <button
             onClick={load}
