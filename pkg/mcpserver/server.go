@@ -29,6 +29,7 @@ type Options struct {
 	Version            string
 	EvidencePath       string
 	Environment        string
+	ActorID            string // actor identity for auto-evidence entries (default: "infrastructure-agent")
 	RetryTracker       bool
 	BestEffortWrites   bool
 	ScoringProfilePath string
@@ -249,8 +250,8 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 
 	// DevOps tools — only when not in evidence-only mode
 	if !opts.EvidenceOnly {
-		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"))
-		RegisterCollectDiagnostics(server, svc, os.Getenv("KUBECONFIG"))
+		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"), opts.ActorID)
+		RegisterCollectDiagnostics(server, svc, os.Getenv("KUBECONFIG"), opts.ActorID)
 		RegisterWriteFile(server)
 	}
 

@@ -7,7 +7,10 @@ import (
 	"samebits.com/evidra/pkg/proxy"
 )
 
-func deriveAutoPrescribeInput(command string) (PrescribeInput, bool, error) {
+func deriveAutoPrescribeInput(command string, actorID string) (PrescribeInput, bool, error) {
+	if actorID == "" {
+		actorID = "infrastructure-agent"
+	}
 	tool, operation, class := proxy.ClassifyCommand(command)
 	if class != proxy.OpMutate && class != proxy.OpDestroy {
 		return PrescribeInput{}, false, nil
@@ -31,7 +34,7 @@ func deriveAutoPrescribeInput(command string) (PrescribeInput, bool, error) {
 	}
 
 	return PrescribeInput{
-		Actor:           InputActor{Type: "proxy", ID: "run_command", Origin: "mcp"},
+		Actor:           InputActor{Type: "agent", ID: actorID, Origin: "mcp"},
 		Tool:            tool,
 		Operation:       operation,
 		CanonicalAction: &action,

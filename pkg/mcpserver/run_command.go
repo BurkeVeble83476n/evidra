@@ -33,6 +33,7 @@ type RunCommandOutput struct {
 type runCommandHandler struct {
 	service         *MCPService
 	kubeconfigPath  string
+	actorID         string
 	allowedPrefixes []string
 	blockedSubs     []string
 }
@@ -130,7 +131,7 @@ func (h *runCommandHandler) execute(ctx context.Context, input RunCommandInput) 
 	// Auto-prescribe for mutations.
 	var prescriptionID string
 	if isMutation && h.service != nil {
-		prescribeInput, ok, err := deriveAutoPrescribeInput(command)
+		prescribeInput, ok, err := deriveAutoPrescribeInput(command, h.actorID)
 		if err != nil {
 			return RunCommandOutput{OK: false, Error: err.Error(), Mutation: true}
 		}
@@ -248,10 +249,11 @@ func truncateCmd(s string, n int) string {
 
 // RegisterRunCommand registers the run_command tool on the given MCP server.
 // It is only registered when the server is not in evidence-only mode.
-func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath string) {
+func RegisterRunCommand(server *mcp.Server, svc *MCPService, kubeconfigPath string, actorID string) {
 	handler := &runCommandHandler{
 		service:         svc,
 		kubeconfigPath:  kubeconfigPath,
+		actorID:         actorID,
 		allowedPrefixes: defaultAllowedPrefixes,
 		blockedSubs:     defaultBlockedSubcommands,
 	}

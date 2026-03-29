@@ -44,6 +44,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fullPrescribeFlag := fs.Bool("full-prescribe", false, "Expose prescribe_full tool (experimental, for advanced models only)")
 	transportFlag := fs.String("transport", "stdio", "Transport mode: stdio (default) or streamable-http")
 	portFlag := fs.String("port", "3001", "HTTP port when using streamable-http transport")
+	actorIDFlag := fs.String("actor-id", os.Getenv("EVIDRA_ACTOR_ID"), "Actor identity for evidence entries (default: infrastructure-agent)")
 	helpFlag := fs.Bool("help", false, "Show help")
 
 	if err := fs.Parse(args); err != nil {
@@ -113,6 +114,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Version:           version.Version,
 		EvidencePath:      evidencePath,
 		Environment:       environment,
+		ActorID:           *actorIDFlag,
 		RetryTracker:      *retryFlag || envBool("EVIDRA_RETRY_TRACKER", false),
 		BestEffortWrites:  writeMode == config.EvidenceWriteModeBestEffort,
 		HidePrescribeFull: !*fullPrescribeFlag,

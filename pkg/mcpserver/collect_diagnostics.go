@@ -140,10 +140,11 @@ func (h *collectDiagnosticsHandler) Handle(
 	}, nil
 }
 
-func RegisterCollectDiagnostics(server *mcp.Server, svc *MCPService, kubeconfigPath string) {
+func RegisterCollectDiagnostics(server *mcp.Server, svc *MCPService, kubeconfigPath string, actorID string) {
 	runCommand := &runCommandHandler{
 		service:         svc,
 		kubeconfigPath:  kubeconfigPath,
+		actorID:         actorID,
 		allowedPrefixes: defaultAllowedPrefixes,
 		blockedSubs:     defaultBlockedSubcommands,
 	}
