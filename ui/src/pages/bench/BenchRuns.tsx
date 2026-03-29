@@ -322,7 +322,7 @@ export function BenchRuns() {
                   <th className={thClass} onClick={() => handleSort("provider")} title="LLM API provider (bifrost, claude, etc.)">
                     Provider <SortArrow field="provider" sort={sort} />
                   </th>
-                  <th className={inertThClass} title="Evidence mode: none (baseline), proxy (auto-evidence), mcp (MCP server), smart (lightweight prescribe)">
+                  <th className={inertThClass} title="Evidence mode: none (baseline), proxy (auto-evidence), smart (lightweight prescribe), evidra-mcp (full evidra protocol)">
                     Mode
                   </th>
                   <th className={thClass} onClick={() => handleSort("duration_seconds")} title="Wall-clock time from agent start to verification complete">
