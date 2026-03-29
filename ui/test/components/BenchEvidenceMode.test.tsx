@@ -379,7 +379,7 @@ describe("Bench evidence mode UI", () => {
     expect(await screen.findByText("Baseline")).toBeInTheDocument();
     expect(screen.getByText("Evidra Smart")).toBeInTheDocument();
     expect(screen.getByText("Evidra Proxy")).toBeInTheDocument();
-    expect(screen.getByText("Evidra Direct")).toBeInTheDocument();
+    expect(screen.getByText("Evidra Full")).toBeInTheDocument();
   });
 
   it("renders the run detail subtype badge with the friendly label", async () => {
