@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"samebits.com/evidra/internal/assessment"
 	"samebits.com/evidra/internal/lifecycle"
 	"samebits.com/evidra/internal/testutil"
 	"samebits.com/evidra/pkg/evidence"
@@ -708,6 +709,188 @@ func TestReportTool_IncludesResourceLinkOnSuccess(t *testing.T) {
 	}
 	if !hasResourceLink {
 		t.Fatalf("report result missing resource_link to evidra://event/: content=%v", result.Content)
+	}
+}
+
+func TestScorecardAggregateResource_ReturnsSnapshot(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &MCPService{
+		evidencePath: dir,
+		signer:       testutil.TestSigner(t),
+	}
+	svc.lifecycle = svc.newLifecycleService()
+
+	presc := svc.Prescribe(PrescribeInput{
+		Actor:       InputActor{Type: "agent", ID: "test", Origin: "mcp"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: prod",
+		SessionID:   "session-a",
+	})
+	if !presc.OK {
+		t.Fatalf("prescribe: %v", presc.Error)
+	}
+	ec := 0
+	report := svc.Report(ReportInput{
+		PrescriptionID: presc.PrescriptionID,
+		Verdict:        evidence.VerdictSuccess,
+		ExitCode:       &ec,
+		Actor:          InputActor{Type: "agent", ID: "test", Origin: "mcp"},
+		SessionID:      "session-a",
+	})
+	if !report.OK {
+		t.Fatalf("report: %v", report.Error)
+	}
+
+	server, err := NewServer(Options{EvidencePath: dir, Signer: testutil.TestSigner(t)})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	result, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "evidra://scorecard/aggregate"})
+	if err != nil {
+		t.Fatalf("ReadResource: %v", err)
+	}
+	if len(result.Contents) == 0 || result.Contents[0].Text == "" {
+		t.Fatal("scorecard aggregate resource returned empty content")
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal([]byte(result.Contents[0].Text), &snapshot); err != nil {
+		t.Fatalf("unmarshal scorecard: %v", err)
+	}
+	if _, ok := snapshot["score"]; !ok {
+		t.Fatalf("scorecard missing score: %v", snapshot)
+	}
+}
+
+func TestScorecardSessionResource_FiltersToSession(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &MCPService{
+		evidencePath: dir,
+		signer:       testutil.TestSigner(t),
+	}
+	svc.lifecycle = svc.newLifecycleService()
+
+	makePair := func(sessionID string, verdict evidence.Verdict, exitCode int) {
+		presc := svc.Prescribe(PrescribeInput{
+			Actor:       InputActor{Type: "agent", ID: sessionID, Origin: "mcp"},
+			Tool:        "kubectl",
+			Operation:   "apply",
+			RawArtifact: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: prod",
+			SessionID:   sessionID,
+		})
+		if !presc.OK {
+			t.Fatalf("prescribe(%s): %v", sessionID, presc.Error)
+		}
+		ec := exitCode
+		rep := svc.Report(ReportInput{
+			PrescriptionID: presc.PrescriptionID,
+			Verdict:        verdict,
+			ExitCode:       &ec,
+			Actor:          InputActor{Type: "agent", ID: sessionID, Origin: "mcp"},
+			SessionID:      sessionID,
+		})
+		if !rep.OK {
+			t.Fatalf("report(%s): %v", sessionID, rep.Error)
+		}
+	}
+
+	makePair("session-a", evidence.VerdictSuccess, 0)
+	makePair("session-b", evidence.VerdictFailure, 1)
+
+	server, err := NewServer(Options{EvidencePath: dir, Signer: testutil.TestSigner(t)})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	result, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "evidra://scorecard/session/session-a"})
+	if err != nil {
+		t.Fatalf("ReadResource(session-a): %v", err)
+	}
+
+	var snapshot assessment.Snapshot
+	if err := json.Unmarshal([]byte(result.Contents[0].Text), &snapshot); err != nil {
+		t.Fatalf("unmarshal session snapshot: %v", err)
+	}
+	if snapshot.Basis.TotalOperations != 1 {
+		t.Fatalf("session snapshot total_operations=%d, want 1", snapshot.Basis.TotalOperations)
+	}
+}
+
+func TestScorecardAggregateResource_EmptyEvidenceReturnsZeroSnapshot(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{EvidencePath: t.TempDir(), Signer: testutil.TestSigner(t)})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	result, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "evidra://scorecard/aggregate"})
+	if err != nil {
+		t.Fatalf("ReadResource: %v", err)
+	}
+	var snapshot assessment.Snapshot
+	if err := json.Unmarshal([]byte(result.Contents[0].Text), &snapshot); err != nil {
+		t.Fatalf("unmarshal aggregate snapshot: %v", err)
+	}
+	// Score is -1 when there are no operations (sentinel for "insufficient data").
+	if snapshot.Score > 0 {
+		t.Fatalf("score=%v, want <=0 for empty evidence", snapshot.Score)
 	}
 }
 

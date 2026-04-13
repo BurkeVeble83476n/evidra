@@ -392,15 +392,14 @@ func TestE2E_ListResources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list resources: %v", err)
 	}
-	found := false
+	resourceNames := make(map[string]bool, len(resources.Resources))
 	for _, r := range resources.Resources {
-		if r.Name == "evidra-evidence-manifest" {
-			found = true
-			break
-		}
+		resourceNames[r.Name] = true
 	}
-	if !found {
-		t.Error("expected evidra-evidence-manifest in resource list")
+	for _, want := range []string{"evidra-evidence-manifest", "evidra-scorecard-aggregate"} {
+		if !resourceNames[want] {
+			t.Errorf("expected %q in resource list, got: %v", want, resources.Resources)
+		}
 	}
 }
 

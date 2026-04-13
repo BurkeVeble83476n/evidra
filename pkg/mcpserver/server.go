@@ -288,6 +288,22 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		URI:         "evidra://evidence/manifest",
 	}, svc.readResourceManifest)
 
+	server.AddResource(&mcp.Resource{
+		Name:        "evidra-scorecard-aggregate",
+		Title:       "Aggregate Scorecard",
+		Description: "Aggregate assessment snapshot across the current evidence path.",
+		MIMEType:    "application/json",
+		URI:         "evidra://scorecard/aggregate",
+	}, svc.readResourceScorecard)
+
+	server.AddResourceTemplate(&mcp.ResourceTemplate{
+		Name:        "evidra-scorecard-session",
+		Title:       "Session Scorecard",
+		Description: "Assessment snapshot for a specific session ID.",
+		MIMEType:    "application/json",
+		URITemplate: "evidra://scorecard/session/{session_id}",
+	}, svc.readResourceScorecard)
+
 	return server, svc.Close, nil
 }
 
@@ -588,6 +604,45 @@ func (s *MCPService) readResourceManifest(_ context.Context, req *mcp.ReadResour
 		return nil, err
 	}
 	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: "evidra://evidence/manifest", MIMEType: "application/json", Text: string(b)}}}, nil
+}
+
+func (s *MCPService) readResourceScorecard(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	if s.evidencePath == "" {
+		return nil, mcp.ResourceNotFoundError(req.Params.URI)
+	}
+
+	uri := req.Params.URI
+	sessionID := ""
+
+	switch {
+	case uri == "evidra://scorecard/aggregate":
+		// aggregate across the entire evidence path — sessionID stays ""
+	case strings.HasPrefix(uri, "evidra://scorecard/session/"):
+		sessionID = strings.TrimPrefix(uri, "evidra://scorecard/session/")
+		if strings.TrimSpace(sessionID) == "" {
+			return nil, mcp.ResourceNotFoundError(uri)
+		}
+	default:
+		return nil, mcp.ResourceNotFoundError(uri)
+	}
+
+	snapshot, err := s.sessionSnapshot(sessionID)
+	if err != nil {
+		return nil, mcp.ResourceNotFoundError(uri)
+	}
+
+	b, err := json.MarshalIndent(snapshot, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{{
+			URI:      uri,
+			MIMEType: "application/json",
+			Text:     string(b),
+		}},
+	}, nil
 }
 
 func boolPtr(v bool) *bool {
