@@ -103,14 +103,3 @@ func decodeDeferredInput(req *mcp.CallToolRequest, out any) error {
 	}
 	return json.Unmarshal(req.Params.Arguments, out)
 }
-
-func structuredToolResult(out any) (*mcp.CallToolResult, error) {
-	raw, err := json.Marshal(out)
-	if err != nil {
-		return nil, err
-	}
-	return &mcp.CallToolResult{
-		Content:           []mcp.Content{&mcp.TextContent{Text: string(raw)}},
-		StructuredContent: json.RawMessage(raw),
-	}, nil
-}
