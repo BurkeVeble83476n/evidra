@@ -1401,6 +1401,32 @@ func TestHandleSignals_ReturnsAggregation(t *testing.T) {
 	}
 }
 
+func TestHandleSignals_SinceFilterParsed(t *testing.T) {
+	t.Parallel()
+
+	// Go 1.20+ parses fractional-second RFC3339 timestamps with time.RFC3339.
+	// Verify parseSince propagates a non-nil Since filter so the query includes
+	// bench_runs.created_at >= $N (not an unqualified created_at that would be
+	// ambiguous when joined with bench_artifacts).
+	repo := &handlerRepo{signals: &bench.SignalAggregation{TotalRuns: 5}}
+	mux := setupMux(repo, ServiceConfig{PublicTenant: "pub"}, "tenant-a")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/bench/signals?since=2026-04-06T09:56:11.778Z", nil)
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if repo.lastFilter.Since == nil {
+		t.Fatal("Since filter not propagated: parseSince returned nil for fractional-second timestamp")
+	}
+	want := "2026-04-06 09:56:11.778 +0000 UTC"
+	if got := repo.lastFilter.Since.String(); got != want {
+		t.Fatalf("Since = %q, want %q", got, want)
+	}
+}
+
 // ---------- Regressions ----------
 
 func TestHandleRegressions_ReturnsArray(t *testing.T) {

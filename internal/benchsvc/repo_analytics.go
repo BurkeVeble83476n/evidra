@@ -15,11 +15,13 @@ func (s *PgStore) SignalSummary(ctx context.Context, tenantID string, f bench.Ru
 	where, args := buildWhere(tenantID, f)
 
 	// Left join so runs without scorecard artifacts still appear in totals.
-	query := `SELECT r.id, a.data
-		FROM bench_runs r
-		LEFT JOIN bench_artifacts a ON a.run_id = r.id AND a.artifact_type = 'scorecard'` +
+	// bench_runs is not aliased so that buildWhere's bench_runs.created_at qualifier resolves
+	// without ambiguity against bench_artifacts.created_at.
+	query := `SELECT bench_runs.id, a.data
+		FROM bench_runs
+		LEFT JOIN bench_artifacts a ON a.run_id = bench_runs.id AND a.artifact_type = 'scorecard'` +
 		where +
-		` ORDER BY r.created_at DESC LIMIT 1000`
+		` ORDER BY bench_runs.created_at DESC LIMIT 1000`
 
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {

@@ -621,7 +621,7 @@ func buildWhere(tenantID string, f bench.RunFilters) (string, []any) {
 	}
 	if f.Since != nil {
 		args = append(args, *f.Since)
-		clauses = append(clauses, fmt.Sprintf("created_at >= $%d", len(args)))
+		clauses = append(clauses, fmt.Sprintf("bench_runs.created_at >= $%d", len(args)))
 	}
 	if f.ExcludeErrors {
 		clauses = append(clauses, "exit_code >= 0")
