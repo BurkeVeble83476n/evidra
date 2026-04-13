@@ -46,6 +46,61 @@ func TestStructuredToolResultValidated_RejectsMissingRequiredField(t *testing.T)
 	}
 }
 
+func TestEmbeddedSchemas_AcceptRepresentativeErrorPayloads(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		raw    []byte
+		schema string
+		output any
+	}{
+		{
+			name:   "prescribe",
+			raw:    prescribeOutputSchemaBytes,
+			schema: "schemas/prescribe.output.schema.json",
+			output: PrescribeOutput{
+				OK:    false,
+				Error: &ErrInfo{Code: "invalid_input", Message: "bad prescribe input"},
+			},
+		},
+		{
+			name:   "report",
+			raw:    reportOutputSchemaBytes,
+			schema: "schemas/report.output.schema.json",
+			output: ReportOutput{
+				OK:             false,
+				PrescriptionID: "presc-123",
+				Verdict:        "failure",
+				SignalSummary:  map[string]int{},
+				Error:          &ErrInfo{Code: "not_found", Message: "missing prescription"},
+			},
+		},
+		{
+			name:   "collect_diagnostics",
+			raw:    collectDiagnosticsOutputSchemaBytes,
+			schema: "schemas/collect_diagnostics.output.schema.json",
+			output: CollectDiagnosticsOutput{
+				OK:    false,
+				Error: "namespace contains invalid characters",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema, err := loadOutputSchema(tt.raw, tt.schema)
+			if err != nil {
+				t.Fatalf("loadOutputSchema: %v", err)
+			}
+			if _, err := structuredToolResultValidated(tt.output, schema.resolved); err != nil {
+				t.Fatalf("structuredToolResultValidated(%s): %v", tt.name, err)
+			}
+		})
+	}
+}
+
 func TestStructuredToolResultValidated_AcceptsConditionalErrorShape(t *testing.T) {
 	t.Parallel()
 

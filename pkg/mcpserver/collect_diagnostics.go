@@ -140,6 +140,14 @@ func (h *collectDiagnosticsHandler) Handle(
 	}, nil
 }
 
+func collectDiagnosticsOutputSchema() map[string]any {
+	schema, err := loadOutputSchema(collectDiagnosticsOutputSchemaBytes, "schemas/collect_diagnostics.output.schema.json")
+	if err != nil {
+		panic(fmt.Sprintf("mcpserver: failed to load collect_diagnostics output schema: %v", err))
+	}
+	return schema.advertised
+}
+
 func RegisterCollectDiagnostics(server *mcp.Server, svc *MCPService, kubeconfigPath string, actorID string) {
 	runCommand := &runCommandHandler{
 		service:         svc,
@@ -165,7 +173,8 @@ func RegisterCollectDiagnostics(server *mcp.Server, svc *MCPService, kubeconfigP
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(true),
 		},
-		InputSchema: collectDiagnosticsInputSchema,
+		InputSchema:  collectDiagnosticsInputSchema,
+		OutputSchema: collectDiagnosticsOutputSchema(),
 	}, handler.Handle)
 }
 

@@ -273,10 +273,75 @@ func TestNewServer_DefaultToolSurfaceUsesDeferredProtocolSchemas(t *testing.T) {
 		if tool == nil {
 			t.Fatalf("missing tool %q in tools/list response", name)
 		}
-		if tool.OutputSchema != nil {
-			t.Fatalf("%s should not advertise an output schema by default", name)
+		if tool.OutputSchema == nil {
+			t.Fatalf("%s should advertise an output schema", name)
 		}
 		assertMinimalObjectSchema(t, tool.InputSchema)
+	}
+}
+
+func TestStructuredJSONTools_HaveOutputSchema(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: t.TempDir(),
+		Signer:       testutil.TestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	toolDefs := make(map[string]*mcp.Tool, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		toolDefs[tool.Name] = tool
+	}
+
+	for _, name := range []string{
+		"prescribe_full",
+		"prescribe_smart",
+		"report",
+		"get_event",
+		"run_command",
+		"collect_diagnostics",
+		"write_file",
+	} {
+		tool := toolDefs[name]
+		if tool == nil {
+			t.Fatalf("tool %q missing from tools/list", name)
+		}
+		if tool.OutputSchema == nil {
+			t.Fatalf("structured JSON tool %q is missing OutputSchema", name)
+		}
+	}
+
+	if tool := toolDefs["describe_tool"]; tool == nil {
+		t.Fatal("describe_tool missing from tools/list")
+	} else if tool.OutputSchema != nil {
+		t.Fatal("describe_tool should remain text-only")
 	}
 }
 

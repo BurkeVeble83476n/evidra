@@ -207,6 +207,11 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 		},
 	)
 
+	prescribeOutputSchema, err := loadOutputSchema(prescribeOutputSchemaBytes, "schemas/prescribe.output.schema.json")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if !opts.HidePrescribeFull {
 		prescribeFullDef, err := execcontract.PrescribeFullToolDefinition()
 		if err != nil {
@@ -223,7 +228,8 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 				DestructiveHint: boolPtr(false),
 				OpenWorldHint:   boolPtr(false),
 			},
-			InputSchema: prescribeFullDef.Parameters,
+			InputSchema:  prescribeFullDef.Parameters,
+			OutputSchema: prescribeOutputSchema.advertised,
 		}, prescribeFull.Handle)
 	}
 
