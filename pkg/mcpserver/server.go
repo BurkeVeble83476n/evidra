@@ -256,9 +256,17 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 
 	// DevOps tools — only when not in evidence-only mode
 	if !opts.EvidenceOnly {
+		collectDiagSchema, err := loadOutputSchema(collectDiagnosticsOutputSchemaBytes, "schemas/collect_diagnostics.output.schema.json")
+		if err != nil {
+			return nil, nil, err
+		}
+		writeFileSchema, err := loadOutputSchema(writeFileOutputSchemaBytes, "schemas/write_file.output.schema.json")
+		if err != nil {
+			return nil, nil, err
+		}
 		RegisterRunCommand(server, svc, os.Getenv("KUBECONFIG"), opts.ActorID)
-		RegisterCollectDiagnostics(server, svc, os.Getenv("KUBECONFIG"), opts.ActorID)
-		RegisterWriteFile(server)
+		RegisterCollectDiagnostics(server, svc, os.Getenv("KUBECONFIG"), opts.ActorID, collectDiagSchema.advertised)
+		RegisterWriteFile(server, writeFileSchema.advertised)
 	}
 
 	// MCP prompts

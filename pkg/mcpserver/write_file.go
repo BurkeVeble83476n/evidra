@@ -250,16 +250,8 @@ func (h *writeFileHandler) Handle(
 		WriteFileOutput{OK: true, Message: msg}, nil
 }
 
-func writeFileOutputSchema() map[string]any {
-	schema, err := loadOutputSchema(writeFileOutputSchemaBytes, "schemas/write_file.output.schema.json")
-	if err != nil {
-		panic(fmt.Sprintf("mcpserver: failed to load write_file output schema: %v", err))
-	}
-	return schema.advertised
-}
-
 // RegisterWriteFile registers the write_file tool on the given MCP server.
-func RegisterWriteFile(server *mcp.Server) {
+func RegisterWriteFile(server *mcp.Server, outputSchema map[string]any) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "write_file",
 		Title:       "Write File",
@@ -271,6 +263,6 @@ func RegisterWriteFile(server *mcp.Server) {
 			DestructiveHint: boolPtr(false),
 			OpenWorldHint:   boolPtr(true),
 		},
-		OutputSchema: writeFileOutputSchema(),
+		OutputSchema: outputSchema,
 	}, (&writeFileHandler{}).Handle)
 }
