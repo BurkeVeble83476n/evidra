@@ -135,7 +135,7 @@ function Pulse({ className = "" }: { className?: string }) {
 export function BenchDashboard() {
   const { request } = useApi();
   const { mode } = useEvidenceMode();
-  const [period, setPeriod] = useState<Period>("all");
+  const [period, setPeriod] = useState<Period>("7d");
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentRuns, setRecentRuns] = useState<Run[]>([]);
   const [allRuns, setAllRuns] = useState<Run[]>([]);
