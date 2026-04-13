@@ -54,7 +54,7 @@ interface Run {
 }
 
 interface RunsResponse {
-  items: Run[];
+  runs: Run[];
   total: number;
 }
 
@@ -179,8 +179,8 @@ export function BenchDashboard() {
     ])
       .then(([s, recent, all]) => {
         setStats(s);
-        setRecentRuns(recent.items ?? []);
-        setAllRuns(all.items ?? []);
+        setRecentRuns(recent.runs ?? []);
+        setAllRuns(all.runs ?? []);
       })
       .catch(() => {
         setStats(null);
