@@ -5,6 +5,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -400,6 +402,188 @@ func TestE2E_ListResources(t *testing.T) {
 		if !resourceNames[want] {
 			t.Errorf("expected %q in resource list, got: %v", want, resources.Resources)
 		}
+	}
+}
+
+func TestE2E_WriteFile(t *testing.T) {
+	dir := t.TempDir()
+
+	server, serverErr := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: dir,
+		Signer:       newTestSigner(t),
+	})
+	if serverErr != nil {
+		t.Fatalf("NewServer: %v", serverErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	targetPath := filepath.Join(dir, "configs", "app.yaml")
+	wantContent := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app\n"
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "write_file",
+		Arguments: map[string]any{
+			"path":    targetPath,
+			"content": wantContent,
+		},
+	})
+	if err != nil {
+		t.Fatalf("write_file: %v", err)
+	}
+
+	var out WriteFileOutput
+	if err := extractStructuredContent(result, &out); err != nil {
+		t.Fatalf("parse write_file output: %v", err)
+	}
+	if !out.OK {
+		t.Fatalf("write_file not ok: %+v", out)
+	}
+	if out.Message == "" {
+		t.Fatalf("write_file returned empty message: %+v", out)
+	}
+
+	gotContent, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", targetPath, err)
+	}
+	if string(gotContent) != wantContent {
+		t.Fatalf("file content mismatch:\n got: %q\nwant: %q", string(gotContent), wantContent)
+	}
+}
+
+func TestE2E_CollectDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+
+	kubectlPath := filepath.Join(dir, "kubectl")
+	kubectlScript := `#!/bin/sh
+case "$*" in
+  "get pods -n bench")
+    cat <<'EOF'
+NAME      READY   STATUS             RESTARTS   AGE
+web-abc   0/1     CrashLoopBackOff   3          2m
+web-def   1/1     Running            0          5m
+EOF
+    ;;
+  "describe deployment/web -n bench")
+    cat <<'EOF'
+Name:                   web
+Namespace:              bench
+Replicas:               1 desired | 1 updated | 1 total | 0 available | 1 unavailable
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      False   MinimumReplicasUnavailable
+Events:
+  Type     Reason            Age   From                   Message
+  ----     ------            ----  ----                   -------
+  Warning  FailedPull        2m    kubelet                Failed to pull image "nginx:99.99"
+EOF
+    ;;
+  "get events -n bench --sort-by=.lastTimestamp")
+    cat <<'EOF'
+LAST SEEN   TYPE      REASON      OBJECT      MESSAGE
+2m          Warning   FailedPull  pod/web-abc Failed to pull image "nginx:99.99"
+EOF
+    ;;
+  "logs web-abc -n bench --tail=50")
+    cat <<'EOF'
+panic: image pull failed
+back-off pulling image
+check image tag
+EOF
+    ;;
+  *)
+    echo "unexpected kubectl args: $*" >&2
+    exit 9
+    ;;
+esac
+`
+	if err := os.WriteFile(kubectlPath, []byte(kubectlScript), 0o755); err != nil {
+		t.Fatalf("WriteFile(kubectl): %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	server, serverErr := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: dir,
+		Signer:       newTestSigner(t),
+	})
+	if serverErr != nil {
+		t.Fatalf("NewServer: %v", serverErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(
+		&mcp.Implementation{Name: "test-client", Version: "0.0.1"},
+		nil,
+	)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "collect_diagnostics",
+		Arguments: map[string]any{
+			"namespace":    "bench",
+			"workload":     "deployment/web",
+			"include_logs": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("collect_diagnostics: %v", err)
+	}
+
+	var out CollectDiagnosticsOutput
+	if err := extractStructuredContent(result, &out); err != nil {
+		t.Fatalf("parse collect_diagnostics output: %v", err)
+	}
+	if !out.OK {
+		t.Fatalf("collect_diagnostics not ok: %+v", out)
+	}
+	if len(out.Commands) != 4 {
+		t.Fatalf("commands len=%d, want 4 (%v)", len(out.Commands), out.Commands)
+	}
+	if out.Commands[3] != "kubectl logs web-abc -n bench --tail=50" {
+		t.Fatalf("logs command=%q, want kubectl logs web-abc -n bench --tail=50", out.Commands[3])
+	}
+	if len(out.Findings) == 0 {
+		t.Fatalf("collect_diagnostics returned no findings: %+v", out)
+	}
+	if out.Summary == "" {
+		t.Fatalf("collect_diagnostics returned empty summary: %+v", out)
 	}
 }
 
