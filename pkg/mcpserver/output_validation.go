@@ -17,11 +17,6 @@ type loadedOutputSchema struct {
 
 // loadOutputSchema parses and resolves a JSON schema from embedded bytes.
 func loadOutputSchema(raw []byte, name string) (loadedOutputSchema, error) {
-	advertised, err := loadSchema(raw, name)
-	if err != nil {
-		return loadedOutputSchema{}, err
-	}
-
 	var schema jsonschema.Schema
 	if err := json.Unmarshal(raw, &schema); err != nil {
 		return loadedOutputSchema{}, fmt.Errorf("decode JSON schema %s: %w", name, err)
@@ -30,6 +25,16 @@ func loadOutputSchema(raw []byte, name string) (loadedOutputSchema, error) {
 	resolved, err := schema.Resolve(&jsonschema.ResolveOptions{ValidateDefaults: true})
 	if err != nil {
 		return loadedOutputSchema{}, fmt.Errorf("resolve JSON schema %s: %w", name, err)
+	}
+
+	// Derive the advertised map from the same parsed schema to avoid inconsistency.
+	remarshaled, err := json.Marshal(schema)
+	if err != nil {
+		return loadedOutputSchema{}, fmt.Errorf("re-marshal JSON schema %s: %w", name, err)
+	}
+	var advertised map[string]any
+	if err := json.Unmarshal(remarshaled, &advertised); err != nil {
+		return loadedOutputSchema{}, fmt.Errorf("unmarshal advertised schema %s: %w", name, err)
 	}
 
 	return loadedOutputSchema{
@@ -44,7 +49,7 @@ func loadOutputSchema(raw []byte, name string) (loadedOutputSchema, error) {
 func structuredToolResultValidated(out any, resolved *jsonschema.Resolved) (*mcp.CallToolResult, error) {
 	raw, err := json.Marshal(out)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal tool output: %w", err)
 	}
 
 	if resolved != nil {

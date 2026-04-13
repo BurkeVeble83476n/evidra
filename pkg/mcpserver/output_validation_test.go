@@ -88,4 +88,7 @@ func TestStructuredToolResultValidated_AcceptsConditionalErrorShape(t *testing.T
 	if result.StructuredContent == nil {
 		t.Fatal("StructuredContent is nil")
 	}
+	if len(result.Content) == 0 {
+		t.Fatal("Content is empty")
+	}
 }
