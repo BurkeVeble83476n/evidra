@@ -129,7 +129,7 @@ describe("Bench evidence mode UI", () => {
       }
       if (path.startsWith("/v1/bench/runs?limit=8") || path.startsWith("/v1/bench/runs?limit=500")) {
         return {
-          items: [],
+          runs: [],
           total: 0,
         };
       }
@@ -214,7 +214,7 @@ describe("Bench evidence mode UI", () => {
       }
       if (path.startsWith("/v1/bench/runs?limit=8") || path.startsWith("/v1/bench/runs?limit=500")) {
         return {
-          items: [],
+          runs: [],
           total: 0,
         };
       }
@@ -288,7 +288,7 @@ describe("Bench evidence mode UI", () => {
       }
       if (path.startsWith("/v1/bench/runs?")) {
         return {
-          items: [
+          runs: [
             {
               id: "baseline-1",
               scenario_id: "scenario-baseline",
