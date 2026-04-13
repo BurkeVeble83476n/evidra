@@ -79,7 +79,19 @@ func registerDeferredProtocolTools(server *mcp.Server, svc *MCPService, registry
 			return nil, err
 		}
 		out := svc.ReportCtx(ctx, input)
-		return structuredToolResultValidated(out, reportSchema.resolved)
+		result, err := structuredToolResultValidated(out, reportSchema.resolved)
+		if err != nil {
+			return nil, err
+		}
+		if out.OK && out.ReportID != "" {
+			result.Content = append(result.Content, &mcp.ResourceLink{
+				URI:      "evidra://event/" + out.ReportID,
+				Name:     out.ReportID,
+				Title:    "Evidence Entry",
+				MIMEType: "application/json",
+			})
+		}
+		return result, nil
 	})
 
 	return nil

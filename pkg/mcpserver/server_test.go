@@ -642,6 +642,75 @@ func assertRiskInputTagPresent(t *testing.T, inputs []evidence.RiskInput, source
 	t.Fatalf("missing risk input source %q", source)
 }
 
+func TestReportTool_IncludesResourceLinkOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	svc := &MCPService{
+		evidencePath: dir,
+		signer:       testutil.TestSigner(t),
+	}
+	svc.lifecycle = svc.newLifecycleService()
+
+	presc := svc.Prescribe(PrescribeInput{
+		Actor:       InputActor{Type: "agent", ID: "test", Origin: "mcp"},
+		Tool:        "kubectl",
+		Operation:   "apply",
+		RawArtifact: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n  namespace: prod",
+	})
+	if !presc.OK {
+		t.Fatalf("prescribe: %v", presc.Error)
+	}
+
+	server, err := NewServer(Options{
+		EvidencePath: dir,
+		Signer:       testutil.TestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "report",
+		Arguments: map[string]any{
+			"prescription_id": presc.PrescriptionID,
+			"verdict":         string(evidence.VerdictSuccess),
+			"exit_code":       0,
+			"actor":           map[string]any{"type": "agent", "id": "test", "origin": "mcp"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool report: %v", err)
+	}
+
+	var hasResourceLink bool
+	for _, c := range result.Content {
+		if rl, ok := c.(*mcp.ResourceLink); ok && strings.HasPrefix(rl.URI, "evidra://event/") {
+			hasResourceLink = true
+		}
+	}
+	if !hasResourceLink {
+		t.Fatalf("report result missing resource_link to evidra://event/: content=%v", result.Content)
+	}
+}
+
 const k8sDeployment = `apiVersion: apps/v1
 kind: Deployment
 metadata:
