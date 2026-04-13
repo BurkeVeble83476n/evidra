@@ -27,10 +27,11 @@ Three features in one PR, plus one deferred:
 - `prescribe_full`, `run_command`, `collect_diagnostics` — use `mcp.AddTool[In, Out]`; `run_command` has `OutputSchema` wired; `prescribe_full` and `collect_diagnostics` are missing output schema JSON files.
 
 **Changes:**
-1. `prescribe_smart` and `report` intentionally use a minimal `{"type":"object"}` input schema (the "deferred protocol" pattern — agents call `describe_tool` first). This input schema must not be replaced by auto-generated schema. Therefore these tools stay on raw `server.AddTool` but gain an explicit `OutputSchema` field, populated from new JSON files embedded via `schema_embed.go`.
-2. Add `schemas/prescribe.output.schema.json`, `schemas/report.output.schema.json`, `schemas/prescribe_full.output.schema.json`, and `schemas/collect_diagnostics.output.schema.json` — hand-authored or generated from the existing output structs, embedded via `schema_embed.go`.
-3. Update `structuredToolResult()` to accept and attach an `outputSchema` parameter, so callers can pass the loaded schema. `decodeDeferredInput()` is unchanged.
-4. `prescribe_full` and `collect_diagnostics` use `mcp.AddTool[In, Out]` — wire their output schema JSON files into the existing `OutputSchema` field on the tool definition.
+1. `prescribe_smart` and `report` remain on raw `server.AddTool` (not migrated to typed `mcp.AddTool[In, Out]`).
+2. A new file `pkg/mcpserver/output_validation.go` provides `loadOutputSchema` and `structuredToolResultValidated` helpers. These resolve the JSON schema with `github.com/google/jsonschema-go/jsonschema`, validate the marshaled output, and build `StructuredContent`. Used by deferred tools.
+3. One shared `schemas/prescribe.output.schema.json` covers both `prescribe_full` and `prescribe_smart`.
+4. Schema files use conditional `allOf[if/then/else]` so both success payloads and tool-error payloads validate.
+5. `structuredToolResult()` (the old helper) is replaced by `structuredToolResultValidated()` for deferred tools; typed tools keep using `mcp.AddTool[In, Out]` with `OutputSchema` field.
 
 **Files:** `pkg/mcpserver/deferred_protocol_tools.go`, `pkg/mcpserver/prescribe_full.go`, `pkg/mcpserver/collect_diagnostics.go`, `pkg/mcpserver/schema_embed.go`, `pkg/mcpserver/schemas/`
 
@@ -38,7 +39,7 @@ Three features in one PR, plus one deferred:
 
 **Goal:** After a successful report, include a `resource_link` content item so agents can follow directly to the evidence entry without a separate `get_event` call.
 
-**Change:** In the `report` tool's Handle function (after migration to typed `AddTool[In, Out]`), when `ReportOutput.OK == true`, append a `mcp.ResourceLinkContent` item to the returned `*mcp.CallToolResult.Content` slice:
+**Change:** The `report` tool stays on raw `server.AddTool`. On success, append `*mcp.ResourceLink` to `CallToolResult.Content` after calling `structuredToolResultValidated`:
 
 ```
 evidra://event/{report_id}
@@ -54,14 +55,16 @@ evidra://event/{report_id}
 
 **New resources registered in `NewServerWithCleanup`:**
 
-| URI | Type | Handler |
-|-----|------|---------|
-| `evidra://scorecard/current` | static resource | `s.readResourceScorecard("")` |
-| `evidra://scorecard/{session_id}` | resource template | `s.readResourceScorecard(sessionID)` |
+| URI | Type | Meaning |
+|---|---|---|
+| `evidra://scorecard/aggregate` | static resource | aggregate snapshot across the whole evidence path (`sessionSnapshot("")`) |
+| `evidra://scorecard/session/{session_id}` | resource template | snapshot filtered to one session (`sessionSnapshot(sessionID)`) |
 
 **Handler:** Calls `s.sessionSnapshot(sessionID)` (already exists on `MCPService`), marshals the `assessment.Snapshot` as indented JSON, returns it as `application/json` content.
 
 Error cases: if evidence path is not configured or snapshot fails, return `mcp.ResourceNotFoundError`.
+
+Note: This feature does NOT use a `current` alias.
 
 **Files:** `pkg/mcpserver/server.go`
 
