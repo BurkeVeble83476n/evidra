@@ -10,10 +10,10 @@ Evidra currently runs go-sdk v1.4.1. PR #20 bumps to v1.5.0. The MCP spec has sh
 
 ## Scope
 
-Four features across two PRs:
+Three features in one PR, plus one deferred:
 
 - **PR 1 — Foundation:** structured output on all tools, resource links in `report` output, scorecard resource, registry description field
-- **PR 2 — Async:** Tasks support for `collect_diagnostics`
+- **PR 2 — Async (deferred):** Tasks support for `collect_diagnostics` — blocked on go-sdk implementing `execution.taskSupport` on `Tool`. The `MemoryEventStore` in v1.5.0 is for SSE transport resumability only, not async tool execution. Revisit when the SDK ships Tasks.
 
 ## PR 1: Foundation
 
@@ -81,41 +81,18 @@ Error cases: if evidence path is not configured or snapshot fails, return `mcp.R
 
 ---
 
-## PR 2: Tasks for `collect_diagnostics`
+## PR 2: Tasks for `collect_diagnostics` (deferred)
 
-### Goal
-
-`collect_diagnostics` runs 3–4 sequential kubectl commands (5–15 seconds wall-clock). With MCP Tasks, capable clients dispatch the tool and receive a `taskId` immediately. The agent continues reasoning while diagnostics run in the background.
-
-### Mechanics
-
-- Server declares `capabilities.tasks` via `mcp.ServerOptions{EventStore: store}` where `store` is a `mcp.MemoryEventStore`.
-- `collect_diagnostics` opts in with `execution.taskSupport: "optional"` on the tool definition.
-- Clients that don't advertise task capability fall back to synchronous execution transparently — no behavior change for them.
-- `run_command` stays synchronous (single fast command; async overhead not worth it).
-
-### Initialization
-
-`NewServerWithCleanup` creates one `*mcp.MemoryEventStore` per server process and passes it to `mcp.ServerOptions`. The store is shared across all task-capable tools. It is in-memory only — task state is lost on process restart (acceptable for stdio use).
-
-### Handler
-
-`collectDiagnosticsHandler.Handle` is **unchanged**. The task wrapping is applied at registration time via the tool definition's `execution` field, not inside handler logic.
-
-### Files
-
-`pkg/mcpserver/server.go`, `pkg/mcpserver/collect_diagnostics.go`
+**Status: blocked.** The MCP Tasks spec (2025-11-25) defines `execution.taskSupport` on tools and `tasks/get` / `tasks/result` protocol methods, but go-sdk v1.5.0 does not implement them. The `MemoryEventStore` in `ServerOptions` is for HTTP Streamable transport resumability only, not async tool execution. Design and implement this PR once the SDK ships Tasks support.
 
 ---
 
 ## What is not in scope
 
 - **Elicitation** — conflicts with "never block agents" principle. Revisit if the principle is relaxed.
-- **Tasks for `run_command`** — commands are fast; async overhead not justified on stdio transport.
 - **Resource subscribe** — no server-side push events today.
 - **OAuth / HTTP transport changes** — Evidra uses stdio + API key.
 
 ## Dependencies
 
-- Merge PR #20 (`go-sdk` 1.4.1 → 1.5.0) before implementing PR 2 (Tasks API stable in v1.5.0).
-- PR 1 has no external dependencies beyond go-sdk v1.5.0 being available (already in go.sum after merging #20).
+- Merge PR #20 (`go-sdk` 1.4.1 → 1.5.0) before implementing. PR 1 uses the stable v1.5.0 API.
