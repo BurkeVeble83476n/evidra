@@ -201,7 +201,11 @@ func NewServerWithCleanup(opts Options) (*mcp.Server, func() error, error) {
 	}
 
 	server := mcp.NewServer(
-		&mcp.Implementation{Name: opts.Name, Version: opts.Version},
+		&mcp.Implementation{
+			Name:    opts.Name,
+			Title:   "Flight recorder for AI infrastructure agents",
+			Version: opts.Version,
+		},
 		&mcp.ServerOptions{
 			Instructions: initializeInstructions,
 		},

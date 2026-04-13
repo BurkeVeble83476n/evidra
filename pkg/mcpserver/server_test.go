@@ -855,6 +855,45 @@ func TestScorecardSessionResource_FiltersToSession(t *testing.T) {
 	}
 }
 
+func TestNewServer_AdvertisesImplementationDescription(t *testing.T) {
+	t.Parallel()
+
+	server, err := NewServer(Options{
+		Name:         "test",
+		Version:      "0.0.1",
+		EvidencePath: t.TempDir(),
+		Signer:       testutil.TestSigner(t),
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	st, ct := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer func() { _ = serverSession.Wait() }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	initResult := session.InitializeResult()
+	if initResult == nil || initResult.ServerInfo == nil {
+		t.Fatal("InitializeResult.ServerInfo is nil")
+	}
+	if initResult.ServerInfo.Title != "Flight recorder for AI infrastructure agents" {
+		t.Fatalf("ServerInfo.Title=%q", initResult.ServerInfo.Title)
+	}
+}
+
 func TestScorecardAggregateResource_EmptyEvidenceReturnsZeroSnapshot(t *testing.T) {
 	t.Parallel()
 
