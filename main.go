@@ -20,7 +20,10 @@ var (
 
 func main() {
 	if err := cmd.Execute(Version, Commit, Date); err != nil {
+		// Print error to stderr and exit with a non-zero status code.
+		// Using exit code 2 to distinguish usage/runtime errors from
+		// other failure modes (e.g. signals).
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 }
