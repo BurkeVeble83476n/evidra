@@ -21,9 +21,10 @@ var (
 func main() {
 	if err := cmd.Execute(Version, Commit, Date); err != nil {
 		// Print error to stderr and exit with a non-zero status code.
-		// Using exit code 2 to distinguish usage/runtime errors from
-		// other failure modes (e.g. signals).
+		// Using exit code 1 (standard error convention) instead of 2,
+		// since most CLI tools use 1 for general runtime errors and
+		// 2 specifically for misuse of shell builtins.
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(2)
+		os.Exit(1)
 	}
 }
