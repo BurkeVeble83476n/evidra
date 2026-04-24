@@ -32,6 +32,10 @@ func main() {
 		// Personal note: I prefer printing the program name before the error
 		// message to make it easier to spot in terminal output when running
 		// multiple commands in a script.
+		//
+		// Personal note: Also printing to stderr with a trailing newline is
+		// important — some terminals don't flush output cleanly without it,
+		// especially when piping output to other tools like grep or tee.
 		fmt.Fprintf(os.Stderr, "evidra: error: %v\n", err)
 		os.Exit(1)
 	}
