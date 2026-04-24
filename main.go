@@ -24,6 +24,10 @@ func main() {
 		// Using exit code 1 (standard error convention) instead of 2,
 		// since most CLI tools use 1 for general runtime errors and
 		// 2 specifically for misuse of shell builtins.
+		//
+		// NOTE: Consider wrapping errors with more context in the future
+		// (e.g. fmt.Errorf("command failed: %w", err)) once the cmd
+		// package stabilizes its error types.
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
