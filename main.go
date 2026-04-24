@@ -28,7 +28,11 @@ func main() {
 		// NOTE: Consider wrapping errors with more context in the future
 		// (e.g. fmt.Errorf("command failed: %w", err)) once the cmd
 		// package stabilizes its error types.
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		//
+		// Personal note: I prefer printing the program name before the error
+		// message to make it easier to spot in terminal output when running
+		// multiple commands in a script.
+		fmt.Fprintf(os.Stderr, "evidra: error: %v\n", err)
 		os.Exit(1)
 	}
 }
